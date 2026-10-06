@@ -52,6 +52,16 @@
 // waits out the ad (re-calling itself every AD_TIMER_HOP_MS so no single
 // request outlives Val Town's time limit) and then posts. If that timer gets
 // cut short, the next poster run posts the welcome-back instead.
+//
+// Early warning: Twitch's ad event only arrives as the ad starts, so to warn
+// chat AD_WARNING_LEAD_MS ahead the bot reads each channel's ad schedule
+// (Get Ad Schedule) using the streamer's own token, saved at invite time.
+// Each poster run checks the schedule, and once an ad is a few minutes out
+// it starts an /ads/warn timer (same self-call trick) that re-checks the
+// schedule right before posting, so snoozed or moved ads are followed. Ads
+// the schedule can't see coming (a streamer clicking "Run ad") still get
+// the notice the moment they start.
+// The poster must run every 5 minutes or less for warnings to arm in time.
 // Needs the channel:read:ads scope from each streamer. Channels invited before
 // ad alerts existed show "re-invite" on the admin page: they just run the
 // invite link again (nothing else about their setup changes).
@@ -123,6 +133,12 @@ const AD_TIMER_MAX_HOPS = 10;
 const AD_END_GRACE_MS = 20 * 1000;
 // A welcome-back older than this is dropped instead of posted late.
 const AD_END_STALE_MS = 10 * 60 * 1000;
+// How far ahead of a scheduled ad the heads-up is posted.
+const AD_WARNING_LEAD_MS = 50 * 1000;
+// Poster runs arm the warning timer once the warning is this close; keep it
+// a bit longer than the poster's cron interval.
+const AD_WARNING_LOOKAHEAD_MS = 6 * 60 * 1000;
+const AD_WARNING_MAX_HOPS = 15;
 
 // ======================================================================
 // ROAST LISTS
@@ -328,6 +344,14 @@ const AD_START_MESSAGES: string[] = [
   "Ad break for {length}. UndercoverBurn is keeping watch on chat while you're gone 🥸",
 ];
 
+// Posted AD_WARNING_LEAD_MS before a scheduled ad. {secs} is the countdown.
+const AD_WARNING_MESSAGES: string[] = [
+  "📺 Heads up chat: ads in about {secs} seconds, running {length}. Refill that drink, grab a snack, hit the warp pipe.",
+  "Ad break incoming in ~{secs} seconds ({length}). Stretch now before your legs turn into Goombas.",
+  "⏳ Ads roll in {secs} seconds and last {length}. Bowser's sponsors are on deck, go hydrate.",
+  "Ads in about {secs} seconds for {length}. UndercoverBurn will hold the castle 🥸",
+];
+
 const AD_END_MESSAGES: string[] = [
   "Ads are over, welcome back! 🍄",
   "And we're back! Hope you hydrated, chat.",
@@ -403,6 +427,15 @@ async function ensureTables() {
       end_posted INTEGER DEFAULT 0
     )
   `);
+  // One row per channel: the scheduled ad its warning timer is waiting for.
+  await sqlite.execute(`
+    CREATE TABLE IF NOT EXISTS ad_warnings (
+      broadcaster_id TEXT PRIMARY KEY,
+      next_ad_at INTEGER,
+      warned_for INTEGER,
+      warned_at INTEGER
+    )
+  `);
   // Migrations for tables created before these columns existed.
   for (
     const stmt of [
@@ -411,6 +444,9 @@ async function ensureTables() {
       `ALTER TABLE channels ADD COLUMN message_count INTEGER DEFAULT 0`,
       `ALTER TABLE channels ADD COLUMN is_live INTEGER DEFAULT 0`,
       `ALTER TABLE channels ADD COLUMN ads_subscribed INTEGER DEFAULT 0`,
+      `ALTER TABLE channels ADD COLUMN user_access_token TEXT`,
+      `ALTER TABLE channels ADD COLUMN user_refresh_token TEXT`,
+      `ALTER TABLE channels ADD COLUMN user_token_expires_at INTEGER`,
     ]
   ) {
     try {
@@ -452,6 +488,10 @@ async function setLiveStatus(broadcasterId: string, live: boolean) {
     });
     await sqlite.execute({
       sql: `DELETE FROM ad_breaks WHERE broadcaster_id = :id`,
+      args: { id: broadcasterId },
+    });
+    await sqlite.execute({
+      sql: `DELETE FROM ad_warnings WHERE broadcaster_id = :id`,
       args: { id: broadcasterId },
     });
   }
@@ -794,23 +834,216 @@ async function postAdMessage(broadcasterId: string, message: string) {
   await sendChatMessage(accessToken, botUserId, broadcasterId, message);
 }
 
-// Starts the ad-end timer by calling /ads/finish on this val. That request
-// sleeps through the ad, so don't wait for it; just give it a moment to go out.
+// Starts a timer by calling one of this val's /ads/* endpoints. That request
+// sleeps, so don't wait for it; just give it a moment to go out.
+async function startSelfTimer(
+  selfOrigin: string,
+  path: string,
+  params: Record<string, string>,
+) {
+  const u = new URL(path, selfOrigin);
+  u.searchParams.set("key", ADMIN_KEY);
+  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
+  fetch(u).then((r) => r.body?.cancel()).catch((err) =>
+    console.error(`Timer request ${path} failed:`, err)
+  );
+  await new Promise((r) => setTimeout(r, 1000));
+}
+
+// Starts the ad-end timer (/ads/finish), which sleeps through the ad.
 async function scheduleAdEnd(
   selfOrigin: string,
   broadcasterId: string,
   eventId: string,
   hop = 0,
 ) {
-  const u = new URL("/ads/finish", selfOrigin);
-  u.searchParams.set("key", ADMIN_KEY);
-  u.searchParams.set("id", broadcasterId);
-  u.searchParams.set("event", eventId);
-  u.searchParams.set("hop", String(hop));
-  fetch(u).then((r) => r.body?.cancel()).catch((err) =>
-    console.error("Ad-end timer request failed:", err)
+  await startSelfTimer(selfOrigin, "/ads/finish", {
+    id: broadcasterId,
+    event: eventId,
+    hop: String(hop),
+  });
+}
+
+async function saveBroadcasterToken(
+  broadcasterId: string,
+  token: { access_token: string; refresh_token: string; expires_in: number },
+) {
+  await sqlite.execute({
+    sql: `UPDATE channels SET user_access_token = :a, user_refresh_token = :r,
+            user_token_expires_at = :e
+          WHERE broadcaster_id = :id`,
+    args: {
+      a: token.access_token,
+      r: token.refresh_token,
+      e: Date.now() + Number(token.expires_in) * 1000,
+      id: broadcasterId,
+    },
+  });
+}
+
+// The streamer's own token (needed to read their ad schedule), refreshed as
+// needed. Null when they haven't re-invited since early warnings existed,
+// or revoked the bot.
+async function getBroadcasterToken(
+  broadcasterId: string,
+): Promise<string | null> {
+  const { rows } = await sqlite.execute({
+    sql: `SELECT user_access_token, user_refresh_token, user_token_expires_at
+          FROM channels WHERE broadcaster_id = :id`,
+    args: { id: broadcasterId },
+  });
+  if (!rows.length || !rows[0][1]) return null;
+  if (Number(rows[0][2]) > Date.now() + 60_000) return rows[0][0] as string;
+
+  const res = await fetch("https://id.twitch.tv/oauth2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      grant_type: "refresh_token",
+      refresh_token: rows[0][1] as string,
+    }),
+  });
+  if (!res.ok) {
+    console.error(
+      `Token refresh failed for ${broadcasterId}:`,
+      res.status,
+      await res.text(),
+    );
+    // 400/401 means the streamer revoked access; forget the dead token.
+    if (res.status === 400 || res.status === 401) {
+      await sqlite.execute({
+        sql: `UPDATE channels SET user_access_token = NULL,
+                user_refresh_token = NULL, user_token_expires_at = NULL
+              WHERE broadcaster_id = :id`,
+        args: { id: broadcasterId },
+      });
+    }
+    return null;
+  }
+  const data = await res.json();
+  await saveBroadcasterToken(broadcasterId, data);
+  return data.access_token;
+}
+
+// Twitch has returned next_ad_at both as RFC3339 and as epoch seconds.
+function parseTwitchTime(v: unknown): number | null {
+  if (v === null || v === undefined || v === "" || v === 0) return null;
+  const n = Number(v);
+  if (!isNaN(n)) return n > 1e12 ? n : n * 1000;
+  const t = Date.parse(String(v));
+  return isNaN(t) ? null : t;
+}
+
+// The channel's next scheduled ad, or null if none is scheduled.
+async function getAdSchedule(
+  broadcasterId: string,
+): Promise<{ nextAdAt: number; duration: number } | null> {
+  const token = await getBroadcasterToken(broadcasterId);
+  if (!token) return null;
+  const res = await fetch(
+    `https://api.twitch.tv/helix/channels/ads?broadcaster_id=${broadcasterId}`,
+    {
+      headers: { "Client-Id": CLIENT_ID, "Authorization": `Bearer ${token}` },
+    },
   );
-  await new Promise((r) => setTimeout(r, 1000));
+  if (!res.ok) {
+    console.error(
+      `Ad schedule lookup failed for ${broadcasterId}:`,
+      res.status,
+      await res.text(),
+    );
+    return null;
+  }
+  const d = (await res.json())?.data?.[0];
+  const nextAdAt = parseTwitchTime(d?.next_ad_at);
+  if (!nextAdAt) return null;
+  return { nextAdAt, duration: Math.max(0, Number(d?.duration) || 0) };
+}
+
+// Arms the early-warning timer when this channel's next ad is close enough.
+// Only one timer runs per scheduled ad.
+async function scheduleAdWarning(broadcasterId: string, selfOrigin: string) {
+  const sched = await getAdSchedule(broadcasterId);
+  if (!sched) return;
+  const untilAd = sched.nextAdAt - Date.now();
+  // Too far out: a later poster run will check again. Too close: the
+  // start-of-ad notice covers it.
+  if (untilAd - AD_WARNING_LEAD_MS > AD_WARNING_LOOKAHEAD_MS) return;
+  if (untilAd < 15_000) return;
+
+  // A schedule that moved by only a few seconds is the same ad.
+  const { rowsAffected } = await sqlite.execute({
+    sql: `INSERT INTO ad_warnings (broadcaster_id, next_ad_at)
+          VALUES (:id, :at)
+          ON CONFLICT(broadcaster_id) DO UPDATE SET next_ad_at = excluded.next_ad_at
+          WHERE ad_warnings.next_ad_at IS NULL
+             OR abs(ad_warnings.next_ad_at - excluded.next_ad_at) > 5000`,
+    args: { id: broadcasterId, at: sched.nextAdAt },
+  });
+  if (!rowsAffected) return;
+  console.log(
+    `Ad warning armed for ${broadcasterId}: ad in ${Math.round(untilAd / 1000)}s`,
+  );
+  await startSelfTimer(selfOrigin, "/ads/warn", {
+    id: broadcasterId,
+    at: String(sched.nextAdAt),
+    hop: "0",
+  });
+}
+
+// Runs when a warning timer wakes up: re-checks the schedule and posts the
+// heads-up if the ad is still coming when expected.
+async function postAdWarning(
+  broadcasterId: string,
+  expectedAt: number,
+  selfOrigin: string,
+) {
+  const sched = await getAdSchedule(broadcasterId);
+  if (!sched || Math.abs(sched.nextAdAt - expectedAt) > 5000) {
+    // Snoozed, moved, or cancelled: drop this timer and re-arm for the new time.
+    await sqlite.execute({
+      sql: `UPDATE ad_warnings SET next_ad_at = NULL
+            WHERE broadcaster_id = :id AND next_ad_at = :at`,
+      args: { id: broadcasterId, at: expectedAt },
+    });
+    if (sched) await scheduleAdWarning(broadcasterId, selfOrigin);
+    return;
+  }
+  const untilAd = sched.nextAdAt - Date.now();
+  if (untilAd < 10_000) return; // too late, the start-of-ad notice will cover it
+
+  const { rowsAffected } = await sqlite.execute({
+    sql: `UPDATE ad_warnings SET warned_for = :at, warned_at = :now
+          WHERE broadcaster_id = :id AND next_ad_at = :at
+            AND (warned_for IS NULL OR warned_for != :at)`,
+    args: { id: broadcasterId, at: expectedAt, now: Date.now() },
+  });
+  if (!rowsAffected || !(await adAlertsAllowed(broadcasterId))) return;
+
+  const secs = Math.max(10, Math.round(untilAd / 5000) * 5);
+  await postAdMessage(
+    broadcasterId,
+    pick(AD_WARNING_MESSAGES)
+      .replaceAll("{secs}", String(secs))
+      .replaceAll("{length}", formatAdLength(sched.duration)),
+  );
+}
+
+// Poster pass: arm warning timers for every live channel that shared its token.
+async function armAdWarnings(selfOrigin: string) {
+  if (!AD_ALERTS_ENABLED) return;
+  const { rows } = await sqlite.execute(
+    `SELECT broadcaster_id FROM channels
+     WHERE is_live = 1 AND COALESCE(enabled, 1) = 1
+       AND user_refresh_token IS NOT NULL`,
+  );
+  for (const row of rows) {
+    await scheduleAdWarning(row[0] as string, selfOrigin).catch((err) =>
+      console.error(`scheduleAdWarning error for ${row[0]}:`, err)
+    );
+  }
 }
 
 // Handles one channel.ad_break.begin event: records the break, announces it,
@@ -850,10 +1083,21 @@ async function handleAdBreakBegin(
   );
   if (!(await adAlertsAllowed(broadcasterId))) return;
 
-  await postAdMessage(
-    broadcasterId,
-    pick(AD_START_MESSAGES).replaceAll("{length}", formatAdLength(durationSec)),
-  );
+  // Skip the start notice when chat already got the heads-up for this ad.
+  const { rows } = await sqlite.execute({
+    sql: `SELECT warned_at FROM ad_warnings WHERE broadcaster_id = :id`,
+    args: { id: broadcasterId },
+  });
+  const warnedAt = rows.length ? Number(rows[0][0]) || 0 : 0;
+  if (Date.now() - warnedAt > AD_WARNING_LEAD_MS + 2 * 60 * 1000) {
+    await postAdMessage(
+      broadcasterId,
+      pick(AD_START_MESSAGES).replaceAll(
+        "{length}",
+        formatAdLength(durationSec),
+      ),
+    );
+  }
   await scheduleAdEnd(selfOrigin, broadcasterId, eventId);
 }
 
@@ -1036,7 +1280,8 @@ async function getChatCommentary(
 // POSTER (formerly the cron val)
 // ======================================================================
 
-async function runPoster() {
+// selfOrigin is where this val can reach itself for ad timers.
+async function runPoster(selfOrigin = BASE_URL) {
   await ensureTables();
 
   const botUserId = await getKv("bot_user_id");
@@ -1057,6 +1302,9 @@ async function runPoster() {
 
   await postOverdueAdEnds().catch((err) =>
     console.error("postOverdueAdEnds error:", err)
+  );
+  await armAdWarnings(selfOrigin).catch((err) =>
+    console.error("armAdWarnings error:", err)
   );
 
   // Channels in the middle of an ad break get no roasts or commentary.
@@ -1381,6 +1629,12 @@ async function handleHttp(req: Request): Promise<Response> {
       },
     });
 
+    // Keep the streamer's token so the bot can read their ad schedule.
+    const grantedScopes: string[] = tokenData.scope ?? [];
+    if (tokenData.refresh_token && grantedScopes.includes("channel:read:ads")) {
+      await saveBroadcasterToken(user.id, tokenData);
+    }
+
     // Best-effort EventSub subscriptions; don't block the install on failure.
     let adAlerts = false;
     try {
@@ -1401,7 +1655,7 @@ async function handleHttp(req: Request): Promise<Response> {
     }</p>
       <p>${
       adAlerts
-        ? "Ad break alerts are on: chat gets a heads-up when ads start and a welcome-back when they end."
+        ? "Ad break alerts are on: chat gets a heads-up about 50 seconds before scheduled ads and a welcome-back when they end."
         : "Ad break alerts couldn't be turned on. Try the invite link again in a minute."
     }</p>
       <p style="margin-top:12px;font-size:0.9em;color:#666">
@@ -1482,8 +1736,38 @@ async function handleHttp(req: Request): Promise<Response> {
         status: 401,
       });
     }
-    await runPoster();
+    await runPoster(url.origin);
     return new Response("poster run complete", { status: 200 });
+  }
+
+  // ---- Ad-warning timer: started by scheduleAdWarning ----
+  if (url.pathname === "/ads/warn") {
+    const key = url.searchParams.get("key");
+    if (!ADMIN_KEY || key !== ADMIN_KEY) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const id = url.searchParams.get("id") ?? "";
+    const at = Number(url.searchParams.get("at") ?? 0);
+    const hop = Number(url.searchParams.get("hop") ?? 0);
+    const { rows } = await sqlite.execute({
+      sql: `SELECT 1 FROM ad_warnings WHERE broadcaster_id = :id AND next_ad_at = :at`,
+      args: { id, at },
+    });
+    if (!rows.length) return new Response("superseded", { status: 200 });
+
+    const wait = at - AD_WARNING_LEAD_MS - Date.now();
+    if (wait > AD_TIMER_HOP_MS && hop < AD_WARNING_MAX_HOPS) {
+      await new Promise((r) => setTimeout(r, AD_TIMER_HOP_MS));
+      await startSelfTimer(url.origin, "/ads/warn", {
+        id,
+        at: String(at),
+        hop: String(hop + 1),
+      });
+      return new Response("timer continued", { status: 200 });
+    }
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    await postAdWarning(id, at, url.origin);
+    return new Response("warning checked", { status: 200 });
   }
 
   // ---- Ad-end timer: started by handleAdBreakBegin, waits out the ad ----
@@ -1565,7 +1849,7 @@ async function handleHttp(req: Request): Promise<Response> {
     const botEnabled = botEnabledRaw !== "0"; // default ON if never set
 
     const { rows } = await sqlite.execute(
-      "SELECT broadcaster_id, broadcaster_login, se_channel_id, added_at, enabled, message_count, is_live, ads_subscribed FROM channels ORDER BY added_at DESC",
+      "SELECT broadcaster_id, broadcaster_login, se_channel_id, added_at, enabled, message_count, is_live, ads_subscribed, user_refresh_token IS NOT NULL FROM channels ORDER BY added_at DESC",
     );
 
     const tableRows = rows
@@ -1584,6 +1868,7 @@ async function handleHttp(req: Request): Promise<Response> {
           ? false
           : Number(row[6]) === 1;
         const adsOn = Number(row[7]) === 1;
+        const adWarnings = Number(row[8]) === 1;
         return `
           <tr>
             <td>${login}</td>
@@ -1594,7 +1879,13 @@ async function handleHttp(req: Request): Promise<Response> {
             <td><span class="badge ${isLive ? "on" : "off"}">${
           isLive ? "LIVE" : "OFFLINE"
         }</span></td>
-            <td>${adsOn ? "✅" : "re-invite"}</td>
+            <td>${
+          adsOn && adWarnings
+            ? "✅"
+            : adsOn
+            ? "✅ (re-invite for early warning)"
+            : "re-invite"
+        }</td>
             <td>${msgCount} new msgs</td>
             <td>${addedAt}</td>
             <td>
@@ -1641,7 +1932,10 @@ async function handleHttp(req: Request): Promise<Response> {
       stream.offline events — the poster only posts to channels that
       are LIVE. <strong>Ad alerts</strong> showing "re-invite" means that
       streamer added the bot before ad alerts existed; they just need to
-      run the invite link again to grant <code>channel:read:ads</code>.</p>
+      run the invite link again to grant <code>channel:read:ads</code>.
+      "Re-invite for early warning" means ad alerts work but only arrive as
+      the ad starts; re-inviting lets the bot read their ad schedule and warn
+      chat about 50 seconds ahead.</p>
       <table>
         <thead><tr><th>Channel</th><th>StreamElements</th><th>Status</th><th>Live</th><th>Ad alerts</th><th>Chat activity</th><th>Added</th><th></th></tr></thead>
         <tbody>${
@@ -1710,6 +2004,10 @@ async function handleHttp(req: Request): Promise<Response> {
       });
       await sqlite.execute({
         sql: "DELETE FROM ad_breaks WHERE broadcaster_id = :id",
+        args: { id: id as string },
+      });
+      await sqlite.execute({
+        sql: "DELETE FROM ad_warnings WHERE broadcaster_id = :id",
         args: { id: id as string },
       });
     }
