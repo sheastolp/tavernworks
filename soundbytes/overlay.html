@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound Bytes Overlay · Tavernworks</title>
+<meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@800&family=Inter:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* OBS browser source: transparent, nothing on screen until a sound plays. */
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:transparent;overflow:hidden;height:100%}
+  body{font-family:Inter,system-ui,sans-serif;color:#f1e6d6}
+  .stage{position:fixed;left:0;right:0;bottom:6vh;display:flex;justify-content:center;pointer-events:none}
+  .pop{
+    display:flex;align-items:center;gap:18px;max-width:min(92vw,820px);padding:16px 26px 16px 18px;border-radius:18px;
+    background:linear-gradient(180deg,rgba(36,26,19,.94),rgba(21,16,12,.94));border:2px solid #e0a84a;
+    box-shadow:0 12px 40px rgba(0,0,0,.55),0 0 30px rgba(224,168,74,.25);
+    transform:translateY(30px) scale(.92);opacity:0;transition:transform .35s cubic-bezier(.2,1.4,.4,1),opacity .3s
+  }
+  .pop.show{transform:none;opacity:1}
+  .pop .icon{font-size:54px;line-height:1;filter:drop-shadow(0 0 14px rgba(245,200,115,.5))}
+  .pop .name{font-family:Cinzel,serif;font-weight:800;font-size:30px;line-height:1.1;color:#f5c873}
+  .pop .line{font-size:18px;font-weight:500;color:#e9dcc8;margin-top:4px;overflow-wrap:anywhere}
+  .status{position:fixed;top:12px;left:12px;font:600 14px Inter,system-ui,sans-serif;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,.7);color:#b9a68f}
+  .status b{color:#f5c873}
+  .help{position:fixed;inset:20px;padding:24px;border-radius:16px;background:#15100c;border:1px solid #3a2a1d;font-size:16px;line-height:1.6}
+  .help h1{font-family:Cinzel,serif;color:#f5c873;font-size:24px;margin-bottom:8px}
+  .help code{color:#f5c873}
+  .help a{color:#f5c873}
+</style>
+</head>
+<body>
+<div class="stage"><div class="pop" id="pop" aria-live="polite"><div class="icon" id="pop-icon"></div><div><div class="name" id="pop-name"></div><div class="line" id="pop-line"></div></div></div></div>
+<script src="sounds.js"></script>
+<script>
+// Listens to a Twitch channel's chat read-only (anonymous, no login) and
+// plays a sound byte whenever the GuildScribe bot posts a message starting
+// with a "🔊 <id>" tag. GuildScribe's custom commands decide who can fire a
+// sound and how often (!dndbot cooldown), so this page never has to.
+//
+//   ?channel=yourchannel   required
+//   &bot=guildscribebot    the account whose messages count (default GuildScribeBot)
+//   &volume=70             0-100
+//   &caption=0             sound only, no on-screen card
+//   &debug=1               keep the connection status on screen
+//   &test=nat20            play one sound on load to check OBS audio
+(function () {
+  const q = new URLSearchParams(location.search);
+  const channel = (q.get("channel") || "").trim().replace(/^#/, "").toLowerCase();
+  const bot = (q.get("bot") || "guildscribebot").trim().replace(/^@/, "").toLowerCase();
+  const volume = Math.max(0, Math.min(100, Number(q.get("volume") ?? 70) || 0)) / 100;
+  const caption = q.get("caption") !== "0";
+  const debug = q.get("debug") === "1";
+  const MAX_QUEUE = 5;
+  // Anchored to the start: GuildScribe echoes viewer text in some replies
+  // (e.g. the !roll oracle), and those always start with "@user", so only a
+  // custom command whose response begins with the tag can fire a sound.
+  const TAG = /^🔊\s*!?([a-z0-9_-]{2,25})/i;
+
+  if (!/^[a-z0-9_]{3,25}$/.test(channel)) {
+    document.body.insertAdjacentHTML("beforeend",
+      '<div class="help"><h1>🔊 Sound Bytes overlay</h1><p>Add your Twitch channel to the address, like <code>overlay.html?channel=yourchannel</code>, then use it as an OBS browser source. ' +
+      'Set it up on the <a href="./">Sound Bytes page</a>.</p></div>');
+    return;
+  }
+
+  const status = document.createElement("div");
+  status.className = "status";
+  document.body.appendChild(status);
+  let hideStatus;
+  const setStatus = (html, sticky) => {
+    status.innerHTML = html;
+    status.hidden = false;
+    clearTimeout(hideStatus);
+    if (!sticky && !debug) hideStatus = setTimeout(() => (status.hidden = true), 5000);
+  };
+
+  // One sound at a time, in the order chat fired them.
+  const queue = [];
+  let playing = false;
+  const pop = document.getElementById("pop");
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+
+  function enqueue(id, line) {
+    if (!SoundBytes.get(id) || queue.length >= MAX_QUEUE) return;
+    queue.push({ id, line });
+    if (!playing) next();
+  }
+
+  async function next() {
+    const item = queue.shift();
+    if (!item) { playing = false; return; }
+    playing = true;
+    const s = SoundBytes.get(item.id);
+    const len = await SoundBytes.play(item.id, volume);
+    if (caption) {
+      document.getElementById("pop-icon").textContent = s.icon;
+      document.getElementById("pop-name").textContent = s.name;
+      document.getElementById("pop-line").innerHTML = esc(item.line);
+      pop.classList.add("show");
+    }
+    const shown = Math.max(len, 3);
+    setTimeout(() => pop.classList.remove("show"), shown * 1000);
+    setTimeout(next, shown * 1000 + 450);
+  }
+
+  // Twitch chat over WebSocket, logged in as an anonymous "justinfan" reader.
+  let ws, backoff = 1000, pingTimer;
+  function connect() {
+    setStatus(`Connecting to <b>#${esc(channel)}</b>&hellip;`, true);
+    ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+    ws.onopen = () => {
+      ws.send("CAP REQ :twitch.tv/tags");
+      ws.send("PASS SCHMOOPIIE");
+      ws.send("NICK justinfan" + Math.floor(10000 + Math.random() * 80000));
+      ws.send("JOIN #" + channel);
+      clearInterval(pingTimer);
+      pingTimer = setInterval(() => ws.readyState === 1 && ws.send("PING :tmi.twitch.tv"), 240000);
+    };
+    ws.onmessage = (e) => String(e.data).split("\r\n").forEach(handle);
+    ws.onclose = () => {
+      clearInterval(pingTimer);
+      setStatus(`Lost <b>#${esc(channel)}</b>, reconnecting&hellip;`, true);
+      setTimeout(connect, backoff);
+      backoff = Math.min(backoff * 2, 30000);
+    };
+  }
+
+  function handle(raw) {
+    if (!raw) return;
+    if (raw.startsWith("PING")) { ws.send("PONG" + raw.slice(4)); return; }
+    let rest = raw, tags = {};
+    if (rest[0] === "@") {
+      const sp = rest.indexOf(" ");
+      rest.slice(1, sp).split(";").forEach((kv) => { const i = kv.indexOf("="); tags[kv.slice(0, i)] = kv.slice(i + 1); });
+      rest = rest.slice(sp + 1);
+    }
+    const m = rest.match(/^:([^!\s]+)!\S+ PRIVMSG #\S+ :(.*)$/);
+    if (!m) {
+      if (/ 366 /.test(rest) || / JOIN #/.test(rest)) { backoff = 1000; setStatus(`🔊 Listening to <b>#${esc(channel)}</b> for <b>${esc(bot)}</b>`); }
+      return;
+    }
+    const [, nick, text] = m;
+    if (nick.toLowerCase() !== bot) return;
+    const hit = text.match(TAG);
+    if (!hit) return;
+    const line = text.replace(TAG, "").replace(/^\s*[-–—:|]?\s*/, "").trim();
+    enqueue(hit[1].toLowerCase(), line);
+  }
+
+  connect();
+  const test = q.get("test");
+  if (test) setTimeout(() => enqueue(test.toLowerCase(), "Testing, testing. Is this thing on?"), 800);
+})();
+</script>
+</body>
+</html>
