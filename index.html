@@ -120,18 +120,19 @@
   .company .note a{color:var(--gold2)}
   .company .foot{margin-top:14px;font-size:12.5px;color:var(--muted)}
 
-  .chatdemo{max-width:520px;margin:34px auto 0;text-align:left;background:#0e0b09;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.45)}
-  .chatdemo .bar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;letter-spacing:.12em;color:var(--muted)}
-  .chatdemo .bar .rec{width:8px;height:8px;border-radius:50%;background:#eb0400;box-shadow:0 0 8px #eb0400}
-  .chatdemo .bar .ex{margin-left:auto;font-weight:500;letter-spacing:.04em;text-transform:none}
-  .chatdemo ol{list-style:none;padding:12px 14px 14px;display:flex;flex-direction:column;gap:7px;font-size:14px;line-height:1.45}
-  .chatdemo li{opacity:0;transform:translateY(6px);animation:pop .4s ease forwards;overflow-wrap:anywhere}
-  .chatdemo li.bot{background:rgba(224,168,74,.07);border-left:2px solid var(--gold);padding:5px 8px;border-radius:0 6px 6px 0}
-  .chatdemo .u{font-weight:700;margin-right:4px}
-  .chatdemo .badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:4px;background:var(--gold);color:var(--bg);margin-right:5px;vertical-align:1px}
-  .chatdemo .at{color:var(--gold2)}
-  @keyframes pop{to{opacity:1;transform:none}}
-  @media (prefers-reduced-motion:reduce){.chatdemo li{animation:none;opacity:1;transform:none}}
+
+  .chatfeed{
+    position:relative;width:100%;height:260px;margin:30px 0 0;text-align:left;overflow:hidden;
+    display:flex;flex-direction:column;justify-content:flex-end;gap:8px;font-size:14px;line-height:1.45;
+    -webkit-mask-image:linear-gradient(to bottom,transparent,#000 45%);mask-image:linear-gradient(to bottom,transparent,#000 45%)
+  }
+  .chatfeed .msg{overflow-wrap:anywhere;transition:opacity .8s ease,transform .5s ease;color:var(--text)}
+  .chatfeed .msg.enter{opacity:0;transform:translateY(10px)}
+  .chatfeed .msg.leave{opacity:0}
+  .chatfeed .msg.bot{border-left:2px solid var(--gold);padding-left:10px;color:#e9dcc8}
+  .chatfeed .u{font-weight:700;margin-right:5px}
+  .chatfeed .at{color:var(--gold2)}
+  @media (max-width:520px){.chatfeed{height:360px;font-size:13.5px}}
 
   footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
   footer span{color:var(--gold)}
@@ -159,17 +160,7 @@
       </a>
       <a class="btn" href="#support">🪙 Support</a>
     </div>
-    <div class="chatdemo" role="img" aria-label="Example Twitch chat: viewers type !d20, !roll 2d6+3 and !oracle, and GuildScribeBot answers each one.">
-      <div class="bar"><span class="rec"></span>STREAM CHAT<span class="ex">example</span></div>
-      <ol>
-      <li style="animation-delay:0.3s"><span class="u" style="color:#7fb069">MossyDwarf:</span>!d20</li>
-      <li class="bot" style="animation-delay:1.0s"><span class="badge">BOT</span><span class="u" style="color:#e0a84a">GuildScribeBot:</span><span class="at">@MossyDwarf</span> 🎲 D20 of Fate: 1d20 → [20] = 20. Natural 20! The bards are already writing the song.</li>
-      <li style="animation-delay:1.7s"><span class="u" style="color:#9b7bd8">QuietRogue:</span>!roll 2d6+3</li>
-      <li class="bot" style="animation-delay:2.4s"><span class="badge">BOT</span><span class="u" style="color:#e0a84a">GuildScribeBot:</span><span class="at">@QuietRogue</span> 🎲 Dice roll: 2d6+3 → [4, 6]+3 = 13. The DM nods and moves the story along.</li>
-      <li style="animation-delay:3.1s"><span class="u" style="color:#5fa8d3">BardOfBrie:</span>!oracle who buys the next round?</li>
-      <li class="bot" style="animation-delay:3.8s"><span class="badge">BOT</span><span class="u" style="color:#e0a84a">GuildScribeBot:</span><span class="at">@BardOfBrie</span> 🔮 The crystal ball swirls and resolves into a face: <span class="at">@QuietRogue</span>, regarding "who buys the next round?"</li>
-      </ol>
-    </div>
+    <div class="chatfeed" id="chatfeed" aria-label="Example of GuildScribe answering commands in Twitch chat"></div>
   </header>
 
   <div class="divider">THE BOTS</div>
@@ -260,6 +251,54 @@
 
   <footer>Tavernworks · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus</footer>
 </div>
+<script>
+// Example chat under the header: GuildScribe's real reply formats, one
+// message at a time; each fades out after a few seconds and the script loops.
+(function () {
+  const feed = document.getElementById("chatfeed");
+  if (!feed) return;
+  const U = { MossyDwarf: "#7fb069", QuietRogue: "#9b7bd8", BardOfBrie: "#5fa8d3", GuildScribeBot: "#e0a84a" };
+  const at = (n) => `<span class="at">@${n}</span>`;
+  const SCRIPT = [
+    ["MossyDwarf", "!d20"],
+    ["GuildScribeBot", `${at("MossyDwarf")} 🎲 D20 of Fate: 1d20 → [20] = 20. Natural 20! The bards are already writing the song.`],
+    ["QuietRogue", "!dndduel @MossyDwarf"],
+    ["GuildScribeBot", `${at("QuietRogue")} challenged ${at("mossydwarf")} to a quick auto-duel! The gauntlet has been thrown. ${at("mossydwarf")}, type !dndduel accept or !dndduel decline within 5 minutes.`],
+    ["MossyDwarf", "!dndduel accept"],
+    ["GuildScribeBot", `${at("MossyDwarf")} ⚔️ QuietRogue vs MossyDwarf — MossyDwarf wins! ❤️ HP left: QuietRogue 0/18, MossyDwarf 7/24. 🪙 Loot: none. 📜 Full battle log: guildscribe.tavernworks.dev/r/1042`],
+    ["BardOfBrie", "!autohunt 30m"],
+    ["GuildScribeBot", `${at("BardOfBrie")} 🏹 your hero heads into the wilds for 30m. A monster every ~5m at your level, same dice as !dndduel, with a report in chat as bouts are settled. !autohunt status to check in, !autohunt stop to recall.`],
+    ["GuildScribeBot", `${at("BardOfBrie")} 🏹 autohunt report — 2 bouts (2W/0L): ✔ beat Goblin in 3 rds (you 14/20 HP) · ✔ beat Giant Rat in 2 rds (you 11/20 HP) | +75 XP, 🪙 +6 cp | 20m left.`],
+    ["QuietRogue", "!roll 2d6+3"],
+    ["GuildScribeBot", `${at("QuietRogue")} 🎲 Dice roll: 2d6+3 → [4, 6]+3 = 13. The DM nods and moves the story along.`],
+    ["BardOfBrie", "!oracle who buys the next round?"],
+    ["GuildScribeBot", `${at("BardOfBrie")} 🔮 The crystal ball swirls and resolves into a face: ${at("QuietRogue")}, regarding "who buys the next round?"`],
+  ];
+  const line = ([who, text]) => {
+    const el = document.createElement("div");
+    el.className = "msg" + (who === "GuildScribeBot" ? " bot" : "");
+    el.innerHTML = `<span class="u" style="color:${U[who]}">${who}:</span>${text}`;
+    return el;
+  };
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    SCRIPT.slice(0, 6).forEach((m) => feed.appendChild(line(m)));
+    return;
+  }
+  const LIFE = 9000, GAP_USER = 1400, GAP_BOT = 2600;
+  let i = 0;
+  const next = () => {
+    const m = SCRIPT[i];
+    const el = line(m);
+    el.classList.add("enter");
+    feed.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove("enter")));
+    setTimeout(() => { el.classList.add("leave"); setTimeout(() => el.remove(), 900); }, LIFE);
+    i = (i + 1) % SCRIPT.length;
+    setTimeout(next, i === 0 ? LIFE : m[0] === "GuildScribeBot" ? GAP_BOT : GAP_USER);
+  };
+  setTimeout(next, 600);
+})();
+</script>
 <script>
 // People to list under "Friends of the tavern". Add entries like:
 //   { name: "Jane", role: "Co-DM", url: "https://twitch.tv/jane" },
