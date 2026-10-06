@@ -204,7 +204,7 @@
       <h3><span class="n">4</span>Teach GuildScribe the commands</h3>
       <p>Paste these into your Twitch chat as the broadcaster or a mod, one at a time. Each one makes a <code>!command</code> that anyone in chat can use. Edit the wording after the sound name however you like; just keep <code>🔊 name</code> at the very start.</p>
       <div class="cmdlist" id="cmds"></div>
-      <p style="margin-top:14px">Then add a cooldown so chat can't spam it, for example <code>!dndbot cooldown nat20 30</code> for 30 seconds.</p>
+      <p style="margin-top:14px">Fireball is a trigger rather than a command: anyone saying “fireball” anywhere in chat sets it off (it also casts the spell in GuildScribe's Endless Delve). Then add cooldowns so chat can't spam them, for example <code>!dndbot cooldown nat20 30</code> for 30 seconds, or <code>!trigger cooldown fireball 30</code> for the fireball.</p>
     </div>
   </div>
 
@@ -278,8 +278,9 @@
   // GuildScribe commands to paste into chat.
   const cmds = document.getElementById("cmds");
   cmds.innerHTML = SoundBytes.list.map((s) => {
-    const text = `!dndbot add ${s.cmd} 🔊 ${s.id} ${s.line}`;
-    return `<div class="copyrow"><span class="ic">${s.icon}</span><code><span class="k">!dndbot add ${s.cmd}</span> 🔊 ${s.id} ${esc(s.line)}</code>` +
+    const add = s.trigger ? `!trigger add ${s.trigger}` : `!dndbot add ${s.id}`;
+    const text = `${add} 🔊 ${s.id} ${s.line}`;
+    return `<div class="copyrow"><span class="ic">${s.icon}</span><code><span class="k">${add}</span> 🔊 ${s.id} ${esc(s.line)}</code>` +
       `<button class="copy" type="button" data-copy="${esc(text)}">Copy</button></div>`;
   }).join("");
   cmds.addEventListener("click", (e) => {
