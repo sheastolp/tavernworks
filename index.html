@@ -252,49 +252,108 @@
   <footer>Tavernworks · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus</footer>
 </div>
 <script>
-// Example chat under the header: GuildScribe's real reply formats, one
-// message at a time; each fades out after a few seconds and the script loops.
+// Example chat under the header: GuildScribe's real reply formats (taken
+// from the bot's code), one message at a time; each fades out after a few
+// seconds. The first exchange plays first, the rest in a shuffled order
+// that reshuffles every loop.
 (function () {
   const feed = document.getElementById("chatfeed");
   if (!feed) return;
-  const U = { MossyDwarf: "#7fb069", QuietRogue: "#9b7bd8", BardOfBrie: "#5fa8d3", GuildScribeBot: "#e0a84a" };
+  const U = {
+    MossyDwarf: "#7fb069", QuietRogue: "#9b7bd8", BardOfBrie: "#5fa8d3", EmberWitch: "#e2725b",
+    TankardTom: "#d4b25c", StonedSheamus: "#c48bdc", GuildScribeBot: "#e0a84a",
+  };
   const at = (n) => `<span class="at">@${n}</span>`;
-  const SCRIPT = [
-    ["MossyDwarf", "!d20"],
-    ["GuildScribeBot", `${at("MossyDwarf")} 🎲 D20 of Fate: 1d20 → [20] = 20. Natural 20! The bards are already writing the song.`],
-    ["QuietRogue", "!dndduel @MossyDwarf"],
-    ["GuildScribeBot", `${at("QuietRogue")} challenged ${at("mossydwarf")} to a quick auto-duel! The gauntlet has been thrown. ${at("mossydwarf")}, type !dndduel accept or !dndduel decline within 5 minutes.`],
-    ["MossyDwarf", "!dndduel accept"],
-    ["GuildScribeBot", `${at("MossyDwarf")} ⚔️ QuietRogue vs MossyDwarf — MossyDwarf wins! ❤️ HP left: QuietRogue 0/18, MossyDwarf 7/24. 🪙 Loot: none. 📜 Full battle log: guildscribe.tavernworks.dev/r/1042`],
-    ["BardOfBrie", "!autohunt 30m"],
-    ["GuildScribeBot", `${at("BardOfBrie")} 🏹 your hero heads into the wilds for 30m. A monster every ~5m at your level, same dice as !dndduel, with a report in chat as bouts are settled. !autohunt status to check in, !autohunt stop to recall.`],
-    ["GuildScribeBot", `${at("BardOfBrie")} 🏹 autohunt report — 2 bouts (2W/0L): ✔ beat Goblin in 3 rds (you 14/20 HP) · ✔ beat Giant Rat in 2 rds (you 11/20 HP) | +75 XP, 🪙 +6 cp | 20m left.`],
-    ["QuietRogue", "!roll 2d6+3"],
-    ["GuildScribeBot", `${at("QuietRogue")} 🎲 Dice roll: 2d6+3 → [4, 6]+3 = 13. The DM nods and moves the story along.`],
-    ["BardOfBrie", "!oracle who buys the next round?"],
-    ["GuildScribeBot", `${at("BardOfBrie")} 🔮 The crystal ball swirls and resolves into a face: ${at("QuietRogue")}, regarding "who buys the next round?"`],
+  const GS = "https://guildscribe.tavernworks.dev";
+  const B = "GuildScribeBot";
+  const EXCHANGES = [
+    [["MossyDwarf", "!d20"],
+     [B, `${at("MossyDwarf")} 🎲 D20 of Fate: 1d20 → [20] = 20. Natural 20! The bards are already writing the song.`]],
+    [["QuietRogue", "!roll stealth"],
+     [B, `${at("QuietRogue")} 🎲 Stealth Check: 1d20+5 → [14]+5 = 19. The dice rolled high and struck a heroic pose.`]],
+    [["TankardTom", "!roll 2d6+3"],
+     [B, `${at("TankardTom")} 🎲 Dice roll: 2d6+3 → [4, 6]+3 = 13. The DM nods and moves the story along.`]],
+    [["BardOfBrie", "!roll will the party survive the dragon?"],
+     [B, `${at("BardOfBrie")} 🔮 The crystal ball clears... it shows YES for "will the party survive the dragon?"`]],
+    [["BardOfBrie", "!oracle who buys the next round?"],
+     [B, `${at("BardOfBrie")} 🔮 The crystal ball swirls and resolves into a face: ${at("TankardTom")}, regarding "who buys the next round?"`]],
+    [["EmberWitch", "!createchar"],
+     [B, `${at("EmberWitch")} created a level 1 High Elf Wizard! Lv1 XP 0 | STR 8(-1) DEX 14(+2) CON 13(+1) INT 17(+3) WIS 12(+1) CHA 10(+0) | HP 7/7 | Speed 30ft | Prof +2 — ${GS}/?user=emberwitch`]],
+    [["MossyDwarf", "!char"],
+     [B, `${at("MossyDwarf")} Hill Dwarf Fighter — Lv3 XP 900 | STR 16(+3) DEX 12(+1) CON 16(+3) INT 8(-1) WIS 13(+1) CHA 10(+0) | HP 34/34 | Speed 25ft | Prof +2 | 🎒 1 gear (!gear) — ${GS}/?user=mossydwarf`]],
+    [["QuietRogue", "!dndduel @MossyDwarf"],
+     [B, `${at("QuietRogue")} challenged ${at("mossydwarf")} to a quick auto-duel! The gauntlet has been thrown. ${at("mossydwarf")}, type !dndduel accept or !dndduel decline within 5 minutes.`],
+     ["MossyDwarf", "!dndduel accept"],
+     [B, `${at("MossyDwarf")} ⚔️ QuietRogue vs MossyDwarf — MossyDwarf wins! ❤️ HP left: QuietRogue 0/18, MossyDwarf 7/34. 🪙 Loot: none. 📜 Full battle log: ${GS}/r/1042`]],
+    [["BardOfBrie", "!autohunt 30m"],
+     [B, `${at("BardOfBrie")} 🏹 your hero heads into the wilds for 30m. A monster every ~5m at your level, same dice as !dndduel, with a report in chat as bouts are settled. !autohunt status to check in, !autohunt stop to recall.`],
+     [B, `${at("BardOfBrie")} 🏹 autohunt report — 2 bouts (2W/0L): ✔ beat Wolf in 3 rds (you 14/20 HP) · ✔ beat Giant Rat in 2 rds (you 11/20 HP) | +75 XP, 🪙 +6 cp | 20m left.`]],
+    [["MossyDwarf", "!party create Ironhide"],
+     [B, `${at("MossyDwarf")} party Ironhide created. You are the leader and a member. Invite with !party invite @user Ironhide`]],
+    [["QuietRogue", "!raid"],
+     [B, `📯 QuietRogue sounds the war horn against Young Red Dragon (HP 356/356)! Type !raid within 1m to join the raid party (up to 6 heroes). QuietRogue: !raid go to charge early.`],
+     ["MossyDwarf", "!raid"],
+     [B, `🛡️ MossyDwarf joins the raid (2/6: QuietRogue, MossyDwarf). Launching in 41s.`]],
+    [["TankardTom", "!bounties"],
+     [B, `${at("TankardTom")} 📜 The bounty board reads: #1 Slay 2 Bugbears (CR 1) 0/2 → 4 sp | #2 Slay 3 Ghouls (CR 1) 1/3 → 5 sp + Traveler's Tonic. Take one on with !hunt <monster>, e.g. !hunt Bugbear.`]],
+    [["TankardTom", "!hunt bugbear"],
+     [B, `${at("TankardTom")} ⚔️ TankardTom vs Bugbear — TankardTom wins! ❤️ HP left: TankardTom 12/28, Bugbear 0/27. 🪙 Loot: 8 cp. 📜 Full battle log: ${GS}/r/1043`]],
+    [["EmberWitch", "!stall"],
+     [B, `🛒 Tansy Ninefingers is hawking one (1) lucky rabbit's foot, still faintly twitching — 5 copper (🎒 +1 DEX on your sheet). ${at("EmberWitch")} you have 3 haggle attempts left on this one — try !haggle &lt;your pitch&gt;.`],
+     ["EmberWitch", "!haggle three copper, it's barely twitching"],
+     [B, `🛒 Tansy Ninefingers: Barely?! It kicked me twice this morning. Four copper, and you're robbing a poor woman blind. 🪙 Sold for 4 cp (listed 5 cp, you saved 1 cp) — 2 sp 1 cp left.`]],
+    [["TankardTom", "!gold"],
+     [B, `${at("TankardTom")} you carry 1 gp 3 sp 7 cp — #2 in the guild.`]],
+    [["BardOfBrie", "!gold top"],
+     [B, `💰 Richest adventurers: 🥇 MossyDwarf — 2 gp 4 sp | 🥈 TankardTom — 1 gp 3 sp 7 cp | 🥉 BardOfBrie — 9 sp 2 cp`]],
+    [["StonedSheamus", "!giveaway start cost=5sp max=5 Steam key"],
+     [B, `🎁 GIVEAWAY: Steam key! Tickets cost 5 sp each (max 5 per person) — type !giveaway enter [tickets]`],
+     ["QuietRogue", "!giveaway enter 2"],
+     [B, `${at("QuietRogue")} you're in! 2 tickets for "Steam key" (spent 1 gp). Good luck!`]],
+    [["BardOfBrie", "!jar"],
+     [B, `🫙 ${at("BardOfBrie")} The swear jar holds 4 sp 6 cp.`]],
+    [["EmberWitch", "!watchtime"],
+     [B, `${at("EmberWitch")} 🕯️ The scribes have kept your candle burning in the guild hall for 2d 4h 15m.`]],
+    [["TankardTom", "!followage"],
+     [B, `${at("TankardTom")} 🏰 your oath to the guild has stood for 1 year, 3 months, 12 days (sworn Jun 24, 2025).`]],
+    [["MossyDwarf", "!shmash @QuietRogue"],
+     [B, `💥 ${at("MossyDwarf")}'s Hill Dwarf Fighter bull-rushes ${at("quietrogue")}'s Lightfoot Halfling Rogue clean off their feet and into a table of empty tankards!`]],
+    [["QuietRogue", "!rollcall"],
+     [B, `${at("QuietRogue")} 🌟 Natural 20 leaderboard — Hour: MossyDwarf x1 | Day: MossyDwarf x3, QuietRogue x2 | Week: MossyDwarf x9, BardOfBrie x6, QuietRogue x5. Try !rollcall nat1, !rollcall nat20 week for a bigger top 5, or !rollcall @user for one player's stats.`]],
+    [["EmberWitch", "!monster goblin"],
+     [B, `${at("EmberWitch")} 🔗 https://www.dndbeyond.com/search?q=Goblin | Goblin: Small humanoid | AC 15 | HP 7 | CR 0.25 (XP 50)`]],
+    [["BardOfBrie", "!bestiary"],
+     [B, `${at("BardOfBrie")} 📖 42 monsters can be hunted here (CR 0–8; 38 core, 4 learned). Full list: ${GS}/bestiary — look one up with !bestiary &lt;name&gt;; !monster &lt;name&gt; teaches the bestiary new ones.`]],
+    [["EmberWitch", "!bg3companion"],
+     [B, `${at("EmberWitch")} 🤝 You're rolling with Karlach (Barbarian // Escaped from Avernus) — Ten years in Hell, and she still hugs like she means it. "Got a soul furnace where my heart should be. Long story."`]],
+    [["TankardTom", "!help"],
+     [B, `${at("TankardTom")} Welcome to the Guild Hall, adventurer! 📜 Create your legend with !createchar or !newchar, check your parchment with !char, gather a company with !party create &lt;name&gt;, and consult the archives with !dndbothelp. Full guild codex: ${GS}/guide`]],
   ];
   const line = ([who, text]) => {
     const el = document.createElement("div");
-    el.className = "msg" + (who === "GuildScribeBot" ? " bot" : "");
+    el.className = "msg" + (who === B ? " bot" : "");
     el.innerHTML = `<span class="u" style="color:${U[who]}">${who}:</span>${text}`;
     return el;
   };
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    SCRIPT.slice(0, 6).forEach((m) => feed.appendChild(line(m)));
+    EXCHANGES.slice(0, 3).flat().forEach((m) => feed.appendChild(line(m)));
     return;
   }
-  const LIFE = 9000, GAP_USER = 1400, GAP_BOT = 2600;
-  let i = 0;
+  const shuffled = (a) => { a = a.slice(); for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [a[k], a[j]] = [a[j], a[k]]; } return a; };
+  const LIFE = 9000, GAP_USER = 1400, GAP_BOT = 2800, GAP_EXCHANGE = 1200;
+  let queue = [EXCHANGES[0], ...shuffled(EXCHANGES.slice(1))].flat();
+  const refill = () => { queue = shuffled(EXCHANGES).flat(); };
   const next = () => {
-    const m = SCRIPT[i];
+    if (!queue.length) refill();
+    const m = queue.shift();
     const el = line(m);
     el.classList.add("enter");
     feed.appendChild(el);
     requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove("enter")));
     setTimeout(() => { el.classList.add("leave"); setTimeout(() => el.remove(), 900); }, LIFE);
-    i = (i + 1) % SCRIPT.length;
-    setTimeout(next, i === 0 ? LIFE : m[0] === "GuildScribeBot" ? GAP_BOT : GAP_USER);
+    const upcoming = queue[0];
+    const exchangeEnds = !upcoming || (upcoming[0] !== B && m[0] === B);
+    setTimeout(next, (m[0] === B ? GAP_BOT : GAP_USER) + (exchangeEnds ? GAP_EXCHANGE : 0));
   };
   setTimeout(next, 600);
 })();
