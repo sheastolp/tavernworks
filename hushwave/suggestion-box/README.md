@@ -49,7 +49,7 @@ systemctl --user enable --now suggestion-box
 sudo loginctl enable-linger $USER   # keep it running when you're logged out
 ```
 
-It listens on `127.0.0.1:8787` only.
+It listens on `127.0.0.1:8790` only.
 
 ## 4. Make it reachable from the internet
 
@@ -57,7 +57,7 @@ Visitors aren't on your tailnet, so this one port goes public with
 Tailscale Funnel. Ollama and the bridge stay private.
 
 ```sh
-sudo tailscale funnel --bg --https=10000 http://127.0.0.1:8787
+sudo tailscale funnel --bg --https=10000 http://127.0.0.1:8790
 ```
 
 It prints an address like `https://<machine>.<tailnet>.ts.net:10000`. If
@@ -78,7 +78,7 @@ Environment variables, set with `Environment=` lines in the service file:
 
 | Variable | Default | |
 |---|---|---|
-| `SUGGEST_PORT` | `8787` | Local port |
+| `SUGGEST_PORT` | `8790` | Local port |
 | `SUGGEST_ORIGINS` | `https://tavernworks.dev` | Sites allowed to use it, comma-separated |
 | `SUGGEST_DATA_DIR` | `~/.local/share/hushwave-suggestions` | Where suggestions are stored |
 

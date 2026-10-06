@@ -4,7 +4,7 @@
 // takes the one admin password.
 //
 //   node server.mjs set-password   set (or change) the admin password
-//   node server.mjs                run the server (default port 8787)
+//   node server.mjs                run the server (default port 8790)
 //
 // No dependencies, Node 18 or newer. See README.md for the full setup.
 
@@ -18,7 +18,7 @@ import readline from "node:readline";
 const DATA_DIR = process.env.SUGGEST_DATA_DIR || path.join(os.homedir(), ".local/share/hushwave-suggestions");
 const DB_FILE = path.join(DATA_DIR, "suggestions.json");
 const AUTH_FILE = path.join(DATA_DIR, "admin.json");
-const PORT = Number(process.env.SUGGEST_PORT || 8787);
+const PORT = Number(process.env.SUGGEST_PORT || 8790);
 const ORIGINS = (process.env.SUGGEST_ORIGINS || "https://tavernworks.dev").split(",").map((s) => s.trim()).filter(Boolean);
 const KINDS = ["Feature idea", "New sound", "Bug report", "Something else"];
 const SESSION_MS = 7 * 24 * 3600 * 1000;
