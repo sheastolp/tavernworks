@@ -278,8 +278,8 @@
   // GuildScribe commands to paste into chat.
   const cmds = document.getElementById("cmds");
   cmds.innerHTML = SoundBytes.list.map((s) => {
-    const text = `!dndbot add ${s.id} 🔊 ${s.id} ${s.line}`;
-    return `<div class="copyrow"><span class="ic">${s.icon}</span><code><span class="k">!dndbot add ${s.id}</span> 🔊 ${s.id} ${esc(s.line)}</code>` +
+    const text = `!dndbot add ${s.cmd} 🔊 ${s.id} ${s.line}`;
+    return `<div class="copyrow"><span class="ic">${s.icon}</span><code><span class="k">!dndbot add ${s.cmd}</span> 🔊 ${s.id} ${esc(s.line)}</code>` +
       `<button class="copy" type="button" data-copy="${esc(text)}">Copy</button></div>`;
   }).join("");
   cmds.addEventListener("click", (e) => {

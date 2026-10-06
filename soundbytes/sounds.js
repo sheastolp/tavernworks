@@ -7,7 +7,8 @@
 //   SoundBytes.play(id, vol)  plays it (vol 0..1); resolves with its length in seconds
 //
 // `line` is the chat text the suggested GuildScribe command posts after the
-// 🔊 tag; {user} is filled in by GuildScribe.
+// 🔊 tag; {user} is filled in by GuildScribe. `cmd` is the suggested
+// !command name when it can't simply be the sound's id.
 (function () {
   let ctx = null, master = null, noiseBuf = null;
 
@@ -175,7 +176,9 @@
       },
     },
     {
-      id: "fireball", name: "Fireball", icon: "🔥",
+      // Not !fireball: "fireball" anywhere in chat is also a spell word in
+      // GuildScribe's Endless Delve idle game.
+      id: "fireball", cmd: "kaboom", name: "Fireball", icon: "🔥",
       blurb: "A roaring whoosh and a big boom.",
       line: "🔥 {user} casts FIREBALL! Everyone make a Dex save.",
       len: 2.0,
@@ -243,7 +246,7 @@
   const byId = Object.fromEntries(SOUNDS.map((s) => [s.id, s]));
 
   window.SoundBytes = {
-    list: SOUNDS.map(({ id, name, icon, blurb, line, len }) => ({ id, name, icon, blurb, line, len })),
+    list: SOUNDS.map(({ id, cmd, name, icon, blurb, line, len }) => ({ id, cmd: cmd || id, name, icon, blurb, line, len })),
     get: (id) => byId[String(id).toLowerCase()],
     play(id, volume = 0.7) {
       const s = byId[String(id).toLowerCase()];
