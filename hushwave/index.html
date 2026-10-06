@@ -332,7 +332,8 @@ const SUGGEST_API = window.SUGGEST_API || "";
       count.textContent = "0 / 1500";
       say("Thanks! It's in the box.", "ok");
     } catch (err) {
-      say(err.message || "Couldn't reach the box just now. Try again, or post it in the Discord.", "err");
+      // fetch() throws a TypeError when the server can't be reached at all.
+      say(err instanceof TypeError || !err.message ? "Couldn't reach the box just now. Try again later, or post it in the Discord." : err.message, "err");
     } finally {
       send.disabled = false;
     }
