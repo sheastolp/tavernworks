@@ -119,6 +119,14 @@
   dialog fieldset.cc{border:1px solid var(--line);border-radius:12px;padding:4px 14px 12px;margin-top:16px}
   dialog fieldset.cc legend{padding:0 6px;font-weight:600;font-size:14px;color:var(--gold2)}
   dialog fieldset.cc legend small{color:var(--muted);font-weight:400}
+  dialog p.small{font-size:13px;margin-top:6px}
+  dialog label.check{display:flex;gap:8px;align-items:flex-start;font-weight:600}
+  dialog label.check input{width:auto;margin-top:4px}
+  dialog .row.left{justify-content:flex-start;margin-top:10px}
+  .qr{margin-top:12px;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .qr .code{background:#fff;padding:10px;border-radius:8px;line-height:0}
+  .qr .code img,.qr .code canvas{width:220px;height:220px}
+  .qr p{font-size:12.5px}
   .tools{list-style:none;margin:0 0 8px;font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
   .tools li{font-family:ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
   .tools li.fail{color:#ff9b7a}
@@ -197,6 +205,20 @@
     <label>System prompt <small>Optional, for Ollama models. Sent at the start of every new message.</small>
       <textarea id="system" placeholder="You are a helpful assistant."></textarea>
     </label>
+    <fieldset class="cc">
+      <legend>Use on another device</legend>
+      <p class="small">Makes a setup link with these settings. Open it on your phone or another PC and the chat there is set up the same way. The settings ride after the <code>#</code> in the link, which browsers never send to tavernworks.dev.</p>
+      <label class="check"><input type="checkbox" id="shareToken" checked><span>Include the Claude Code token <small>Anyone with the link and access to your tailnet could use Claude Code. Share it only with your own devices.</small></span></label>
+      <div class="row left">
+        <button type="button" id="copyLink">Copy setup link</button>
+        <button type="button" id="showQr">Show QR code</button>
+      </div>
+      <div id="qr" class="qr" hidden></div>
+      <label>Or paste a setup link here
+        <input id="importLink" type="text" placeholder="https://tavernworks.dev/local-ai/chat/#setup=…" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="row left"><button type="button" id="importBtn">Import</button></div>
+    </fieldset>
     <div class="test" id="testResult"></div>
     <div class="row">
       <button type="button" id="testBtn">Test connection</button>
@@ -739,10 +761,92 @@
     navigator.clipboard?.writeText(b.nextElementSibling.textContent).then(() => { b.textContent = "Copied"; setTimeout(() => (b.textContent = "Copy"), 1500); });
   });
 
+  // ── Moving settings between devices ──
+  // A setup link carries the settings in its #fragment, which browsers never
+  // send to the server, so nothing is stored on tavernworks.dev.
+  const b64e = (str) => btoa(String.fromCharCode(...new TextEncoder().encode(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const b64d = (str) => new TextDecoder().decode(Uint8Array.from(atob(str.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)));
+  function formSettings() {
+    return { api: trimUrl($("apiUrl").value), webui: trimUrl($("webuiUrl").value), system: $("system").value, bridge: trimUrl($("bridgeUrl").value), bridgeToken: $("bridgeToken").value.trim() };
+  }
+  function setupLink() {
+    const f = formSettings();
+    const data = { v: 1, api: f.api, webui: f.webui, bridge: f.bridge, system: f.system, model: $("model").value || store.get(MODEL_KEY, "") };
+    if ($("shareToken").checked && f.bridgeToken) data.token = f.bridgeToken;
+    for (const k of Object.keys(data)) if (data[k] === "" || data[k] == null) delete data[k];
+    return location.origin + location.pathname + "#setup=" + b64e(JSON.stringify(data));
+  }
+  function readSetup(text) {
+    const m = String(text || "").match(/#?setup=([A-Za-z0-9_-]+)/);
+    if (!m) throw new Error("That isn't a setup link.");
+    const d = JSON.parse(b64d(m[1]));
+    if (!d || d.v !== 1) throw new Error("That setup link is from a different version.");
+    const url = (u) => { u = trimUrl(u); if (u && !/^https?:\/\/[^\s]+$/i.test(u)) throw new Error("The link has a bad address in it."); return u; };
+    return { api: url(d.api), webui: url(d.webui), bridge: url(d.bridge), bridgeToken: typeof d.token === "string" ? d.token : "", system: typeof d.system === "string" ? d.system : "", model: typeof d.model === "string" ? d.model : "" };
+  }
+  function applySetup(d) {
+    settings = { api: d.api, webui: d.webui, system: d.system, bridge: d.bridge, bridgeToken: d.bridgeToken || settings.bridgeToken || "" };
+    store.set(SETTINGS_KEY, settings);
+    if (d.model) store.set(MODEL_KEY, d.model);
+    updateWebuiLink(); connect(); renderThread();
+  }
+  function confirmSetup(d) {
+    return confirm("Set up this chat with these settings?\n\n" +
+      `Ollama: ${d.api || "(none)"}\nOpen WebUI: ${d.webui || "(none)"}\nClaude Code bridge: ${d.bridge || "(none)"}${d.bridgeToken ? " (with token)" : ""}\n\n` +
+      "Only accept a link you made yourself.");
+  }
+  const flash = (btn, text) => { const old = btn.textContent; btn.textContent = text; setTimeout(() => (btn.textContent = old), 1800); };
+  $("copyLink").onclick = async () => {
+    const link = setupLink();
+    try { await navigator.clipboard.writeText(link); flash($("copyLink"), "Copied ✓"); }
+    catch { $("importLink").value = link; $("importLink").select(); flash($("copyLink"), "Copy it from the box below"); }
+  };
+  $("showQr").onclick = async () => {
+    const box = $("qr");
+    if (!box.hidden) { box.hidden = true; box.innerHTML = ""; return; }
+    box.hidden = false;
+    box.innerHTML = "<p>Making the code…</p>";
+    try {
+      if (!window.QRCode) await new Promise((ok, fail) => {
+        const sc = document.createElement("script");
+        sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+        sc.onload = ok; sc.onerror = () => fail(new Error("load"));
+        document.head.appendChild(sc);
+      });
+      box.innerHTML = '<div class="code"></div><p>Scan with your phone\'s camera, then open the link.</p>';
+      new QRCode(box.querySelector(".code"), { text: setupLink(), width: 440, height: 440, correctLevel: QRCode.CorrectLevel.L });
+    } catch {
+      box.innerHTML = "<p>Couldn't load the QR code maker. Use Copy setup link instead.</p>";
+    }
+  };
+  $("importBtn").onclick = () => {
+    try {
+      const d = readSetup($("importLink").value);
+      if (!confirmSetup(d)) return;
+      applySetup(d);
+      $("apiUrl").value = settings.api; $("webuiUrl").value = settings.webui; $("system").value = settings.system;
+      $("bridgeUrl").value = settings.bridge; $("bridgeToken").value = settings.bridgeToken; $("importLink").value = "";
+      $("testResult").textContent = "✔ Settings imported. Hit Test connection to check them.";
+      $("testResult").style.color = "var(--green)";
+    } catch (e) {
+      $("testResult").textContent = "✘ " + e.message;
+      $("testResult").style.color = "#ff9b7a";
+    }
+  };
+  // Opened from a setup link: import (after asking), then drop the settings from the address bar.
+  if (/^#setup=/.test(location.hash)) {
+    const hash = location.hash;
+    history.replaceState(null, "", location.pathname + location.search);
+    try {
+      const d = readSetup(hash);
+      if (confirmSetup(d)) applySetup(d);
+    } catch (e) { alert("Couldn't use that setup link: " + e.message); }
+  }
+
   updateWebuiLink();
   renderList();
   renderThread();
-  if (!settings.api || new URLSearchParams(location.search).has("settings")) openSettings();
+  if ((!settings.api && !settings.bridge) || new URLSearchParams(location.search).has("settings")) openSettings();
   connect();
 })();
 </script>
