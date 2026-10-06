@@ -134,7 +134,9 @@ const AD_END_GRACE_MS = 20 * 1000;
 // A welcome-back older than this is dropped instead of posted late.
 const AD_END_STALE_MS = 10 * 60 * 1000;
 // How far ahead of a scheduled ad the heads-up is posted.
-const AD_WARNING_LEAD_MS = 50 * 1000;
+const AD_WARNING_LEAD_MS = 56 * 1000;
+// How long after an ad ends the welcome-back is posted.
+const AD_END_DELAY_MS = 6 * 1000;
 // Poster runs arm the warning timer once the warning is this close; keep it
 // a bit longer than the poster's cron interval.
 const AD_WARNING_LOOKAHEAD_MS = 6 * 60 * 1000;
@@ -1062,7 +1064,8 @@ async function handleAdBreakBegin(
   const broadcasterId = event.broadcaster_user_id;
   const durationSec = Math.max(0, Math.round(Number(event.duration_seconds) || 0));
   const startedAt = Date.parse(event.started_at ?? "") || Date.now();
-  const endsAt = startedAt + durationSec * 1000;
+  // "Ends" here means when the welcome-back is due.
+  const endsAt = startedAt + durationSec * 1000 + AD_END_DELAY_MS;
 
   // Twitch re-delivers events it thinks failed; only act on the first copy.
   const { rowsAffected } = await sqlite.execute({
@@ -1655,7 +1658,9 @@ async function handleHttp(req: Request): Promise<Response> {
     }</p>
       <p>${
       adAlerts
-        ? "Ad break alerts are on: chat gets a heads-up about 50 seconds before scheduled ads and a welcome-back when they end."
+        ? `Ad break alerts are on: chat gets a heads-up about ${
+          Math.round(AD_WARNING_LEAD_MS / 1000)
+        } seconds before scheduled ads and a welcome-back when they end.`
         : "Ad break alerts couldn't be turned on. Try the invite link again in a minute."
     }</p>
       <p style="margin-top:12px;font-size:0.9em;color:#666">
@@ -1935,7 +1940,7 @@ async function handleHttp(req: Request): Promise<Response> {
       run the invite link again to grant <code>channel:read:ads</code>.
       "Re-invite for early warning" means ad alerts work but only arrive as
       the ad starts; re-inviting lets the bot read their ad schedule and warn
-      chat about 50 seconds ahead.</p>
+      chat about ${Math.round(AD_WARNING_LEAD_MS / 1000)} seconds ahead.</p>
       <table>
         <thead><tr><th>Channel</th><th>StreamElements</th><th>Status</th><th>Live</th><th>Ad alerts</th><th>Chat activity</th><th>Added</th><th></th></tr></thead>
         <tbody>${
