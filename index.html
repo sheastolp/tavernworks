@@ -418,7 +418,7 @@ const PEOPLE = [];
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
   const TIPS = window.TIPS || [];
   const render = (urls) => {
-    const shown = TIPS.map((t) => ({ ...t, url: urls && t.id in urls ? urls[t.id] : t.url })).filter((t) => /^https:\/\//i.test(t.url || ""));
+    const shown = TIPS.map((t) => ({ ...t, url: window.fixTipUrl(t, urls && t.id in urls ? urls[t.id] : t.url) })).filter((t) => /^https:\/\//i.test(t.url || ""));
     document.getElementById("tips").innerHTML = shown.map((t) =>
       `<a class="chip" href="${esc(t.url)}" target="_blank" rel="noopener">` +
       `<span class="dot">${esc(t.icon)}</span>` +

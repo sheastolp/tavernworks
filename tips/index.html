@@ -135,7 +135,7 @@
     $("rows").innerHTML = TIPS.map((t) => {
       const v = urls && t.id in urls ? urls[t.id] : t.url;
       return `<label class="row"><span class="lbl"><span class="ico">${esc(t.icon)}</span><span>${esc(t.name)}<small>${esc(t.sub)}</small></span></span>` +
-        `<input type="url" name="${esc(t.id)}" value="${esc(v || "")}" placeholder="${esc(t.hint || "https://")}" autocomplete="off" spellcheck="false"></label>`;
+        `<input type="text" inputmode="url" name="${esc(t.id)}" value="${esc(v || "")}" placeholder="${esc(t.hint || "https://")}" autocomplete="off" spellcheck="false"></label>`;
     }).join("");
   }
 
@@ -175,7 +175,8 @@
     const urls = {};
     let bad = null;
     for (const input of $("rows").querySelectorAll("input")) {
-      const v = input.value.trim();
+      const v = window.fixTipUrl(TIPS.find((t) => t.id === input.name) || {}, input.value);
+      input.value = v;
       const ok = !v || /^https:\/\/\S+$/i.test(v);
       input.classList.toggle("bad", !ok);
       if (!ok && !bad) bad = input;
