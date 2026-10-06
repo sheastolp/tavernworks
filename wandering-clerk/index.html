@@ -115,20 +115,27 @@
     font-size:13.5px;color:var(--muted);background:transparent;border:1px solid transparent;transition:.15s
   }
   .links a:hover{color:var(--gold2);border-color:var(--line);background:rgba(0,0,0,.2)}
-  .cmds{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px;align-items:start}
-  .cmds summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
-  .cmds summary::-webkit-details-marker{display:none}
-  .cmds summary::after{content:"+";color:var(--gold);font-size:22px;line-height:1}
-  .cmds details[open] summary::after{content:"−"}
-  .cmds summary h3{margin-bottom:0}
-  .cmds details[open] summary{margin-bottom:12px}
-  .engine{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:22px}
-  .engine h3{font-family:Cinzel,serif;font-size:19px;color:var(--gold2);display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-  .engine ul{list-style:none;display:flex;flex-direction:column;gap:7px}
-  .engine li{font-size:14.5px;padding-left:22px;position:relative}
-  .engine li::before{content:"◆";position:absolute;left:0;top:1px;color:var(--gold);font-size:11px}
-  .cmds .engine li{color:var(--muted)}
-  .cmds .engine li code{font-weight:600}
+  .cmds{position:relative;background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:22px}
+  .cmds>input{position:absolute;opacity:0;pointer-events:none}
+  .cmds .tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+  .cmds .tabs label{
+    cursor:pointer;padding:6px 14px;border-radius:999px;border:1px solid var(--line);
+    font-size:14px;color:var(--muted);background:rgba(0,0,0,.2);transition:.15s
+  }
+  .cmds .tabs label:hover{color:var(--gold2)}
+  .cmds .panels{display:grid}
+  .cmds .panels>ul{grid-area:1/1;visibility:hidden}
+  #cmd-start:checked~.tabs [for=cmd-start],#cmd-field:checked~.tabs [for=cmd-field],
+  #cmd-gold:checked~.tabs [for=cmd-gold],#cmd-fun:checked~.tabs [for=cmd-fun]{color:var(--gold2);border-color:var(--gold)}
+  #cmd-start:checked~.panels .p-start,#cmd-field:checked~.panels .p-field,
+  #cmd-gold:checked~.panels .p-gold,#cmd-fun:checked~.panels .p-fun{visibility:visible}
+  .cmds>input:focus-visible~.tabs label{outline:none}
+  #cmd-start:focus-visible~.tabs [for=cmd-start],#cmd-field:focus-visible~.tabs [for=cmd-field],
+  #cmd-gold:focus-visible~.tabs [for=cmd-gold],#cmd-fun:focus-visible~.tabs [for=cmd-fun]{outline:2px solid var(--gold2);outline-offset:2px}
+  .cmds ul{list-style:none;display:flex;flex-direction:column;gap:7px}
+  .cmds li{font-size:14.5px;padding-left:22px;position:relative;color:var(--muted)}
+  .cmds li::before{content:"◆";position:absolute;left:0;top:1px;color:var(--gold);font-size:11px}
+  .cmds li code{font-weight:600}
   .alias{font-size:12.5px;color:var(--muted);opacity:.8}
   .chat{display:flex;flex-direction:column;gap:10px;font-size:14.5px}
   .chat div{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:10px;padding:10px 14px;color:var(--muted)}
@@ -209,67 +216,43 @@
 
   <div class="divider">THE CHARTER OF COMMANDS</div>
   <div class="cmds">
-    <details class="engine">
-      <summary><h3>🪪 Getting started</h3></summary>
-      <ul>
+    <input type="radio" name="cmd-tab" id="cmd-start" checked>
+    <input type="radio" name="cmd-tab" id="cmd-field">
+    <input type="radio" name="cmd-tab" id="cmd-gold">
+    <input type="radio" name="cmd-tab" id="cmd-fun">
+    <div class="tabs">
+      <label for="cmd-start">🪪 Getting started</label>
+      <label for="cmd-field">⚔️ Out in the field</label>
+      <label for="cmd-gold">🛒 Gold &amp; gear</label>
+      <label for="cmd-fun">🎲 Just for fun</label>
+    </div>
+    <div class="panels">
+      <ul class="p-start">
         <li><code>!start</code> where you stand and what to do next</li>
         <li><code>!enlist &lt;name&gt;</code> or <code>!enlist random</code></li>
         <li><code>!ledger</code> your sheet, or <code>!ledger @user</code> <span class="alias">(also !chars)</span></li>
         <li><code>!discharge confirm</code> retire your character</li>
         <li><code>!help</code> the full guide</li>
       </ul>
-    </details>
-    <details class="engine">
-      <summary><h3>⚔️ Out in the field</h3></summary>
-      <ul>
+      <ul class="p-field">
         <li><code>!hunt</code> or <code>!hunt &lt;monster&gt;</code></li>
         <li><code>!autohunt 20m</code> <span class="alias">(also !auto)</span></li>
         <li><code>!autostatus</code> and <code>!autostop</code></li>
         <li><code>!rest</code> recover between bouts</li>
         <li><code>!quests</code> the bounty board <span class="alias">(also !board)</span></li>
       </ul>
-    </details>
-    <details class="engine">
-      <summary><h3>🛒 Gold &amp; gear</h3></summary>
-      <ul>
+      <ul class="p-gold">
         <li><code>!merchant</code> today's wares <span class="alias">(also !shop)</span></li>
         <li><code>!buy 1</code> or <code>!buy &lt;item&gt;</code></li>
         <li><code>!inventory</code> <span class="alias">(also !inv)</span> and <code>!purse</code></li>
         <li><code>!use</code>, <code>!sell</code> and <code>!drop &lt;item&gt;</code></li>
         <li><code>!item &lt;name&gt;</code> look up any ware</li>
       </ul>
-    </details>
-    <details class="engine">
-      <summary><h3>🎲 Just for fun</h3></summary>
-      <ul>
+      <ul class="p-fun">
         <li><code>!d20</code> or <code>!d20 @user</code> <span class="alias">(also !roll)</span></li>
         <li><code>!lurk</code> slip into the shadows, still marked present</li>
       </ul>
-    </details>
-  </div>
-
-  <div class="divider">QUESTIONS AT THE BAR</div>
-  <div class="scroll faq">
-    <details>
-      <summary>Does it spam chat?</summary>
-      <p>No. Besides answering commands, the Clerk only posts the odd announcement (new stall wares, fresh bounties, a bit of item lore, a nudge to <code>!start</code>), only while the channel is live, and never more than once per 30 minutes or 5 chat messages.</p>
-    </details>
-    <details>
-      <summary>Can streamers turn parts of it off?</summary>
-      <p>Yes. The broadcaster and mods get a back-room panel with toggles for characters, combat, the shop, quests, dice and each kind of announcement.</p>
-    </details>
-    <details>
-      <summary>Is my character the same in every channel?</summary>
-      <p>Yes. Your character is tied to your Twitch account, so the same adventurer follows you to any channel the Clerk works in.</p>
-    </details>
-    <details>
-      <summary>How is it built?</summary>
-      <p>A Deno bot connects to Twitch's EventSub chat feed and answers commands, while a Val Town backend stores the ledger, the board and the stall, and hosts the command guide and admin panel. It was built and tested with <a href="/bot-sandbox/" style="color:var(--gold2)">TwitchBotSandbox</a>.</p>
-    </details>
-    <details>
-      <summary>Can I add it to my channel?</summary>
-      <p>Not yet. It's still being finished on stream. Keep an eye on this page.</p>
-    </details>
+    </div>
   </div>
 
   <div class="divider">FOLLOW THE FORGE</div>
