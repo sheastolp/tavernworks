@@ -125,6 +125,8 @@
   .suggest .cta{margin-top:0;align-items:center}
   .suggest .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
   .status{font-size:14px;color:var(--muted)}
+  .inbox{margin-left:auto;font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:4px 10px;transition:.15s}
+  .inbox:hover{color:var(--gold2);border-color:var(--gold)}
   .status.ok{color:var(--green)}
   .status.err{color:#ff8a5c}
 
@@ -273,6 +275,7 @@
       <div class="cta">
         <button class="btn gold" type="submit" id="suggest-send">💡 Drop it in the box</button>
         <span class="status" id="suggest-status" role="status"></span>
+        <a class="inbox" href="/hushwave/suggestions/" title="Suggestion inbox (admin login)">📥 Inbox</a>
       </div>
     </form>
   </div>
