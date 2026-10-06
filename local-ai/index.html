@@ -173,17 +173,17 @@
     <div class="card">
       <div class="icon">🦙</div>
       <h3>Ollama</h3>
-      <p>Downloads and runs the models. Here it runs in CPU-only mode, no graphics card involved.</p>
+      <p>Downloads and runs the models in CPU-only mode, no graphics card involved. Listens on port 11434 and powers both chat pages.</p>
     </div>
     <div class="card">
       <div class="icon">💬</div>
       <h3>Open WebUI</h3>
-      <p>A ChatGPT-style chat page in the browser, sitting on top of Ollama.</p>
+      <p>A ChatGPT-style chat page sitting on top of Ollama, on port 3000 of the laptop's tailnet address.</p>
     </div>
     <div class="card">
       <div class="icon">🔗</div>
       <h3>Tailscale</h3>
-      <p>A private network between my own devices. I SSH into the box over it to manage things from anywhere.</p>
+      <p>A private network between my own devices. I SSH in over it, and <code>tailscale serve</code> gives Ollama an HTTPS address for the browser chat.</p>
     </div>
   </div>
 
@@ -197,40 +197,69 @@
       <div class="node box">
         <b>Yoga 730 · Ubuntu</b>
         <div class="inner">
-          <div><strong>Open WebUI</strong>chat page</div>
-          <div><strong>Ollama</strong>runs models</div>
+          <div><strong>Open WebUI</strong>port 3000</div>
+          <div><strong>tailscale serve</strong>HTTPS → 11434</div>
+          <div><strong>Ollama</strong>port 11434</div>
           <div><strong>CPU</strong>does the work</div>
         </div>
       </div>
     </div>
+    <p class="note" style="margin-top:14px">Two ways in: <b>Open WebUI</b> on port 3000 of the laptop's tailnet address, or the <b>browser chat</b> on this site, which reaches Ollama through the HTTPS address <code>tailscale serve</code> provides. Both only answer devices on the tailnet.</p>
   </div>
 
   <div class="divider">CHAT FROM THE BROWSER</div>
   <div class="scroll">
-    <p>The <a href="/local-ai/chat/" style="color:var(--gold2)">browser chat</a> is a lightweight, Open WebUI-style client that talks straight to Ollama over Tailscale. Nothing passes through this website: the page loads here, then your browser talks to the laptop directly. It only works from devices on the tailnet. The server address is saved in your own browser, never on this site.</p>
+    <p>The <a href="/local-ai/chat/" style="color:var(--gold2)">browser chat</a> is a lightweight, Open WebUI-style client that talks straight to Ollama over Tailscale. Nothing passes through this website: the page loads here, then your browser talks to the laptop directly. It only works from devices on the tailnet, and the laptop's addresses are saved in your own browser, never on this site.</p>
     <ol class="steps" style="margin-top:18px">
       <li>
         <h4>Give Ollama an HTTPS address on the tailnet</h4>
-        <p>This site is HTTPS, so browsers won't let it call plain <code>http://</code>. Tailscale can serve Ollama with a real certificate (turn on MagicDNS and HTTPS certificates under DNS in the Tailscale admin console first):</p>
+        <p>This site is HTTPS, so browsers won't let it call plain <code>http://</code>. In the Tailscale admin console, under <b>DNS</b>, turn on MagicDNS and <b>Enable HTTPS</b>. Then, on the laptop:</p>
 <pre>sudo tailscale serve --bg 11434</pre>
-        <p class="note">It prints an address like <code>https://yoga.tail1234.ts.net</code>. Only tailnet devices can open it.</p>
+        <p class="note">It prints the address, something like <code>https://&lt;machine&gt;.&lt;tailnet&gt;.ts.net/</code>, and keeps serving across reboots. Lost it? <code>tailscale serve status</code> shows it again, or find the machine's full domain name in the admin console's Machines list.</p>
       </li>
       <li>
-        <h4>Let this site talk to Ollama</h4>
-        <p>Ollama only answers browser requests from sites it's told to trust:</p>
+        <h4>Let tavernworks.dev talk to Ollama</h4>
 <pre>sudo systemctl edit ollama
-# add these two lines, then save:
+# in the editable area at the top, add:
 [Service]
 Environment="OLLAMA_ORIGINS=https://tavernworks.dev"
 
-sudo systemctl restart ollama</pre>
+sudo systemctl restart ollama
+systemctl show ollama --property=Environment   # should list it</pre>
       </li>
       <li>
-        <h4>Connect</h4>
-        <p>Open the <a href="/local-ai/chat/" style="color:var(--gold2)">chat</a>, paste the address from step 1, hit <b>Test connection</b>, then <b>Save</b>. Add Open WebUI's address too and the <b>Open Local AI</b> button will take you straight there.</p>
-        <p class="note">If the browser asks to allow access to devices on your local network, allow it. A "403" means step 2 isn't in place yet.</p>
+        <h4>Check it, then connect</h4>
+        <p>From a device on the tailnet, open the address from step 1 in a tab. It should say <b>"Ollama is running"</b>. Then open the <a href="/local-ai/chat/" style="color:var(--gold2)">chat</a>, paste it into <b>⚙ Connection settings</b>, add Open WebUI's address (the laptop's tailnet IP or name, port 3000) so <b>Open Local AI</b> goes straight there, hit <b>Test connection</b>, then <b>Save</b>.</p>
       </li>
     </ol>
+  </div>
+
+  <div class="divider">WHEN THE CHAT CAN'T CONNECT</div>
+  <div class="scroll faq">
+    <details>
+      <summary>"Can't reach the laptop"</summary>
+      <p>Nothing answered at the Ollama address. Check in this order: the device is connected to Tailscale; the <b>browser's own VPN is off</b> (Opera GX's built-in VPN, for one, sends traffic through Opera's servers, which can't see the tailnet); the laptop is awake; and <code>tailscale serve status</code> on the laptop still lists the address. If it doesn't, run <code>sudo tailscale serve --bg 11434</code> again.</p>
+    </details>
+    <details>
+      <summary>"The laptop answered, but Ollama isn't letting this site in"</summary>
+      <p>The address works but <code>OLLAMA_ORIGINS</code> isn't set, or Ollama wasn't restarted after setting it. Do step 2 above and check with <code>systemctl show ollama --property=Environment</code>.</p>
+    </details>
+    <details>
+      <summary>The Ollama address won't open in a tab</summary>
+      <p>HTTPS certificates may be off: Tailscale admin console → <b>DNS</b> → <b>Enable HTTPS</b>. The first visit after that can take 10–20 seconds while the certificate is issued.</p>
+    </details>
+    <details>
+      <summary>The browser asks about devices on my local network</summary>
+      <p>Allow it. Some browsers ask before a website may talk to devices on private networks, and the tailnet counts as one.</p>
+    </details>
+    <details>
+      <summary>Open WebUI works but the browser chat doesn't</summary>
+      <p>They take different routes: Open WebUI is reached directly on port 3000, while the browser chat needs the HTTPS address from <code>tailscale serve</code> plus the <code>OLLAMA_ORIGINS</code> setting. Steps 1 and 2 above cover both.</p>
+    </details>
+    <details>
+      <summary>Connected, but no models in the list</summary>
+      <p>Ollama has nothing downloaded yet. On the laptop: <code>ollama pull llama3.2</code> (small models suit a CPU best), then reload the chat.</p>
+    </details>
   </div>
 
   <div class="divider">LIFE WITHOUT A GPU</div>

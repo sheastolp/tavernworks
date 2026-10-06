@@ -170,11 +170,11 @@
     <h2>Connect to your server</h2>
     <p>Saved in this browser only, nothing goes on the public site. Only devices on your tailnet can reach these addresses.</p>
     <label>Ollama address
-      <small>The HTTPS address <code>tailscale serve</code> gives Ollama, e.g. <code>https://yoga.tail1234.ts.net</code></small>
-      <input id="apiUrl" type="url" placeholder="https://yoga.tail1234.ts.net" autocomplete="off" spellcheck="false">
+      <small>The HTTPS address <code>tailscale serve</code> gives Ollama (<code>tailscale serve status</code> on the laptop shows it)</small>
+      <input id="apiUrl" type="url" placeholder="https://your-machine.your-tailnet.ts.net" autocomplete="off" spellcheck="false">
     </label>
-    <label>Open WebUI address <small>Optional. Used by the "Open Local AI" links, e.g. <code>http://yoga:3000</code></small>
-      <input id="webuiUrl" type="url" placeholder="http://yoga:3000" autocomplete="off" spellcheck="false">
+    <label>Open WebUI address <small>Used by the "Open Local AI" links. Open WebUI listens on port 3000.</small>
+      <input id="webuiUrl" type="url" placeholder="http://your-machine:3000" autocomplete="off" spellcheck="false">
     </label>
     <label>System prompt <small>Optional. Sent at the start of every new message.</small>
       <textarea id="system" placeholder="You are a helpful assistant."></textarea>
@@ -201,6 +201,7 @@
   let chats = store.get(CHATS_KEY, []);
   let current = null;       // id of the open chat
   let busy = null;          // AbortController while a reply streams
+  let lastError = null;     // why the last connect() failed
   const trimUrl = (u) => String(u || "").trim().replace(/\/+$/, "");
 
   // ── Markdown (escape first, then a small safe subset) ──
@@ -324,11 +325,17 @@
 
   // ── Connection ──
   function setStatus(kind, text) { $("dot").className = "dot " + kind; $("statusText").textContent = text; }
-  function explain(err, base) {
+  // Works out why a request failed. A browser hides the difference between
+  // "server unreachable" and "server refused this site (CORS)", so this
+  // re-asks in no-cors mode: that resolves whenever anything answered at all.
+  async function diagnose(err, base) {
     if (location.protocol === "https:" && /^http:/i.test(base)) return "This page is HTTPS, so the browser blocks plain http:// addresses. Use the https://….ts.net address from `tailscale serve`.";
-    if (err && err.name === "AbortError") return "Stopped.";
-    if (err && /^HTTP 403/.test(err.message)) return "Ollama refused the request (403). Add this site to OLLAMA_ORIGINS on the laptop (see the setup steps on the Local AI page).";
-    return "Couldn't reach Ollama. Check this device is connected to Tailscale, the laptop is awake, and the setup steps on the Local AI page are done.";
+    if (err && /^HTTP 403/.test(err.message)) return "Ollama refused this site (403). On the laptop, set OLLAMA_ORIGINS=https://tavernworks.dev and restart Ollama (see the Local AI page).";
+    if (err && /^HTTP \d/.test(err.message)) return `Ollama answered with an error (${err.message}).`;
+    let reachable = false;
+    try { await fetch(base + "/", { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(6000) }); reachable = true; } catch {}
+    if (reachable) return "The laptop answered, but Ollama isn't letting this site in. On the laptop, set OLLAMA_ORIGINS=https://tavernworks.dev and restart Ollama (`systemctl show ollama --property=Environment` should list it). Steps are on the Local AI page.";
+    return "Can't reach the laptop. Check: this device is connected to Tailscale; any browser VPN (like Opera's) is off; the laptop is awake; and `tailscale serve --bg 11434` is running on it (open the Ollama address in a tab, it should say \"Ollama is running\").";
   }
   async function loadModels(base) {
     const res = await fetch(base + "/api/tags", { signal: AbortSignal.timeout(8000) });
@@ -355,6 +362,7 @@
     } catch (e) {
       sel.innerHTML = '<option value="">Offline</option>';
       setStatus("bad", "Offline");
+      lastError = e;
       console.warn(e);
     }
   }
@@ -370,7 +378,7 @@
     if (!model) {
       await connect();
       if (!$("model").value) {
-        notice($("dot").classList.contains("ok") ? "No models are installed yet. On the laptop, run e.g. `ollama pull llama3.2`." : explain(null, settings.api));
+        notice($("dot").classList.contains("ok") ? "No models are installed yet. On the laptop, run e.g. `ollama pull llama3.2`." : await diagnose(lastError, settings.api));
         return;
       }
     }
@@ -438,7 +446,7 @@
         reply.stats = "stopped";
         if (!reply.content) reply.error = "Stopped before the model replied.";
       } else {
-        const msg = /^HTTP [45]\d\d: /.test(e.message) ? e.message : explain(e, settings.api);
+        const msg = /^HTTP [45]\d\d: /.test(e.message) ? e.message : await diagnose(e, settings.api);
         if (reply.content) reply.stats = "cut off: " + msg; else reply.error = msg;
         setStatus("bad", "Error");
       }
@@ -483,7 +491,7 @@
       out.textContent = `✔ Connected. ${models.length} model${models.length === 1 ? "" : "s"}: ${models.map((m) => m.name).join(", ") || "none installed"}`;
       out.style.color = "var(--green)";
     } catch (e) {
-      out.textContent = "✘ " + explain(e, base);
+      out.textContent = "✘ " + await diagnose(e, base);
       out.style.color = "#ff9b7a";
     }
   };
