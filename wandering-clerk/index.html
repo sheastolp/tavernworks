@@ -109,6 +109,12 @@
   code{font-family:ui-monospace,Consolas,monospace;font-size:.92em;color:var(--gold2)}
   .note{font-size:13.5px;margin-top:14px}
 
+  .links{margin-top:18px;display:flex;flex-wrap:nowrap;justify-content:center;gap:8px}
+  .links a{
+    display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;white-space:nowrap;
+    font-size:13.5px;color:var(--muted);background:transparent;border:1px solid transparent;transition:.15s
+  }
+  .links a:hover{color:var(--gold2);border-color:var(--line);background:rgba(0,0,0,.2)}
   .cmds{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px;align-items:start}
   .cmds summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
   .cmds summary::-webkit-details-marker{display:none}
@@ -145,9 +151,9 @@
       <span class="pill plain">TWITCH CHAT</span>
       <span class="pill plain">DENO + VAL TOWN</span>
     </div>
-    <div class="cta" style="justify-content:center">
-      <a class="btn" href="https://hunt.tavernworks.dev/admin" target="_blank" rel="noopener">📊 Dashboard</a>
-      <a class="btn" href="https://hunt.tavernworks.dev/ledger" target="_blank" rel="noopener">🗝️ Back Room</a>
+    <div class="links">
+      <a href="https://hunt.tavernworks.dev/admin" target="_blank" rel="noopener">📊 Dashboard</a>
+      <a href="https://hunt.tavernworks.dev/ledger" target="_blank" rel="noopener">🗝️ Back Room</a>
     </div>
   </header>
 
