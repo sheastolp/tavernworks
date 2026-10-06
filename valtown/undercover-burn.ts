@@ -44,6 +44,18 @@
 // 5. Admin: https://burn.tavernworks.dev/channels?key=<ADMIN_KEY>
 //    Backfill old channels once: /admin/sync-eventsub?key=<ADMIN_KEY>
 //
+// AD BREAK ALERTS
+// ---------------
+// The bot announces when an ad break starts (with its length) and welcomes
+// chat back when it ends. Twitch only sends a "begin" event, so the end is
+// timed by the val itself: the webhook calls /ads/finish on this val, which
+// waits out the ad (re-calling itself every AD_TIMER_HOP_MS so no single
+// request outlives Val Town's time limit) and then posts. If that timer gets
+// cut short, the next poster run posts the welcome-back instead.
+// Needs the channel:read:ads scope from each streamer. Channels invited before
+// ad alerts existed show "re-invite" on the admin page: they just run the
+// invite link again (nothing else about their setup changes).
+//
 // Data lives in the account-wide SQLite database (std/sqlite "global").
 // Commentary uses Val Town's built-in std/openai (no API key needed).
 
@@ -98,6 +110,19 @@ const REQUIRE_RECENT_CHATTER = true;
 const BLOCKED_ROAST_GAMES: string[] = [
   "Just Chatting",
 ];
+
+// --- Ad break settings ---
+// Master switch for ad start/end messages.
+const AD_ALERTS_ENABLED = true;
+// The ad-end timer re-calls itself at most this often, staying well under
+// Val Town's per-request time limit.
+const AD_TIMER_HOP_MS = 40 * 1000;
+const AD_TIMER_MAX_HOPS = 10;
+// The poster's fallback leaves an ad alone for this long after it ends,
+// giving the timer first shot at posting the welcome-back.
+const AD_END_GRACE_MS = 20 * 1000;
+// A welcome-back older than this is dropped instead of posted late.
+const AD_END_STALE_MS = 10 * 60 * 1000;
 
 // ======================================================================
 // ROAST LISTS
@@ -294,6 +319,36 @@ const CHATTER_ROASTS: string[] = [
   "@{name} spotted in chat: big opinions, small hitbox",
 ];
 
+// Ad break messages. {length} is replaced with e.g. "90 seconds".
+const AD_START_MESSAGES: string[] = [
+  "📺 Ad break! {length} of ads incoming. Stretch, hydrate, and don't let Bowser steal your snacks.",
+  "Commercial break! The stream is warping out for {length}. Chat, hold the castle till it's back.",
+  "{length} of ads, aka the Mushroom Kingdom intermission. Grab a 1-Up (water) and come back.",
+  "Ads rolling for {length}. Perfect time to stand up before your legs turn into Goombas.",
+  "Ad break for {length}. UndercoverBurn is keeping watch on chat while you're gone 🥸",
+];
+
+const AD_END_MESSAGES: string[] = [
+  "Ads are over, welcome back! 🍄",
+  "And we're back! Hope you hydrated, chat.",
+  "Ad break's done. Warp pipe's open, everybody back in.",
+  "Welcome back from the ads! Did we miss anything? (we did not, it was ads)",
+  "Commercials cleared. Level resumed, lives intact. Mostly.",
+];
+
+function pick(list: string[]): string {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function formatAdLength(seconds: number): string {
+  if (seconds <= 0) return "a few moments";
+  if (seconds < 60) return `${seconds} seconds`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  const mins = `${m} minute${m === 1 ? "" : "s"}`;
+  return s ? `${mins} ${s} seconds` : mins;
+}
+
 function getChatterRoast(name: string): string {
   const template =
     CHATTER_ROASTS[Math.floor(Math.random() * CHATTER_ROASTS.length)];
@@ -339,6 +394,15 @@ async function ensureTables() {
       ts INTEGER
     )
   `);
+  // One row per channel: its most recent ad break.
+  await sqlite.execute(`
+    CREATE TABLE IF NOT EXISTS ad_breaks (
+      broadcaster_id TEXT PRIMARY KEY,
+      event_id TEXT,
+      ends_at INTEGER,
+      end_posted INTEGER DEFAULT 0
+    )
+  `);
   // Migrations for tables created before these columns existed.
   for (
     const stmt of [
@@ -346,6 +410,7 @@ async function ensureTables() {
       `ALTER TABLE channels ADD COLUMN enabled INTEGER DEFAULT 1`,
       `ALTER TABLE channels ADD COLUMN message_count INTEGER DEFAULT 0`,
       `ALTER TABLE channels ADD COLUMN is_live INTEGER DEFAULT 0`,
+      `ALTER TABLE channels ADD COLUMN ads_subscribed INTEGER DEFAULT 0`,
     ]
   ) {
     try {
@@ -373,7 +438,8 @@ async function setKv(key: string, value: string) {
 }
 
 // Flips the live flag. When a stream ends, also wipes that channel's
-// saved chat so old messages never get commented on next stream.
+// saved chat so old messages never get commented on next stream, and
+// drops any ad break in progress so no welcome-back posts after the end.
 async function setLiveStatus(broadcasterId: string, live: boolean) {
   await sqlite.execute({
     sql: `UPDATE channels SET is_live = :live WHERE broadcaster_id = :id`,
@@ -382,6 +448,10 @@ async function setLiveStatus(broadcasterId: string, live: boolean) {
   if (!live) {
     await sqlite.execute({
       sql: `DELETE FROM recent_chat WHERE broadcaster_id = :id`,
+      args: { id: broadcasterId },
+    });
+    await sqlite.execute({
+      sql: `DELETE FROM ad_breaks WHERE broadcaster_id = :id`,
       args: { id: broadcasterId },
     });
   }
@@ -513,6 +583,48 @@ async function subscribeStreamEvents(broadcasterId: string) {
       );
     }
   }
+}
+
+// Subscribes to channel.ad_break.begin. Twitch answers 403 when the
+// broadcaster hasn't granted channel:read:ads (channels invited before ad
+// alerts existed), so the result is saved for the admin page.
+// Returns whether the subscription exists.
+async function subscribeAdEvents(broadcasterId: string): Promise<boolean> {
+  const accessToken = await getAppAccessToken();
+  const res = await fetch(
+    "https://api.twitch.tv/helix/eventsub/subscriptions",
+    {
+      method: "POST",
+      headers: {
+        "Client-Id": CLIENT_ID,
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "channel.ad_break.begin",
+        version: "1",
+        condition: { broadcaster_user_id: broadcasterId },
+        transport: {
+          method: "webhook",
+          callback: EVENTSUB_CALLBACK,
+          secret: EVENTSUB_SECRET,
+        },
+      }),
+    },
+  );
+  const ok = res.ok || res.status === 409;
+  if (!ok) {
+    console.error(
+      `EventSub subscribe (channel.ad_break.begin) failed for ${broadcasterId}:`,
+      res.status,
+      await res.text(),
+    );
+  }
+  await sqlite.execute({
+    sql: `UPDATE channels SET ads_subscribed = :s WHERE broadcaster_id = :id`,
+    args: { s: ok ? 1 : 0, id: broadcasterId },
+  });
+  return ok;
 }
 
 async function verifyEventSubSignature(
@@ -655,6 +767,125 @@ async function sendChatMessage(
   }
   console.log(`Sent to ${broadcasterId}: ${message}`);
   return true;
+}
+
+// ======================================================================
+// AD BREAK ALERTS
+// ======================================================================
+
+// Ad messages follow the global and per-channel on/off switches but not the
+// live flag: an ad break is proof the channel is live.
+async function adAlertsAllowed(broadcasterId: string): Promise<boolean> {
+  if (!AD_ALERTS_ENABLED) return false;
+  if ((await getKv("bot_enabled")) === "0") return false;
+  const { rows } = await sqlite.execute({
+    sql: "SELECT enabled FROM channels WHERE broadcaster_id = :id",
+    args: { id: broadcasterId },
+  });
+  if (!rows.length) return false;
+  return rows[0][0] === null || rows[0][0] === undefined ||
+    Number(rows[0][0]) === 1;
+}
+
+async function postAdMessage(broadcasterId: string, message: string) {
+  const botUserId = await getKv("bot_user_id");
+  if (!botUserId) return;
+  const accessToken = await getAppAccessToken();
+  await sendChatMessage(accessToken, botUserId, broadcasterId, message);
+}
+
+// Starts the ad-end timer by calling /ads/finish on this val. That request
+// sleeps through the ad, so don't wait for it; just give it a moment to go out.
+async function scheduleAdEnd(
+  selfOrigin: string,
+  broadcasterId: string,
+  eventId: string,
+  hop = 0,
+) {
+  const u = new URL("/ads/finish", selfOrigin);
+  u.searchParams.set("key", ADMIN_KEY);
+  u.searchParams.set("id", broadcasterId);
+  u.searchParams.set("event", eventId);
+  u.searchParams.set("hop", String(hop));
+  fetch(u).then((r) => r.body?.cancel()).catch((err) =>
+    console.error("Ad-end timer request failed:", err)
+  );
+  await new Promise((r) => setTimeout(r, 1000));
+}
+
+// Handles one channel.ad_break.begin event: records the break, announces it,
+// and starts the timer for the welcome-back message.
+async function handleAdBreakBegin(
+  event: {
+    broadcaster_user_id: string;
+    broadcaster_user_login?: string;
+    duration_seconds?: number;
+    started_at?: string;
+    is_automatic?: boolean;
+  },
+  eventId: string,
+  selfOrigin: string,
+) {
+  const broadcasterId = event.broadcaster_user_id;
+  const durationSec = Math.max(0, Math.round(Number(event.duration_seconds) || 0));
+  const startedAt = Date.parse(event.started_at ?? "") || Date.now();
+  const endsAt = startedAt + durationSec * 1000;
+
+  // Twitch re-delivers events it thinks failed; only act on the first copy.
+  const { rowsAffected } = await sqlite.execute({
+    sql: `INSERT INTO ad_breaks (broadcaster_id, event_id, ends_at, end_posted)
+          VALUES (:id, :eid, :ends, 0)
+          ON CONFLICT(broadcaster_id) DO UPDATE SET
+            event_id = excluded.event_id,
+            ends_at = excluded.ends_at,
+            end_posted = 0
+          WHERE ad_breaks.event_id IS NOT excluded.event_id`,
+    args: { id: broadcasterId, eid: eventId, ends: endsAt },
+  });
+  if (!rowsAffected) return;
+
+  console.log(
+    `Ad break in ${event.broadcaster_user_login ?? broadcasterId}: ${durationSec}s` +
+      (event.is_automatic ? " (automatic)" : ""),
+  );
+  if (!(await adAlertsAllowed(broadcasterId))) return;
+
+  await postAdMessage(
+    broadcasterId,
+    pick(AD_START_MESSAGES).replaceAll("{length}", formatAdLength(durationSec)),
+  );
+  await scheduleAdEnd(selfOrigin, broadcasterId, eventId);
+}
+
+// Posts the welcome-back for one ad break, at most once no matter how many
+// timers or poster runs reach it. With post=false it's just marked done.
+async function finishAdBreak(
+  broadcasterId: string,
+  eventId: string,
+  post = true,
+) {
+  const { rowsAffected } = await sqlite.execute({
+    sql: `UPDATE ad_breaks SET end_posted = 1
+          WHERE broadcaster_id = :id AND event_id = :eid AND end_posted = 0`,
+    args: { id: broadcasterId, eid: eventId },
+  });
+  if (!rowsAffected || !post) return;
+  if (!(await adAlertsAllowed(broadcasterId))) return;
+  await postAdMessage(broadcasterId, pick(AD_END_MESSAGES));
+}
+
+// Poster fallback: welcome chat back after any ad whose timer didn't finish.
+async function postOverdueAdEnds() {
+  const now = Date.now();
+  const { rows } = await sqlite.execute({
+    sql: `SELECT broadcaster_id, event_id, ends_at FROM ad_breaks
+          WHERE end_posted = 0 AND ends_at < :cutoff`,
+    args: { cutoff: now - AD_END_GRACE_MS },
+  });
+  for (const row of rows) {
+    const stale = now - Number(row[2]) > AD_END_STALE_MS;
+    await finishAdBreak(row[0] as string, row[1] as string, !stale);
+  }
 }
 
 // ======================================================================
@@ -824,6 +1055,17 @@ async function runPoster() {
     return;
   }
 
+  await postOverdueAdEnds().catch((err) =>
+    console.error("postOverdueAdEnds error:", err)
+  );
+
+  // Channels in the middle of an ad break get no roasts or commentary.
+  const adRows = await sqlite.execute({
+    sql: "SELECT broadcaster_id FROM ad_breaks WHERE ends_at > :now",
+    args: { now: Date.now() },
+  });
+  const inAdBreak = new Set(adRows.rows.map((r) => r[0] as string));
+
   const { rows } = await sqlite.execute(
     "SELECT broadcaster_id, broadcaster_login, se_channel_id, se_jwt_token, enabled, is_live, message_count FROM channels",
   );
@@ -859,6 +1101,10 @@ async function runPoster() {
     }
     if (!isLive) {
       console.log(`Skipping ${broadcasterLogin} — not live.`);
+      continue;
+    }
+    if (inAdBreak.has(broadcasterId)) {
+      console.log(`Skipping ${broadcasterLogin} — ad break running.`);
       continue;
     }
     if (MIN_NEW_MESSAGES > 0 && messageCount < MIN_NEW_MESSAGES) {
@@ -1019,7 +1265,9 @@ async function handleHttp(req: Request): Promise<Response> {
       <p>${BOT_NAME} slips into your Twitch chat undercover, then blows
       its own cover with a playful roast, a quote pulled live from
       your own channel's StreamElements <code>!quote</code> list, or a
-      one-liner reacting to what chat has been saying.</p>
+      one-liner reacting to what chat has been saying. It also gives
+      chat a heads-up when an ad break starts and welcomes everyone
+      back when it ends.</p>
       <p><a class="btn" href="${BASE_URL}/auth/start">Add ${BOT_NAME} to your channel</a></p>
       <p style="margin-top:16px;font-size:0.9em;color:#666">
         To react to chat, ${BOT_NAME} keeps your channel's most recent
@@ -1037,7 +1285,7 @@ async function handleHttp(req: Request): Promise<Response> {
 
   // ---- Streamer invite flow ----
   if (url.pathname === "/auth/start") {
-    return Response.redirect(authorizeUrl("channel:bot", "channel"), 302);
+    return Response.redirect(authorizeUrl("channel:bot channel:read:ads", "channel"), 302);
   }
 
   // ---- Bot's own one-time authorization ----
@@ -1134,9 +1382,11 @@ async function handleHttp(req: Request): Promise<Response> {
     });
 
     // Best-effort EventSub subscriptions; don't block the install on failure.
+    let adAlerts = false;
     try {
       await subscribeChatEvents(user.id);
       await subscribeStreamEvents(user.id);
+      adAlerts = await subscribeAdEvents(user.id);
     } catch (err) {
       console.error("EventSub subscribe error during install:", err);
     }
@@ -1148,6 +1398,11 @@ async function handleHttp(req: Request): Promise<Response> {
       seChannelId
         ? "Found your StreamElements channel too — quotes will mix in automatically."
         : "Didn't find a matching StreamElements channel, so it'll stick to roasts and chat reactions for now."
+    }</p>
+      <p>${
+      adAlerts
+        ? "Ad break alerts are on: chat gets a heads-up when ads start and a welcome-back when they end."
+        : "Ad break alerts couldn't be turned on. Try the invite link again in a minute."
     }</p>
       <p style="margin-top:12px;font-size:0.9em;color:#666">
         ${BOT_NAME} only posts while you're actually live — it'll go
@@ -1180,6 +1435,13 @@ async function handleHttp(req: Request): Promise<Response> {
 
     if (messageType === "revocation") {
       console.log("EventSub subscription revoked:", rawBody.slice(0, 300));
+      const body = JSON.parse(rawBody);
+      if (body.subscription?.type === "channel.ad_break.begin") {
+        await sqlite.execute({
+          sql: `UPDATE channels SET ads_subscribed = 0 WHERE broadcaster_id = :id`,
+          args: { id: body.subscription.condition?.broadcaster_user_id ?? "" },
+        }).catch((err) => console.error("ads_subscribed reset error:", err));
+      }
       return new Response("", { status: 200 });
     }
 
@@ -1200,6 +1462,11 @@ async function handleHttp(req: Request): Promise<Response> {
         await setLiveStatus(body.event.broadcaster_user_id, false).catch(
           (err) => console.error("setLiveStatus(offline) error:", err),
         );
+      } else if (subType === "channel.ad_break.begin") {
+        const eventId = req.headers.get("Twitch-Eventsub-Message-Id") ?? "";
+        await handleAdBreakBegin(body.event, eventId, url.origin).catch(
+          (err) => console.error("handleAdBreakBegin error:", err),
+        );
       }
       return new Response("", { status: 200 });
     }
@@ -1217,6 +1484,33 @@ async function handleHttp(req: Request): Promise<Response> {
     }
     await runPoster();
     return new Response("poster run complete", { status: 200 });
+  }
+
+  // ---- Ad-end timer: started by handleAdBreakBegin, waits out the ad ----
+  if (url.pathname === "/ads/finish") {
+    const key = url.searchParams.get("key");
+    if (!ADMIN_KEY || key !== ADMIN_KEY) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const id = url.searchParams.get("id") ?? "";
+    const eventId = url.searchParams.get("event") ?? "";
+    const hop = Number(url.searchParams.get("hop") ?? 0);
+    const { rows } = await sqlite.execute({
+      sql: `SELECT ends_at FROM ad_breaks
+            WHERE broadcaster_id = :id AND event_id = :eid AND end_posted = 0`,
+      args: { id, eid: eventId },
+    });
+    if (!rows.length) return new Response("nothing to do", { status: 200 });
+
+    const wait = Number(rows[0][0]) - Date.now();
+    if (wait > AD_TIMER_HOP_MS && hop < AD_TIMER_MAX_HOPS) {
+      await new Promise((r) => setTimeout(r, AD_TIMER_HOP_MS));
+      await scheduleAdEnd(url.origin, id, eventId, hop + 1);
+      return new Response("timer continued", { status: 200 });
+    }
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    await finishAdBreak(id, eventId);
+    return new Response("ad break finished", { status: 200 });
   }
 
   // ---- Admin: subscribe every installed channel (one-time backfill) ----
@@ -1237,7 +1531,11 @@ async function handleHttp(req: Request): Promise<Response> {
       try {
         await subscribeChatEvents(id);
         await subscribeStreamEvents(id);
-        results.push(`${login}: subscribed (or already was)`);
+        const ads = await subscribeAdEvents(id);
+        results.push(
+          `${login}: subscribed (or already was)` +
+            (ads ? "" : " — ad alerts need a re-invite (channel:read:ads)"),
+        );
       } catch (err) {
         results.push(`${login}: FAILED — ${err}`);
       }
@@ -1246,7 +1544,7 @@ async function handleHttp(req: Request): Promise<Response> {
       <h1>EventSub sync</h1>
       <p>Attempted to subscribe ${rows.length} channel${
       rows.length === 1 ? "" : "s"
-    } to chat and stream on/off events.</p>
+    } to chat, stream on/off, and ad break events.</p>
       <ul>${results.map((r) => `<li>${r}</li>`).join("")}</ul>
       <p style="margin-top:24px"><a href="${
       adminLink(key)
@@ -1267,7 +1565,7 @@ async function handleHttp(req: Request): Promise<Response> {
     const botEnabled = botEnabledRaw !== "0"; // default ON if never set
 
     const { rows } = await sqlite.execute(
-      "SELECT broadcaster_id, broadcaster_login, se_channel_id, added_at, enabled, message_count, is_live FROM channels ORDER BY added_at DESC",
+      "SELECT broadcaster_id, broadcaster_login, se_channel_id, added_at, enabled, message_count, is_live, ads_subscribed FROM channels ORDER BY added_at DESC",
     );
 
     const tableRows = rows
@@ -1285,6 +1583,7 @@ async function handleHttp(req: Request): Promise<Response> {
         const isLive = row[6] === null || row[6] === undefined
           ? false
           : Number(row[6]) === 1;
+        const adsOn = Number(row[7]) === 1;
         return `
           <tr>
             <td>${login}</td>
@@ -1295,6 +1594,7 @@ async function handleHttp(req: Request): Promise<Response> {
             <td><span class="badge ${isLive ? "on" : "off"}">${
           isLive ? "LIVE" : "OFFLINE"
         }</span></td>
+            <td>${adsOn ? "✅" : "re-invite"}</td>
             <td>${msgCount} new msgs</td>
             <td>${addedAt}</td>
             <td>
@@ -1339,11 +1639,13 @@ async function handleHttp(req: Request): Promise<Response> {
     } currently have ${BOT_NAME}. <strong>Live</strong> reflects each
       broadcaster's actual Twitch stream status via stream.online /
       stream.offline events — the poster only posts to channels that
-      are LIVE.</p>
+      are LIVE. <strong>Ad alerts</strong> showing "re-invite" means that
+      streamer added the bot before ad alerts existed; they just need to
+      run the invite link again to grant <code>channel:read:ads</code>.</p>
       <table>
-        <thead><tr><th>Channel</th><th>StreamElements</th><th>Status</th><th>Live</th><th>Chat activity</th><th>Added</th><th></th></tr></thead>
+        <thead><tr><th>Channel</th><th>StreamElements</th><th>Status</th><th>Live</th><th>Ad alerts</th><th>Chat activity</th><th>Added</th><th></th></tr></thead>
         <tbody>${
-      tableRows || `<tr><td colspan="7">No channels yet.</td></tr>`
+      tableRows || `<tr><td colspan="8">No channels yet.</td></tr>`
     }</tbody>
       </table>
       <p style="margin-top:24px"><a href="${BASE_URL}/">Back home</a></p>
@@ -1404,6 +1706,10 @@ async function handleHttp(req: Request): Promise<Response> {
       });
       await sqlite.execute({
         sql: "DELETE FROM recent_chat WHERE broadcaster_id = :id",
+        args: { id: id as string },
+      });
+      await sqlite.execute({
+        sql: "DELETE FROM ad_breaks WHERE broadcaster_id = :id",
         args: { id: id as string },
       });
     }
