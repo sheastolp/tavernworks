@@ -115,7 +115,13 @@
   dialog .row{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
   dialog .row button{padding:8px 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-weight:600}
   dialog .row button.primary{background:var(--gold);border-color:var(--gold);color:var(--bg)}
-  dialog .test{font-size:13px;margin-top:10px;min-height:20px}
+  dialog .test{font-size:13px;margin-top:10px;min-height:20px;white-space:pre-line}
+  dialog fieldset.cc{border:1px solid var(--line);border-radius:12px;padding:4px 14px 12px;margin-top:16px}
+  dialog fieldset.cc legend{padding:0 6px;font-weight:600;font-size:14px;color:var(--gold2)}
+  dialog fieldset.cc legend small{color:var(--muted);font-weight:400}
+  .tools{list-style:none;margin:0 0 8px;font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+  .tools li{font-family:ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+  .tools li.fail{color:#ff9b7a}
   dialog code{font-family:ui-monospace,Consolas,monospace;font-size:.92em;color:var(--gold2)}
 
   .scrim{display:none}
@@ -179,7 +185,16 @@
     <label>Open WebUI address <small>Used by the "Open Local AI" links. Open WebUI listens on port 3000.</small>
       <input id="webuiUrl" type="url" placeholder="http://your-machine:3000" autocomplete="off" spellcheck="false">
     </label>
-    <label>System prompt <small>Optional. Sent at the start of every new message.</small>
+    <fieldset class="cc">
+      <legend>Claude Code <small>(optional, runs on the laptop)</small></legend>
+      <label>Bridge address <small>The HTTPS address <code>tailscale serve</code> gives the bridge, e.g. <code>https://…ts.net:8443</code></small>
+        <input id="bridgeUrl" type="url" placeholder="https://your-machine.your-tailnet.ts.net:8443" autocomplete="off" spellcheck="false">
+      </label>
+      <label>Bridge token <small>From <code>~/.config/claude-bridge/token</code> on the laptop</small>
+        <input id="bridgeToken" type="password" autocomplete="off" spellcheck="false">
+      </label>
+    </fieldset>
+    <label>System prompt <small>Optional, for Ollama models. Sent at the start of every new message.</small>
       <textarea id="system" placeholder="You are a helpful assistant."></textarea>
     </label>
     <div class="test" id="testResult"></div>
@@ -200,7 +215,11 @@
     set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} },
   };
   const SETTINGS_KEY = "localai.settings", CHATS_KEY = "localai.chats", MODEL_KEY = "localai.model";
-  let settings = Object.assign({ api: "", webui: "", system: "" }, store.get(SETTINGS_KEY, {}));
+  let settings = Object.assign({ api: "", webui: "", system: "", bridge: "", bridgeToken: "" }, store.get(SETTINGS_KEY, {}));
+  let bridgeOk = false;     // Claude Code bridge answered /health
+  const CC = "cc:";         // model values starting with this go to Claude Code
+  const isCC = (model) => String(model || "").startsWith(CC);
+  const modelLabel = (model) => !isCC(model) ? model : "Claude Code" + (model.length > CC.length ? " · " + model.slice(CC.length) : "");
   let chats = store.get(CHATS_KEY, []);
   let current = null;       // id of the open chat
   let busy = null;          // AbortController while a reply streams
@@ -283,8 +302,8 @@
   function messageEl(m) {
     const el = document.createElement("div");
     el.className = "msg " + m.role;
-    el.innerHTML = `<div class="av">${m.role === "user" ? "🍺" : "🔮"}</div><div class="body"><div class="who"></div><div class="think" hidden><details open><summary>Thinking…</summary><div></div></details></div><div class="content"></div><div class="meta"></div></div>`;
-    el.querySelector(".who").textContent = m.role === "user" ? "You" : (m.model || "Assistant");
+    el.innerHTML = `<div class="av">${m.role === "user" ? "🍺" : "🔮"}</div><div class="body"><div class="who"></div><div class="think" hidden><details open><summary>Thinking…</summary><div></div></details></div><ul class="tools" hidden></ul><div class="content"></div><div class="meta"></div></div>`;
+    el.querySelector(".who").textContent = m.role === "user" ? "You" : (modelLabel(m.model) || "Assistant");
     fillMessage(el, m);
     return el;
   }
@@ -309,6 +328,12 @@
     const think = el.querySelector(".think");
     think.hidden = !thinking;
     if (thinking) { think.querySelector("details div").textContent = thinking; think.querySelector("summary").textContent = streaming && !answer ? "Thinking…" : "Thoughts"; }
+    const tools = el.querySelector(".tools");
+    tools.hidden = !(m.tools && m.tools.length);
+    if (m.tools && m.tools.length) {
+      tools.innerHTML = "";
+      for (const t of m.tools) { const li = document.createElement("li"); li.textContent = t.text; if (t.failed) li.className = "fail"; tools.appendChild(li); }
+    }
     const meta = el.querySelector(".meta");
     meta.innerHTML = "";
     const button = (label, title, onclick, cls) => {
@@ -369,28 +394,43 @@
     const data = await res.json();
     return (data.models || []).map((m) => ({ name: m.name, size: m.size, params: m.details?.parameter_size }));
   }
+  async function checkBridge(base, token) {
+    const res = await fetch(base + "/health", { headers: { Authorization: "Bearer " + token }, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) { let d = ""; try { d = (await res.json()).error || ""; } catch {} throw new Error(`HTTP ${res.status}${d ? ": " + d : ""}`); }
+    return res.json();
+  }
   async function connect() {
     const sel = $("model");
-    if (!settings.api) { setStatus("", "Not connected"); sel.innerHTML = '<option value="">Connect first</option>'; return; }
+    if (!settings.api && !settings.bridge) { setStatus("", "Not connected"); sel.innerHTML = '<option value="">Connect first</option>'; return; }
     setStatus("wait", "Connecting…");
-    try {
-      const models = await loadModels(settings.api);
-      sel.innerHTML = "";
-      if (!models.length) sel.innerHTML = '<option value="">No models installed</option>';
-      for (const m of models) {
-        const o = document.createElement("option");
-        o.value = m.name; o.textContent = m.name + (m.params ? ` · ${m.params}` : "");
-        sel.appendChild(o);
-      }
-      const saved = store.get(MODEL_KEY, "");
-      if (models.some((m) => m.name === saved)) sel.value = saved;
-      setStatus("ok", `Connected · ${models.length} model${models.length === 1 ? "" : "s"}`);
-    } catch (e) {
-      sel.innerHTML = '<option value="">Offline</option>';
-      setStatus("bad", "Offline");
-      lastError = e;
-      console.warn(e);
+    const [ollama, bridge] = await Promise.allSettled([
+      settings.api ? loadModels(settings.api) : Promise.reject(null),
+      settings.bridge ? checkBridge(settings.bridge, settings.bridgeToken) : Promise.reject(null),
+    ]);
+    sel.innerHTML = "";
+    const group = (label) => { const g = document.createElement("optgroup"); g.label = label; sel.appendChild(g); return g; };
+    const add = (parent, value, text) => { const o = document.createElement("option"); o.value = value; o.textContent = text; parent.appendChild(o); };
+    const models = ollama.status === "fulfilled" ? ollama.value : [];
+    if (models.length) {
+      const g = group("Ollama · on the laptop");
+      for (const m of models) add(g, m.name, m.name + (m.params ? ` · ${m.params}` : ""));
     }
+    bridgeOk = bridge.status === "fulfilled" && bridge.value.ok && bridge.value.claude;
+    if (bridgeOk) {
+      const g = group("Claude Code · on the laptop");
+      add(g, CC, "Claude Code");
+      add(g, CC + "opus", "Claude Code · Opus");
+      add(g, CC + "sonnet", "Claude Code · Sonnet");
+    }
+    if (!sel.options.length) sel.innerHTML = `<option value="">${ollama.status === "fulfilled" ? "No models installed" : "Offline"}</option>`;
+    const saved = store.get(MODEL_KEY, "");
+    if ([...sel.options].some((o) => o.value === saved && o.value)) sel.value = saved;
+    if (ollama.status === "rejected" && ollama.reason) { lastError = ollama.reason; console.warn(ollama.reason); }
+    const parts = [];
+    if (settings.api) parts.push(ollama.status === "fulfilled" ? `${models.length} model${models.length === 1 ? "" : "s"}` : "Ollama offline");
+    if (settings.bridge) parts.push(bridgeOk ? "Claude Code ✓" : "Claude Code offline");
+    const anyOk = models.length > 0 || bridgeOk;
+    setStatus(anyOk ? "ok" : "bad", (anyOk ? "Connected · " : "") + parts.join(" · "));
   }
 
   // ── Sending ──
@@ -399,7 +439,7 @@
     const text = input.value.trim();
     if (busy) { busy.abort(); return; }
     if (!text) return;
-    if (!settings.api) { openSettings(); return; }
+    if (!settings.api && !settings.bridge) { openSettings(); return; }
     const model = $("model").value;
     if (!model) {
       await connect();
@@ -428,7 +468,10 @@
     if (busy || !c) return;
     if (!c.messages.some((m) => m.role === "user")) return;
     if (!$("model").value) { await connect(); if (!$("model").value) { notice(await diagnose(lastError, settings.api)); return; } }
-    while (c.messages[c.messages.length - 1].role === "assistant") c.messages.pop();
+    while (c.messages[c.messages.length - 1].role === "assistant") {
+      const dropped = c.messages.pop();
+      if ("sessionBefore" in dropped) c.claudeSession = dropped.sessionBefore;
+    }
     await generate(c);
   }
 
@@ -447,6 +490,7 @@
     setSending(true);
     const started = performance.now();
     try {
+      if (isCC(reply.model)) { await streamClaude(c, reply, el, started); return; }
       const res = await fetch(settings.api + "/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -502,7 +546,7 @@
         reply.stats = "stopped";
         if (!reply.content) reply.error = "Stopped before the model replied.";
       } else {
-        const msg = /^HTTP [45]\d\d: /.test(e.message) ? e.message : await diagnose(e, settings.api);
+        const msg = isCC(reply.model) ? await diagnoseBridge(e) : /^HTTP [45]\d\d: /.test(e.message) ? e.message : await diagnose(e, settings.api);
         if (reply.content) reply.stats = "cut off: " + msg; else reply.error = msg;
         setStatus("bad", "Error");
       }
@@ -523,6 +567,107 @@
     $("thread").appendChild(el);
     scrollDown(true);
   }
+  // ── Claude Code (through the bridge on the laptop) ──
+  const shortPath = (p) => { const parts = String(p || "").split("/").filter(Boolean); return parts.length > 3 ? "…/" + parts.slice(-3).join("/") : String(p || ""); };
+  function describeTool(name, input) {
+    input = input || {};
+    const icon = { Read: "📖", Edit: "✏️", MultiEdit: "✏️", Write: "📝", NotebookEdit: "📝", Glob: "🔎", Grep: "🔎", LS: "📂", WebFetch: "🌐", WebSearch: "🌐", TodoWrite: "🗒️", Task: "🧭", Bash: "💻" }[name] || "🔧";
+    const arg = input.file_path || input.notebook_path || input.path || input.pattern || input.url || input.query || input.command || input.description || "";
+    return `${icon} ${name}${arg ? " " + (input.file_path || input.notebook_path || input.path ? shortPath(arg) : String(arg).slice(0, 80)) : ""}`;
+  }
+  async function streamClaude(c, reply, el, started) {
+    const lastUser = [...c.messages].reverse().find((m) => m.role === "user");
+    let prompt = lastUser ? lastUser.content : "";
+    reply.sessionBefore = c.claudeSession || "";
+    // Starting Claude Code partway through a chat: hand it the conversation so far.
+    if (!c.claudeSession) {
+      const earlier = c.messages.slice(0, c.messages.lastIndexOf(lastUser)).filter((m) => !m.error && m.content);
+      if (earlier.length) {
+        let transcript = earlier.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`).join("\n\n");
+        if (transcript.length > 12000) transcript = "…" + transcript.slice(-12000);
+        prompt = `Here is our conversation so far, for context:\n\n${transcript}\n\nNow, my next message:\n\n${prompt}`;
+      }
+    }
+    const res = await fetch(settings.bridge + "/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + settings.bridgeToken },
+      body: JSON.stringify({ prompt, session_id: c.claudeSession || "", model: reply.model.slice(CC.length) }),
+      signal: busy.signal,
+    });
+    if (!res.ok || !res.body) {
+      let detail = "";
+      try { detail = (await res.json()).error || ""; } catch {}
+      throw new Error(`HTTP ${res.status}${detail ? ": " + detail : ""}`);
+    }
+    reply.tools = [];
+    const toolsById = {};
+    let result = null;
+    const take = (line) => {
+      line = line.trim();
+      if (!line) return;
+      let ev;
+      try { ev = JSON.parse(line); } catch { return; }
+      if (ev.type === "bridge_error") throw new Error(ev.error || "The bridge reported an error.");
+      if (ev.type === "system" && ev.subtype === "init" && ev.session_id) { c.claudeSession = ev.session_id; save(); }
+      if (ev.type === "stream_event") {
+        const e = ev.event || {};
+        if (e.type === "content_block_start" && e.content_block?.type === "text" && reply.content && !reply.content.endsWith("\n\n")) reply.content += "\n\n";
+        if (e.type === "content_block_delta" && e.delta?.type === "text_delta") reply.content += e.delta.text;
+        if (e.type === "content_block_delta" && e.delta?.type === "thinking_delta") reply.thinking = (reply.thinking || "") + e.delta.thinking;
+      }
+      if (ev.type === "assistant") {
+        for (const b of ev.message?.content || []) {
+          if (b.type === "tool_use") { const t = { text: describeTool(b.name, b.input) }; reply.tools.push(t); toolsById[b.id] = t; }
+        }
+      }
+      if (ev.type === "user") {
+        for (const b of ev.message?.content || []) {
+          if (b.type === "tool_result" && b.is_error && toolsById[b.tool_use_id]) { toolsById[b.tool_use_id].failed = true; toolsById[b.tool_use_id].text += " (blocked or failed)"; }
+        }
+      }
+      if (ev.type === "result") result = ev;
+    };
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) !== -1) { take(buf.slice(0, nl)); buf = buf.slice(nl + 1); }
+      fillMessage(el, reply, true);
+      scrollDown();
+    }
+    take(buf + dec.decode());
+    if (result) {
+      if (result.session_id) c.claudeSession = result.session_id;
+      if (!reply.content.trim() && result.result) reply.content = String(result.result);
+      const secs = ((result.duration_ms || performance.now() - started) / 1000).toFixed(1);
+      const cost = typeof result.total_cost_usd === "number" ? ` · $${result.total_cost_usd.toFixed(4)}` : "";
+      reply.stats = `${secs}s${cost}${result.num_turns > 1 ? ` · ${result.num_turns} steps` : ""}`;
+      if (result.is_error || (result.subtype && result.subtype !== "success")) {
+        const why = result.subtype === "error_max_turns" ? "Claude Code hit its step limit." : (result.result || result.subtype || "Claude Code reported an error.");
+        if (reply.content.trim()) reply.stats += " · ended early: " + why; else reply.error = String(why);
+      }
+    } else if (!reply.content.trim()) {
+      reply.error = "Claude Code finished without a reply. Check the bridge's log on the laptop (journalctl --user -u claude-bridge).";
+    }
+  }
+  async function diagnoseBridge(err) {
+    const base = settings.bridge;
+    if (!base) return "Claude Code isn't set up. Add the bridge address and token in ⚙ Connection settings.";
+    if (location.protocol === "https:" && /^http:/i.test(base)) return "The bridge address must be https:// (from `tailscale serve`).";
+    if (err && /^HTTP 401/.test(err.message)) return "The bridge rejected the token. Copy it again from ~/.config/claude-bridge/token on the laptop.";
+    if (err && /^HTTP 403/.test(err.message)) return "The bridge doesn't allow this website. Check CLAUDE_BRIDGE_ORIGINS on the laptop.";
+    if (err && /^HTTP \d/.test(err.message)) return err.message.replace(/^HTTP \d+: /, "");
+    if (err && !(err instanceof TypeError)) return err.message;
+    let reachable = false;
+    try { await fetch(base + "/", { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(6000) }); reachable = true; } catch {}
+    if (reachable) return "The bridge answered, but the browser blocked the reply. Check CLAUDE_BRIDGE_ORIGINS on the laptop includes https://tavernworks.dev.";
+    return "Can't reach the Claude Code bridge. Check: this device is on Tailscale; any browser VPN is off; the bridge is running (systemctl --user status claude-bridge); and `tailscale serve status` lists port 8443.";
+  }
+
   function setSending(on) {
     const b = $("send");
     b.classList.toggle("stop", on);
@@ -533,27 +678,39 @@
   // ── Settings dialog ──
   function openSettings() {
     $("apiUrl").value = settings.api; $("webuiUrl").value = settings.webui; $("system").value = settings.system;
+    $("bridgeUrl").value = settings.bridge; $("bridgeToken").value = settings.bridgeToken;
     $("testResult").textContent = "";
     $("settings").showModal();
     closeMenu();
   }
   $("testBtn").onclick = async () => {
-    const base = trimUrl($("apiUrl").value);
+    const base = trimUrl($("apiUrl").value), bridge = trimUrl($("bridgeUrl").value), token = $("bridgeToken").value.trim();
     const out = $("testResult");
-    if (!base) { out.textContent = "Enter the Ollama address first."; return; }
-    out.textContent = "Testing…"; out.className = "test";
-    try {
-      const models = await loadModels(base);
-      out.textContent = `✔ Connected. ${models.length} model${models.length === 1 ? "" : "s"}: ${models.map((m) => m.name).join(", ") || "none installed"}`;
-      out.style.color = "var(--green)";
-    } catch (e) {
-      out.textContent = "✘ " + await diagnose(e, base);
-      out.style.color = "#ff9b7a";
+    if (!base && !bridge) { out.textContent = "Enter the Ollama address, the Claude Code bridge, or both."; return; }
+    out.textContent = "Testing…"; out.style.color = "";
+    const lines = [];
+    let good = true;
+    if (base) {
+      try {
+        const models = await loadModels(base);
+        lines.push(`✔ Ollama: ${models.length} model${models.length === 1 ? "" : "s"}${models.length ? " (" + models.map((m) => m.name).join(", ") + ")" : ""}`);
+      } catch (e) { good = false; lines.push("✘ Ollama: " + await diagnose(e, base)); }
     }
+    if (bridge) {
+      const saved = settings; settings = Object.assign({}, settings, { bridge, bridgeToken: token });
+      try {
+        const h = await checkBridge(bridge, token);
+        if (!h.claude) { good = false; lines.push("✘ Claude Code: the bridge is running, but can't find the claude command on the laptop."); }
+        else lines.push(`✔ Claude Code: ready, working in ${h.cwd} (${h.mode}${h.disallowed?.length ? ", no " + h.disallowed.join("/") : ""})`);
+      } catch (e) { good = false; lines.push("✘ Claude Code: " + await diagnoseBridge(e)); }
+      settings = saved;
+    }
+    out.textContent = lines.join("\n");
+    out.style.color = good ? "var(--green)" : "#ff9b7a";
   };
   $("settingsForm").addEventListener("submit", (e) => {
     if (e.submitter?.value !== "save") return;
-    settings = { api: trimUrl($("apiUrl").value), webui: trimUrl($("webuiUrl").value), system: $("system").value };
+    settings = { api: trimUrl($("apiUrl").value), webui: trimUrl($("webuiUrl").value), system: $("system").value, bridge: trimUrl($("bridgeUrl").value), bridgeToken: $("bridgeToken").value.trim() };
     store.set(SETTINGS_KEY, settings);
     updateWebuiLink(); connect(); renderThread();
   });
