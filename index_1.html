@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tavernworks</title>
+<meta name="description" content="Tavernworks — the workshop of Stoned Sheamus. Twitch bots, D&D tools and side projects.">
+<meta property="og:title" content="Tavernworks">
+<meta property="og:description" content="The workshop of Stoned Sheamus — gamer, D&D fan, networker.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍺</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069; --twitch:#9146ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,168,74,.18), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 50% 110%, rgba(201,87,43,.12), transparent 70%),
+      var(--bg);
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+
+  header{padding:72px 0 40px;text-align:center}
+  .sign{
+    display:inline-block;font-family:Cinzel,serif;font-size:13px;letter-spacing:.3em;
+    color:var(--gold);border:1px solid var(--line);padding:6px 16px;border-radius:999px;
+    background:rgba(0,0,0,.25);margin-bottom:22px
+  }
+  h1{
+    font-family:Cinzel,serif;font-weight:800;font-size:clamp(42px,9vw,84px);line-height:1;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 40px rgba(224,168,74,.15)
+  }
+  .tag{margin-top:16px;color:var(--muted);font-size:18px}
+  .tag b{color:var(--text);font-weight:600}
+  .cta{margin-top:30px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;padding:12px 22px;border-radius:12px;
+    font-weight:600;border:1px solid var(--line);background:var(--card);transition:.15s
+  }
+  .btn:hover{transform:translateY(-2px);border-color:var(--gold)}
+  .btn.twitch{background:var(--twitch);border-color:var(--twitch);color:#fff}
+  .btn.twitch:hover{filter:brightness(1.1);border-color:#fff}
+  .btn svg{width:18px;height:18px;fill:currentColor}
+
+  .divider{
+    display:flex;align-items:center;gap:14px;margin:56px 0 24px;
+    font-family:Cinzel,serif;color:var(--gold);letter-spacing:.15em;font-size:15px
+  }
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}
+  .card{
+    position:relative;background:linear-gradient(180deg,var(--card),var(--bg2));
+    border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:10px;
+    transition:.15s
+  }
+  a.card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .card .icon{font-size:28px;line-height:1}
+  .card h3{font-family:Cinzel,serif;font-size:19px;color:var(--gold2)}
+  .card p{color:var(--muted);font-size:14.5px;flex:1}
+  .meta{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--muted);gap:8px}
+  .url{font-family:ui-monospace,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pill{font-size:11px;font-weight:600;letter-spacing:.05em;padding:3px 9px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+  .live{background:rgba(127,176,105,.15);color:var(--green)}
+  .soon{background:rgba(224,168,74,.12);color:var(--gold)}
+
+  .about{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px;
+    display:flex;gap:22px;align-items:center;flex-wrap:wrap
+  }
+  .avatar{
+    width:84px;height:84px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:40px;
+    background:radial-gradient(circle at 30% 30%,#3b2a1c,#1a120c);border:2px solid var(--gold)
+  }
+  .about h2{font-family:Cinzel,serif;color:var(--gold2);font-size:22px}
+  .about p{color:var(--muted);margin-top:4px}
+  .about .txt{flex:1;min-width:220px}
+
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
+  footer span{color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="sign">EST. 2026 · OPEN ALL NIGHT</div>
+    <h1>Tavernworks</h1>
+    <p class="tag">The workshop of <b>Stoned Sheamus</b>: gamer, D&amp;D fan, networker.</p>
+    <div class="cta">
+      <a class="btn twitch" href="https://twitch.tv/stonedsheamus" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M4.3 3 3 6.4v13.4h4.6V22h2.6l2.2-2.2h3.5l4.6-4.6V3H4.3Zm14.6 11.4-2.7 2.7h-4.3L9.6 19.4v-2.3H6V4.7h12.9v9.7ZM16.2 7.9v4.7h-1.7V7.9h1.7Zm-4.6 0v4.7H9.9V7.9h1.7Z"/></svg>
+        Watch on Twitch
+      </a>
+      <a class="btn" href="https://github.com/sheastolp" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5Z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </header>
+
+  <div class="divider">THE BOTS</div>
+  <div class="grid">
+    <div class="card">
+      <div class="icon">📜</div>
+      <h3>GuildScribe</h3>
+      <p>The D&amp;D chat bot behind the stream. Dice rolls, saves and skill checks, spell and monster lookups, and full character sheets with HP tracking.</p>
+      <div class="meta"><span class="url">guildscribe.tavernworks.dev</span><span class="pill soon">COMING SOON</span></div>
+    </div>
+    <div class="card">
+      <div class="icon">🗝️</div>
+      <h3>The Wandering Clerk</h3>
+      <p>Guild receptionist for <i>GuildBreak: Hunt &amp; Hoard</i>, a hunt-and-loot RPG loop that runs right in Twitch chat.</p>
+      <div class="meta"><span class="url">hunt.tavernworks.dev</span><span class="pill soon">COMING SOON</span></div>
+    </div>
+  </div>
+
+  <div class="divider">THE WORKBENCH</div>
+  <div class="grid">
+    <a class="card" href="https://github.com/sheastolp/Hushwave" target="_blank" rel="noopener">
+      <div class="icon">🌧️</div>
+      <h3>Hushwave</h3>
+      <p>An ambient sound player for Windows. Rain, fire and tavern noise to focus or chill to.</p>
+      <div class="meta"><span class="url">github.com/sheastolp/Hushwave</span><span class="pill live">ON GITHUB</span></div>
+    </a>
+    <div class="card">
+      <div class="icon">🔮</div>
+      <h3>Local AI</h3>
+      <p>An Android app for running AI models fully on-device. No cloud, no account.</p>
+      <div class="meta"><span class="url">in the forge</span><span class="pill soon">IN PROGRESS</span></div>
+    </div>
+  </div>
+
+  <div class="divider">THE BARKEEP</div>
+  <div class="about">
+    <div class="avatar">🍺</div>
+    <div class="txt">
+      <h2>Stoned Sheamus</h2>
+      <p>IT guy by trade, gamer and D&amp;D player by night. I build the bots, tools and toys that keep the tavern running. Pull up a stool, roll some dice, and come hang out on stream.</p>
+    </div>
+  </div>
+
+  <footer>Tavernworks · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus</footer>
+</div>
+</body>
+</html>
