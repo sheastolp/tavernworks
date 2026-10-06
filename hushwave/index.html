@@ -294,15 +294,13 @@
 
   <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus</footer>
 </div>
+<script src="/hushwave/suggest-config.js"></script>
 <script>
-// Suggestion box. With SUGGEST_WEBHOOK set to a Discord channel webhook URL
-// (Channel settings → Integrations → Webhooks → Copy URL), suggestions post
-// straight into that channel. While it's empty, the box opens a pre-filled
-// GitHub issue on the Hushwave repo instead.
-// The webhook URL is visible to anyone who views this page's source, so
-// point it at a channel only you can see.
-const SUGGEST_WEBHOOK = "";
-const SUGGEST_REPO = "sheastolp/Hushwave";
+// Suggestion box. Suggestions go to the small server in suggestion-box/
+// running on the laptop (see suggestion-box/README.md) and are stored there.
+// Read them at /hushwave/suggestions/ with the admin password. The server's
+// address lives in suggest-config.js.
+const SUGGEST_API = window.SUGGEST_API || "";
 
 (function () {
   const form = document.getElementById("suggest-form");
@@ -313,49 +311,28 @@ const SUGGEST_REPO = "sheastolp/Hushwave";
 
   form.message.addEventListener("input", () => { count.textContent = form.message.value.length + " / 1500"; });
 
-  let lastSent = 0;
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const name = form.name.value.trim() || "Anonymous";
-    const kind = form.kind.value;
     const message = form.message.value.trim();
     if (form.website.value) return; // a bot filled the hidden field
     if (message.length < 5) { say("Write a few words first.", "err"); form.message.focus(); return; }
+    if (!SUGGEST_API) { say("The box isn't open yet. Post it in the Discord for now.", "err"); return; }
 
-    if (!SUGGEST_WEBHOOK) {
-      const title = `[${kind}] ${message.split("\n")[0].slice(0, 70)}`;
-      const body = `${message}\n\n---\nFrom: ${name} (via tavernworks.dev/hushwave)`;
-      window.open(`https://github.com/${SUGGEST_REPO}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`, "_blank", "noopener");
-      say("Opened GitHub with your suggestion filled in. Press Create to send it.", "ok");
-      return;
-    }
-
-    if (Date.now() - lastSent < 30000) { say("Easy, adventurer. Give it a few seconds before the next one.", "err"); return; }
     send.disabled = true;
     say("Sending…");
     try {
-      const r = await fetch(SUGGEST_WEBHOOK, {
+      const r = await fetch(SUGGEST_API.replace(/\/+$/, "") + "/suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: "Hushwave Suggestion Box",
-          allowed_mentions: { parse: [] },
-          embeds: [{
-            title: `💡 ${kind}`,
-            description: message,
-            color: 0xe0a84a,
-            footer: { text: `From ${name.slice(0, 60)} · tavernworks.dev/hushwave` },
-            timestamp: new Date().toISOString(),
-          }],
-        }),
+        body: JSON.stringify({ name: form.name.value.trim(), kind: form.kind.value, message, website: form.website.value }),
       });
-      if (!r.ok) throw new Error(r.status);
-      lastSent = Date.now();
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "");
       form.reset();
       count.textContent = "0 / 1500";
       say("Thanks! It's in the box.", "ok");
-    } catch {
-      say("Couldn't reach the box just now. Try again, or post it in the Discord.", "err");
+    } catch (err) {
+      say(err.message || "Couldn't reach the box just now. Try again, or post it in the Discord.", "err");
     } finally {
       send.disabled = false;
     }

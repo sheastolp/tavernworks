@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suggestion Box · Hushwave</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💡</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+    background:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,168,74,.14), transparent 70%),var(--bg);
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:820px;margin:0 auto;padding:0 16px}
+  nav{padding:22px 0 0;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .back{font-size:14px;color:var(--muted)}
+  .back:hover{color:var(--gold2)}
+  h1{
+    font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,7vw,44px);line-height:1.1;text-align:center;margin:36px 0 6px;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .sub{text-align:center;color:var(--muted);margin-bottom:28px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+  label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;font-weight:600}
+  input,select{font:15px Inter,system-ui,sans-serif;color:var(--text);background:#0f0b08;border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+  input:focus,select:focus{outline:none;border-color:var(--gold)}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;cursor:pointer;
+    font:600 14.5px Inter,system-ui,sans-serif;color:var(--text);border:1px solid var(--line);background:var(--bg2);transition:.15s
+  }
+  .btn:hover{border-color:var(--gold)}
+  .btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:var(--gold);color:var(--bg)}
+  .btn.small{padding:5px 11px;font-size:13px;border-radius:8px}
+  .btn.danger:hover{border-color:var(--ember);color:#ff8a5c}
+  .btn[disabled]{opacity:.6;cursor:wait}
+  #login form{display:grid;gap:14px;max-width:360px;margin:0 auto}
+  .status{font-size:14px;color:var(--muted);min-height:1.4em}
+  .status.err{color:#ff8a5c}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .bar select{width:auto;flex:1;min-width:150px}
+  .counts{color:var(--muted);font-size:13.5px;margin-bottom:12px}
+  .list{display:flex;flex-direction:column;gap:12px}
+  .item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .item.done{opacity:.55}
+  .item .top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .item .who{color:var(--text);font-weight:600}
+  .pill{font-size:11px;font-weight:600;letter-spacing:.05em;padding:3px 9px;border-radius:999px;background:rgba(224,168,74,.12);color:var(--gold);white-space:nowrap}
+  .item p{margin:10px 0 12px;white-space:pre-wrap;overflow-wrap:anywhere}
+  .item .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .empty{text-align:center;color:var(--muted);padding:30px 0}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:48px 0 36px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav><a class="back" href="/hushwave/">← Back to Hushwave</a><button class="btn small" id="logout" type="button" hidden>Log out</button></nav>
+  <h1>Suggestion Box</h1>
+  <p class="sub">What people have dropped in the Hushwave box.</p>
+
+  <div class="panel" id="login">
+    <form id="login-form">
+      <label>Admin password
+        <input type="password" name="password" autocomplete="current-password" required autofocus>
+      </label>
+      <button class="btn gold" type="submit">Open the box</button>
+      <div class="status" id="login-status" role="status"></div>
+    </form>
+  </div>
+
+  <div id="box" hidden>
+    <div class="bar">
+      <select id="filter">
+        <option value="open">Open</option>
+        <option value="done">Done</option>
+        <option value="all">All</option>
+      </select>
+      <select id="kind">
+        <option value="">Every kind</option>
+        <option>Feature idea</option>
+        <option>New sound</option>
+        <option>Bug report</option>
+        <option>Something else</option>
+      </select>
+      <button class="btn" id="refresh" type="button">↻ Refresh</button>
+    </div>
+    <div class="counts" id="counts"></div>
+    <div class="status" id="box-status" role="status"></div>
+    <div class="list" id="list"></div>
+  </div>
+
+  <footer>Tavernworks · Hushwave suggestion box</footer>
+</div>
+<script src="/hushwave/suggest-config.js"></script>
+<script>
+(function () {
+  const API = (window.SUGGEST_API || "").replace(/\/+$/, "");
+  const TOKEN_KEY = "hushwave:suggestToken";
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+  const store = {
+    get() { try { const t = JSON.parse(localStorage.getItem(TOKEN_KEY)); return t && t.expires > Date.now() ? t.token : ""; } catch { return ""; } },
+    set(v) { try { v ? localStorage.setItem(TOKEN_KEY, JSON.stringify(v)) : localStorage.removeItem(TOKEN_KEY); } catch {} },
+  };
+  let token = store.get();
+  let items = [];
+
+  const say = (el, text, err) => { el.textContent = text; el.className = "status" + (err ? " err" : ""); };
+
+  async function call(method, p, body) {
+    const r = await fetch(API + p, {
+      method,
+      headers: Object.assign({ "Content-Type": "application/json" }, token ? { Authorization: "Bearer " + token } : {}),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.status === 401 && p !== "/login") { logout("Your login ran out. Log in again."); throw new Error("signed out"); }
+    if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+    return data;
+  }
+
+  function show(loggedIn) {
+    $("login").hidden = loggedIn;
+    $("box").hidden = !loggedIn;
+    $("logout").hidden = !loggedIn;
+  }
+
+  function logout(msg) {
+    token = ""; store.set(null); items = [];
+    show(false);
+    say($("login-status"), msg || "", !!msg);
+  }
+
+  function render() {
+    const f = $("filter").value, k = $("kind").value;
+    const open = items.filter((s) => !s.done).length;
+    $("counts").textContent = `${items.length} total · ${open} open · ${items.length - open} done`;
+    const shown = items.filter((s) => (f === "all" || (f === "done") === s.done) && (!k || s.kind === k));
+    $("list").innerHTML = shown.length ? shown.map((s) => `
+      <div class="item${s.done ? " done" : ""}" data-id="${esc(s.id)}">
+        <div class="top"><span class="pill">${esc(s.kind)}</span><span class="who">${esc(s.name)}</span><span>· ${esc(new Date(s.at).toLocaleString())}</span></div>
+        <p>${esc(s.message)}</p>
+        <div class="actions">
+          <button class="btn small" data-act="done" type="button">${s.done ? "↺ Reopen" : "✓ Mark done"}</button>
+          <button class="btn small danger" data-act="delete" type="button">Delete</button>
+        </div>
+      </div>`).join("") : '<div class="empty">Nothing here. The box is empty.</div>';
+  }
+
+  async function load() {
+    say($("box-status"), "Loading…");
+    try {
+      items = (await call("GET", "/suggestions")).suggestions || [];
+      say($("box-status"), "");
+      render();
+    } catch (e) {
+      if (e.message !== "signed out") say($("box-status"), "Couldn't reach the box server. Is it running on the laptop? (" + e.message + ")", true);
+    }
+  }
+
+  $("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!API) { say($("login-status"), "No server address yet. Set SUGGEST_API in /hushwave/suggest-config.js.", true); return; }
+    const btn = e.target.querySelector("button");
+    btn.disabled = true;
+    say($("login-status"), "Checking…");
+    try {
+      const data = await call("POST", "/login", { password: e.target.password.value });
+      token = data.token; store.set(data);
+      e.target.reset();
+      say($("login-status"), "");
+      show(true);
+      load();
+    } catch (err) {
+      say($("login-status"), err.message === "Failed to fetch" ? "Couldn't reach the box server. Is it running on the laptop?" : err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("list").addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    const id = btn.closest(".item").dataset.id;
+    const item = items.find((s) => s.id === id);
+    if (!item) return;
+    btn.disabled = true;
+    try {
+      if (btn.dataset.act === "done") {
+        await call("PATCH", "/suggestions/" + encodeURIComponent(id), { done: !item.done });
+        item.done = !item.done;
+      } else {
+        if (!confirm("Delete this suggestion for good?")) { btn.disabled = false; return; }
+        await call("DELETE", "/suggestions/" + encodeURIComponent(id));
+        items = items.filter((s) => s.id !== id);
+      }
+      render();
+    } catch (err) {
+      btn.disabled = false;
+      if (err.message !== "signed out") say($("box-status"), err.message, true);
+    }
+  });
+
+  $("filter").addEventListener("change", render);
+  $("kind").addEventListener("change", render);
+  $("refresh").addEventListener("click", load);
+  $("logout").addEventListener("click", () => logout());
+
+  if (token) { show(true); load(); } else show(false);
+})();
+</script>
+</body>
+</html>
