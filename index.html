@@ -405,33 +405,26 @@ const PEOPLE = [];
     });
 })();
 </script>
+<script src="/tip-links.js"></script>
+<script src="/hushwave/suggest-config.js"></script>
 <script>
-// Tip links shown in the tip jar above the crypto wallets. Fill in a url to
-// show that entry; entries with an empty url stay hidden.
-const TIPS = [
-  { icon: "💜", name: "Twitch sub", sub: "Sub, gift one, or use Prime", url: "https://www.twitch.tv/subs/stonedsheamus" },
-  { icon: "💎", name: "Twitch Bits", sub: "Cheer in chat on stream", url: "https://twitch.tv/stonedsheamus" },
-  { icon: "☕", name: "Ko-fi", sub: "One-off tip, no account needed", url: "" },          // https://ko-fi.com/<name>
-  { icon: "🍺", name: "Buy Me a Coffee", sub: "Buy the barkeep a round", url: "" },     // https://buymeacoffee.com/<name>
-  { icon: "🛡️", name: "Patreon", sub: "Monthly support, with perks", url: "" },        // https://patreon.com/<name>
-  { icon: "🐙", name: "GitHub Sponsors", sub: "Back the bots and tools", url: "" },    // https://github.com/sponsors/<name>
-  { icon: "🔔", name: "Stream tip", sub: "Tip with an on-stream alert", url: "" },      // Streamlabs / StreamElements tip page
-  { icon: "🅿️", name: "PayPal", sub: "Send via PayPal", url: "" },                      // https://paypal.me/<name>
-  { icon: "💵", name: "Cash App", sub: "Send via Cash App", url: "" },                  // https://cash.app/$<cashtag>
-  { icon: "💸", name: "Venmo", sub: "Send via Venmo", url: "" },                        // https://venmo.com/u/<name>
-  { icon: "🎁", name: "Wishlist", sub: "Gift something from the list", url: "" },       // Throne or Amazon wishlist
-];
-
+// Tip jar links: show the fallbacks from tip-links.js right away, then the
+// ones saved on /tips/ once the server answers.
 (function () {
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
-  const shown = TIPS.filter((t) => t.url);
-  if (!shown.length) return;
-  document.getElementById("tips").innerHTML = shown.map((t) =>
-    `<a class="chip" href="${esc(t.url)}" target="_blank" rel="noopener">` +
-    `<span class="dot">${t.icon}</span>` +
-    `<span class="who"><div class="name">${esc(t.name)}</div><div class="role">${esc(t.sub)}</div></span></a>`
-  ).join("");
-  document.getElementById("tips-group").hidden = false;
+  const TIPS = window.TIPS || [];
+  const render = (urls) => {
+    const shown = TIPS.map((t) => ({ ...t, url: urls && t.id in urls ? urls[t.id] : t.url })).filter((t) => /^https:\/\//i.test(t.url || ""));
+    document.getElementById("tips").innerHTML = shown.map((t) =>
+      `<a class="chip" href="${esc(t.url)}" target="_blank" rel="noopener">` +
+      `<span class="dot">${esc(t.icon)}</span>` +
+      `<span class="who"><div class="name">${esc(t.name)}</div><div class="role">${esc(t.sub)}</div></span></a>`
+    ).join("");
+    document.getElementById("tips-group").hidden = !shown.length;
+  };
+  render(null);
+  const API = (window.SUGGEST_API || "").replace(/\/+$/, "");
+  if (API) fetch(API + "/tips").then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => render(d.urls || {})).catch(() => {});
 })();
 </script>
 <script>

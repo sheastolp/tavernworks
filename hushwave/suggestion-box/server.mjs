@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Hushwave suggestion box: a tiny server that keeps suggestions on this
 // machine, in one JSON file. Anyone can drop a suggestion in; reading them
-// takes the one admin password.
+// takes the one admin password. It also keeps the homepage's tip jar links,
+// which anyone can read and only the admin can change.
 //
 //   node server.mjs set-password   set (or change) the admin password
 //   node server.mjs                run the server (default port 8790)
@@ -18,6 +19,7 @@ import readline from "node:readline";
 const DATA_DIR = process.env.SUGGEST_DATA_DIR || path.join(os.homedir(), ".local/share/hushwave-suggestions");
 const DB_FILE = path.join(DATA_DIR, "suggestions.json");
 const AUTH_FILE = path.join(DATA_DIR, "admin.json");
+const TIPS_FILE = path.join(DATA_DIR, "tips.json");
 const PORT = Number(process.env.SUGGEST_PORT || 8790);
 const ORIGINS = (process.env.SUGGEST_ORIGINS || "https://tavernworks.dev").split(",").map((s) => s.trim()).filter(Boolean);
 const KINDS = ["Feature idea", "New sound", "Bug report", "Something else"];
@@ -55,6 +57,7 @@ const auth = readJson(AUTH_FILE, null);
 if (!auth) { console.error("No admin password yet. Run: node server.mjs set-password"); process.exit(1); }
 let suggestions = readJson(DB_FILE, []);
 const save = () => writeJson(DB_FILE, suggestions);
+let tips = readJson(TIPS_FILE, { urls: {} });
 
 // ── sessions: "<expiry>.<hmac>", signed with the secret in admin.json ──
 const sign = (exp) => crypto.createHmac("sha256", auth.secret).update(String(exp)).digest("hex");
@@ -102,7 +105,7 @@ const server = http.createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   }
   if (req.method === "OPTIONS") return send(res, 204);
   if (origin && !ORIGINS.includes(origin)) return send(res, 403, { error: "This website isn't allowed. Check SUGGEST_ORIGINS." });
@@ -144,7 +147,25 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { token: newToken(), expires: Date.now() + SESSION_MS });
     }
 
+    // Anyone: the tip jar links shown on the homepage.
+    if (req.method === "GET" && url.pathname === "/tips") return send(res, 200, tips);
+
     // Admin only from here.
+    if (req.method === "PUT" && url.pathname === "/tips") {
+      if (!isAdmin()) return send(res, 401, { error: "Log in again." });
+      const b = await readBody(req);
+      const urls = {};
+      for (const [key, value] of Object.entries(b.urls || {}).slice(0, 40)) {
+        if (!/^[a-z0-9-]{1,30}$/.test(key)) continue;
+        const link = clean(value, 300);
+        if (link && !/^https:\/\/[^\s"'<>]+$/i.test(link)) return send(res, 400, { error: `The ${key} link has to start with https://` });
+        urls[key] = link;
+      }
+      tips = { urls, updated: new Date().toISOString() };
+      writeJson(TIPS_FILE, tips);
+      return send(res, 200, tips);
+    }
+
     if (url.pathname === "/suggestions" || url.pathname.startsWith("/suggestions/")) {
       if (!isAdmin()) return send(res, 401, { error: "Log in again." });
       const id = url.pathname.split("/")[2];

@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tip Jar Links · Tavernworks</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪙</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+    background:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,168,74,.14), transparent 70%),var(--bg);
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:820px;margin:0 auto;padding:0 16px}
+  nav{padding:22px 0 0;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .back{font-size:14px;color:var(--muted)}
+  .back:hover{color:var(--gold2)}
+  h1{
+    font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,7vw,44px);line-height:1.1;text-align:center;margin:36px 0 6px;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .sub{text-align:center;color:var(--muted);margin-bottom:28px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+  label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;font-weight:600}
+  input,select{font:15px Inter,system-ui,sans-serif;color:var(--text);background:#0f0b08;border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+  input:focus,select:focus{outline:none;border-color:var(--gold)}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;cursor:pointer;
+    font:600 14.5px Inter,system-ui,sans-serif;color:var(--text);border:1px solid var(--line);background:var(--bg2);transition:.15s
+  }
+  .btn:hover{border-color:var(--gold)}
+  .btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:var(--gold);color:var(--bg)}
+  .btn.small{padding:5px 11px;font-size:13px;border-radius:8px}
+  .btn.danger:hover{border-color:var(--ember);color:#ff8a5c}
+  .btn[disabled]{opacity:.6;cursor:wait}
+  #login form{display:grid;gap:14px;max-width:360px;margin:0 auto}
+  .status{font-size:14px;color:var(--muted);min-height:1.4em}
+  .status.err{color:#ff8a5c}
+  .status.ok{color:var(--green)}
+  .rows{display:flex;flex-direction:column;gap:14px}
+  .row{display:grid;grid-template-columns:200px 1fr;gap:12px;align-items:center}
+  .row .lbl{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14.5px}
+  .row .lbl small{display:block;color:var(--muted);font-weight:400;font-size:12.5px}
+  .row .ico{font-size:20px;width:28px;text-align:center;flex-shrink:0}
+  .row input.bad{border-color:var(--ember)}
+  .save{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+  .help{color:var(--muted);font-size:13.5px;margin-bottom:18px}
+  .help a{color:var(--gold2)}
+  @media (max-width:560px){.row{grid-template-columns:1fr;gap:6px}}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:48px 0 36px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav><a class="back" href="/#support">← Back to the tip jar</a><button class="btn small" id="logout" type="button" hidden>Log out</button></nav>
+  <h1>Tip Jar Links</h1>
+  <p class="sub">Where the homepage tip jar sends people.</p>
+
+  <div class="panel" id="login">
+    <form id="login-form">
+      <label>Admin password
+        <input type="password" name="password" autocomplete="current-password" required autofocus>
+      </label>
+      <button class="btn gold" type="submit">Unlock</button>
+      <div class="status" id="login-status" role="status"></div>
+    </form>
+  </div>
+
+  <form class="panel" id="editor" novalidate hidden>
+    <p class="help">Paste a full <code>https://</code> link for each place you take tips. Leave a box empty to hide it. Changes show on <a href="/#support">the homepage</a> as soon as you save.</p>
+    <div class="rows" id="rows"></div>
+    <div class="save">
+      <button class="btn gold" type="submit">Save links</button>
+      <div class="status" id="save-status" role="status"></div>
+    </div>
+  </form>
+
+  <footer>Tavernworks · tip jar admin</footer>
+</div>
+<script src="/tip-links.js"></script>
+<script src="/hushwave/suggest-config.js"></script>
+<script>
+(function () {
+  const API = (window.SUGGEST_API || "").replace(/\/+$/, "");
+  // Same server and password as the Hushwave suggestion box, so one login covers both.
+  const TOKEN_KEY = "hushwave:suggestToken";
+  const TIPS = window.TIPS || [];
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+  const store = {
+    get() { try { const t = JSON.parse(localStorage.getItem(TOKEN_KEY)); return t && t.expires > Date.now() ? t.token : ""; } catch { return ""; } },
+    set(v) { try { v ? localStorage.setItem(TOKEN_KEY, JSON.stringify(v)) : localStorage.removeItem(TOKEN_KEY); } catch {} },
+  };
+  let token = store.get();
+
+  const say = (el, text, kind) => { el.textContent = text; el.className = "status" + (kind ? " " + kind : ""); };
+  const reachErr = (e) => e.message === "Failed to fetch" ? "Couldn't reach the server. Is it running on the laptop?" : e.message;
+
+  async function call(method, p, body) {
+    const r = await fetch(API + p, {
+      method,
+      headers: Object.assign({ "Content-Type": "application/json" }, token ? { Authorization: "Bearer " + token } : {}),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.status === 401 && p !== "/login") { logout("Your login ran out. Log in again."); throw new Error("signed out"); }
+    if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+    return data;
+  }
+
+  function show(loggedIn) {
+    $("login").hidden = loggedIn;
+    $("editor").hidden = !loggedIn;
+    $("logout").hidden = !loggedIn;
+  }
+
+  function logout(msg) {
+    token = ""; store.set(null);
+    show(false);
+    say($("login-status"), msg || "", msg ? "err" : "");
+  }
+
+  function fill(urls) {
+    $("rows").innerHTML = TIPS.map((t) => {
+      const v = urls && t.id in urls ? urls[t.id] : t.url;
+      return `<label class="row"><span class="lbl"><span class="ico">${esc(t.icon)}</span><span>${esc(t.name)}<small>${esc(t.sub)}</small></span></span>` +
+        `<input type="url" name="${esc(t.id)}" value="${esc(v || "")}" placeholder="${esc(t.hint || "https://")}" autocomplete="off" spellcheck="false"></label>`;
+    }).join("");
+  }
+
+  async function load() {
+    fill(null);
+    say($("save-status"), "Loading…");
+    try {
+      fill((await call("GET", "/tips")).urls || {});
+      say($("save-status"), "");
+    } catch (e) {
+      if (e.message !== "signed out") say($("save-status"), reachErr(e), "err");
+    }
+  }
+
+  $("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!API) { say($("login-status"), "No server address yet. Set SUGGEST_API in /hushwave/suggest-config.js.", "err"); return; }
+    const btn = e.target.querySelector("button");
+    btn.disabled = true;
+    say($("login-status"), "Checking…");
+    try {
+      const data = await call("POST", "/login", { password: e.target.password.value });
+      token = data.token; store.set(data);
+      e.target.reset();
+      say($("login-status"), "");
+      show(true);
+      load();
+    } catch (err) {
+      say($("login-status"), reachErr(err), "err");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("editor").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const urls = {};
+    let bad = null;
+    for (const input of $("rows").querySelectorAll("input")) {
+      const v = input.value.trim();
+      const ok = !v || /^https:\/\/\S+$/i.test(v);
+      input.classList.toggle("bad", !ok);
+      if (!ok && !bad) bad = input;
+      urls[input.name] = v;
+    }
+    if (bad) { bad.focus(); say($("save-status"), "Links have to start with https://", "err"); return; }
+    const btn = e.target.querySelector("button[type=submit]");
+    btn.disabled = true;
+    say($("save-status"), "Saving…");
+    try {
+      fill((await call("PUT", "/tips", { urls })).urls || {});
+      say($("save-status"), "Saved. The homepage is up to date.", "ok");
+    } catch (err) {
+      if (err.message !== "signed out") say($("save-status"), reachErr(err), "err");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("logout").addEventListener("click", () => logout());
+  if (token) { show(true); load(); } else show(false);
+})();
+</script>
+</body>
+</html>

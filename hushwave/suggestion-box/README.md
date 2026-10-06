@@ -6,6 +6,10 @@ JSON file. Anyone can drop a suggestion in from
 admin password can read them, at
 [tavernworks.dev/hushwave/suggestions](https://tavernworks.dev/hushwave/suggestions/).
 
+The same server and password also hold the homepage tip jar links, edited
+at [tavernworks.dev/tips](https://tavernworks.dev/tips/). Anyone can read
+those links; only the admin can change them.
+
 It runs on the Local AI laptop, next to Ollama and the Claude bridge. It
 needs Node 18 or newer and has no dependencies.
 
@@ -25,7 +29,7 @@ node ~/suggestion-box/server.mjs set-password
 This is the one login. Run it again any time to change the password, which
 also signs out every open session.
 
-Suggestions and the password hash live in `~/.local/share/hushwave-suggestions/`.
+Suggestions, tip links and the password hash live in `~/.local/share/hushwave-suggestions/`.
 
 ## 3. Run it as a service
 
@@ -81,6 +85,16 @@ Environment variables, set with `Environment=` lines in the service file:
 | `SUGGEST_PORT` | `8790` | Local port |
 | `SUGGEST_ORIGINS` | `https://tavernworks.dev` | Sites allowed to use it, comma-separated |
 | `SUGGEST_DATA_DIR` | `~/.local/share/hushwave-suggestions` | Where suggestions are stored |
+
+## Updating
+
+To pick up a newer `server.mjs` (for example, the tip jar links), download it
+again and restart:
+
+```sh
+curl -fsSL https://tavernworks.dev/hushwave/suggestion-box/server.mjs -o ~/suggestion-box/server.mjs
+systemctl --user restart suggestion-box
+```
 
 ## Troubleshooting
 
