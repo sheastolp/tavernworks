@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound Bytes · Tavernworks</title>
+<meta name="description" content="Sound Bytes — tavern-themed sound effects for your Twitch stream, fired from chat through GuildScribe and played in OBS.">
+<meta property="og:title" content="Sound Bytes · Tavernworks">
+<meta property="og:description" content="Nat 20 fanfares, sad trombones and dragon roars, fired from Twitch chat through GuildScribe.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔊</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069; --twitch:#9146ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,168,74,.18), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 50% 110%, rgba(201,87,43,.12), transparent 70%),
+      var(--bg);
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:960px;margin:0 auto;padding:0 16px}
+
+  nav{padding:22px 0 0}
+  .back{font-size:14px;color:var(--muted);transition:.15s}
+  .back:hover{color:var(--gold2)}
+
+  header{padding:48px 0 32px;text-align:center}
+  .orb{font-size:64px;line-height:1;filter:drop-shadow(0 0 24px rgba(224,168,74,.45))}
+  .sign{
+    display:inline-block;font-family:Cinzel,serif;font-size:13px;letter-spacing:.3em;
+    color:var(--gold);border:1px solid var(--line);padding:6px 16px;border-radius:999px;
+    background:rgba(0,0,0,.25);margin:20px 0 18px
+  }
+  h1{
+    font-family:Cinzel,serif;font-weight:800;font-size:clamp(34px,8.5vw,72px);line-height:1.05;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);
+    -webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .tag{margin:16px auto 0;color:var(--muted);font-size:18px;max-width:620px}
+  .tag b{color:var(--text);font-weight:600}
+  .badges{margin-top:22px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .pill{font-size:11px;font-weight:600;letter-spacing:.05em;padding:4px 11px;border-radius:999px;white-space:nowrap}
+  .live{background:rgba(127,176,105,.15);color:var(--green)}
+  .beta{background:rgba(88,101,242,.18);color:#a5adff}
+  .plain{background:rgba(255,255,255,.05);color:var(--muted)}
+
+  .divider{
+    display:flex;align-items:center;gap:14px;margin:52px 0 22px;
+    font-family:Cinzel,serif;color:var(--gold);letter-spacing:.15em;font-size:15px;text-align:center
+  }
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+
+  .board{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:14px}
+  .pad{
+    position:relative;text-align:left;font:inherit;color:inherit;cursor:pointer;
+    background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;
+    padding:18px;display:flex;flex-direction:column;gap:6px;transition:.15s;overflow:hidden
+  }
+  .pad:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .pad:focus-visible{outline:2px solid var(--gold2);outline-offset:2px}
+  .pad .icon{font-size:30px;line-height:1}
+  .pad h3{font-family:Cinzel,serif;font-size:17px;color:var(--gold2)}
+  .pad p{color:var(--muted);font-size:13.5px;flex:1}
+  .pad code{font-size:12.5px}
+  .pad .bar{position:absolute;left:0;bottom:0;height:3px;width:0;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+  .pad.playing{border-color:var(--gold2);box-shadow:0 0 0 1px var(--gold2),0 0 26px rgba(245,200,115,.25)}
+  .pad.playing .bar{animation:fill var(--len,1s) linear forwards}
+  @keyframes fill{to{width:100%}}
+  .boardnote{color:var(--muted);font-size:13.5px;margin-top:12px;text-align:center}
+
+  .scroll{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px}
+  .scroll > p{color:var(--muted)}
+  .scroll > p + p{margin-top:12px}
+  .scroll b{color:var(--text);font-weight:600}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:.92em;color:var(--gold2)}
+
+  .steps{display:flex;flex-direction:column;gap:16px}
+  .step{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:22px}
+  .step h3{font-family:Cinzel,serif;font-size:18px;color:var(--gold2);display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .step h3 .n{
+    width:30px;height:30px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:14px;
+    color:var(--bg);background:linear-gradient(180deg,var(--gold2),var(--gold))
+  }
+  .step > p{color:var(--muted);font-size:14.5px}
+  .step > p + p{margin-top:8px}
+  .step ol{color:var(--muted);font-size:14.5px;margin:8px 0 0 20px;display:flex;flex-direction:column;gap:4px}
+
+  .fields{display:flex;flex-wrap:wrap;gap:14px 20px;margin-top:14px;align-items:flex-end}
+  label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
+  label.check{flex-direction:row;align-items:center;gap:8px;padding-bottom:10px}
+  input[type=text]{
+    font:500 15px Inter,system-ui,sans-serif;color:var(--text);background:#0f0b08;border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;width:min(100%,260px)
+  }
+  input[type=text]:focus{outline:none;border-color:var(--gold)}
+  input[type=range]{accent-color:var(--gold);width:180px}
+  input[type=checkbox]{accent-color:var(--gold);width:16px;height:16px}
+
+  .copyrow{display:flex;gap:8px;align-items:stretch;margin-top:12px}
+  .copyrow code{
+    flex:1;min-width:0;font-size:13px;color:var(--text);background:#0f0b08;border:1px solid var(--line);
+    border-radius:8px;padding:9px 10px;overflow-wrap:anywhere
+  }
+  .copyrow code .k{color:var(--gold2)}
+  .copy{flex-shrink:0;font:600 13px Inter,system-ui,sans-serif;color:var(--text);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:0 12px;cursor:pointer;transition:.15s}
+  .copy:hover{border-color:var(--gold)}
+  .copy.done{border-color:var(--green);color:var(--green)}
+  .copy:disabled{opacity:.45;cursor:not-allowed}
+  .linkbtn{display:inline-block;margin-top:10px;font-size:13.5px;color:var(--gold2)}
+  .linkbtn:hover{text-decoration:underline}
+
+  .cmdlist{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+  .cmdlist .copyrow{margin-top:8px}
+  .cmdlist .copyrow .ic{flex-shrink:0;width:30px;display:grid;place-items:center;font-size:20px}
+
+  .faq details{border-bottom:1px solid var(--line);padding:14px 0}
+  .faq details:first-child{padding-top:0}
+  .faq details:last-child{border-bottom:0;padding-bottom:0}
+  .faq summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";color:var(--gold);font-weight:400;font-size:20px;line-height:1}
+  .faq details[open] summary::after{content:"−"}
+  .faq details p{color:var(--muted);font-size:14.5px;margin-top:8px}
+
+  .chat{display:flex;flex-direction:column;gap:10px;font-size:14.5px}
+  .chat div{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:10px;padding:10px 14px;color:var(--muted);overflow-wrap:anywhere}
+  .chat .u{color:#9b7bd8;font-weight:600}
+  .chat .b{color:var(--gold2);font-weight:600}
+  .chat .fx{border-style:dashed;text-align:center;color:var(--gold2)}
+
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
+  footer span{color:var(--gold)}
+  footer a:hover{color:var(--gold2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav><a class="back" href="/">← Back to the tavern</a></nav>
+
+  <header>
+    <div class="orb">🔊</div>
+    <div class="sign">THE BOTS</div>
+    <h1>Sound Bytes</h1>
+    <p class="tag">Tavern sound effects for your stream. Chat types a <b>GuildScribe</b> command, GuildScribe answers, and the sound plays on stream through an OBS browser source.</p>
+    <div class="badges">
+      <span class="pill beta">BETA</span>
+      <span class="pill plain">TWITCH CHAT</span>
+      <span class="pill plain">OBS BROWSER SOURCE</span>
+      <span class="pill plain">NO DOWNLOADS</span>
+    </div>
+  </header>
+
+  <div class="divider">THE SOUNDBOARD</div>
+  <div class="board" id="board"></div>
+  <p class="boardnote">Click any sound to hear it. Every sound is played live by your browser, so there are no files to download or host.</p>
+
+  <div class="divider">ON STREAM</div>
+  <div class="scroll chat">
+    <div><span class="u">MossyDwarf:</span> !nat20</div>
+    <div><span class="b">GuildScribeBot:</span> 🔊 nat20 MossyDwarf rolled a NATURAL 20! The bards are already writing the song.</div>
+    <div class="fx">🌟 <b>Natural 20</b> fanfare plays on stream, with a card on screen</div>
+  </div>
+
+  <div class="divider" id="setup">SET IT UP</div>
+  <div class="steps">
+    <div class="step">
+      <h3><span class="n">1</span>Make sure GuildScribe is in your channel</h3>
+      <p>Sound Bytes rides on GuildScribe's custom commands. If GuildScribe isn't in your chat yet, <a class="linkbtn" style="margin:0" href="https://guildscribe.tavernworks.dev/connect" target="_blank" rel="noopener">raise the banner here</a>.</p>
+    </div>
+
+    <div class="step">
+      <h3><span class="n">2</span>Get your overlay link</h3>
+      <p>Type your Twitch channel name. The link updates as you change the settings.</p>
+      <div class="fields">
+        <label>Twitch channel<input type="text" id="channel" placeholder="yourchannel" autocomplete="off" spellcheck="false"></label>
+        <label>Volume <span id="vol-out">70%</span><input type="range" id="volume" min="0" max="100" step="5" value="70"></label>
+        <label class="check"><input type="checkbox" id="caption" checked>Show a card on screen</label>
+      </div>
+      <div class="copyrow"><code id="overlay-url">Type your channel name above</code><button class="copy" type="button" id="copy-url" disabled>Copy</button></div>
+      <a class="linkbtn" id="test-link" href="overlay.html" target="_blank" rel="noopener" hidden>▶ Open a test (plays the Nat 20 fanfare)</a>
+    </div>
+
+    <div class="step">
+      <h3><span class="n">3</span>Add it to OBS</h3>
+      <ol>
+        <li>In your scene, add a <b>Browser</b> source and paste the link as the URL.</li>
+        <li>Set the size to <b>1920 × 1080</b> (or your canvas size). The page is see-through until a sound plays.</li>
+        <li>Tick <b>Control audio via OBS</b> so the sounds show up in your mixer.</li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <h3><span class="n">4</span>Teach GuildScribe the commands</h3>
+      <p>Paste these into your Twitch chat as the broadcaster or a mod, one at a time. Each one makes a <code>!command</code> that anyone in chat can use. Edit the wording after the sound name however you like; just keep <code>🔊 name</code> at the very start.</p>
+      <div class="cmdlist" id="cmds"></div>
+      <p style="margin-top:14px">Then add a cooldown so chat can't spam it, for example <code>!dndbot cooldown nat20 30</code> for 30 seconds.</p>
+    </div>
+  </div>
+
+  <div class="divider">QUESTIONS AT THE BAR</div>
+  <div class="scroll faq">
+    <details>
+      <summary>How does it work?</summary>
+      <p>The overlay reads your chat the same way a viewer does, without logging in. When GuildScribe posts a message that starts with <code>🔊</code> and a sound name, the overlay plays that sound. Since only GuildScribe's messages count, GuildScribe's cooldowns decide how often a sound can go off.</p>
+    </details>
+    <details>
+      <summary>Can I name the commands something else?</summary>
+      <p>Yes. The command name is yours to pick; only the word after <code>🔊</code> chooses the sound. <code>!dndbot add crit 🔊 nat20 CRITICAL HIT from {user}!</code> plays the Nat 20 fanfare on <code>!crit</code>.</p>
+    </details>
+    <details>
+      <summary>Can a sound play without a command?</summary>
+      <p>Yes, with a GuildScribe trigger, which fires on a word anywhere in chat: <code>!trigger add gg 🔊 coins {user} tips the bard!</code> Give it a cooldown with <code>!trigger cooldown gg 60</code>.</p>
+    </details>
+    <details>
+      <summary>What if a lot of people fire sounds at once?</summary>
+      <p>Sounds wait their turn and play one after another. Up to five can wait in line; anything past that is skipped so the stream doesn't turn into a cacophony.</p>
+    </details>
+    <details>
+      <summary>Can I hide the on-screen card?</summary>
+      <p>Untick <b>Show a card on screen</b> above before copying the link, and the overlay plays sound only.</p>
+    </details>
+    <details>
+      <summary>Nothing plays in OBS. What do I check?</summary>
+      <p>Open the test link above in OBS's browser source first: if the fanfare plays, the audio side works. Then make sure your GuildScribe command's response starts with <code>🔊</code>, and that the sound name is one from the soundboard. Add <code>&amp;debug=1</code> to the link to keep the connection status on screen. If you use your own bot account for GuildScribe, add <code>&amp;bot=yourbotname</code>.</p>
+    </details>
+  </div>
+
+  <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus</footer>
+</div>
+<script src="sounds.js"></script>
+<script>
+(function () {
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+
+  // The soundboard.
+  const board = document.getElementById("board");
+  board.innerHTML = SoundBytes.list.map((s) =>
+    `<button class="pad" type="button" data-id="${s.id}" style="--len:${s.len}s">` +
+    `<span class="icon">${s.icon}</span><h3>${esc(s.name)}</h3><p>${esc(s.blurb)}</p>` +
+    `<code>🔊 ${s.id}</code><span class="bar"></span></button>`).join("");
+  board.addEventListener("click", (e) => {
+    const pad = e.target.closest(".pad");
+    if (!pad) return;
+    SoundBytes.play(pad.dataset.id, 0.7).then((len) => {
+      pad.classList.remove("playing");
+      void pad.offsetWidth; // restart the progress bar
+      pad.classList.add("playing");
+      clearTimeout(pad._t);
+      pad._t = setTimeout(() => pad.classList.remove("playing"), len * 1000);
+    });
+  });
+
+  // Copy buttons.
+  const copy = (btn, text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      const was = btn.textContent;
+      btn.textContent = "Copied";
+      btn.classList.add("done");
+      setTimeout(() => { btn.textContent = was; btn.classList.remove("done"); }, 1500);
+    });
+  };
+
+  // GuildScribe commands to paste into chat.
+  const cmds = document.getElementById("cmds");
+  cmds.innerHTML = SoundBytes.list.map((s) => {
+    const text = `!dndbot add ${s.cmd} 🔊 ${s.id} ${s.line}`;
+    return `<div class="copyrow"><span class="ic">${s.icon}</span><code><span class="k">!dndbot add ${s.cmd}</span> 🔊 ${s.id} ${esc(s.line)}</code>` +
+      `<button class="copy" type="button" data-copy="${esc(text)}">Copy</button></div>`;
+  }).join("");
+  cmds.addEventListener("click", (e) => {
+    const btn = e.target.closest(".copy");
+    if (btn) copy(btn, btn.dataset.copy);
+  });
+
+  // The overlay link builder.
+  const $ = (id) => document.getElementById(id);
+  const channel = $("channel"), volume = $("volume"), caption = $("caption");
+  const urlBox = $("overlay-url"), copyUrl = $("copy-url"), testLink = $("test-link");
+  channel.value = store.get("soundbytes.channel") || "";
+  volume.value = store.get("soundbytes.volume") || "70";
+  caption.checked = store.get("soundbytes.caption") !== "0";
+
+  function update() {
+    const name = channel.value.trim().replace(/^.*twitch\.tv\//i, "").replace(/^[@#]/, "").replace(/[/?#].*$/, "").toLowerCase();
+    $("vol-out").textContent = volume.value + "%";
+    store.set("soundbytes.channel", channel.value.trim());
+    store.set("soundbytes.volume", volume.value);
+    store.set("soundbytes.caption", caption.checked ? "1" : "0");
+    const ok = /^[a-z0-9_]{3,25}$/.test(name);
+    copyUrl.disabled = !ok;
+    testLink.hidden = !ok;
+    if (!ok) {
+      urlBox.textContent = name ? "That doesn't look like a Twitch channel name" : "Type your channel name above";
+      return;
+    }
+    const q = new URLSearchParams({ channel: name, volume: volume.value });
+    if (!caption.checked) q.set("caption", "0");
+    const url = new URL("overlay.html?" + q, location.href).href;
+    urlBox.textContent = url;
+    copyUrl.dataset.copy = url;
+    testLink.href = url + "&test=nat20&debug=1";
+  }
+  [channel, volume, caption].forEach((el) => el.addEventListener("input", update));
+  copyUrl.addEventListener("click", () => copy(copyUrl, copyUrl.dataset.copy));
+  update();
+})();
+</script>
+</body>
+</html>

@@ -162,6 +162,32 @@
   .chatfeed .at{color:var(--gold2)}
   @media (max-width:520px){.chatfeed{height:360px;font-size:13.5px}}
 
+  .trail{position:relative;padding:8px 0 4px}
+  .trail svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+  .trail .road{fill:none;stroke:var(--line);stroke-width:10;stroke-linecap:round}
+  .trail .walked{fill:none;stroke:var(--gold);stroke-width:2.5;stroke-linecap:round;stroke-dasharray:2 9;opacity:.9}
+  .trail ol{position:relative;list-style:none;display:grid;gap:34px 18px;padding:0 34px}
+  .trail.one ol{padding:0}
+  .stop{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;min-width:0}
+  .stop .dot{
+    width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:21px;flex-shrink:0;
+    background:radial-gradient(circle at 30% 30%,#3b2a1c,#1a120c);border:2px solid var(--gold);
+    box-shadow:0 0 0 6px var(--bg),0 4px 14px rgba(0,0,0,.4);transition:.15s
+  }
+  a.stop:hover .dot{transform:scale(1.08);border-color:var(--gold2)}
+  a.stop:hover h4{color:var(--gold)}
+  .stop time{font-size:11.5px;letter-spacing:.06em;color:var(--gold);font-weight:600;margin-top:4px}
+  .stop h4{font-family:Cinzel,serif;font-size:15px;color:var(--gold2);line-height:1.25;transition:.15s}
+  .stop p{color:var(--muted);font-size:13px;line-height:1.45;max-width:210px}
+  .stop.here .dot{width:56px;height:56px;font-size:26px;border-color:var(--gold2);animation:glow 2.6s ease-in-out infinite}
+  @keyframes glow{50%{box-shadow:0 0 0 6px var(--bg),0 0 26px rgba(245,200,115,.55)}}
+  .trail.one ol{gap:22px}
+  .trail.one .stop{flex-direction:row;align-items:flex-start;text-align:left;gap:14px}
+  .trail.one .stop > div{display:flex;flex-direction:column;gap:2px;padding-top:2px}
+  .trail.one .stop time{margin-top:0}
+  .trail.one .stop p{max-width:none}
+  @media (prefers-reduced-motion:reduce){.stop.here .dot{animation:none}}
+
   footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
   footer span{color:var(--gold)}
 </style>
@@ -191,6 +217,12 @@
     <div class="chatfeed" id="chatfeed" aria-label="Example of GuildScribe answering commands in Twitch chat"></div>
   </header>
 
+  <div class="divider" id="path">THE PATH SO FAR</div>
+  <div class="trail" id="trail" aria-label="Milestones on tavernworks.dev, oldest first">
+    <svg aria-hidden="true"><path class="road"/><path class="walked"/></svg>
+    <ol id="stops"></ol>
+  </div>
+
   <div class="divider">THE BOTS</div>
   <div class="grid">
     <a class="card" href="https://guildscribe.tavernworks.dev/guide">
@@ -204,6 +236,12 @@
       <h3>GuildScribe for Discord</h3>
       <p>GuildScribe in your Discord server. Dice rolls, saves and skill checks, spell and monster lookups, and full character sheets with HP tracking, all as slash commands.</p>
       <div class="meta"><span class="url">Try it on Discord →</span><span class="pill beta">BETA</span></div>
+    </a>
+    <a class="card" href="/soundbytes/">
+      <div class="icon">🔊</div>
+      <h3>Sound Bytes</h3>
+      <p>Tavern sound effects fired from Twitch chat through GuildScribe. Nat 20 fanfares, sad trombones and dragon roars, played on stream by an OBS browser source.</p>
+      <div class="meta"><span class="url">tavernworks.dev/soundbytes</span><span class="pill beta">BETA</span></div>
     </a>
     <a class="card" href="/wandering-clerk/">
       <div class="icon">🗝️</div>
@@ -322,6 +360,83 @@
 
   <footer>Tavernworks · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus</footer>
 </div>
+<script>
+// The path so far: what has landed on tavernworks.dev, oldest first, ending
+// at today. It only looks back; add a stop here when something ships.
+(function () {
+  const STOPS = [
+    { when: "Oct 5, 2026", icon: "🍺", title: "The tavern opens", text: "tavernworks.dev goes up with GuildScribe live and Hushwave on GitHub." },
+    { when: "Oct 5, 2026", icon: "🔮", title: "Local AI", text: "A self-hosted LLM on an old laptop gets its own page.", href: "/local-ai/" },
+    { when: "Oct 6, 2026", icon: "🧪", title: "TwitchBotSandbox", text: "The bot-testing app joins the Workbench.", href: "/bot-sandbox/" },
+    { when: "Oct 6, 2026", icon: "🪙", title: "Tip jar & The Company", text: "Discord, the tip jar and a live roll of GuildScribe guilds.", href: "#support" },
+    { when: "Oct 6, 2026", icon: "💬", title: "Local AI chat", text: "Talk to the laptop's LLM from any browser on the tailnet.", href: "/local-ai/chat/" },
+    { when: "Oct 6, 2026", icon: "🌧️", title: "Hushwave", text: "A project page and a suggestion box for the ambient player.", href: "/hushwave/" },
+    { when: "Oct 6, 2026", icon: "🥸", title: "UndercoverBurn", text: "The roast bot moves in at burn.tavernworks.dev.", href: "https://burn.tavernworks.dev/" },
+    { when: "Oct 6, 2026", icon: "🗝️", title: "The Wandering Clerk", text: "Hunt & Hoard's receptionist sets up at hunt.tavernworks.dev.", href: "/wandering-clerk/" },
+    { when: "Oct 6, 2026", icon: "🎲", title: "GuildScribe for Discord", text: "The dice and character sheets reach Discord in beta.", href: "https://discord.gg/BmdDXCrAzK" },
+    { when: "Oct 6, 2026", icon: "📖", title: "Adventurer's Journal", text: "Campaign notes, attachments and ComfyUI scene art.", href: "/journal/" },
+    { when: "Oct 6, 2026", icon: "🔊", title: "Sound Bytes", text: "Tavern sound effects fired from chat through GuildScribe.", href: "/soundbytes/" },
+    { when: "Today", icon: "🏮", title: "You are here", text: "Pull up a stool. The path keeps growing behind us.", here: true },
+  ];
+
+  const trail = document.getElementById("trail");
+  const list = document.getElementById("stops");
+  if (!trail) return;
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+  list.innerHTML = STOPS.map((s) => {
+    const ext = s.href && /^https?:/.test(s.href) ? ' target="_blank" rel="noopener"' : "";
+    const tag = s.href ? `a href="${esc(s.href)}"${ext}` : "div";
+    return `<li><${tag} class="stop${s.here ? " here" : ""}"><span class="dot" aria-hidden="true">${s.icon}</span>` +
+      `<div><time>${esc(s.when)}</time><h4>${esc(s.title)}</h4><p>${esc(s.text)}</p></div></${s.href ? "a" : "div"}></li>`;
+  }).join("");
+  const items = [...list.children];
+  const road = trail.querySelector(".road"), walked = trail.querySelector(".walked");
+
+  // Lay the stops out in rows that snake back and forth, then draw one
+  // winding path through their markers.
+  function layout() {
+    const w = trail.clientWidth;
+    const cols = w >= 820 ? 4 : w >= 520 ? 2 : 1;
+    trail.classList.toggle("one", cols === 1);
+    list.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
+    items.forEach((li, i) => {
+      const row = Math.floor(i / cols), k = i % cols;
+      li.style.gridRow = row + 1;
+      li.style.gridColumn = (row % 2 ? cols - k : k + 1);
+    });
+    const box = trail.getBoundingClientRect();
+    const pts = items.map((li) => {
+      const r = li.querySelector(".dot").getBoundingClientRect();
+      return [r.left + r.width / 2 - box.left, r.top + r.height / 2 - box.top];
+    });
+    let d = `M${pts[0][0]},${pts[0][1]}`;
+    for (let i = 1; i < pts.length; i++) {
+      const [x1, y1] = pts[i - 1], [x2, y2] = pts[i];
+      if (cols > 1 && Math.floor(i / cols) === Math.floor((i - 1) / cols)) {
+        // Along a row: a gentle wave.
+        const mx = (x1 + x2) / 2, wave = i % 2 ? -16 : 16;
+        d += ` Q${mx},${y1 + wave} ${x2},${y2}`;
+      } else if (cols === 1) {
+        // Straight down a single column, with a slight sway.
+        const sway = i % 2 ? 14 : -14, dy = y2 - y1;
+        d += ` C${x1 + sway},${y1 + dy * 0.35} ${x2 + sway},${y2 - dy * 0.35} ${x2},${y2}`;
+      } else {
+        // Turning onto the next row: swing out into the side margin, clear
+        // of the text under the marker, and back. A cubic only reaches 3/4
+        // of the way to its control points, so aim those past the edge.
+        const edge = x1 > w / 2 ? w - 6 : 6, cx = x1 + (edge - x1) * 4 / 3, dy = y2 - y1;
+        d += ` C${cx},${y1 + dy * 0.05} ${cx},${y2 - dy * 0.05} ${x2},${y2}`;
+      }
+    }
+    road.setAttribute("d", d);
+    walked.setAttribute("d", d);
+  }
+  layout();
+  if (document.fonts) document.fonts.ready.then(layout);
+  if (window.ResizeObserver) new ResizeObserver(layout).observe(trail);
+  else addEventListener("resize", layout);
+})();
+</script>
 <script>
 // Example chat under the header: GuildScribe's real reply formats (taken
 // from the bot's code), one message at a time; each fades out after a few
