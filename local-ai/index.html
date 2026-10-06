@@ -96,6 +96,16 @@
   .btn.twitch:hover{filter:brightness(1.1);border-color:#fff}
   .btn svg{width:18px;height:18px;fill:currentColor}
 
+  .hero-cta{justify-content:center;margin-top:26px}
+  .btn.gold{background:var(--gold);border-color:var(--gold);color:var(--bg)}
+  .btn.gold:hover{filter:brightness(1.08);border-color:var(--gold2)}
+  .hero-note{margin-top:10px;font-size:12.5px;color:var(--muted)}
+  .steps{counter-reset:step;list-style:none;display:flex;flex-direction:column;gap:18px}
+  .steps > li{position:relative;padding-left:40px}
+  .steps > li::before{counter-increment:step;content:counter(step);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--gold);color:var(--gold);font-weight:600;font-size:14px}
+  .steps h4{margin:2px 0 6px !important}
+  .steps pre{margin-top:8px}
+
   footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
   footer span{color:var(--gold)}
   footer a:hover{color:var(--gold2)}
@@ -139,6 +149,12 @@
       <span class="pill plain">SELF-HOSTED</span>
       <span class="pill plain">CPU ONLY</span>
     </div>
+    <div class="cta hero-cta">
+      <a class="btn gold" href="/local-ai/chat/">💬 Chat in the browser</a>
+      <a class="btn" id="openLocalAi" href="/local-ai/chat/?settings">↗ Open Local AI</a>
+      <a class="btn" href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener">↗ Open Tailscale</a>
+    </div>
+    <p class="hero-note">The chat and Open Local AI only work from devices on my tailnet.</p>
   </header>
 
   <div class="divider">THE IDEA</div>
@@ -187,6 +203,34 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <div class="divider">CHAT FROM THE BROWSER</div>
+  <div class="scroll">
+    <p>The <a href="/local-ai/chat/" style="color:var(--gold2)">browser chat</a> is a lightweight, Open WebUI-style client that talks straight to Ollama over Tailscale. Nothing passes through this website: the page loads here, then your browser talks to the laptop directly. It only works from devices on the tailnet. The server address is saved in your own browser, never on this site.</p>
+    <ol class="steps" style="margin-top:18px">
+      <li>
+        <h4>Give Ollama an HTTPS address on the tailnet</h4>
+        <p>This site is HTTPS, so browsers won't let it call plain <code>http://</code>. Tailscale can serve Ollama with a real certificate (turn on MagicDNS and HTTPS certificates under DNS in the Tailscale admin console first):</p>
+<pre>sudo tailscale serve --bg 11434</pre>
+        <p class="note">It prints an address like <code>https://yoga.tail1234.ts.net</code>. Only tailnet devices can open it.</p>
+      </li>
+      <li>
+        <h4>Let this site talk to Ollama</h4>
+        <p>Ollama only answers browser requests from sites it's told to trust:</p>
+<pre>sudo systemctl edit ollama
+# add these two lines, then save:
+[Service]
+Environment="OLLAMA_ORIGINS=https://tavernworks.dev"
+
+sudo systemctl restart ollama</pre>
+      </li>
+      <li>
+        <h4>Connect</h4>
+        <p>Open the <a href="/local-ai/chat/" style="color:var(--gold2)">chat</a>, paste the address from step 1, hit <b>Test connection</b>, then <b>Save</b>. Add Open WebUI's address too and the <b>Open Local AI</b> button will take you straight there.</p>
+        <p class="note">If the browser asks to allow access to devices on your local network, allow it. A "403" means step 2 isn't in place yet.</p>
+      </li>
+    </ol>
   </div>
 
   <div class="divider">LIFE WITHOUT A GPU</div>
@@ -263,5 +307,16 @@ sudo tailscale up</pre>
 
   <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus</footer>
 </div>
+<script>
+// "Open Local AI" goes to Open WebUI once its address is saved in the chat's
+// settings (this browser only); until then it opens those settings.
+(function () {
+  try {
+    const s = JSON.parse(localStorage.getItem("localai.settings") || "{}");
+    const a = document.getElementById("openLocalAi");
+    if (s.webui && a) { a.href = s.webui; a.target = "_blank"; a.rel = "noopener"; }
+  } catch {}
+})();
+</script>
 </body>
 </html>
