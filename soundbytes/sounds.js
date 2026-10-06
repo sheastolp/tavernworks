@@ -2,14 +2,14 @@
 // Audio API, so there are no audio files to host, license or load. Shared by
 // the Sound Bytes page (soundboard + preview) and the OBS overlay.
 //
-//   SoundBytes.list           [{ id, name, icon, blurb, line }]
+//   SoundBytes.list           [{ id, cmd, name, icon, blurb, line, len }]
 //   SoundBytes.get(id)        one entry, or undefined
 //   SoundBytes.play(id, vol)  plays it (vol 0..1); resolves with its length in seconds
 //
-// `line` is the chat text the suggested GuildScribe command posts after the
-// 🔊 tag; {user} is filled in by GuildScribe. `trigger` makes the suggested
-// setup a GuildScribe !trigger on that word, said anywhere in chat, instead
-// of a !command named after the sound.
+// Mirrors GuildScribe's soundbytes.ts: chat types `!sound <cmd>`, GuildScribe
+// posts "🔊 <id> " + `line` ({user} is the chatter), and the overlay plays it.
+// `cmd` differs from `id` only for fireball, listed as "kaboom" because
+// "fireball" is a spell word in GuildScribe's Endless Delve.
 (function () {
   let ctx = null, master = null, noiseBuf = null;
 
@@ -177,9 +177,7 @@
       },
     },
     {
-      // "fireball" is also a spell word in GuildScribe's Endless Delve idle
-      // game, so saying it plays the sound and casts the spell there too.
-      id: "fireball", trigger: "fireball", name: "Fireball", icon: "🔥",
+      id: "fireball", cmd: "kaboom", name: "Fireball", icon: "🔥",
       blurb: "A roaring whoosh and a big boom.",
       line: "🔥 {user} casts FIREBALL! Everyone make a Dex save.",
       len: 2.0,
@@ -247,7 +245,7 @@
   const byId = Object.fromEntries(SOUNDS.map((s) => [s.id, s]));
 
   window.SoundBytes = {
-    list: SOUNDS.map(({ id, trigger, name, icon, blurb, line, len }) => ({ id, trigger, name, icon, blurb, line, len })),
+    list: SOUNDS.map(({ id, cmd = id, name, icon, blurb, line, len }) => ({ id, cmd, name, icon, blurb, line, len })),
     get: (id) => byId[String(id).toLowerCase()],
     play(id, volume = 0.7) {
       const s = byId[String(id).toLowerCase()];

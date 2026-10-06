@@ -152,7 +152,7 @@
     <div class="orb">🔊</div>
     <div class="sign">THE BOTS</div>
     <h1>Sound Bytes</h1>
-    <p class="tag">Tavern sound effects for your stream. Chat types a <b>GuildScribe</b> command, GuildScribe answers, and the sound plays on stream through an OBS browser source.</p>
+    <p class="tag">Tavern sound effects for your stream. Chat types <b>!sound nat20</b>, GuildScribe answers, and the sound plays on stream through an OBS browser source. Built right into GuildScribe.</p>
     <div class="badges">
       <span class="pill beta">BETA</span>
       <span class="pill plain">TWITCH CHAT</span>
@@ -167,7 +167,7 @@
 
   <div class="divider">ON STREAM</div>
   <div class="scroll chat">
-    <div><span class="u">MossyDwarf:</span> !nat20</div>
+    <div><span class="u">MossyDwarf:</span> !sound nat20</div>
     <div><span class="b">GuildScribeBot:</span> 🔊 nat20 MossyDwarf rolled a NATURAL 20! The bards are already writing the song.</div>
     <div class="fx">🌟 <b>Natural 20</b> fanfare plays on stream, with a card on screen</div>
   </div>
@@ -176,19 +176,20 @@
   <div class="steps">
     <div class="step">
       <h3><span class="n">1</span>Make sure GuildScribe is in your channel</h3>
-      <p>Sound Bytes rides on GuildScribe's custom commands. If GuildScribe isn't in your chat yet, <a class="linkbtn" style="margin:0" href="https://guildscribe.tavernworks.dev/connect" target="_blank" rel="noopener">raise the banner here</a>.</p>
+      <p>Sound Bytes is part of GuildScribe and switched on from the start. If GuildScribe isn't in your chat yet, <a class="linkbtn" style="margin:0" href="https://guildscribe.tavernworks.dev/connect" target="_blank" rel="noopener">raise the banner here</a>.</p>
     </div>
 
     <div class="step">
       <h3><span class="n">2</span>Get your overlay link</h3>
-      <p>Type your Twitch channel name. The link updates as you change the settings.</p>
+      <p>Type your Twitch channel name. The link updates as you change the settings. It's the same Sound Bytes source a mod gets from <code>!overlays</code> in chat.</p>
       <div class="fields">
         <label>Twitch channel<input type="text" id="channel" placeholder="yourchannel" autocomplete="off" spellcheck="false"></label>
         <label>Volume <span id="vol-out">70%</span><input type="range" id="volume" min="0" max="100" step="5" value="70"></label>
         <label class="check"><input type="checkbox" id="caption" checked>Show a card on screen</label>
       </div>
       <div class="copyrow"><code id="overlay-url">Type your channel name above</code><button class="copy" type="button" id="copy-url" disabled>Copy</button></div>
-      <a class="linkbtn" id="test-link" href="overlay.html" target="_blank" rel="noopener" hidden>▶ Open a test (plays the Nat 20 fanfare)</a>
+      <a class="linkbtn" id="test-link" href="https://guildscribe.tavernworks.dev/overlays" target="_blank" rel="noopener" hidden>▶ Open a test (plays the Nat 20 fanfare)</a>
+      <p style="margin-top:10px">Using GuildScribe's <b>Full stream theme</b>? Sound Bytes is already built into every scene, so skip this source (or add <code>&amp;sounds=0</code> to the theme link), or every sound will play twice.</p>
     </div>
 
     <div class="step">
@@ -201,10 +202,14 @@
     </div>
 
     <div class="step">
-      <h3><span class="n">4</span>Teach GuildScribe the commands</h3>
-      <p>Paste these into your Twitch chat as the broadcaster or a mod, one at a time. Each one makes a <code>!command</code> that anyone in chat can use. Edit the wording after the sound name however you like; just keep <code>🔊 name</code> at the very start.</p>
-      <div class="cmdlist" id="cmds"></div>
-      <p style="margin-top:14px">Fireball is a trigger rather than a command: anyone saying “fireball” anywhere in chat sets it off (it also casts the spell in GuildScribe's Endless Delve). Then add cooldowns so chat can't spam them, for example <code>!dndbot cooldown nat20 30</code> for 30 seconds, or <code>!trigger cooldown fireball 30</code> for the fireball.</p>
+      <h3><span class="n">4</span>Let chat play</h3>
+      <p>There's nothing to set up in chat. Anyone can play a sound:</p>
+      <div class="cmdlist">
+        <div class="copyrow"><span class="ic">🔊</span><code><span class="k">!sound &lt;name&gt;</span> plays a sound, like <span class="k">!sound roar</span></code></div>
+        <div class="copyrow"><span class="ic">📜</span><code><span class="k">!sound</span> or <span class="k">!sounds</span> lists every sound</code></div>
+        <div class="copyrow"><span class="ic">⏳</span><code><span class="k">!sound cooldown 30</span> (mods) sets the gap between sounds; <span class="k">!sound cooldown off</span> turns it off</code></div>
+      </div>
+      <p style="margin-top:14px">The cooldown is shared by the whole channel and starts at 15 seconds (up to 10 minutes). Mods and the broadcaster skip it. Fireball is <code>!sound kaboom</code>, since “fireball” is a spell in GuildScribe's Endless Delve; <code>!sound fireball</code> works too, and casts it there as well.</p>
     </div>
   </div>
 
@@ -212,11 +217,11 @@
   <div class="scroll faq">
     <details>
       <summary>How does it work?</summary>
-      <p>The overlay reads your chat the same way a viewer does, without logging in. When GuildScribe posts a message that starts with <code>🔊</code> and a sound name, the overlay plays that sound. Since only GuildScribe's messages count, GuildScribe's cooldowns decide how often a sound can go off.</p>
+      <p>When someone types <code>!sound nat20</code>, GuildScribe posts a line that starts with <code>🔊 nat20</code>. The overlay reads your chat the same way a viewer does, without logging in, and plays the sound when one of GuildScribe's own messages starts with <code>🔊</code> and a sound name. Viewers typing <code>🔊</code> themselves does nothing.</p>
     </details>
     <details>
-      <summary>Can I name the commands something else?</summary>
-      <p>Yes. The command name is yours to pick; only the word after <code>🔊</code> chooses the sound. <code>!dndbot add crit 🔊 nat20 CRITICAL HIT from {user}!</code> plays the Nat 20 fanfare on <code>!crit</code>.</p>
+      <summary>Can I make my own commands for sounds?</summary>
+      <p>Yes. Any GuildScribe custom command whose response starts with <code>🔊</code> and a sound name plays it. <code>!dndbot add crit 🔊 nat20 CRITICAL HIT from {user}!</code> plays the Nat 20 fanfare on <code>!crit</code>. Give it its own cooldown with <code>!dndbot cooldown crit 30</code>. If you make your own <code>!sound</code> command, yours wins over the built-in one.</p>
     </details>
     <details>
       <summary>Can a sound play without a command?</summary>
@@ -224,15 +229,15 @@
     </details>
     <details>
       <summary>What if a lot of people fire sounds at once?</summary>
-      <p>Sounds wait their turn and play one after another. Up to five can wait in line; anything past that is skipped so the stream doesn't turn into a cacophony.</p>
+      <p>The channel cooldown keeps <code>!sound</code> in check, and chat is told how long until the next one. Sounds that do get through wait their turn and play one after another. Up to five can wait in line; anything past that is skipped so the stream doesn't turn into a cacophony.</p>
     </details>
     <details>
-      <summary>Can I hide the on-screen card?</summary>
-      <p>Untick <b>Show a card on screen</b> above before copying the link, and the overlay plays sound only.</p>
+      <summary>Can I hide the on-screen card, or turn Sound Bytes off?</summary>
+      <p>Untick <b>Show a card on screen</b> above before copying the link, and the overlay plays sound only. To turn Sound Bytes off altogether, switch off <b>Sound Bytes</b> on your GuildScribe dashboard: <code>!sound</code> goes quiet and the overlay stays empty.</p>
     </details>
     <details>
       <summary>Nothing plays in OBS. What do I check?</summary>
-      <p>Open the test link above in OBS's browser source first: if the fanfare plays, the audio side works. Then make sure your GuildScribe command's response starts with <code>🔊</code>, and that the sound name is one from the soundboard. Add <code>&amp;debug=1</code> to the link to keep the connection status on screen. If you use your own bot account for GuildScribe, add <code>&amp;bot=yourbotname</code>.</p>
+      <p>Open the test link above in OBS's browser source first: if the fanfare plays, the audio side works. Make sure <b>Control audio via OBS</b> is ticked and the source isn't muted in the mixer. If <code>!sound</code> gets no answer in chat, check that Sound Bytes is switched on in your GuildScribe dashboard. Add <code>&amp;debug=1</code> to the link to keep the connection status on screen.</p>
     </details>
   </div>
 
@@ -252,7 +257,7 @@
   board.innerHTML = SoundBytes.list.map((s) =>
     `<button class="pad" type="button" data-id="${s.id}" style="--len:${s.len}s">` +
     `<span class="icon">${s.icon}</span><h3>${esc(s.name)}</h3><p>${esc(s.blurb)}</p>` +
-    `<code>🔊 ${s.id}</code><span class="bar"></span></button>`).join("");
+    `<code>!sound ${s.cmd}</code><span class="bar"></span></button>`).join("");
   board.addEventListener("click", (e) => {
     const pad = e.target.closest(".pad");
     if (!pad) return;
@@ -275,19 +280,6 @@
     });
   };
 
-  // GuildScribe commands to paste into chat.
-  const cmds = document.getElementById("cmds");
-  cmds.innerHTML = SoundBytes.list.map((s) => {
-    const add = s.trigger ? `!trigger add ${s.trigger}` : `!dndbot add ${s.id}`;
-    const text = `${add} 🔊 ${s.id} ${s.line}`;
-    return `<div class="copyrow"><span class="ic">${s.icon}</span><code><span class="k">${add}</span> 🔊 ${s.id} ${esc(s.line)}</code>` +
-      `<button class="copy" type="button" data-copy="${esc(text)}">Copy</button></div>`;
-  }).join("");
-  cmds.addEventListener("click", (e) => {
-    const btn = e.target.closest(".copy");
-    if (btn) copy(btn, btn.dataset.copy);
-  });
-
   // The overlay link builder.
   const $ = (id) => document.getElementById(id);
   const channel = $("channel"), volume = $("volume"), caption = $("caption");
@@ -309,9 +301,9 @@
       urlBox.textContent = name ? "That doesn't look like a Twitch channel name" : "Type your channel name above";
       return;
     }
-    const q = new URLSearchParams({ channel: name, volume: volume.value });
+    const q = new URLSearchParams({ channel: name, panel: "sounds", volume: volume.value });
     if (!caption.checked) q.set("caption", "0");
-    const url = new URL("overlay.html?" + q, location.href).href;
+    const url = "https://guildscribe.tavernworks.dev/overlay?" + q;
     urlBox.textContent = url;
     copyUrl.dataset.copy = url;
     testLink.href = url + "&test=nat20&debug=1";
