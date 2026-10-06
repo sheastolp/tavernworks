@@ -120,6 +120,19 @@
   .company .note a{color:var(--gold2)}
   .company .foot{margin-top:14px;font-size:12.5px;color:var(--muted)}
 
+  .chatdemo{max-width:520px;margin:34px auto 0;text-align:left;background:#0e0b09;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+  .chatdemo .bar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;letter-spacing:.12em;color:var(--muted)}
+  .chatdemo .bar .rec{width:8px;height:8px;border-radius:50%;background:#eb0400;box-shadow:0 0 8px #eb0400}
+  .chatdemo .bar .ex{margin-left:auto;font-weight:500;letter-spacing:.04em;text-transform:none}
+  .chatdemo ol{list-style:none;padding:12px 14px 14px;display:flex;flex-direction:column;gap:7px;font-size:14px;line-height:1.45}
+  .chatdemo li{opacity:0;transform:translateY(6px);animation:pop .4s ease forwards;overflow-wrap:anywhere}
+  .chatdemo li.bot{background:rgba(224,168,74,.07);border-left:2px solid var(--gold);padding:5px 8px;border-radius:0 6px 6px 0}
+  .chatdemo .u{font-weight:700;margin-right:4px}
+  .chatdemo .badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:4px;background:var(--gold);color:var(--bg);margin-right:5px;vertical-align:1px}
+  .chatdemo .at{color:var(--gold2)}
+  @keyframes pop{to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.chatdemo li{animation:none;opacity:1;transform:none}}
+
   footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
   footer span{color:var(--gold)}
 </style>
@@ -145,6 +158,17 @@
         Discord
       </a>
       <a class="btn" href="#support">🪙 Support</a>
+    </div>
+    <div class="chatdemo" role="img" aria-label="Example Twitch chat: viewers type !d20, !roll 2d6+3 and !oracle, and GuildScribeBot answers each one.">
+      <div class="bar"><span class="rec"></span>STREAM CHAT<span class="ex">example</span></div>
+      <ol>
+      <li style="animation-delay:0.3s"><span class="u" style="color:#7fb069">MossyDwarf:</span>!d20</li>
+      <li class="bot" style="animation-delay:1.0s"><span class="badge">BOT</span><span class="u" style="color:#e0a84a">GuildScribeBot:</span><span class="at">@MossyDwarf</span> 🎲 D20 of Fate: 1d20 → [20] = 20. Natural 20! The bards are already writing the song.</li>
+      <li style="animation-delay:1.7s"><span class="u" style="color:#9b7bd8">QuietRogue:</span>!roll 2d6+3</li>
+      <li class="bot" style="animation-delay:2.4s"><span class="badge">BOT</span><span class="u" style="color:#e0a84a">GuildScribeBot:</span><span class="at">@QuietRogue</span> 🎲 Dice roll: 2d6+3 → [4, 6]+3 = 13. The DM nods and moves the story along.</li>
+      <li style="animation-delay:3.1s"><span class="u" style="color:#5fa8d3">BardOfBrie:</span>!oracle who buys the next round?</li>
+      <li class="bot" style="animation-delay:3.8s"><span class="badge">BOT</span><span class="u" style="color:#e0a84a">GuildScribeBot:</span><span class="at">@BardOfBrie</span> 🔮 The crystal ball swirls and resolves into a face: <span class="at">@QuietRogue</span>, regarding "who buys the next round?"</li>
+      </ol>
     </div>
   </header>
 
