@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Local AI · Tavernworks</title>
-<meta name="description" content="Local AI — an Android app for running AI models fully on-device. No cloud, no account. In the forge at Tavernworks.">
+<meta name="description" content="Local AI — a self-hosted LLM running on a headless Ubuntu laptop with Ollama and Open WebUI. CPU only, no cloud.">
 <meta property="og:title" content="Local AI · Tavernworks">
-<meta property="og:description" content="An Android app for running AI models fully on-device. No cloud, no account.">
+<meta property="og:description" content="A self-hosted LLM on an old laptop: Ollama, Open WebUI, Tailscale. CPU only, no cloud.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔮</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -50,6 +50,7 @@
   .tag b{color:var(--text);font-weight:600}
   .badges{margin-top:22px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
   .pill{font-size:11px;font-weight:600;letter-spacing:.05em;padding:4px 11px;border-radius:999px;white-space:nowrap}
+  .live{background:rgba(127,176,105,.15);color:var(--green)}
   .soon{background:rgba(224,168,74,.12);color:var(--gold)}
   .plain{background:rgba(255,255,255,.05);color:var(--muted)}
 
@@ -60,6 +61,7 @@
   .divider::before,.divider::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
 
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .grid.four{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
   .card{
     background:linear-gradient(180deg,var(--card),var(--bg2));
     border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:8px
@@ -75,18 +77,6 @@
   .scroll p + p{margin-top:12px}
   .scroll b{color:var(--text);font-weight:600}
 
-  .steps{list-style:none;display:flex;flex-direction:column;gap:0}
-  .steps li{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
-  .steps li:last-child{border-bottom:0}
-  .mark{
-    flex-shrink:0;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
-    font-size:14px;font-weight:600;border:1px solid var(--line);color:var(--muted);background:rgba(0,0,0,.2)
-  }
-  .steps li.done .mark{border-color:var(--green);color:var(--green)}
-  .steps li.now .mark{border-color:var(--gold);color:var(--gold);box-shadow:0 0 12px rgba(224,168,74,.35)}
-  .steps h4{font-size:15.5px;font-weight:600}
-  .steps p{color:var(--muted);font-size:14px}
-  .steps .when{font-size:11.5px;font-weight:600;letter-spacing:.05em;color:var(--gold);margin-left:6px}
 
   .faq details{border-bottom:1px solid var(--line);padding:14px 0}
   .faq details:last-child{border-bottom:0}
@@ -109,6 +99,29 @@
   footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
   footer span{color:var(--gold)}
   footer a:hover{color:var(--gold2)}
+
+  .flow{display:flex;align-items:stretch;gap:10px;flex-wrap:wrap;justify-content:center}
+  .node{
+    flex:1;min-width:150px;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:12px;
+    padding:14px;text-align:center
+  }
+  .node b{display:block;font-family:Cinzel,serif;color:var(--gold2);font-size:15px}
+  .node span{color:var(--muted);font-size:13px}
+  .node.box{border-color:var(--gold);flex:2.4;min-width:260px;text-align:left}
+  .node.box b{text-align:center;margin-bottom:10px}
+  .inner{display:flex;gap:8px;flex-wrap:wrap}
+  .inner div{flex:1;min-width:90px;border:1px dashed var(--line);border-radius:10px;padding:8px;text-align:center;font-size:13px;color:var(--muted)}
+  .inner div strong{display:block;color:var(--text);font-weight:600;font-size:14px}
+  .arrow{display:grid;place-items:center;color:var(--gold);font-size:20px}
+  @media (max-width:640px){.flow{flex-direction:column}.arrow{transform:rotate(90deg)}}
+  .scroll h4{font-size:15.5px;font-weight:600;color:var(--text);margin:18px 0 6px}
+  .scroll h4:first-child{margin-top:0}
+  pre{
+    background:#0f0b08;border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+    overflow-x:auto;font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--gold2);line-height:1.5
+  }
+  code{font-family:ui-monospace,Consolas,monospace;font-size:.92em;color:var(--gold2)}
+  .note{font-size:13.5px;margin-top:14px}
 </style>
 </head>
 <body>
@@ -120,89 +133,122 @@
     <div class="orb">🔮</div>
     <div class="sign">THE WORKBENCH</div>
     <h1>Local AI</h1>
-    <p class="tag">An Android app for running AI models <b>fully on your phone</b>. No cloud, no account, nothing leaves the device.</p>
+    <p class="tag">My own AI chat, running on <b>an old laptop in the back room</b>. No cloud, no GPU, no subscription.</p>
     <div class="badges">
-      <span class="pill soon">IN PROGRESS</span>
-      <span class="pill plain">ANDROID</span>
-      <span class="pill plain">OFFLINE</span>
+      <span class="pill live">RUNNING</span>
+      <span class="pill plain">SELF-HOSTED</span>
+      <span class="pill plain">CPU ONLY</span>
     </div>
   </header>
 
   <div class="divider">THE IDEA</div>
   <div class="scroll">
-    <p>Most AI apps are a thin window onto someone else's server. Every message you type goes off to a data centre, gets logged somewhere, and stops working the moment you lose signal.</p>
-    <p><b>Local AI flips that around.</b> The model lives on your phone and runs on your phone. You can ask it things in airplane mode, in a dead zone or at a table in the back of a tavern, and the only one reading your chats is you.</p>
+    <p>Most AI chat is a thin window onto someone else's server. Every message goes off to a data centre and gets logged somewhere you can't see.</p>
+    <p><b>This one lives at home.</b> A retired Lenovo Yoga 730 runs headless Ubuntu with the lid shut, serving a large language model on nothing but its CPU. The chats stay on hardware I own.</p>
   </div>
 
-  <div class="divider">WHAT IT'S FOR</div>
+  <div class="divider">THE RIG</div>
+  <div class="grid four">
+    <div class="card">
+      <div class="icon">💻</div>
+      <h3>Lenovo Yoga 730</h3>
+      <p>An everyday laptop given a second life as a server. Headless Ubuntu, no monitor, no desktop.</p>
+    </div>
+    <div class="card">
+      <div class="icon">🦙</div>
+      <h3>Ollama</h3>
+      <p>Downloads and runs the models. Here it runs in CPU-only mode, no graphics card involved.</p>
+    </div>
+    <div class="card">
+      <div class="icon">💬</div>
+      <h3>Open WebUI</h3>
+      <p>A ChatGPT-style chat page in the browser, sitting on top of Ollama.</p>
+    </div>
+    <div class="card">
+      <div class="icon">🔗</div>
+      <h3>Tailscale</h3>
+      <p>A private network between my own devices. I SSH into the box over it to manage things from anywhere.</p>
+    </div>
+  </div>
+
+  <div class="divider">HOW IT FITS TOGETHER</div>
+  <div class="scroll">
+    <div class="flow">
+      <div class="node"><b>My devices</b><span>phone or PC</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Tailscale</b><span>private tailnet</span></div>
+      <div class="arrow">→</div>
+      <div class="node box">
+        <b>Yoga 730 · Ubuntu</b>
+        <div class="inner">
+          <div><strong>Open WebUI</strong>chat page</div>
+          <div><strong>Ollama</strong>runs models</div>
+          <div><strong>CPU</strong>does the work</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider">LIFE WITHOUT A GPU</div>
   <div class="grid">
     <div class="card">
-      <div class="icon">📵</div>
-      <h3>Works offline</h3>
-      <p>Once a model is on the device, no internet is needed to chat with it.</p>
+      <div class="icon">🐢</div>
+      <h3>Slower replies</h3>
+      <p>Text comes out a word at a time instead of in a flood. Fine for chatting, not for anything in a hurry.</p>
     </div>
     <div class="card">
-      <div class="icon">🔒</div>
-      <h3>Private by default</h3>
-      <p>Prompts and replies stay on the phone. No servers in the middle, no telemetry on your conversations.</p>
+      <div class="icon">⚖️</div>
+      <h3>Smaller models</h3>
+      <p>Compact, quantized models fit in laptop RAM and run at a usable speed. The giant ones don't.</p>
     </div>
     <div class="card">
-      <div class="icon">🚪</div>
-      <h3>No account</h3>
-      <p>Install it and start. No sign-up, no email, no subscription.</p>
-    </div>
-    <div class="card">
-      <div class="icon">⚗️</div>
-      <h3>Your choice of model</h3>
-      <p>Pick a model that fits your phone, from small and quick to bigger and smarter.</p>
+      <div class="icon">🪙</div>
+      <h3>Nearly free</h3>
+      <p>No API bill and no subscription. Hardware I already had, sipping laptop-level power.</p>
     </div>
   </div>
 
-  <div class="divider">THE FORGE</div>
+  <div class="divider">FORGE YOUR OWN</div>
   <div class="scroll">
-    <ol class="steps">
-      <li class="done">
-        <div class="mark">✓</div>
-        <div><h4>The idea</h4><p>On-device AI for Android, with no cloud and no account.</p></div>
-      </li>
-      <li class="now">
-        <div class="mark">⚒</div>
-        <div><h4>Building the core <span class="when">NOW</span></h4><p>Getting models loading and chatting smoothly on real phones.</p></div>
-      </li>
-      <li>
-        <div class="mark">3</div>
-        <div><h4>Testing</h4><p>Hands-on testing across different devices to find out what runs well where.</p></div>
-      </li>
-      <li>
-        <div class="mark">4</div>
-        <div><h4>Release</h4><p>Out of the forge and onto your phone. Watch this page and the stream for news.</p></div>
-      </li>
-    </ol>
+    <p>Got an old laptop gathering dust? The basic recipe on Ubuntu is short. Check each project's docs for the current install steps.</p>
+    <h4>1. Install Ollama and pull a small model</h4>
+<pre>curl -fsSL https://ollama.com/install.sh | sh
+ollama run llama3.2</pre>
+    <h4>2. Put Open WebUI in front of it (with Docker)</h4>
+<pre>docker run -d -p 3000:8080 \
+  --add-host=host.docker.internal:host-gateway \
+  -v open-webui:/app/backend/data \
+  --name open-webui --restart always \
+  ghcr.io/open-webui/open-webui:main</pre>
+    <h4>3. Join it to your Tailscale network</h4>
+<pre>curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up</pre>
+    <p class="note">Then open <code>http://&lt;machine-name&gt;:3000</code> from any device on your tailnet, or SSH in to manage it. No ports opened to the internet.</p>
   </div>
 
   <div class="divider">QUESTIONS AT THE BAR</div>
   <div class="scroll faq">
     <details>
-      <summary>When can I get it?</summary>
-      <p>It isn't released yet. Updates will land here and on stream first.</p>
+      <summary>Can I use it?</summary>
+      <p>It's a personal setup on my own private network, not a public service. The recipe above will get you your own.</p>
     </details>
     <details>
-      <summary>Does it really never go online?</summary>
-      <p>Chatting happens entirely on the device. The app has to get a model onto the phone somehow, so that step needs a connection, but your conversations themselves never leave the phone.</p>
+      <summary>Is it as good as ChatGPT?</summary>
+      <p>No. Small models running on a laptop CPU can't match the big hosted ones. They're still handy for everyday questions, drafting and tinkering, and they're private.</p>
     </details>
     <details>
-      <summary>Will it run on my phone?</summary>
-      <p>AI models are hungry for memory, so newer phones with more RAM will run larger models. Smaller models are there for older devices.</p>
+      <summary>Why a laptop?</summary>
+      <p>It was already there. Laptops are quiet, sip power and come with a built-in battery backup, which makes them decent little home servers.</p>
     </details>
     <details>
-      <summary>iPhone?</summary>
-      <p>Android first. No iOS plans right now.</p>
+      <summary>Why CPU only?</summary>
+      <p>The laptop has no graphics card Ollama can use, so the processor does all the work. It's slower, but it proves you don't need fancy hardware to run AI at home.</p>
     </details>
   </div>
 
   <div class="divider">FOLLOW THE FORGE</div>
   <div class="scroll">
-    <p>Progress gets shown off live on stream. Drop by, ask questions, and see what's working (and what's on fire).</p>
+    <p>Homelab tinkering turns up on stream now and then. Drop by and ask about it.</p>
     <div class="cta">
       <a class="btn twitch" href="https://twitch.tv/stonedsheamus" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24"><path d="M4.3 3 3 6.4v13.4h4.6V22h2.6l2.2-2.2h3.5l4.6-4.6V3H4.3Zm14.6 11.4-2.7 2.7h-4.3L9.6 19.4v-2.3H6V4.7h12.9v9.7ZM16.2 7.9v4.7h-1.7V7.9h1.7Zm-4.6 0v4.7H9.9V7.9h1.7Z"/></svg>
