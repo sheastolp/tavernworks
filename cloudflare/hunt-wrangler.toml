@@ -1,0 +1,8 @@
+# Wrangler config for the hunt.tavernworks.dev Worker, deployed by
+# .github/workflows/deploy-hunt-worker.yml. The Worker's name comes from the
+# HUNT_WORKER_NAME repo variable (passed as --name) so it targets the Worker
+# that already exists in the dashboard. No routes are listed here: the
+# hunt.tavernworks.dev route stays exactly as configured in Cloudflare.
+main = "hunt-worker.js"
+compatibility_date = "2025-01-01"
+workers_dev = false
