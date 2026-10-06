@@ -259,7 +259,9 @@ const PEOPLE = [];
   fetch("https://guildscribe.tavernworks.dev/api/channels")
     .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
     .then(({ channels }) => {
-      if (!channels || !channels.length) {
+      // The bot's own account is connected for testing; it isn't a guild.
+      channels = (channels || []).filter((c) => c.login.toLowerCase() !== "guildscribebot");
+      if (!channels.length) {
         box.innerHTML = '<p class="note">No guilds yet. <a href="https://guildscribe.tavernworks.dev/connect">Be the first to raise the banner</a>.</p>';
         return;
       }
