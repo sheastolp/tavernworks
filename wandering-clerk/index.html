@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Wandering Clerk · Tavernworks</title>
+<meta name="description" content="The Wandering Clerk — guild receptionist for GuildBreak: Hunt &amp; Hoard, a hunt-and-loot RPG that runs in Twitch chat.">
+<meta property="og:title" content="The Wandering Clerk · Tavernworks">
+<meta property="og:description" content="Enlist, hunt monsters, fill bounties and spend your gold, all from Twitch chat.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗝️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069; --twitch:#9146ff; --arcane:#9b7bd8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,120,60,.16), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 50% 110%, rgba(201,87,43,.12), transparent 70%),
+      var(--bg);
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+
+  nav{padding:22px 0 0}
+  .back{font-size:14px;color:var(--muted);transition:.15s}
+  .back:hover{color:var(--gold2)}
+
+  header{padding:48px 0 32px;text-align:center}
+  .orb{font-size:64px;line-height:1;filter:drop-shadow(0 0 24px rgba(155,123,216,.45))}
+  .sign{
+    display:inline-block;font-family:Cinzel,serif;font-size:13px;letter-spacing:.3em;
+    color:var(--gold);border:1px solid var(--line);padding:6px 16px;border-radius:999px;
+    background:rgba(0,0,0,.25);margin:20px 0 18px
+  }
+  h1{
+    font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,8.5vw,72px);overflow-wrap:anywhere;line-height:1.05;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);
+    -webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .tag{margin:16px auto 0;color:var(--muted);font-size:18px;max-width:600px}
+  .tag b{color:var(--text);font-weight:600}
+  .badges{margin-top:22px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .pill{font-size:11px;font-weight:600;letter-spacing:.05em;padding:4px 11px;border-radius:999px;white-space:nowrap}
+  .live{background:rgba(127,176,105,.15);color:var(--green)}
+  .soon{background:rgba(224,168,74,.12);color:var(--gold)}
+  .plain{background:rgba(255,255,255,.05);color:var(--muted)}
+
+  .divider{
+    display:flex;align-items:center;gap:14px;margin:52px 0 22px;
+    font-family:Cinzel,serif;color:var(--gold);letter-spacing:.15em;font-size:15px
+  }
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .grid.four{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  .card{
+    background:linear-gradient(180deg,var(--card),var(--bg2));
+    border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:8px
+  }
+  .card .icon{font-size:26px;line-height:1}
+  .card h3{font-family:Cinzel,serif;font-size:18px;color:var(--gold2)}
+  .card p{color:var(--muted);font-size:14.5px}
+
+  .scroll{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px
+  }
+  .scroll p{color:var(--muted)}
+  .scroll p + p{margin-top:12px}
+  .scroll b{color:var(--text);font-weight:600}
+
+
+  .faq details{border-bottom:1px solid var(--line);padding:14px 0}
+  .faq details:last-child{border-bottom:0}
+  .faq summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";color:var(--gold);font-weight:400;font-size:20px;line-height:1}
+  .faq details[open] summary::after{content:"−"}
+  .faq details p{color:var(--muted);font-size:14.5px;margin-top:8px}
+
+  .cta{margin-top:20px;display:flex;gap:12px;flex-wrap:wrap}
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;padding:12px 22px;border-radius:12px;
+    font-weight:600;border:1px solid var(--line);background:var(--bg2);transition:.15s
+  }
+  .btn:hover{transform:translateY(-2px);border-color:var(--gold)}
+  .btn.twitch{background:var(--twitch);border-color:var(--twitch);color:#fff}
+  .btn.twitch:hover{filter:brightness(1.1);border-color:#fff}
+  .btn svg{width:18px;height:18px;fill:currentColor}
+
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
+  footer span{color:var(--gold)}
+  footer a:hover{color:var(--gold2)}
+
+  .scroll h4{font-size:15.5px;font-weight:600;color:var(--text);margin:18px 0 6px}
+  .scroll h4:first-child{margin-top:0}
+  pre{
+    background:#0f0b08;border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+    overflow-x:auto;font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--gold2);line-height:1.5
+  }
+  code{font-family:ui-monospace,Consolas,monospace;font-size:.92em;color:var(--gold2)}
+  .note{font-size:13.5px;margin-top:14px}
+
+  .cmds{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px}
+  .engine{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:22px}
+  .engine h3{font-family:Cinzel,serif;font-size:19px;color:var(--gold2);display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .engine ul{list-style:none;display:flex;flex-direction:column;gap:7px}
+  .engine li{font-size:14.5px;padding-left:22px;position:relative}
+  .engine li::before{content:"◆";position:absolute;left:0;top:1px;color:var(--gold);font-size:11px}
+  .cmds .engine li{color:var(--muted)}
+  .cmds .engine li code{font-weight:600}
+  .alias{font-size:12.5px;color:var(--muted);opacity:.8}
+  .chat{display:flex;flex-direction:column;gap:10px;font-size:14.5px}
+  .chat div{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:10px;padding:10px 14px;color:var(--muted)}
+  .chat .u{color:var(--arcane);font-weight:600}
+  .chat .b{color:var(--gold2);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav><a class="back" href="/">← Back to the tavern</a></nav>
+
+  <header>
+    <div class="orb">🗝️</div>
+    <div class="sign">THE BOTS</div>
+    <h1>The Wandering Clerk</h1>
+    <p class="tag">Guild receptionist for <b>GuildBreak: Hunt &amp; Hoard</b>, a hunt-and-loot RPG that runs right in Twitch chat. Enlist, hunt monsters, fill bounties and spend your gold, all with <code>!commands</code>.</p>
+    <div class="badges">
+      <span class="pill soon">COMING SOON</span>
+      <span class="pill plain">TWITCH CHAT</span>
+      <span class="pill plain">DENO + VAL TOWN</span>
+    </div>
+  </header>
+
+  <div class="divider">THE IDEA</div>
+  <div class="scroll">
+    <p>Most chat games are a single command and a random number. <b>Hunt &amp; Hoard is a whole loop.</b> Every viewer gets a character in the Clerk's ledger, with a race, a class, HP, XP, gold and a pack full of gear that sticks around between streams.</p>
+    <p>From there it's the classic adventurer's day: take a bounty off the board, go hunting, come back battered, rest up, spend the loot at the merchant's stall and do it all again. The Clerk keeps the books and narrates every step in chat, and every reply ends with a hint at what to do next.</p>
+  </div>
+
+  <div class="divider">A DAY AT THE GUILD</div>
+  <div class="scroll chat">
+    <div><span class="u">viewer:</span> !enlist random</div>
+    <div><span class="b">WanderingClerk:</span> @viewer the quill scratches across the ledger — Kestrel the Wayward is sworn in as a Level 1 Halfling Rogue! …</div>
+    <div><span class="u">viewer:</span> !quests</div>
+    <div><span class="b">WanderingClerk:</span> 📜 The bounty board reads: #1 Hunt 6 Giant Rats (0/6) → 17 gold | #2 … Say !hunt &lt;monster name&gt; to take up a bounty.</div>
+    <div><span class="u">viewer:</span> !hunt giant rat</div>
+    <div><span class="b">WanderingClerk:</span> Kestrel the Wayward crossed blades with a Giant Rat and prevailed! +10 XP, +2 gold. HP 7/8. 📜 Bounty progress: Giant Rat 1/6.</div>
+  </div>
+
+  <div class="divider">WHAT'S IN THE LEDGER</div>
+  <div class="grid">
+    <div class="card">
+      <div class="icon">🪪</div>
+      <h3>Characters</h3>
+      <p>Pick a name or let the Clerk roll one. You're sworn in as one of 8 races and 8 classes, from Halfling Rogue to Dragonborn Paladin, and level up as the XP rolls in.</p>
+    </div>
+    <div class="card">
+      <div class="icon">⚔️</div>
+      <h3>Hunting</h3>
+      <p>Over 40 monsters, from Giant Rats to an Ancient Red Dragon. Fights are rolled with real dice, attack bonuses and armor class, and foes are matched to your level unless you name your own.</p>
+    </div>
+    <div class="card">
+      <div class="icon">⏳</div>
+      <h3>Autohunt</h3>
+      <p>Send your character out for anywhere from 5 minutes to 2 hours. They fight a bout every few minutes, rest when HP runs low and report back with a tally.</p>
+    </div>
+    <div class="card">
+      <div class="icon">📜</div>
+      <h3>Bounty board</h3>
+      <p>Three shared bounties at a time. The first hunter to hit the kill count claims the gold (and sometimes an item), and a fresh posting goes up. The whole board turns over every 20 to 30 minutes.</p>
+    </div>
+    <div class="card">
+      <div class="icon">🛒</div>
+      <h3>The merchant's stall</h3>
+      <p>Nearly 40 potions, weapons, armor and trinkets. Buy, equip, drink or sell back at half price. Each slot restocks the moment it's bought.</p>
+    </div>
+    <div class="card">
+      <div class="icon">🔥</div>
+      <h3>Healing by the fire</h3>
+      <p><code>!rest</code> patches you up to 80%, and characters slowly heal on their own between fights, even between streams.</p>
+    </div>
+  </div>
+
+  <div class="divider">THE CHARTER OF COMMANDS</div>
+  <div class="cmds">
+    <div class="engine">
+      <h3>🪪 Getting started</h3>
+      <ul>
+        <li><code>!start</code> where you stand and what to do next</li>
+        <li><code>!enlist &lt;name&gt;</code> or <code>!enlist random</code></li>
+        <li><code>!ledger</code> your sheet, or <code>!ledger @user</code> <span class="alias">(also !chars)</span></li>
+        <li><code>!discharge confirm</code> retire your character</li>
+        <li><code>!help</code> the full guide</li>
+      </ul>
+    </div>
+    <div class="engine">
+      <h3>⚔️ Out in the field</h3>
+      <ul>
+        <li><code>!hunt</code> or <code>!hunt &lt;monster&gt;</code></li>
+        <li><code>!autohunt 20m</code> <span class="alias">(also !auto)</span></li>
+        <li><code>!autostatus</code> and <code>!autostop</code></li>
+        <li><code>!rest</code> recover between bouts</li>
+        <li><code>!quests</code> the bounty board <span class="alias">(also !board)</span></li>
+      </ul>
+    </div>
+    <div class="engine">
+      <h3>🛒 Gold &amp; gear</h3>
+      <ul>
+        <li><code>!merchant</code> today's wares <span class="alias">(also !shop)</span></li>
+        <li><code>!buy 1</code> or <code>!buy &lt;item&gt;</code></li>
+        <li><code>!inventory</code> <span class="alias">(also !inv)</span> and <code>!purse</code></li>
+        <li><code>!use</code>, <code>!sell</code> and <code>!drop &lt;item&gt;</code></li>
+        <li><code>!item &lt;name&gt;</code> look up any ware</li>
+      </ul>
+    </div>
+    <div class="engine">
+      <h3>🎲 Just for fun</h3>
+      <ul>
+        <li><code>!d20</code> or <code>!d20 @user</code> <span class="alias">(also !roll)</span></li>
+        <li><code>!lurk</code> slip into the shadows, still marked present</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="divider">QUESTIONS AT THE BAR</div>
+  <div class="scroll faq">
+    <details>
+      <summary>Does it spam chat?</summary>
+      <p>No. Besides answering commands, the Clerk only posts the odd announcement (new stall wares, fresh bounties, a bit of item lore, a nudge to <code>!start</code>), only while the channel is live, and never more than once per 30 minutes or 5 chat messages.</p>
+    </details>
+    <details>
+      <summary>Can streamers turn parts of it off?</summary>
+      <p>Yes. The broadcaster and mods get a back-room panel with toggles for characters, combat, the shop, quests, dice and each kind of announcement.</p>
+    </details>
+    <details>
+      <summary>Is my character the same in every channel?</summary>
+      <p>Yes. Your character is tied to your Twitch account, so the same adventurer follows you to any channel the Clerk works in.</p>
+    </details>
+    <details>
+      <summary>How is it built?</summary>
+      <p>A Deno bot connects to Twitch's EventSub chat feed and answers commands, while a Val Town backend stores the ledger, the board and the stall, and hosts the command guide and admin panel. It was built and tested with <a href="/bot-sandbox/" style="color:var(--gold2)">TwitchBotSandbox</a>.</p>
+    </details>
+    <details>
+      <summary>Can I add it to my channel?</summary>
+      <p>Not yet. It's still being finished on stream. Keep an eye on this page.</p>
+    </details>
+  </div>
+
+  <div class="divider">FOLLOW THE FORGE</div>
+  <div class="scroll">
+    <p>New features get built and tested live on stream. Come watch the Clerk get built, or help test it.</p>
+    <div class="cta">
+      <a class="btn twitch" href="https://twitch.tv/stonedsheamus" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M4.3 3 3 6.4v13.4h4.6V22h2.6l2.2-2.2h3.5l4.6-4.6V3H4.3Zm14.6 11.4-2.7 2.7h-4.3L9.6 19.4v-2.3H6V4.7h12.9v9.7ZM16.2 7.9v4.7h-1.7V7.9h1.7Zm-4.6 0v4.7H9.9V7.9h1.7Z"/></svg>
+        Watch on Twitch
+      </a>
+      <a class="btn" href="https://github.com/sheastolp" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5Z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+
+  <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus</footer>
+</div>
+</body>
+</html>
