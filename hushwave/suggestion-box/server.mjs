@@ -28,7 +28,7 @@ const ORIGINS = (process.env.SUGGEST_ORIGINS || "https://tavernworks.dev").split
 const KINDS = ["Feature idea", "New sound", "Bug report", "Something else"];
 const SESSION_MS = 7 * 24 * 3600 * 1000;
 const MAX_STORED = 5000;
-const TICKET_CATEGORIES = ["Bot problem", "Hushwave", "Local AI", "Account or billing", "Bug report", "Something else"];
+const TICKET_CATEGORIES = ["Bot problem", "Hushwave", "TwitchBotSandbox", "Local AI", "Bug report", "Something else"]; // keep in step with /support/
 const TICKET_STATUSES = ["open", "pending", "resolved", "closed"]; // pending = waiting on the person who opened it
 const TICKET_PRIORITIES = ["low", "normal", "high", "urgent"];
 const MAX_TICKET_MESSAGES = 200;

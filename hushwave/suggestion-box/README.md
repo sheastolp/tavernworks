@@ -10,9 +10,12 @@ The same server and password also hold the homepage tip jar links, edited
 at [tavernworks.dev/tips](https://tavernworks.dev/tips/). Anyone can read
 those links; only the admin can change them.
 
-It's also the support desk: anyone can open a support ticket and follow it
-with a private key, and the admin answers and triages them. See
-[Support tickets](#support-tickets) below for the API.
+It's also the support desk: anyone can open a support ticket at
+[tavernworks.dev/support](https://tavernworks.dev/support/) and follow it
+with a private key, and the admin answers and triages them at
+[tavernworks.dev/support/inbox](https://tavernworks.dev/support/inbox/)
+with the same password. See [Support tickets](#support-tickets) below for
+the API.
 
 It runs on the Local AI laptop, next to Ollama and the Claude bridge. It
 needs Node 18 or newer and has no dependencies.
@@ -111,7 +114,8 @@ Statuses: `open` (needs you), `pending` (waiting on them), `resolved`,
 back to `open`, even from `resolved`. Closed tickets take no more customer
 replies. Priorities: `low`, `normal`, `high`, `urgent`. Categories are the
 `TICKET_CATEGORIES` list at the top of `server.mjs`, also returned by
-`GET /tickets`.
+`GET /tickets`. Keep the dropdown in `/support/index.html` in step with it;
+anything the server doesn't know is filed as "Something else".
 
 ## Updating
 

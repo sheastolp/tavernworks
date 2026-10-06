@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support Inbox · Tavernworks</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎫</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none!important}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+    background:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,168,74,.14), transparent 70%),var(--bg);
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:860px;margin:0 auto;padding:0 16px}
+  nav{padding:22px 0 0;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .back{font-size:14px;color:var(--muted)}
+  .back:hover{color:var(--gold2)}
+  h1{
+    font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,7vw,44px);line-height:1.1;text-align:center;margin:36px 0 6px;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .sub{text-align:center;color:var(--muted);margin-bottom:28px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+  label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;font-weight:600}
+  label.check{flex-direction:row;align-items:center;gap:8px;font-weight:500;color:var(--muted)}
+  label.check input{width:auto}
+  input,select,textarea{font:15px Inter,system-ui,sans-serif;color:var(--text);background:#0f0b08;border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+  textarea{min-height:110px;resize:vertical;line-height:1.5}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold)}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;cursor:pointer;
+    font:600 14.5px Inter,system-ui,sans-serif;color:var(--text);border:1px solid var(--line);background:var(--bg2);transition:.15s
+  }
+  .btn:hover{border-color:var(--gold)}
+  .btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:var(--gold);color:var(--bg)}
+  .btn.small{padding:5px 11px;font-size:13px;border-radius:8px}
+  .btn.danger:hover{border-color:var(--ember);color:#ff8a5c}
+  .btn[disabled]{opacity:.6;cursor:wait}
+  #login form{display:grid;gap:14px;max-width:360px;margin:0 auto}
+  .status{font-size:14px;color:var(--muted);min-height:1.4em}
+  .status.ok{color:var(--green)}
+  .status.err{color:#ff8a5c}
+
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .tab{font:600 13.5px Inter,system-ui,sans-serif;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer;transition:.15s}
+  .tab:hover{color:var(--text);border-color:var(--gold)}
+  .tab[aria-pressed="true"]{color:var(--bg);background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:var(--gold)}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .bar input{flex:1;min-width:180px}
+  .list{display:flex;flex-direction:column;gap:10px}
+  .item{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;transition:.15s}
+  .item:hover{border-color:var(--gold)}
+  .item.reply{border-left:3px solid var(--gold)}
+  .item .top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .item .subj{display:block;font-weight:600;margin-top:4px;overflow-wrap:anywhere}
+  .empty{text-align:center;color:var(--muted);padding:30px 0}
+
+  .pill{font-size:11px;font-weight:600;letter-spacing:.05em;padding:3px 9px;border-radius:999px;white-space:nowrap;text-transform:uppercase;background:rgba(224,168,74,.12);color:var(--gold)}
+  .pill.pending{background:rgba(145,70,255,.16);color:#c2a2ff}
+  .pill.resolved{background:rgba(127,176,105,.15);color:var(--green)}
+  .pill.closed{background:rgba(185,166,143,.12);color:var(--muted)}
+  .pill.high{background:rgba(201,87,43,.18);color:#ff8a5c}
+  .pill.urgent{background:#c9572b;color:#fff}
+  .pill.low{background:rgba(185,166,143,.12);color:var(--muted)}
+  .pill.tag{text-transform:none;background:rgba(0,0,0,.3);color:var(--muted);border:1px solid var(--line)}
+  .pill.new{background:rgba(224,168,74,.2);color:var(--gold2)}
+
+  .detail .head{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .detail .head h2{font-family:Cinzel,serif;color:var(--gold2);font-size:19px;flex:1;min-width:0;overflow-wrap:anywhere}
+  .detail .meta{color:var(--muted);font-size:13px;margin-top:4px;overflow-wrap:anywhere}
+  .detail .meta a{color:var(--gold2)}
+  .triage{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:16px}
+  .thread{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .msg{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:rgba(0,0,0,.22)}
+  .msg.admin{border-left:3px solid var(--gold);background:rgba(224,168,74,.06)}
+  .msg.internal{border-style:dashed;background:rgba(145,70,255,.07)}
+  .msg .who{font-size:12.5px;color:var(--muted)}
+  .msg .who b{color:var(--text);font-weight:600}
+  .msg p{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:4px}
+  .detail form{display:grid;gap:12px;margin-top:18px}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .actions .right{margin-left:auto}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:48px 0 36px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav><a class="back" href="/support/">← Back to the Support Desk</a><button class="btn small" id="logout" type="button" hidden>Log out</button></nav>
+  <h1>Support Inbox</h1>
+  <p class="sub">Tickets from the Support Desk.</p>
+
+  <div class="panel" id="login">
+    <form id="login-form">
+      <label>Admin password
+        <input type="password" name="password" autocomplete="current-password" required autofocus>
+      </label>
+      <button class="btn gold" type="submit">Open the inbox</button>
+      <div class="status" id="login-status" role="status"></div>
+    </form>
+  </div>
+
+  <div id="box" hidden>
+    <div id="listview">
+      <div class="tabs" id="tabs"></div>
+      <div class="bar">
+        <input id="q" type="search" placeholder="Search subject, name, email, #number or messages">
+        <button class="btn" id="refresh" type="button">↻ Refresh</button>
+      </div>
+      <div class="status" id="box-status" role="status"></div>
+      <div class="list" id="list"></div>
+    </div>
+
+    <div class="panel detail" id="detail" hidden>
+      <div class="actions"><button class="btn small" id="d-back" type="button">← All tickets</button></div>
+      <div class="head" style="margin-top:14px"><h2 id="d-subject"></h2><span class="pill" id="d-status"></span></div>
+      <div class="meta" id="d-meta"></div>
+      <div class="triage">
+        <label>Status <select id="d-status-sel"></select></label>
+        <label>Priority <select id="d-priority"></select></label>
+        <label>Category <select id="d-category"></select></label>
+        <label>Tags <input id="d-tags" placeholder="comma, separated"></label>
+      </div>
+      <div class="thread" id="d-thread"></div>
+      <form id="reply-form">
+        <label>Reply
+          <textarea name="message" maxlength="4000" required></textarea>
+        </label>
+        <div class="actions">
+          <label class="check"><input type="checkbox" name="internal"> Internal note (they won't see it)</label>
+          <label class="check">then set to
+            <select name="status" style="width:auto">
+              <option value="pending">Waiting on them</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+              <option value="open">Open</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions">
+          <button class="btn gold" type="submit">Send</button>
+          <div class="status" id="d-status-msg" role="status"></div>
+          <button class="btn small danger right" id="d-delete" type="button">Delete ticket</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer>Tavernworks · Support inbox</footer>
+</div>
+<script src="/hushwave/suggest-config.js"></script>
+<script>
+(function () {
+  const API = (window.SUGGEST_API || "").replace(/\/+$/, "");
+  const TOKEN_KEY = "hushwave:suggestToken"; // the same login as the suggestion box and tip jar
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+  const store = {
+    get() { try { const t = JSON.parse(localStorage.getItem(TOKEN_KEY)); return t && t.expires > Date.now() ? t.token : ""; } catch { return ""; } },
+    set(v) { try { v ? localStorage.setItem(TOKEN_KEY, JSON.stringify(v)) : localStorage.removeItem(TOKEN_KEY); } catch {} },
+  };
+  const LABELS = { open: "Open", pending: "Waiting on them", resolved: "Resolved", closed: "Closed" };
+  let token = store.get();
+  let filter = "open";
+  let meta = { statuses: ["open", "pending", "resolved", "closed"], priorities: ["low", "normal", "high", "urgent"], categories: [] };
+  let current = null;
+
+  const say = (el, text, cls) => { el.textContent = text; el.className = "status" + (cls ? " " + cls : ""); };
+  const when = (iso) => new Date(iso).toLocaleString();
+
+  async function call(method, p, body) {
+    const r = await fetch(API + p, {
+      method,
+      headers: Object.assign({ "Content-Type": "application/json" }, token ? { Authorization: "Bearer " + token } : {}),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.status === 401 && p !== "/login") { logout("Your login ran out. Log in again."); throw new Error("signed out"); }
+    if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+    return data;
+  }
+  const report = (el, err) => { if (err.message !== "signed out") say(el, err instanceof TypeError ? "Couldn't reach the server. Is it running on the laptop?" : err.message, "err"); };
+
+  function show(loggedIn) {
+    $("login").hidden = loggedIn;
+    $("box").hidden = !loggedIn;
+    $("logout").hidden = !loggedIn;
+  }
+  function logout(msg) {
+    token = ""; store.set(null); current = null;
+    show(false);
+    say($("login-status"), msg || "", msg ? "err" : "");
+  }
+
+  // ── list ──
+  let searchTimer;
+  async function load() {
+    say($("box-status"), "Loading…");
+    try {
+      const qs = new URLSearchParams();
+      if (filter !== "all") qs.set("status", filter);
+      if ($("q").value.trim()) qs.set("q", $("q").value.trim());
+      const d = await call("GET", "/tickets?" + qs);
+      meta = d;
+      renderTabs(d.counts);
+      say($("box-status"), "");
+      $("list").innerHTML = d.tickets.length ? d.tickets.map((t) => `
+        <button class="item${t.needsReply ? " reply" : ""}" type="button" data-id="${esc(t.id)}">
+          <span class="top">
+            <b>#${esc(t.number)}</b>
+            <span class="pill ${esc(t.status)}">${esc(LABELS[t.status] || t.status)}</span>
+            ${t.priority !== "normal" ? `<span class="pill ${esc(t.priority)}">${esc(t.priority)}</span>` : ""}
+            ${t.needsReply ? '<span class="pill new">Needs reply</span>' : ""}
+            <span>${esc(t.category)} · ${esc(t.name)} · ${esc(when(t.updated))}</span>
+            ${(t.tags || []).map((g) => `<span class="pill tag">${esc(g)}</span>`).join("")}
+          </span>
+          <span class="subj">${esc(t.subject)}</span>
+        </button>`).join("") : '<div class="empty">Nothing here. The inbox is clear.</div>';
+    } catch (err) { report($("box-status"), err); }
+  }
+  function renderTabs(counts) {
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    $("tabs").innerHTML = [...meta.statuses, "all"].map((s) =>
+      `<button class="tab" type="button" data-s="${s}" aria-pressed="${s === filter}">${s === "all" ? "All" : LABELS[s]} · ${s === "all" ? total : counts[s] || 0}</button>`
+    ).join("");
+  }
+  $("tabs").addEventListener("click", (e) => { const b = e.target.closest(".tab"); if (b) { filter = b.dataset.s; load(); } });
+  $("q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(load, 300); });
+  $("refresh").addEventListener("click", load);
+  $("list").addEventListener("click", (e) => { const b = e.target.closest(".item"); if (b) openTicket(b.dataset.id); });
+
+  // ── one ticket ──
+  const options = (list, sel, label) => list.map((v) => `<option value="${esc(v)}"${v === sel ? " selected" : ""}>${esc(label ? label(v) : v)}</option>`).join("");
+  async function openTicket(id) {
+    say($("box-status"), "Opening…");
+    try { renderTicket(await call("GET", "/tickets/" + encodeURIComponent(id))); say($("box-status"), ""); }
+    catch (err) { report($("box-status"), err); }
+  }
+  function renderTicket(t) {
+    current = t;
+    $("listview").hidden = true;
+    $("detail").hidden = false;
+    $("d-subject").textContent = "#" + t.number + " · " + t.subject;
+    $("d-status").textContent = LABELS[t.status] || t.status;
+    $("d-status").className = "pill " + t.status;
+    $("d-meta").innerHTML = `${esc(t.name)}${t.email ? ` · <a href="mailto:${esc(t.email)}">${esc(t.email)}</a>` : ""} · opened ${esc(when(t.created))}`;
+    $("d-status-sel").innerHTML = options(meta.statuses, t.status, (s) => LABELS[s] || s);
+    $("d-priority").innerHTML = options(meta.priorities, t.priority);
+    const cats = meta.categories.includes(t.category) ? meta.categories : [...meta.categories, t.category];
+    $("d-category").innerHTML = options(cats, t.category);
+    $("d-tags").value = (t.tags || []).join(", ");
+    $("d-thread").innerHTML = t.messages.map((m) => `
+      <div class="msg${m.from === "admin" ? " admin" : ""}${m.internal ? " internal" : ""}">
+        <div class="who"><b>${m.internal ? "🔒 Internal note" : m.from === "admin" ? "🍺 You" : esc(t.name)}</b> · ${esc(when(m.at))}</div>
+        <p>${esc(m.text)}</p>
+      </div>`).join("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function backToList() { current = null; $("detail").hidden = true; $("listview").hidden = false; say($("d-status-msg"), ""); load(); }
+  $("d-back").addEventListener("click", backToList);
+
+  async function patch(body) {
+    if (!current) return;
+    try { renderTicket(await call("PATCH", "/tickets/" + current.id, body)); say($("d-status-msg"), "Saved.", "ok"); }
+    catch (err) { report($("d-status-msg"), err); }
+  }
+  $("d-status-sel").addEventListener("change", (e) => patch({ status: e.target.value }));
+  $("d-priority").addEventListener("change", (e) => patch({ priority: e.target.value }));
+  $("d-category").addEventListener("change", (e) => patch({ category: e.target.value }));
+  $("d-tags").addEventListener("change", (e) => patch({ tags: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) }));
+
+  const rf = $("reply-form");
+  rf.internal.addEventListener("change", () => { rf.status.disabled = rf.internal.checked; });
+  rf.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!current) return;
+    const message = rf.message.value.trim();
+    if (!message) { say($("d-status-msg"), "Write something first.", "err"); return; }
+    const btn = rf.querySelector("button[type=submit]");
+    btn.disabled = true;
+    say($("d-status-msg"), "Sending…");
+    try {
+      const body = rf.internal.checked ? { message, internal: true } : { message, status: rf.status.value };
+      renderTicket(await call("POST", "/tickets/" + current.id + "/messages", body));
+      rf.reset(); rf.status.disabled = false;
+      say($("d-status-msg"), body.internal ? "Note added." : "Sent. They'll see it next time they check the ticket.", "ok");
+    } catch (err) { report($("d-status-msg"), err); }
+    finally { btn.disabled = false; }
+  });
+
+  $("d-delete").addEventListener("click", async () => {
+    if (!current || !confirm("Delete ticket #" + current.number + " for good?")) return;
+    try { await call("DELETE", "/tickets/" + current.id); backToList(); }
+    catch (err) { report($("d-status-msg"), err); }
+  });
+
+  // ── login ──
+  $("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!API) { say($("login-status"), "No server address yet. Set SUGGEST_API in /hushwave/suggest-config.js.", "err"); return; }
+    const btn = e.target.querySelector("button");
+    btn.disabled = true;
+    say($("login-status"), "Checking…");
+    try {
+      const data = await call("POST", "/login", { password: e.target.password.value });
+      token = data.token; store.set(data);
+      e.target.reset();
+      say($("login-status"), "");
+      show(true);
+      load();
+    } catch (err) {
+      say($("login-status"), err instanceof TypeError ? "Couldn't reach the server. Is it running on the laptop?" : err.message, "err");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  $("logout").addEventListener("click", () => logout());
+
+  if (token) { show(true); load(); } else show(false);
+})();
+</script>
+</body>
+</html>

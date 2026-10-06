@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support Desk · Tavernworks</title>
+<meta name="description" content="Open a support ticket for the Tavernworks bots and tools, and follow it until it's sorted.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎫</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none!important}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+    background:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,168,74,.14), transparent 70%),var(--bg);
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:820px;margin:0 auto;padding:0 16px}
+  nav{padding:22px 0 0;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .back{font-size:14px;color:var(--muted)}
+  .back:hover{color:var(--gold2)}
+  .inbox{font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:4px 10px;transition:.15s}
+  .inbox:hover{color:var(--gold2);border-color:var(--gold)}
+  h1{
+    font-family:Cinzel,serif;font-weight:800;font-size:clamp(30px,7vw,48px);line-height:1.1;text-align:center;margin:36px 0 6px;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .sub{text-align:center;color:var(--muted);margin-bottom:24px}
+  .tabs{display:flex;gap:8px;justify-content:center;margin-bottom:18px;flex-wrap:wrap}
+  .tab{font:600 14px Inter,system-ui,sans-serif;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:999px;padding:7px 16px;cursor:pointer;transition:.15s}
+  .tab:hover{color:var(--text);border-color:var(--gold)}
+  .tab[aria-selected="true"]{color:var(--bg);background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:var(--gold)}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+  .panel h2{font-family:Cinzel,serif;color:var(--gold2);font-size:19px}
+  .panel > p{color:var(--muted);font-size:14.5px;margin-top:4px}
+  form{display:grid;gap:14px;margin-top:18px}
+  .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+  label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;font-weight:600}
+  label small{font-weight:400;color:var(--muted)}
+  input,select,textarea{
+    font:15px Inter,system-ui,sans-serif;color:var(--text);background:#0f0b08;
+    border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;transition:border-color .15s
+  }
+  textarea{min-height:140px;resize:vertical;line-height:1.5}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold)}
+  .count{font-size:12px;color:var(--muted);text-align:right;margin-top:-8px}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;cursor:pointer;
+    font:600 14.5px Inter,system-ui,sans-serif;color:var(--text);border:1px solid var(--line);background:var(--bg2);transition:.15s
+  }
+  .btn:hover{border-color:var(--gold)}
+  .btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:var(--gold);color:var(--bg)}
+  .btn.gold:hover{filter:brightness(1.08)}
+  .btn.small{padding:5px 11px;font-size:13px;border-radius:8px}
+  .btn[disabled]{opacity:.6;cursor:wait}
+  .status{font-size:14px;color:var(--muted);min-height:1.4em}
+  .status.ok{color:var(--green)}
+  .status.err{color:#ff8a5c}
+
+  .saved{margin-top:18px;border:1px solid var(--gold);border-radius:14px;padding:18px;background:rgba(224,168,74,.07)}
+  .saved h3{font-family:Cinzel,serif;color:var(--gold2);font-size:17px}
+  .saved p{color:var(--muted);font-size:14px;margin:6px 0 12px}
+  .keyrow{display:flex;gap:8px;align-items:stretch;margin-top:8px}
+  .keyrow code{flex:1;min-width:0;font-family:ui-monospace,Consolas,monospace;font-size:13px;background:#0f0b08;border:1px solid var(--line);border-radius:8px;padding:9px 10px;word-break:break-all}
+  .keyrow .lbl{font-size:12.5px;color:var(--muted);width:44px;flex-shrink:0;align-self:center}
+
+  .mine{margin-top:18px}
+  .mine h3{font-family:Cinzel,serif;font-size:14px;letter-spacing:.08em;color:var(--gold);margin-bottom:10px}
+  .mine ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+  .mine li{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.22);cursor:pointer;transition:.15s}
+  .mine li:hover{border-color:var(--gold)}
+  .mine li .s{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mine li .x{color:var(--muted);background:none;border:0;cursor:pointer;font-size:16px;padding:0 4px}
+  .mine li .x:hover{color:#ff8a5c}
+
+  .pill{font-size:11px;font-weight:600;letter-spacing:.05em;padding:3px 9px;border-radius:999px;white-space:nowrap;text-transform:uppercase;background:rgba(224,168,74,.12);color:var(--gold)}
+  .pill.open{background:rgba(224,168,74,.12);color:var(--gold)}
+  .pill.pending{background:rgba(145,70,255,.16);color:#c2a2ff}
+  .pill.resolved{background:rgba(127,176,105,.15);color:var(--green)}
+  .pill.closed{background:rgba(185,166,143,.12);color:var(--muted)}
+
+  .ticket .head{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .ticket .head h2{flex:1;min-width:0;overflow-wrap:anywhere}
+  .ticket .meta{color:var(--muted);font-size:13px;margin-top:4px}
+  .ticket .hint{color:var(--muted);font-size:14px;margin-top:14px}
+  .thread{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .msg{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:rgba(0,0,0,.22)}
+  .msg.admin{border-left:3px solid var(--gold);background:rgba(224,168,74,.06)}
+  .msg .who{font-size:12.5px;color:var(--muted)}
+  .msg .who b{color:var(--text);font-weight:600}
+  .msg p{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:4px}
+
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:48px 0 36px}
+  footer span{color:var(--gold)}
+  footer a:hover{color:var(--gold2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav><a class="back" href="/#support">← Back to Tavernworks</a><a class="inbox" href="/support/inbox/" title="Answer tickets (admin login)">🔒 Inbox</a></nav>
+  <h1>Support Desk</h1>
+  <p class="sub">Something broken or confusing? Open a ticket and the barkeep will get back to you here.</p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-new" aria-selected="true" aria-controls="new" type="button">🎫 Open a ticket</button>
+    <button class="tab" role="tab" id="tab-check" aria-selected="false" aria-controls="check" type="button">🔎 Check a ticket</button>
+  </div>
+
+  <div class="panel" id="new" role="tabpanel" aria-labelledby="tab-new">
+    <h2>Open a ticket</h2>
+    <p>Tell us what you were doing, what you expected, and what happened instead. You'll get a ticket number and a private key to come back with.</p>
+    <form id="new-form" novalidate>
+      <div class="row">
+        <label>Your name <small>Optional. Twitch or Discord name is fine.</small>
+          <input name="name" maxlength="60" autocomplete="nickname">
+        </label>
+        <label>Email <small>Optional. Only the barkeep sees it.</small>
+          <input name="email" type="email" maxlength="120" autocomplete="email">
+        </label>
+      </div>
+      <div class="row">
+        <label>What's it about?
+          <select name="category">
+            <option>Bot problem</option>
+            <option>Hushwave</option>
+            <option>TwitchBotSandbox</option>
+            <option>Local AI</option>
+            <option>Bug report</option>
+            <option selected>Something else</option>
+          </select>
+        </label>
+        <label>Subject
+          <input name="subject" maxlength="120" required placeholder="e.g. GuildScribe won't roll in my chat">
+        </label>
+      </div>
+      <label>What's going on?
+        <textarea name="message" maxlength="4000" required></textarea>
+      </label>
+      <div class="count" id="new-count">0 / 4000</div>
+      <label class="hp" aria-hidden="true">Website <input name="website" tabindex="-1" autocomplete="off"></label>
+      <div class="actions">
+        <button class="btn gold" id="new-send" type="submit">Open ticket</button>
+        <div class="status" id="new-status" role="status"></div>
+      </div>
+    </form>
+
+    <div class="saved" id="saved" hidden>
+      <h3 id="saved-title">Ticket opened</h3>
+      <p>Keep this key somewhere safe. It's the only way back into the ticket, and it can't be shown again. This browser remembers it too.</p>
+      <div class="keyrow"><span class="lbl">Ticket</span><code id="saved-number"></code></div>
+      <div class="keyrow"><span class="lbl">Key</span><code id="saved-key"></code><button class="btn small" type="button" data-copy="key">Copy</button></div>
+      <div class="keyrow"><span class="lbl">Link</span><code id="saved-link"></code><button class="btn small" type="button" data-copy="link">Copy</button></div>
+      <div class="actions" style="margin-top:14px"><button class="btn" id="saved-open" type="button">View ticket →</button></div>
+    </div>
+  </div>
+
+  <div id="check" role="tabpanel" aria-labelledby="tab-check" hidden>
+    <div class="panel">
+      <h2>Check a ticket</h2>
+      <p>Use the ticket number and key you got when you opened it.</p>
+      <form id="check-form" novalidate>
+        <div class="row">
+          <label>Ticket number <input name="number" inputmode="numeric" placeholder="e.g. 12" required></label>
+          <label>Key <input name="key" autocomplete="off" spellcheck="false" required></label>
+        </div>
+        <div class="actions">
+          <button class="btn gold" type="submit">Look it up</button>
+          <div class="status" id="check-status" role="status"></div>
+        </div>
+      </form>
+      <div class="mine" id="mine" hidden>
+        <h3>Your tickets on this device</h3>
+        <ul id="mine-list"></ul>
+      </div>
+    </div>
+
+    <div class="panel ticket" id="ticket" hidden style="margin-top:16px">
+      <div class="head"><h2 id="t-subject"></h2><span class="pill" id="t-status"></span></div>
+      <div class="meta" id="t-meta"></div>
+      <div class="thread" id="t-thread"></div>
+      <div class="hint" id="t-hint"></div>
+      <form id="reply-form" novalidate>
+        <label>Add a reply
+          <textarea name="message" maxlength="4000" required style="min-height:100px"></textarea>
+        </label>
+        <div class="actions">
+          <button class="btn gold" type="submit">Send reply</button>
+          <button class="btn" id="t-resolve" type="button">✓ It's sorted</button>
+          <button class="btn small" id="t-refresh" type="button">↻ Refresh</button>
+          <div class="status" id="reply-status" role="status"></div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus</footer>
+</div>
+<script src="/hushwave/suggest-config.js"></script>
+<script>
+// Support desk. Tickets live on the suggestion box server on the laptop
+// (see /hushwave/suggestion-box/README.md). Opening one hands back a number
+// and a private key; the key is kept in this browser and in the #link, which
+// never reaches the server's logs.
+(function () {
+  const API = (window.SUGGEST_API || "").replace(/\/+$/, "");
+  const MINE_KEY = "tavernworks:tickets";
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+  const say = (el, text, cls) => { el.textContent = text; el.className = "status" + (cls ? " " + cls : ""); };
+  const offline = "Couldn't reach the support desk just now. Try again later, or ask in the Discord.";
+  const STATUS = {
+    open: ["Open", "Waiting on the barkeep. You'll see the reply here."],
+    pending: ["Waiting on you", "The barkeep replied. Answer below, or mark it sorted if that fixed it."],
+    resolved: ["Resolved", "Marked as sorted. Reply below if it's back, and it reopens."],
+    closed: ["Closed", "This ticket is closed. Open a new one if you need more help."],
+  };
+
+  const mine = {
+    all() { try { return JSON.parse(localStorage.getItem(MINE_KEY)) || []; } catch { return []; } },
+    save(list) { try { localStorage.setItem(MINE_KEY, JSON.stringify(list.slice(0, 30))); } catch {} },
+    put(t) { this.save([t, ...this.all().filter((x) => x.number !== t.number)]); },
+    drop(n) { this.save(this.all().filter((x) => x.number !== n)); },
+  };
+  let current = null; // { number, key }
+
+  async function call(method, p, body, key) {
+    const r = await fetch(API + p, {
+      method,
+      headers: Object.assign({ "Content-Type": "application/json" }, key ? { "X-Ticket-Key": key } : {}),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+    return data;
+  }
+  const why = (err) => (err instanceof TypeError || !err.message ? offline : err.message);
+
+  // ── tabs ──
+  function tab(which) {
+    for (const t of ["new", "check"]) {
+      $("tab-" + t).setAttribute("aria-selected", String(t === which));
+      $(t).hidden = t !== which;
+    }
+    if (which === "check") renderMine();
+  }
+  $("tab-new").addEventListener("click", () => tab("new"));
+  $("tab-check").addEventListener("click", () => tab("check"));
+
+  // ── open a ticket ──
+  const nf = $("new-form");
+  nf.message.addEventListener("input", () => { $("new-count").textContent = nf.message.value.length + " / 4000"; });
+  nf.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const subject = nf.subject.value.trim(), message = nf.message.value.trim();
+    if (nf.website.value) return; // a bot filled the hidden field
+    if (subject.length < 3) { say($("new-status"), "Give it a short subject.", "err"); nf.subject.focus(); return; }
+    if (message.length < 10) { say($("new-status"), "Tell us a bit more about what's going on.", "err"); nf.message.focus(); return; }
+    if (!API) { say($("new-status"), "The desk isn't open yet. Ask in the Discord for now.", "err"); return; }
+    $("new-send").disabled = true;
+    say($("new-status"), "Sending…");
+    try {
+      const d = await call("POST", "/tickets", {
+        name: nf.name.value.trim(), email: nf.email.value.trim(), category: nf.category.value,
+        subject, message, website: nf.website.value,
+      });
+      if (!d.key) throw new Error(""); // the server's quiet answer to the hidden field
+      mine.put({ number: d.number, key: d.key, subject });
+      nf.reset();
+      $("new-count").textContent = "0 / 4000";
+      say($("new-status"), "");
+      nf.hidden = true;
+      $("saved-title").textContent = "Ticket #" + d.number + " opened";
+      $("saved-number").textContent = "#" + d.number;
+      $("saved-key").textContent = d.key;
+      $("saved-link").textContent = linkFor(d.number, d.key);
+      $("saved").hidden = false;
+      $("saved").dataset.number = d.number;
+    } catch (err) {
+      say($("new-status"), why(err), "err");
+    } finally {
+      $("new-send").disabled = false;
+    }
+  });
+  const linkFor = (n, k) => location.origin + "/support/#ticket=" + n + "&key=" + encodeURIComponent(k);
+  $("saved").addEventListener("click", async (e) => {
+    const b = e.target.closest("button[data-copy]");
+    if (!b) return;
+    try { await navigator.clipboard.writeText($("saved-" + b.dataset.copy).textContent); b.textContent = "Copied"; }
+    catch { b.textContent = "Select it"; }
+    setTimeout(() => { b.textContent = "Copy"; }, 1800);
+  });
+  $("saved-open").addEventListener("click", () => {
+    const t = mine.all().find((x) => String(x.number) === $("saved").dataset.number);
+    $("saved").hidden = true; nf.hidden = false;
+    tab("check");
+    if (t) open(t.number, t.key);
+  });
+
+  // ── check a ticket ──
+  function renderMine() {
+    const list = mine.all();
+    $("mine").hidden = !list.length;
+    $("mine-list").innerHTML = list.map((t) =>
+      `<li data-n="${esc(t.number)}"><b>#${esc(t.number)}</b><span class="s">${esc(t.subject || "")}</span>` +
+      `<button class="x" type="button" title="Forget on this device" aria-label="Forget ticket ${esc(t.number)} on this device">×</button></li>`
+    ).join("");
+  }
+  $("mine-list").addEventListener("click", (e) => {
+    const li = e.target.closest("li");
+    if (!li) return;
+    const n = Number(li.dataset.n);
+    if (e.target.closest(".x")) {
+      if (confirm("Forget ticket #" + n + " on this device? You'll need its key to get back in.")) { mine.drop(n); renderMine(); }
+      return;
+    }
+    const t = mine.all().find((x) => x.number === n);
+    if (t) open(t.number, t.key);
+  });
+
+  $("check-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const n = e.target.number.value.trim().replace(/^#/, ""), k = e.target.key.value.trim();
+    if (!/^\d+$/.test(n) || !k) { say($("check-status"), "Enter the ticket number and its key.", "err"); return; }
+    open(Number(n), k);
+  });
+
+  async function open(number, key) {
+    if (!API) { say($("check-status"), "The desk isn't open yet. Ask in the Discord for now.", "err"); return; }
+    say($("check-status"), "Looking it up…");
+    try {
+      const t = await call("GET", "/tickets/" + number, null, key);
+      current = { number, key };
+      mine.put({ number, key, subject: t.subject });
+      renderMine();
+      say($("check-status"), "");
+      show(t);
+      $("ticket").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (err) {
+      $("ticket").hidden = true;
+      say($("check-status"), why(err), "err");
+    }
+  }
+
+  function show(t) {
+    const [label, hint] = STATUS[t.status] || [t.status, ""];
+    $("t-subject").textContent = "#" + t.number + " · " + t.subject;
+    $("t-status").textContent = label;
+    $("t-status").className = "pill " + t.status;
+    $("t-meta").textContent = t.category + " · opened " + new Date(t.created).toLocaleString();
+    $("t-thread").innerHTML = t.messages.map((m) => `
+      <div class="msg ${m.from === "admin" ? "admin" : ""}">
+        <div class="who"><b>${m.from === "admin" ? "🍺 The barkeep" : esc(t.name)}</b> · ${esc(new Date(m.at).toLocaleString())}</div>
+        <p>${esc(m.text)}</p>
+      </div>`).join("");
+    $("t-hint").textContent = hint;
+    const closed = t.status === "closed";
+    $("reply-form").message.disabled = closed;
+    $("reply-form").querySelector("button[type=submit]").disabled = closed;
+    $("t-resolve").hidden = closed || t.status === "resolved";
+    $("ticket").hidden = false;
+  }
+
+  $("reply-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!current) return;
+    const message = e.target.message.value.trim();
+    if (!message) { say($("reply-status"), "Write something first.", "err"); return; }
+    const btn = e.target.querySelector("button[type=submit]");
+    btn.disabled = true;
+    say($("reply-status"), "Sending…");
+    try {
+      show(await call("POST", "/tickets/" + current.number + "/messages", { message }, current.key));
+      e.target.reset();
+      say($("reply-status"), "Sent.", "ok");
+    } catch (err) {
+      say($("reply-status"), why(err), "err");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("t-resolve").addEventListener("click", async () => {
+    if (!current) return;
+    try { show(await call("POST", "/tickets/" + current.number + "/resolve", null, current.key)); say($("reply-status"), "Glad it's sorted!", "ok"); }
+    catch (err) { say($("reply-status"), why(err), "err"); }
+  });
+  $("t-refresh").addEventListener("click", () => current && open(current.number, current.key));
+
+  // A private link (#ticket=12&key=...) opens that ticket straight away,
+  // then the key is tidied out of the address bar.
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get("ticket") && h.get("key")) {
+    history.replaceState(null, "", location.pathname);
+    tab("check");
+    open(Number(h.get("ticket")), h.get("key"));
+  } else if (h.has("check")) tab("check");
+})();
+</script>
+</body>
+</html>
