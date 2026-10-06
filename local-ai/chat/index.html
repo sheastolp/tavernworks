@@ -79,7 +79,9 @@
   .think div{white-space:pre-wrap;border-left:2px solid var(--line);padding-left:10px;margin-top:6px}
   .meta{display:flex;gap:12px;align-items:center;margin-top:6px;font-size:12px;color:var(--muted)}
   .meta button{background:none;border:0;color:var(--muted);font-size:12px}
-  .meta button:hover{color:var(--gold2)}
+  .meta button.act{border:1px solid var(--line);border-radius:7px;padding:3px 10px;background:var(--bg2);color:var(--text)}
+  .meta button.act:hover{border-color:var(--gold);color:var(--gold2)}
+  .meta button.stop{border-color:var(--ember);color:#ffb59a}
   .cursor::after{content:"▍";color:var(--gold);animation:blink 1s infinite;margin-left:1px}
   .err{color:#ff9b7a}
   .note-inline{color:var(--muted);font-style:italic}
@@ -309,12 +311,21 @@
     if (thinking) { think.querySelector("details div").textContent = thinking; think.querySelector("summary").textContent = streaming && !answer ? "Thinking…" : "Thoughts"; }
     const meta = el.querySelector(".meta");
     meta.innerHTML = "";
-    if (m.role === "assistant" && !streaming && !m.error && (answer || thinking)) {
-      const copy = document.createElement("button"); copy.textContent = "Copy";
-      copy.onclick = () => navigator.clipboard?.writeText(splitThink(m).answer || splitThink(m).thinking).then(() => { copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy"), 1500); });
-      meta.appendChild(copy);
-      if (m.stats) { const s = document.createElement("span"); s.textContent = m.stats; meta.appendChild(s); }
+    const button = (label, title, onclick, cls) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = label; b.title = title; b.onclick = onclick;
+      if (cls) b.className = cls;
+      meta.appendChild(b);
+      return b;
+    };
+    if (m.role !== "assistant") return;
+    if (streaming) { button("■ Stop", "Stop the reply here", () => busy?.abort(), "act stop"); return; }
+    if (!m.error && (answer || thinking)) {
+      const copy = button("Copy", "Copy this reply", () => navigator.clipboard?.writeText(answer || thinking).then(() => { copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy"), 1500); }), "act");
     }
+    const c = chat();
+    if (c && c.messages[c.messages.length - 1] === m) button("↻ Resend", "Ask the model to answer again", resend, "act");
+    if (m.stats) { const s = document.createElement("span"); s.textContent = m.stats; meta.appendChild(s); }
   }
   function renderThread() {
     const t = $("thread");
@@ -407,6 +418,22 @@
     }
     input.value = ""; autosize();
     c.messages.push({ role: "user", content: text });
+    await generate(c);
+  }
+
+  // Asks the model to answer the latest user message again: drops the
+  // reply(s) after it and streams a fresh one.
+  async function resend() {
+    const c = chat();
+    if (busy || !c) return;
+    if (!c.messages.some((m) => m.role === "user")) return;
+    if (!$("model").value) { await connect(); if (!$("model").value) { notice(await diagnose(lastError, settings.api)); return; } }
+    while (c.messages[c.messages.length - 1].role === "assistant") c.messages.pop();
+    await generate(c);
+  }
+
+  // Streams the model's reply to the conversation so far.
+  async function generate(c) {
     const reply = { role: "assistant", content: "", model: $("model").value };
     c.messages.push(reply);
     save(); renderList(); renderThread();
