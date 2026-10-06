@@ -623,13 +623,14 @@
     }
     reply.tools = [];
     const toolsById = {};
-    let result = null;
+    let result = null, bridgeError = "";
     const take = (line) => {
       line = line.trim();
       if (!line) return;
       let ev;
       try { ev = JSON.parse(line); } catch { return; }
-      if (ev.type === "bridge_error") throw new Error(ev.error || "The bridge reported an error.");
+      // Claude Code failed: keep whatever it already said, and show its own message.
+      if (ev.type === "bridge_error") { bridgeError = String(ev.error || "The bridge reported an error."); return; }
       if (ev.type === "system" && ev.subtype === "init" && ev.session_id) { c.claudeSession = ev.session_id; save(); }
       if (ev.type === "stream_event") {
         const e = ev.event || {};
@@ -672,8 +673,13 @@
         const why = result.subtype === "error_max_turns" ? "Claude Code hit its step limit." : (result.result || result.subtype || "Claude Code reported an error.");
         if (reply.content.trim()) reply.stats += " · ended early: " + why; else reply.error = String(why);
       }
-    } else if (!reply.content.trim()) {
-      reply.error = "Claude Code finished without a reply. Check the bridge's log on the laptop (journalctl --user -u claude-bridge).";
+    } else if (!reply.content.trim() && !bridgeError) {
+      reply.error = "Claude Code finished without a reply. Check the bridge's log on the laptop (journalctl -u claude-bridge).";
+    }
+    if (bridgeError) {
+      const hint = /log ?in|sign ?in|api key|auth|credential|unauthori[sz]ed|401/i.test(bridgeError) ? " (Claude Code isn't signed in on the laptop: run `claude` as your user and sign in.)" : "";
+      if (reply.content.trim()) reply.stats = (reply.stats ? reply.stats + " · " : "") + "ended with an error: " + bridgeError + hint;
+      else if (!reply.error) reply.error = "Claude Code: " + bridgeError + hint;
     }
   }
   async function diagnoseBridge(err) {
@@ -687,7 +693,7 @@
     let reachable = false;
     try { await fetch(base + "/", { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(6000) }); reachable = true; } catch {}
     if (reachable) return "The bridge answered, but the browser blocked the reply. Check CLAUDE_BRIDGE_ORIGINS on the laptop includes https://tavernworks.dev.";
-    return "Can't reach the Claude Code bridge. Check: this device is on Tailscale; any browser VPN is off; the bridge is running (systemctl --user status claude-bridge); and `tailscale serve status` lists port 8443.";
+    return "Can't reach the Claude Code bridge. Check: this device is on Tailscale; any browser VPN is off; the bridge is running (systemctl status claude-bridge); and `tailscale serve status` lists port 8443.";
   }
 
   function setSending(on) {
