@@ -103,6 +103,23 @@
   .wallet small{color:var(--muted);font-size:12.5px}
   .jar .cta{justify-content:flex-start;margin-top:14px}
 
+  .company{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px}
+  .company h3{font-family:Cinzel,serif;color:var(--gold2);font-size:17px;margin-bottom:4px}
+  .company .lead{color:var(--muted);font-size:14.5px;margin-bottom:16px}
+  .company .group:not([hidden]) + .group{margin-top:26px;padding-top:22px;border-top:1px solid var(--line)}
+  .chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+  .chip{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.22);transition:.15s;min-width:0}
+  a.chip:hover{border-color:var(--gold);transform:translateY(-2px)}
+  .chip .dot{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-family:Cinzel,serif;font-weight:800;font-size:14px;color:var(--bg);background:linear-gradient(180deg,var(--gold2),var(--gold))}
+  .chip .who{min-width:0;flex:1}
+  .chip .name{font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chip .role{color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chip .pill{margin-left:auto}
+  .onair{background:rgba(201,87,43,.18);color:#ff8a5c}
+  .company .note{color:var(--muted);font-size:13.5px}
+  .company .note a{color:var(--gold2)}
+  .company .foot{margin-top:14px;font-size:12.5px;color:var(--muted)}
+
   footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
   footer span{color:var(--gold)}
 </style>
@@ -202,8 +219,60 @@
     </div>
   </div>
 
+  <div class="divider" id="guilds">THE COMPANY</div>
+  <div class="company">
+    <div class="group" id="people-group" hidden>
+      <h3>Friends of the tavern</h3>
+      <p class="lead">The folks who help keep the lights on.</p>
+      <div class="chips" id="people"></div>
+    </div>
+    <div class="group">
+      <h3>Guilds running GuildScribe</h3>
+      <p class="lead">Twitch channels that have raised the GuildScribe banner. Drop in and roll some dice.</p>
+      <div class="chips" id="channels"><p class="note">Asking the scribes for the guild roll&hellip;</p></div>
+      <p class="foot">Updated live from GuildScribe. Channels can leave this list with <code>!dndbot showcase off</code>.</p>
+    </div>
+  </div>
+
   <footer>Tavernworks · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus</footer>
 </div>
+<script>
+// People to list under "Friends of the tavern". Add entries like:
+//   { name: "Jane", role: "Co-DM", url: "https://twitch.tv/jane" },
+// The group stays hidden while this list is empty.
+const PEOPLE = [];
+
+(function () {
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+  const chip = (name, sub, url, pill) =>
+    `<${url ? `a href="${esc(url)}" target="_blank" rel="noopener"` : "div"} class="chip">` +
+    `<span class="dot">${esc(name.trim().charAt(0).toUpperCase() || "?")}</span>` +
+    `<span class="who"><div class="name">${esc(name)}</div>${sub ? `<div class="role">${esc(sub)}</div>` : ""}</span>` +
+    (pill || "") + `</${url ? "a" : "div"}>`;
+
+  if (PEOPLE.length) {
+    document.getElementById("people").innerHTML = PEOPLE.map((p) => chip(p.name, p.role, p.url)).join("");
+    document.getElementById("people-group").hidden = false;
+  }
+
+  const box = document.getElementById("channels");
+  fetch("https://guildscribe.tavernworks.dev/api/channels")
+    .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then(({ channels }) => {
+      if (!channels || !channels.length) {
+        box.innerHTML = '<p class="note">No guilds yet. <a href="https://guildscribe.tavernworks.dev/connect">Be the first to raise the banner</a>.</p>';
+        return;
+      }
+      channels.sort((a, b) => (b.is_live - a.is_live) || a.display_name.localeCompare(b.display_name, undefined, { sensitivity: "base" }));
+      box.innerHTML = channels
+        .map((c) => chip(c.display_name, "twitch.tv/" + c.login, "https://twitch.tv/" + encodeURIComponent(c.login), c.is_live ? '<span class="pill onair">LIVE</span>' : ""))
+        .join("");
+    })
+    .catch(() => {
+      box.innerHTML = '<p class="note">Couldn\'t reach the guild hall just now. Try again in a bit.</p>';
+    });
+})();
+</script>
 <script>
 document.querySelectorAll('.copy').forEach((b) => b.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copied'; b.classList.add('done'); }
