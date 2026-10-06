@@ -1,0 +1,1172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>Adventurer's Journal · Tavernworks</title>
+<meta name="description" content="A D&amp;D campaign journal in your browser: projects, numbered notes, attachments and ComfyUI scene art.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069; --arcane:#9b7bd8; --code:#0f0b08;
+    --lh:25px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:Inter,system-ui,sans-serif;color:var(--text);background:var(--bg);line-height:1.6;overflow:hidden}
+  a{color:var(--gold2)}
+  button,select,input,textarea{font:inherit;color:inherit}
+  button{cursor:pointer}
+  [hidden]{display:none !important}
+
+  .app{display:grid;grid-template-columns:270px 1fr;height:100dvh}
+
+  /* Sidebar */
+  .side{background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .side .top{padding:14px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:8px;font-family:Cinzel,serif;color:var(--gold2);font-size:17px;text-decoration:none}
+  .side .lists{flex:1;overflow-y:auto;min-height:0;padding:6px 8px 10px}
+  .sec{display:flex;align-items:center;justify-content:space-between;padding:12px 6px 6px;font-family:Cinzel,serif;font-size:12.5px;letter-spacing:.12em;color:var(--gold)}
+  .sec button{background:none;border:1px solid var(--line);border-radius:7px;color:var(--muted);font:600 12px Inter,system-ui,sans-serif;letter-spacing:0;padding:2px 9px;transition:.15s}
+  .sec button:hover{border-color:var(--gold);color:var(--gold2)}
+  .list{list-style:none;counter-reset:n}
+  .list li{display:flex;align-items:center;gap:2px;border-radius:8px}
+  .list li:hover{background:rgba(255,255,255,.04)}
+  .list li.on{background:var(--card)}
+  .list li button.open{flex:1;min-width:0;text-align:left;background:none;border:0;padding:7px 10px;border-radius:8px;color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .list li.on button.open{color:var(--text)}
+  .list.numbered li button.open::before{counter-increment:n;content:counter(n) ".";display:inline-block;min-width:24px;color:#7a6650;font-variant-numeric:tabular-nums}
+  .list li.on button.open::before{color:var(--gold)}
+  .list li button.x{background:none;border:0;color:var(--muted);padding:4px 6px;border-radius:6px;opacity:0;font-size:13px}
+  .list li:hover button.x,.list li.on button.x{opacity:.65}
+  .list li button.x:hover{opacity:1;color:var(--gold2)}
+  .list li button.x.del:hover{color:var(--ember)}
+  .list .none{color:var(--muted);font-size:13px;padding:4px 10px;font-style:italic}
+  .side .bottom{padding:12px 14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:7px;font-size:13.5px}
+  .side .bottom a,.side .bottom button{background:none;border:0;color:var(--muted);text-align:left;text-decoration:none;padding:1px 0}
+  .side .bottom a:hover,.side .bottom button:hover{color:var(--gold2)}
+  .side .bottom small{color:#7a6650;font-size:12px}
+
+  /* Main */
+  .main{display:flex;flex-direction:column;min-width:0;min-height:0}
+  .bar{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .menu{display:none;background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+  .crumb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+  .crumb b{color:var(--gold);font-weight:600}
+  .num{font-family:Cinzel,serif;color:var(--gold);font-size:15px}
+  .title{flex:1;min-width:140px;background:none;border:1px solid transparent;border-radius:8px;padding:5px 8px;font-family:Cinzel,serif;font-size:18px;color:var(--gold2);outline:0}
+  .title:hover{border-color:var(--line)}
+  .title:focus{border-color:var(--gold);background:var(--code)}
+  .tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .tb{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card);font-size:13.5px;font-weight:600;transition:.15s;white-space:nowrap}
+  .tb:hover{border-color:var(--gold)}
+  .tb.on{border-color:var(--gold);color:var(--gold2)}
+  .dd{position:relative}
+  .dd > summary{list-style:none}
+  .dd > summary::-webkit-details-marker{display:none}
+  .dd .pop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:230px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 14px 40px rgba(0,0,0,.5);display:flex;flex-direction:column}
+  .dd .pop button{background:none;border:0;text-align:left;padding:8px 10px;border-radius:8px;font-size:13.5px}
+  .dd .pop button:hover{background:var(--card);color:var(--gold2)}
+  .dd .pop small{display:block;color:var(--muted);font-size:12px}
+  .saved{font-size:12.5px;color:var(--muted);margin-left:auto;white-space:nowrap}
+
+  .work{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding:14px 16px 10px;overflow-y:auto}
+
+  /* Numbered editor */
+  .editor{position:relative;flex:1;min-height:150px;display:flex;background:var(--code);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .editor:focus-within{border-color:#5a4330}
+  .editor.drag{border-color:var(--gold);box-shadow:0 0 0 3px rgba(224,168,74,.18)}
+  .gutter{width:54px;flex-shrink:0;overflow:hidden;background:rgba(0,0,0,.28);border-right:1px solid var(--line);font:12.5px ui-monospace,Consolas,monospace;color:#6c5945;text-align:right;user-select:none}
+  .gutter .in{padding:14px 10px 14px 0;will-change:transform}
+  .gutter .in div{line-height:var(--lh);cursor:pointer;font-variant-numeric:tabular-nums}
+  .gutter .in div:hover{color:var(--muted)}
+  .gutter .in div.cur{color:var(--gold2)}
+  #text,.mirror{font:15px/var(--lh) Inter,system-ui,sans-serif;padding:14px 18px;white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;tab-size:4}
+  #text{flex:1;min-width:0;resize:none;border:0;outline:0;background:transparent;color:var(--text);overflow-y:auto}
+  #text::placeholder{color:#6c5945}
+  .mirror{position:absolute;left:-99999px;top:0;visibility:hidden;padding-top:0;padding-bottom:0}
+  .mirror div{min-height:var(--lh)}
+  .droptip{position:absolute;inset:0;display:none;place-items:center;background:rgba(21,16,12,.75);color:var(--gold2);font-family:Cinzel,serif;font-size:18px;pointer-events:none}
+  .editor.drag .droptip{display:grid}
+
+  /* Preview */
+  .preview{flex:1;min-height:180px;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 26px;overflow-wrap:anywhere}
+  .preview > *{max-width:760px;margin-left:auto;margin-right:auto}
+  .preview h1,.preview h2,.preview h3{font-family:Cinzel,serif;color:var(--gold2);margin:16px auto 6px;line-height:1.3}
+  .preview h1{font-size:24px}.preview h2{font-size:20px}.preview h3{font-size:17px}
+  .preview p{margin-bottom:8px;min-height:1em}
+  .preview ul{margin:0 auto 8px;padding-left:22px}
+  .preview blockquote{border-left:3px solid var(--gold);padding:2px 0 2px 12px;color:var(--muted);font-style:italic;margin-bottom:8px}
+  .preview hr{border:0;border-top:1px solid var(--line);margin:16px auto}
+  .preview img{display:block;max-width:100%;max-height:520px;border-radius:10px;border:1px solid var(--line);margin:8px auto;cursor:zoom-in}
+  .preview .missing{color:#ff9b7a;font-size:13px}
+  .preview .blank{color:var(--muted);font-style:italic;text-align:center;margin-top:10vh}
+
+  /* Attachments */
+  .files{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+  .files .head{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+  .files .head b{font-family:Cinzel,serif;color:var(--gold);font-weight:600;letter-spacing:.06em}
+  .files .head .tb{padding:3px 10px;font-size:12.5px}
+  .strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+  .strip:empty{display:none}
+  .thumb{position:relative;flex-shrink:0;width:92px;height:92px;border-radius:10px;border:1px solid var(--line);background:var(--card);overflow:hidden;padding:0;transition:.15s}
+  .thumb:hover{border-color:var(--gold);transform:translateY(-2px)}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb .ext{display:grid;place-items:center;height:100%;padding:8px;text-align:center;font-size:11.5px;color:var(--muted);overflow-wrap:anywhere;line-height:1.3}
+  .thumb .ext b{display:block;font-size:20px;margin-bottom:4px}
+  .thumb .badge{position:absolute;left:4px;top:4px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;background:rgba(155,123,216,.85);color:#fff}
+  .files .hint{font-size:12px;color:#7a6650}
+
+  /* Image forge (ComfyUI), minimized by default */
+  .forge{border-top:1px solid var(--line);background:var(--bg2)}
+  .forge-head{width:100%;display:flex;align-items:center;gap:10px;background:none;border:0;padding:9px 16px;text-align:left}
+  .forge-head .t{font-family:Cinzel,serif;color:var(--gold2);font-size:14.5px}
+  .forge-head small{color:var(--muted);font-size:12.5px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .forge-head .chev{color:var(--muted);transition:transform .2s}
+  .forge-head[aria-expanded="true"] .chev{transform:rotate(180deg)}
+  .forge-head:hover .t{color:var(--gold)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
+  .dot.ok{background:var(--green);box-shadow:0 0 8px var(--green)}
+  .dot.bad{background:var(--ember)}
+  .dot.wait{background:var(--gold);animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.3}}
+  .forge-body{max-height:min(46vh,480px);overflow-y:auto;padding:4px 16px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+  .forge-body .full{grid-column:1/-1}
+  .forge label{display:block;font-size:12.5px;font-weight:600;color:var(--muted)}
+  .forge input,.forge textarea,.forge select{width:100%;margin-top:4px;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:14px;color:var(--text);font-weight:400}
+  .forge textarea{resize:vertical;min-height:62px;line-height:1.45}
+  .forge input:focus,.forge textarea:focus,.forge select:focus{outline:0;border-color:var(--gold)}
+  .forge .row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+  .forge .row > label{flex:1;min-width:90px}
+  .forge .nums{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .forge .go{padding:9px 18px;border-radius:10px;border:0;background:var(--gold);color:var(--bg);font-weight:700}
+  .forge .go:disabled{opacity:.45;cursor:default}
+  .forge .ghost{padding:8px 13px;border-radius:9px;border:1px solid var(--line);background:var(--card);font-weight:600;font-size:13px}
+  .forge .ghost:hover{border-color:var(--gold)}
+  .forge .check{display:flex;gap:8px;align-items:center;font-weight:500;color:var(--text);font-size:13px}
+  .forge .check input{width:auto;margin:0}
+  .forge details summary{cursor:pointer;color:var(--gold2);font-size:13px;font-weight:600}
+  .forge details textarea{min-height:120px;font:12.5px/1.45 ui-monospace,Consolas,monospace}
+  .forge .msg{font-size:13px;color:var(--muted);min-height:20px;white-space:pre-line}
+  .forge .msg.err{color:#ff9b7a}
+  .forge progress{width:160px;height:8px;accent-color:var(--gold)}
+  .forge .hint{font-size:12px;color:#7a6650;line-height:1.5}
+  .forge code{font-family:ui-monospace,Consolas,monospace;font-size:.95em;color:var(--gold2)}
+
+  /* Empty state */
+  .empty{max-width:520px;margin:14vh auto 0;text-align:center;padding:0 18px}
+  .empty .big{font-size:54px;filter:drop-shadow(0 0 24px rgba(224,168,74,.35))}
+  .empty h1{font-family:Cinzel,serif;color:var(--gold2);font-size:28px;margin:10px 0 6px}
+  .empty p{color:var(--muted)}
+  .empty .cta{display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+  .empty .cta button{padding:10px 18px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-weight:600}
+  .empty .cta button.primary{background:var(--gold);border-color:var(--gold);color:var(--bg)}
+
+  /* Viewer */
+  dialog{margin:auto;background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:16px;width:min(900px,calc(100vw - 32px));max-height:calc(100dvh - 32px)}
+  dialog::backdrop{background:rgba(0,0,0,.72)}
+  .view-img{display:grid;place-items:center;background:var(--code);border-radius:10px;min-height:120px}
+  .view-img img{max-width:100%;max-height:calc(100dvh - 240px);display:block;border-radius:8px}
+  .view-img .ext{padding:40px;text-align:center;color:var(--muted)}
+  .view-img .ext b{display:block;font-size:44px}
+  .view-meta{margin-top:10px;font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+  .view-meta strong{color:var(--text);font-size:14.5px}
+  .view-meta .p{margin-top:4px;font-style:italic}
+  .view-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .view-row button{padding:7px 14px;border-radius:9px;border:1px solid var(--line);background:var(--card);font-weight:600;font-size:13.5px}
+  .view-row button:hover{border-color:var(--gold)}
+  .view-row button.del{margin-left:auto;color:#ffb59a}
+  .view-row button.del:hover{border-color:var(--ember)}
+
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--card);border:1px solid var(--gold);color:var(--text);padding:9px 16px;border-radius:10px;font-size:14px;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:calc(100vw - 32px)}
+
+  .scrim{display:none}
+  @media (max-width:820px){
+    .app{grid-template-columns:1fr}
+    .side{position:fixed;inset:0 auto 0 0;width:min(290px,86vw);z-index:20;transform:translateX(-100%);transition:transform .2s}
+    .app.open .side{transform:none}
+    .app.open .scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
+    .menu{display:inline-block}
+    .crumb{display:none}
+    .bar{padding:8px 12px}
+    .work{padding:10px 12px 8px}
+    .tb .lbl{display:none}
+    .saved{order:5}
+    .forge-body{grid-template-columns:1fr}
+    .forge .nums{grid-template-columns:repeat(3,1fr)}
+    .gutter{width:42px}
+    .gutter .in{padding-right:7px}
+    #text,.mirror{padding-left:12px;padding-right:12px}
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="side">
+    <div class="top"><a class="brand" href="/">📖 Adventurer's Journal</a></div>
+    <div class="lists">
+      <div class="sec">PROJECTS <button id="addProject" title="Start a new project">＋ New</button></div>
+      <ul class="list" id="projects"></ul>
+      <div class="sec" id="entriesHead">ENTRIES <button id="addEntry" title="Add an entry to this project">＋ New</button></div>
+      <ol class="list numbered" id="entries"></ol>
+    </div>
+    <div class="bottom">
+      <button id="importBtn">⬆ Import a project backup (.json)</button>
+      <a href="/">← Back to Tavernworks</a>
+      <small id="usage">Saved in this browser only. Download a backup now and then.</small>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <main class="main">
+    <div class="empty" id="empty" hidden>
+      <div class="big">📖</div>
+      <h1>No projects yet</h1>
+      <p>Start a project for each campaign, one-shot or character. Every project holds numbered entries, attachments and scene art.</p>
+      <div class="cta">
+        <button class="primary" id="emptyNew">＋ New project</button>
+        <button id="emptyImport">⬆ Import a backup</button>
+      </div>
+    </div>
+
+    <div class="empty" id="noEntries" hidden>
+      <div class="big">🪶</div>
+      <h1>A blank journal</h1>
+      <p>This project has no entries yet. Add one for your next session.</p>
+      <div class="cta"><button class="primary" id="noEntriesNew">＋ New entry</button></div>
+    </div>
+
+    <div class="bar" id="bar" hidden>
+      <button class="menu" id="menu" aria-label="Show projects">☰</button>
+      <span class="crumb" id="crumb"></span>
+      <span class="num" id="entryNum"></span>
+      <input class="title" id="title" placeholder="Untitled entry" aria-label="Entry title" autocomplete="off">
+      <div class="tools">
+        <button class="tb" id="previewBtn" title="Toggle between editing and a preview with images (Ctrl+E)">👁 <span class="lbl">Preview</span></button>
+        <button class="tb" id="uploadBtn" title="Open text files as new entries">📂 <span class="lbl">Upload</span></button>
+        <button class="tb" id="attachBtn" title="Attach images or any file to this entry">📎 <span class="lbl">Attach</span></button>
+        <details class="dd" id="dlMenu">
+          <summary class="tb" title="Download">⬇ <span class="lbl">Download</span></summary>
+          <div class="pop">
+            <button data-dl="md">Entry as Markdown <small>.md, plain text</small></button>
+            <button data-dl="txt">Entry as text <small>.txt, with line numbers</small></button>
+            <button data-dl="html">Entry with images <small>.html, opens in any browser</small></button>
+            <button data-dl="json">Whole project backup <small>.json, every entry and attachment</small></button>
+          </div>
+        </details>
+      </div>
+      <span class="saved" id="saved"></span>
+    </div>
+
+    <div class="work" id="work" hidden>
+      <div class="editor" id="editor">
+        <div class="gutter" id="gutter"><div class="in" id="gutterIn"></div></div>
+        <textarea id="text" spellcheck="true" placeholder="The party arrives at the Yawning Portal…&#10;&#10;Write here. Drop or paste images to attach them. # starts a heading, - a list, &gt; a quote, **bold**, *italic*."></textarea>
+        <div class="mirror" id="mirror" aria-hidden="true"></div>
+        <div class="droptip">Drop to attach</div>
+      </div>
+      <div class="preview" id="preview" hidden></div>
+      <div class="files">
+        <div class="head"><b>ATTACHMENTS</b><span id="fileCount"></span><button class="tb" id="attachBtn2">＋ Add</button><span class="hint">Drop or paste files into the editor</span></div>
+        <div class="strip" id="strip"></div>
+      </div>
+    </div>
+
+    <section class="forge" id="forge" hidden>
+      <button class="forge-head" id="forgeToggle" aria-expanded="false" aria-controls="forgeBody">
+        <span class="dot" id="comfyDot"></span>
+        <span class="t">🎨 Image Forge</span>
+        <small id="forgeSub">ComfyUI · images go to this entry's attachments</small>
+        <span class="chev">▴</span>
+      </button>
+      <div class="forge-body" id="forgeBody" hidden>
+        <div class="row full">
+          <label>ComfyUI server <input id="cUrl" type="url" placeholder="http://127.0.0.1:8188" autocomplete="off" spellcheck="false"></label>
+          <button class="ghost" id="cConnect">Connect</button>
+        </div>
+        <label class="full">Prompt <textarea id="cPrompt" placeholder="A torchlit dwarven forge hall, dramatic lighting, fantasy illustration"></textarea></label>
+        <div class="row full" style="margin-top:-4px">
+          <button class="ghost" id="cFromSel" title="Copy the selected text in the note into the prompt">Use selected text</button>
+          <button class="ghost" id="cFromLine" title="Copy the line the cursor is on into the prompt">Use current line</button>
+        </div>
+        <label class="full">Negative prompt <textarea id="cNeg" rows="2"></textarea></label>
+        <label>Checkpoint <select id="cCkpt"><option value="">Connect to list models</option></select></label>
+        <div class="nums">
+          <label>Width <input id="cW" type="number" min="64" max="4096" step="64"></label>
+          <label>Height <input id="cH" type="number" min="64" max="4096" step="64"></label>
+          <label>Steps <input id="cSteps" type="number" min="1" max="200"></label>
+          <label>CFG <input id="cCfg" type="number" min="1" max="30" step="0.5"></label>
+          <label>Seed <input id="cSeed" type="number" title="-1 picks a random seed"></label>
+        </div>
+        <details class="full">
+          <summary>Custom workflow (API format)</summary>
+          <p class="hint" style="margin:6px 0">In ComfyUI, export with <b>Workflow → Export (API)</b> and paste it here. Placeholders get filled in: <code>%prompt%</code> <code>%negative%</code> <code>%seed%</code> <code>%width%</code> <code>%height%</code> <code>%steps%</code> <code>%cfg%</code> <code>%ckpt%</code>.</p>
+          <textarea id="cWorkflow" spellcheck="false" placeholder='{"3": {"class_type": "KSampler", "inputs": {"seed": "%seed%", ...}}}'></textarea>
+          <label class="check" style="margin-top:6px"><input type="checkbox" id="cUseWf"> Use this workflow instead of the built-in text-to-image one</label>
+        </details>
+        <div class="row full">
+          <button class="go" id="cGo">✨ Generate</button>
+          <button class="ghost" id="cStop" hidden>Cancel</button>
+          <progress id="cProg" max="1" hidden></progress>
+          <label class="check"><input type="checkbox" id="cInsert"> Insert into the note when done</label>
+        </div>
+        <div class="msg full" id="cMsg"></div>
+        <p class="hint full">Runs on your own ComfyUI, nothing goes through tavernworks.dev. Start ComfyUI with <code>--enable-cors-header</code> so this page can reach it. Browsers allow <code>http://127.0.0.1</code> from this page; for another machine, give ComfyUI an HTTPS address (e.g. <code>tailscale serve</code>).</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<input type="file" id="uploadInput" accept=".txt,.md,.markdown,.text,.json,text/plain,text/markdown,application/json" multiple hidden>
+<input type="file" id="attachInput" multiple hidden>
+<input type="file" id="importInput" accept=".json,application/json" hidden>
+
+<dialog id="viewer">
+  <div class="view-img" id="viewImg"></div>
+  <div class="view-meta" id="viewMeta"></div>
+  <div class="view-row">
+    <button id="vInsert">Insert into note</button>
+    <button id="vReuse" hidden>Reuse prompt</button>
+    <button id="vDownload">Download</button>
+    <button id="vClose">Close</button>
+    <button class="del" id="vDelete">Delete</button>
+  </div>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const store = {
+    get(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} },
+  };
+  const isImage = (f) => /^image\//.test(f.type);
+  const extOf = (name) => (String(name).match(/\.([a-z0-9]{1,6})$/i) || [, "file"])[1].toUpperCase();
+  const fmtSize = (n) => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(0) + " KB" : (n / 1048576).toFixed(1) + " MB";
+  const safeName = (s) => (String(s).replace(/[\\/:*?"<>|\x00-\x1f]+/g, " ").replace(/\s+/g, " ").trim() || "untitled").slice(0, 80);
+  const toast = (msg) => {
+    const el = document.createElement("div");
+    el.className = "toast"; el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2600);
+  };
+  const download = (blob, name) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  };
+  const blobToDataUrl = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+
+  // ---------- Storage: IndexedDB, so images and large notes fit ----------
+  // projects {id, name, created, updated, lastEntry}
+  // entries  {id, projectId, title, text, created, updated}
+  // files    {id, projectId, entryId, name, type, size, blob, created, meta}
+  const DB = (() => {
+    let dbp;
+    const open = () => dbp || (dbp = new Promise((res, rej) => {
+      const r = indexedDB.open("tavernworks-journal", 1);
+      r.onupgradeneeded = () => {
+        const db = r.result;
+        db.createObjectStore("projects", { keyPath: "id" });
+        db.createObjectStore("entries", { keyPath: "id" }).createIndex("projectId", "projectId");
+        const f = db.createObjectStore("files", { keyPath: "id" });
+        f.createIndex("entryId", "entryId");
+        f.createIndex("projectId", "projectId");
+      };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    }));
+    const req = (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    const done = (t) => new Promise((res, rej) => { t.oncomplete = () => res(); t.onerror = t.onabort = () => rej(t.error); });
+    const all = async (s, index, key) => { const os = (await open()).transaction(s).objectStore(s); return req(index ? os.index(index).getAll(key) : os.getAll()); };
+    const put = async (s, ...vals) => { const t = (await open()).transaction(s, "readwrite"); vals.forEach((v) => t.objectStore(s).put(v)); return done(t); };
+    const del = async (s, id) => { const t = (await open()).transaction(s, "readwrite"); t.objectStore(s).delete(id); return done(t); };
+    // Deletes every row in `stores` whose `index` equals `key`, plus `extra` [store, id] pairs.
+    const delWhere = async (stores, index, key, extra) => {
+      const t = (await open()).transaction(["projects", "entries", "files"], "readwrite");
+      extra.forEach(([s, id]) => t.objectStore(s).delete(id));
+      stores.forEach((s) => {
+        t.objectStore(s).index(index).openKeyCursor(IDBKeyRange.only(key)).onsuccess = (e) => {
+          const c = e.target.result;
+          if (c) { t.objectStore(s).delete(c.primaryKey); c.continue(); }
+        };
+      });
+      return done(t);
+    };
+    return { open, all, put, del, delWhere };
+  })();
+
+  // ---------- State ----------
+  let projects = [], entries = [], files = [];
+  let project = null, entry = null;
+  let dirty = false, saveTimer = 0, previewing = false;
+  const urls = new Map();
+  const urlFor = (f) => { if (!urls.has(f.id)) urls.set(f.id, URL.createObjectURL(f.blob)); return urls.get(f.id); };
+  const dropUrls = () => { urls.forEach((u) => URL.revokeObjectURL(u)); urls.clear(); };
+
+  const ta = $("text"), titleIn = $("title");
+
+  // ---------- Projects ----------
+  const sortProjects = () => projects.sort((a, b) => a.created - b.created);
+  function renderProjects() {
+    $("projects").innerHTML = projects.length ? projects.map((p) =>
+      `<li class="${project && p.id === project.id ? "on" : ""}" data-id="${p.id}">` +
+      `<button class="open" title="${esc(p.name)}">${esc(p.name)}</button>` +
+      `<button class="x ren" title="Rename project">✎</button>` +
+      `<button class="x del" title="Delete project">🗑</button></li>`).join("")
+      : '<li class="none">No projects yet</li>';
+    $("empty").hidden = !!projects.length;
+    $("entriesHead").hidden = $("entries").hidden = !project;
+  }
+  async function newProject(name) {
+    name = name == null ? prompt("Name the new project (a campaign, one-shot, character…):", "New Campaign") : name;
+    if (name == null) return null;
+    name = name.trim() || "Untitled project";
+    const now = Date.now();
+    const p = { id: uid(), name, created: now, updated: now, lastEntry: null };
+    await DB.put("projects", p);
+    projects.push(p); sortProjects();
+    await openProject(p.id);
+    await newEntry("Session 1");
+    persistStorage();
+    return p;
+  }
+  async function renameProject(p) {
+    const name = prompt("Rename project:", p.name);
+    if (name == null || !name.trim()) return;
+    p.name = name.trim(); p.updated = Date.now();
+    await DB.put("projects", p);
+    renderProjects(); renderCrumb();
+  }
+  async function deleteProject(p) {
+    const n = (await DB.all("entries", "projectId", p.id)).length;
+    if (!confirm(`Delete "${p.name}" with its ${n} ${n === 1 ? "entry" : "entries"} and all attachments?\n\nThis can't be undone. Tip: Download → Whole project backup first.`)) return;
+    if (project && project.id === p.id) { clearTimeout(saveTimer); dirty = false; }
+    await DB.delWhere(["entries", "files"], "projectId", p.id, [["projects", p.id]]);
+    projects = projects.filter((x) => x.id !== p.id);
+    if (project && project.id === p.id) {
+      project = entry = null;
+      if (projects.length) await openProject(projects[projects.length - 1].id);
+      else showMain();
+    }
+    renderProjects();
+    toast(`Deleted "${p.name}"`);
+  }
+  async function openProject(id, entryId) {
+    await flush();
+    project = projects.find((p) => p.id === id) || null;
+    entry = null;
+    if (!project) { showMain(); renderProjects(); return; }
+    store.set("journal.lastProject", project.id);
+    entries = (await DB.all("entries", "projectId", project.id)).sort((a, b) => a.created - b.created);
+    renderProjects();
+    const target = entries.find((e) => e.id === entryId) || entries.find((e) => e.id === project.lastEntry) || entries[entries.length - 1];
+    if (target) await openEntry(target.id);
+    else { renderEntries(); showMain(); }
+  }
+  function touchProject() {
+    if (!project) return;
+    project.updated = Date.now();
+    DB.put("projects", project).catch(() => {});
+  }
+
+  // ---------- Entries ----------
+  function renderEntries() {
+    $("entries").innerHTML = entries.length ? entries.map((e) =>
+      `<li class="${entry && e.id === entry.id ? "on" : ""}" data-id="${e.id}">` +
+      `<button class="open" title="${esc(e.title)}">${esc(e.title || "Untitled entry")}</button>` +
+      `<button class="x del" title="Delete entry">🗑</button></li>`).join("")
+      : '<li class="none">No entries yet</li>';
+  }
+  async function newEntry(title) {
+    if (!project) return;
+    await flush();
+    const now = Date.now();
+    const e = { id: uid(), projectId: project.id, title: title || `Session ${entries.length + 1}`, text: "", created: now, updated: now };
+    await DB.put("entries", e);
+    entries.push(e);
+    touchProject();
+    await openEntry(e.id);
+    if (!title) { titleIn.focus(); titleIn.select(); }
+    return e;
+  }
+  async function deleteEntry(e) {
+    const n = (await DB.all("files", "entryId", e.id)).length;
+    if (!confirm(`Delete entry "${e.title || "Untitled entry"}"${n ? ` and its ${n} attachment${n === 1 ? "" : "s"}` : ""}? This can't be undone.`)) return;
+    if (entry && entry.id === e.id) { clearTimeout(saveTimer); dirty = false; }
+    await DB.delWhere(["files"], "entryId", e.id, [["entries", e.id]]);
+    const i = entries.indexOf(e);
+    entries.splice(i, 1);
+    touchProject();
+    if (entry && entry.id === e.id) {
+      entry = null;
+      const next = entries[Math.min(i, entries.length - 1)];
+      if (next) await openEntry(next.id); else { renderEntries(); showMain(); }
+    } else renderEntries();
+  }
+  async function openEntry(id) {
+    await flush();
+    entry = entries.find((e) => e.id === id) || null;
+    dropUrls();
+    files = entry ? (await DB.all("files", "entryId", entry.id)).sort((a, b) => a.created - b.created) : [];
+    if (entry) {
+      project.lastEntry = entry.id;
+      DB.put("projects", project).catch(() => {});
+      ta.value = entry.text;
+      titleIn.value = entry.title;
+      ta.scrollTop = 0;
+      ta.setSelectionRange(0, 0);
+      history.replaceState(null, "", `#p=${project.id}&e=${entry.id}`);
+    }
+    renderEntries(); renderCrumb(); renderFiles(); showMain();
+    setSaved(entry ? "Saved " + new Date(entry.updated).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "");
+    gutter.refresh();
+    if (previewing) renderPreview();
+    $("app").classList.remove("open");
+  }
+  function renderCrumb() {
+    $("crumb").innerHTML = project ? `<b>${esc(project.name)}</b> /` : "";
+    $("entryNum").textContent = entry ? "#" + (entries.indexOf(entry) + 1) : "";
+    document.title = (entry ? (entry.title || "Untitled") + " · " : "") + (project ? project.name + " · " : "") + "Adventurer's Journal";
+  }
+  function showMain() {
+    const hasEntry = !!entry;
+    $("bar").hidden = $("work").hidden = $("forge").hidden = !hasEntry;
+    $("noEntries").hidden = !project || hasEntry;
+    $("empty").hidden = !!projects.length;
+    // Keep the menu reachable on phones when there's no bar.
+    if (!hasEntry && window.matchMedia("(max-width:820px)").matches && projects.length) $("app").classList.add("open");
+  }
+
+  // ---------- Saving ----------
+  const setSaved = (t) => { $("saved").textContent = t; };
+  function queueSave() {
+    if (!entry) return;
+    dirty = true; setSaved("Editing…");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flush, 600);
+  }
+  async function flush() {
+    clearTimeout(saveTimer);
+    if (!dirty || !entry) return;
+    dirty = false;
+    const e = entry;
+    e.text = ta.value;
+    e.title = titleIn.value.trim();
+    e.updated = Date.now();
+    try {
+      await DB.put("entries", e);
+      touchProject();
+      if (e === entry) setSaved("Saved");
+    } catch (err) {
+      dirty = true;
+      setSaved("⚠ Not saved");
+      toast("Couldn't save: " + (err && err.message || err));
+    }
+  }
+  ta.addEventListener("input", () => { queueSave(); gutter.refresh(); });
+  titleIn.addEventListener("input", () => {
+    queueSave();
+    if (entry) { entry.title = titleIn.value.trim(); renderEntries(); renderCrumb(); }
+  });
+  titleIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); ta.focus(); } });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) flush(); });
+  window.addEventListener("pagehide", () => { flush(); });
+  window.addEventListener("beforeunload", (e) => { if (dirty) { flush(); e.preventDefault(); } });
+
+  // Ask the browser not to evict the journal under storage pressure.
+  function persistStorage() { try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {} }
+  function showUsage() {
+    if (!navigator.storage || !navigator.storage.estimate) return;
+    navigator.storage.estimate().then(({ usage }) => {
+      $("usage").textContent = `Saved in this browser only (${fmtSize(usage || 0)} used). Download a backup now and then.`;
+    }).catch(() => {});
+  }
+
+  // ---------- Numbered editor ----------
+  // Line numbers follow logical lines; a mirror div measures how tall each
+  // wrapped line renders so numbers stay aligned with soft-wrapped prose.
+  const gutter = (() => {
+    const inner = $("gutterIn"), mirror = $("mirror");
+    let raf = 0, lastCur = -1, heights = [];
+    const curLine = () => {
+      const v = ta.value, end = ta.selectionStart;
+      let n = 0;
+      for (let i = 0; i < end; i++) if (v.charCodeAt(i) === 10) n++;
+      return n;
+    };
+    const markCur = () => {
+      const c = curLine();
+      if (c === lastCur) return;
+      const kids = inner.children;
+      if (kids[lastCur]) kids[lastCur].classList.remove("cur");
+      if (kids[c]) kids[c].classList.add("cur");
+      lastCur = c;
+    };
+    const draw = () => {
+      raf = 0;
+      if ($("work").hidden || previewing) return;
+      const cs = getComputedStyle(ta);
+      mirror.style.width = (ta.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) + "px";
+      mirror.style.paddingLeft = mirror.style.paddingRight = "0";
+      const lines = ta.value.split("\n");
+      mirror.textContent = "";
+      const frag = document.createDocumentFragment();
+      for (const l of lines) { const d = document.createElement("div"); d.textContent = l || "​"; frag.appendChild(d); }
+      mirror.appendChild(frag);
+      heights = Array.from(mirror.children, (d) => d.offsetHeight);
+      inner.innerHTML = heights.map((h, i) => `<div style="height:${h}px">${i + 1}</div>`).join("");
+      lastCur = -1; markCur(); sync();
+    };
+    const sync = () => { inner.style.transform = `translateY(${-ta.scrollTop}px)`; };
+    ta.addEventListener("scroll", sync);
+    ["keyup", "click", "select", "focus"].forEach((ev) => ta.addEventListener(ev, markCur));
+    document.addEventListener("selectionchange", () => { if (document.activeElement === ta) markCur(); });
+    new ResizeObserver(() => refresh()).observe(ta);
+    // Click a number to select that whole line.
+    inner.addEventListener("click", (e) => {
+      const d = e.target.closest("div");
+      if (!d || d === inner) return;
+      const n = Array.prototype.indexOf.call(inner.children, d);
+      const lines = ta.value.split("\n");
+      let start = 0;
+      for (let i = 0; i < n; i++) start += lines[i].length + 1;
+      ta.focus();
+      ta.setSelectionRange(start, start + lines[n].length);
+      markCur();
+    });
+    const refresh = () => { if (!raf) raf = requestAnimationFrame(draw); };
+    return { refresh };
+  })();
+
+  // Small editing helpers: Tab indents, Enter continues a "- " list.
+  ta.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); flush(); return; }
+    if (e.key === "Tab" && !e.ctrlKey && !e.altKey && !e.metaKey && ta.selectionStart === ta.selectionEnd && !e.shiftKey) {
+      e.preventDefault(); document.execCommand("insertText", false, "\t") || insertAt("\t"); return;
+    }
+    if (e.key === "Enter" && !e.shiftKey && ta.selectionStart === ta.selectionEnd) {
+      const v = ta.value, pos = ta.selectionStart;
+      const line = v.slice(v.lastIndexOf("\n", pos - 1) + 1, pos);
+      const m = line.match(/^(\s*)([-*] |\d+[.)] )/);
+      if (!m) return;
+      e.preventDefault();
+      if (line.trim() === m[2].trim()) { // empty bullet: end the list
+        ta.setSelectionRange(pos - line.length, pos);
+        document.execCommand("insertText", false, "") || insertAt("");
+        return;
+      }
+      let bullet = m[2];
+      const num = bullet.match(/^(\d+)([.)]) $/);
+      if (num) bullet = (+num[1] + 1) + num[2] + " ";
+      document.execCommand("insertText", false, "\n" + m[1] + bullet) || insertAt("\n" + m[1] + bullet);
+    }
+  });
+  // Fallback for browsers without execCommand on textareas.
+  function insertAt(text) {
+    const s = ta.selectionStart, en = ta.selectionEnd;
+    ta.setRangeText(text, s, en, "end");
+    ta.dispatchEvent(new Event("input"));
+    return true;
+  }
+  function insertText(text) {
+    if (previewing) setPreview(false);
+    ta.focus();
+    if (!document.execCommand("insertText", false, text)) insertAt(text);
+  }
+
+  // ---------- Preview (renders images inline) ----------
+  function renderMarkdown(src, srcFor) {
+    const byId = new Map(files.map((f) => [f.id, f]));
+    const inline = (s) => esc(s)
+      .replace(/!\[([^\]]*)\]\(att:([\w-]+)\)/g, (m, alt, id) => {
+        const f = byId.get(id);
+        return f && isImage(f) ? `<img src="${srcFor(f)}" alt="${alt}" data-id="${id}">`
+          : f ? `<a href="${srcFor(f)}" download="${esc(f.name)}">📎 ${alt || esc(f.name)}</a>`
+          : `<span class="missing">[missing attachment: ${alt}]</span>`;
+      })
+      .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, "$1<em>$2</em>");
+    const out = [];
+    let list = false;
+    for (const line of src.split("\n")) {
+      const li = line.match(/^\s*[-*] (.*)$/);
+      if (li) { if (!list) { out.push("<ul>"); list = true; } out.push(`<li>${inline(li[1])}</li>`); continue; }
+      if (list) { out.push("</ul>"); list = false; }
+      let m;
+      if ((m = line.match(/^(#{1,3}) (.*)$/))) out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`);
+      else if ((m = line.match(/^> ?(.*)$/))) out.push(`<blockquote>${inline(m[1])}</blockquote>`);
+      else if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) out.push("<hr>");
+      else out.push(`<p>${inline(line)}</p>`);
+    }
+    if (list) out.push("</ul>");
+    return out.join("\n");
+  }
+  function renderPreview() {
+    $("preview").innerHTML = ta.value.trim() ? renderMarkdown(ta.value, urlFor) : '<p class="blank">Nothing written yet.</p>';
+  }
+  function setPreview(on) {
+    previewing = on;
+    $("previewBtn").classList.toggle("on", on);
+    $("previewBtn").querySelector(".lbl").textContent = on ? "Edit" : "Preview";
+    $("editor").hidden = on;
+    $("preview").hidden = !on;
+    if (on) { flush(); renderPreview(); } else { gutter.refresh(); ta.focus(); }
+  }
+  $("previewBtn").addEventListener("click", () => setPreview(!previewing));
+  $("preview").addEventListener("click", (e) => { const img = e.target.closest("img[data-id]"); if (img) openViewer(img.dataset.id); });
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "e" && entry) { e.preventDefault(); setPreview(!previewing); }
+  });
+
+  // ---------- Attachments ----------
+  const refFor = (f) => `![${f.name.replace(/[\[\]]/g, "")}](att:${f.id})`;
+  function renderFiles() {
+    $("fileCount").textContent = files.length ? `(${files.length})` : "";
+    $("strip").innerHTML = files.map((f) =>
+      `<button class="thumb" data-id="${f.id}" title="${esc(f.name)} · ${fmtSize(f.size || 0)}">` +
+      (isImage(f) ? `<img src="${urlFor(f)}" alt="${esc(f.name)}" loading="lazy">` : `<span class="ext"><span><b>📄</b>${esc(extOf(f.name))}<br>${esc(f.name.slice(0, 28))}</span></span>`) +
+      (f.meta && f.meta.source === "comfyui" ? '<span class="badge">FORGE</span>' : "") +
+      `</button>`).join("");
+  }
+  // Saves blobs as attachments on `target` (defaults to the open entry).
+  async function addFiles(list, { insert = false, target = entry, meta = null } = {}) {
+    if (!target || !list.length) return [];
+    const recs = list.map((f, i) => ({
+      id: uid(), projectId: target.projectId, entryId: target.id,
+      name: f.name || `pasted-${Date.now()}-${i}.${(f.type.split("/")[1] || "bin").replace("jpeg", "jpg")}`,
+      type: f.type || "application/octet-stream", size: f.size, blob: f, created: Date.now() + i,
+      meta: meta ? meta(i) : null,
+    }));
+    try { await DB.put("files", ...recs); }
+    catch (err) { toast("Couldn't store the file: " + (err && err.message || err)); return []; }
+    persistStorage();
+    if (entry && target.id === entry.id) {
+      files.push(...recs); renderFiles();
+      if (insert) insertText(recs.map((r) => "\n" + refFor(r) + "\n").join(""));
+      if (previewing) renderPreview();
+    }
+    touchProject(); showUsage();
+    return recs;
+  }
+  async function removeFile(f) {
+    if (!confirm(`Delete attachment "${f.name}"?`)) return false;
+    await DB.del("files", f.id);
+    files = files.filter((x) => x.id !== f.id);
+    if (urls.has(f.id)) { URL.revokeObjectURL(urls.get(f.id)); urls.delete(f.id); }
+    // Drop references to it from the note too.
+    const ref = new RegExp("\\n?!\\[[^\\]]*\\]\\(att:" + f.id + "\\)\\n?", "g");
+    if (ref.test(ta.value)) { ta.value = ta.value.replace(ref, "\n"); queueSave(); gutter.refresh(); }
+    renderFiles();
+    if (previewing) renderPreview();
+    showUsage();
+    return true;
+  }
+  $("strip").addEventListener("click", (e) => { const t = e.target.closest(".thumb"); if (t) openViewer(t.dataset.id); });
+  [$("attachBtn"), $("attachBtn2")].forEach((b) => b.addEventListener("click", () => $("attachInput").click()));
+  $("attachInput").addEventListener("change", async (e) => {
+    const list = Array.from(e.target.files); e.target.value = "";
+    const recs = await addFiles(list);
+    if (recs.length) toast(`Attached ${recs.length} file${recs.length === 1 ? "" : "s"}`);
+  });
+  // Paste images straight into the note.
+  ta.addEventListener("paste", (e) => {
+    const list = Array.from((e.clipboardData && e.clipboardData.files) || []);
+    if (!list.length) return;
+    e.preventDefault();
+    addFiles(list, { insert: true });
+  });
+  // Drag and drop onto the editor.
+  (() => {
+    const ed = $("editor");
+    let depth = 0;
+    const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
+    ed.addEventListener("dragenter", (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth++; ed.classList.add("drag"); });
+    ed.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+    ed.addEventListener("dragleave", () => { if (--depth <= 0) { depth = 0; ed.classList.remove("drag"); } });
+    ed.addEventListener("drop", (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); depth = 0; ed.classList.remove("drag");
+      const list = Array.from(e.dataTransfer.files);
+      addFiles(list, { insert: list.some((f) => /^image\//.test(f.type)) }).then((recs) => {
+        const other = recs.filter((r) => !isImage(r)).length;
+        if (other) toast(`Attached ${other} file${other === 1 ? "" : "s"}`);
+      });
+    });
+  })();
+
+  // ---------- Viewer ----------
+  let viewing = null;
+  function openViewer(id) {
+    const f = files.find((x) => x.id === id);
+    if (!f) return;
+    viewing = f;
+    $("viewImg").innerHTML = isImage(f) ? `<img src="${urlFor(f)}" alt="${esc(f.name)}">` : `<div class="ext"><b>📄</b>${esc(extOf(f.name))} file</div>`;
+    const m = f.meta || {};
+    $("viewMeta").innerHTML = `<strong>${esc(f.name)}</strong> · ${fmtSize(f.size || 0)} · ${new Date(f.created).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}` +
+      (m.source === "comfyui" ? `<div class="p">🎨 ${esc(m.prompt || "")}</div><div>Seed ${esc(m.seed)}${m.ckpt ? " · " + esc(m.ckpt) : ""}${m.width ? ` · ${m.width}×${m.height}` : ""}</div>` : "");
+    $("vInsert").textContent = isImage(f) ? "Insert into note" : "Insert link into note";
+    $("vReuse").hidden = m.source !== "comfyui";
+    $("viewer").showModal();
+  }
+  $("vClose").addEventListener("click", () => $("viewer").close());
+  $("viewer").addEventListener("click", (e) => { if (e.target === $("viewer")) $("viewer").close(); });
+  $("vDownload").addEventListener("click", () => viewing && download(viewing.blob, viewing.name));
+  $("vInsert").addEventListener("click", () => { if (!viewing) return; $("viewer").close(); insertText("\n" + refFor(viewing) + "\n"); });
+  $("vDelete").addEventListener("click", async () => { if (viewing && await removeFile(viewing)) $("viewer").close(); });
+  $("vReuse").addEventListener("click", () => {
+    const m = viewing && viewing.meta; if (!m) return;
+    $("cPrompt").value = m.prompt || ""; $("cNeg").value = m.negative || "";
+    if (m.seed != null) $("cSeed").value = m.seed;
+    saveComfy(); $("viewer").close(); setForge(true); $("cPrompt").focus();
+  });
+
+  // ---------- Uploads & downloads ----------
+  $("uploadBtn").addEventListener("click", () => $("uploadInput").click());
+  $("uploadInput").addEventListener("change", async (e) => {
+    const list = Array.from(e.target.files); e.target.value = "";
+    let made = 0, last = null;
+    for (const f of list) {
+      if (/\.json$/i.test(f.name) || f.type === "application/json") { await importBackup(f); continue; }
+      if (f.size > 5 * 1048576) { toast(`${f.name} is too big to open as text (5 MB max). Attach it instead.`); continue; }
+      const text = (await f.text()).replace(/\r\n?/g, "\n");
+      const now = Date.now() + made;
+      last = { id: uid(), projectId: project.id, title: f.name.replace(/\.[^.]+$/, ""), text, created: now, updated: now };
+      await DB.put("entries", last);
+      entries.push(last); made++;
+    }
+    if (last) { touchProject(); await openEntry(last.id); toast(`Opened ${made} file${made === 1 ? "" : "s"} as new entr${made === 1 ? "y" : "ies"}`); }
+  });
+
+  $("dlMenu").addEventListener("click", async (e) => {
+    const b = e.target.closest("button[data-dl]");
+    if (!b) return;
+    $("dlMenu").open = false;
+    await flush();
+    const kind = b.dataset.dl, title = entry.title || "Untitled entry", base = safeName(title);
+    if (kind === "md") download(new Blob([`# ${title}\n\n${ta.value}\n`], { type: "text/markdown" }), base + ".md");
+    else if (kind === "txt") {
+      const lines = ta.value.split("\n"), w = String(lines.length).length;
+      download(new Blob([lines.map((l, i) => String(i + 1).padStart(w) + "  " + l).join("\r\n") + "\r\n"], { type: "text/plain" }), base + ".txt");
+    } else if (kind === "html") {
+      const data = new Map();
+      for (const f of files) data.set(f.id, await blobToDataUrl(f.blob));
+      const body = renderMarkdown(ta.value, (f) => data.get(f.id));
+      const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>` +
+        `<style>body{font:16px/1.65 Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#2a1f16;background:#fbf6ec}h1,h2,h3{font-family:Cinzel,Georgia,serif;color:#7a4a12}` +
+        `img{max-width:100%;border-radius:8px;display:block;margin:10px auto}blockquote{border-left:3px solid #c08a3a;margin:0 0 8px;padding-left:12px;font-style:italic;color:#6b5a48}p{margin:0 0 8px;min-height:1em}.meta{color:#8b7763;font-size:13px}</style></head>` +
+        `<body><h1>${esc(title)}</h1><p class="meta">${esc(project.name)} · ${new Date(entry.updated).toLocaleDateString([], { dateStyle: "long" })}</p>\n${body}\n</body></html>`;
+      download(new Blob([html], { type: "text/html" }), base + ".html");
+    } else if (kind === "json") await exportBackup(project);
+  });
+  document.addEventListener("click", (e) => { if (!e.target.closest("#dlMenu")) $("dlMenu").open = false; });
+
+  async function exportBackup(p) {
+    toast("Packing the backup…");
+    const es = await DB.all("entries", "projectId", p.id);
+    const fs = await DB.all("files", "projectId", p.id);
+    const out = [];
+    for (const f of fs) { const { blob, ...rest } = f; out.push({ ...rest, data: await blobToDataUrl(blob) }); }
+    const json = JSON.stringify({ format: "tavernworks-journal", version: 1, exported: new Date().toISOString(), project: p, entries: es, files: out });
+    download(new Blob([json], { type: "application/json" }), `${safeName(p.name)} - journal backup ${new Date().toISOString().slice(0, 10)}.json`);
+  }
+  async function importBackup(file) {
+    let data;
+    try { data = JSON.parse(await file.text()); } catch { toast(`${file.name} isn't valid JSON`); return; }
+    if (!data || data.format !== "tavernworks-journal" || !data.project) { toast(`${file.name} isn't a journal backup`); return; }
+    await flush();
+    // Fresh ids so a backup can be imported next to its original.
+    const pid = uid(), idMap = new Map(), now = Date.now();
+    const taken = new Set(projects.map((p) => p.name));
+    let name = data.project.name || "Imported project";
+    if (taken.has(name)) name += " (imported)";
+    const p = { id: pid, name, created: now, updated: now, lastEntry: null };
+    (data.entries || []).forEach((e) => idMap.set(e.id, uid()));
+    (data.files || []).forEach((f) => idMap.set(f.id, uid()));
+    const remap = (t) => String(t || "").replace(/\(att:([\w-]+)\)/g, (m, id) => `(att:${idMap.get(id) || id})`);
+    const es = (data.entries || []).map((e) => ({ id: idMap.get(e.id), projectId: pid, title: e.title || "", text: remap(e.text), created: e.created || now, updated: e.updated || now }));
+    const fs = [];
+    for (const f of data.files || []) {
+      if (!idMap.has(f.entryId)) continue;
+      const blob = await (await fetch(f.data)).blob();
+      fs.push({ id: idMap.get(f.id), projectId: pid, entryId: idMap.get(f.entryId), name: f.name, type: f.type || blob.type, size: blob.size, blob, created: f.created || now, meta: f.meta || null });
+    }
+    p.lastEntry = idMap.get(data.project.lastEntry) || null;
+    await DB.put("projects", p);
+    if (es.length) await DB.put("entries", ...es);
+    if (fs.length) await DB.put("files", ...fs);
+    projects.push(p); sortProjects();
+    await openProject(pid);
+    persistStorage(); showUsage();
+    toast(`Imported "${name}" (${es.length} entr${es.length === 1 ? "y" : "ies"}, ${fs.length} attachment${fs.length === 1 ? "" : "s"})`);
+  }
+  [$("importBtn"), $("emptyImport")].forEach((b) => b.addEventListener("click", () => $("importInput").click()));
+  $("importInput").addEventListener("change", async (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) await importBackup(f); });
+
+  // ---------- Sidebar wiring ----------
+  $("addProject").addEventListener("click", () => newProject());
+  $("emptyNew").addEventListener("click", () => newProject());
+  $("addEntry").addEventListener("click", () => newEntry());
+  $("noEntriesNew").addEventListener("click", () => newEntry());
+  $("projects").addEventListener("click", (e) => {
+    const li = e.target.closest("li[data-id]"); if (!li) return;
+    const p = projects.find((x) => x.id === li.dataset.id); if (!p) return;
+    if (e.target.closest(".ren")) renameProject(p);
+    else if (e.target.closest(".del")) deleteProject(p);
+    else if (!project || p.id !== project.id) openProject(p.id);
+  });
+  $("projects").addEventListener("dblclick", (e) => {
+    const li = e.target.closest("li[data-id]"); if (!li || !e.target.closest(".open")) return;
+    const p = projects.find((x) => x.id === li.dataset.id); if (p) renameProject(p);
+  });
+  $("entries").addEventListener("click", (e) => {
+    const li = e.target.closest("li[data-id]"); if (!li) return;
+    const en = entries.find((x) => x.id === li.dataset.id); if (!en) return;
+    if (e.target.closest(".del")) deleteEntry(en);
+    else if (!entry || en.id !== entry.id) openEntry(en.id);
+    else $("app").classList.remove("open");
+  });
+  $("menu").addEventListener("click", () => $("app").classList.add("open"));
+  $("scrim").addEventListener("click", () => $("app").classList.remove("open"));
+  window.addEventListener("hashchange", () => {
+    const h = new URLSearchParams(location.hash.slice(1));
+    const pid = h.get("p"), eid = h.get("e");
+    if (pid && (!project || pid !== project.id)) openProject(pid, eid);
+    else if (eid && (!entry || eid !== entry.id) && entries.some((e) => e.id === eid)) openEntry(eid);
+  });
+
+  // ---------- Image Forge (ComfyUI) ----------
+  const COMFY_KEY = "journal.comfy";
+  const comfyDefaults = { url: "http://127.0.0.1:8188", ckpt: "", prompt: "", neg: "blurry, lowres, watermark, text, deformed", w: 832, h: 1216, steps: 25, cfg: 7, seed: -1, workflow: "", useWf: false, insert: true };
+  let cfg = Object.assign({}, comfyDefaults, store.get(COMFY_KEY, {}));
+  const fields = { cUrl: "url", cPrompt: "prompt", cNeg: "neg", cW: "w", cH: "h", cSteps: "steps", cCfg: "cfg", cSeed: "seed", cWorkflow: "workflow" };
+  Object.entries(fields).forEach(([id, k]) => { $(id).value = cfg[k]; $(id).addEventListener("change", saveComfy); });
+  $("cUseWf").checked = !!cfg.useWf; $("cInsert").checked = !!cfg.insert;
+  ["cUseWf", "cInsert", "cCkpt"].forEach((id) => $(id).addEventListener("change", saveComfy));
+  $("cPrompt").addEventListener("input", () => { clearTimeout(saveComfy.t); saveComfy.t = setTimeout(saveComfy, 500); });
+  function saveComfy() {
+    Object.entries(fields).forEach(([id, k]) => {
+      const v = $(id).value;
+      cfg[k] = $(id).type === "number" ? (v === "" ? comfyDefaults[k] : Number(v)) : v;
+    });
+    cfg.url = (cfg.url || "").trim().replace(/\/+$/, "");
+    cfg.useWf = $("cUseWf").checked; cfg.insert = $("cInsert").checked;
+    if ($("cCkpt").value) cfg.ckpt = $("cCkpt").value;
+    store.set(COMFY_KEY, cfg);
+  }
+  const comfyMsg = (t, err) => { $("cMsg").textContent = t; $("cMsg").classList.toggle("err", !!err); };
+  const setDot = (s) => { $("comfyDot").className = "dot" + (s ? " " + s : ""); };
+  const reachHelp = (err) => err && /fetch|network|load failed/i.test(err.message || "")
+    ? `Couldn't reach ComfyUI at ${cfg.url}. Is it running, and was it started with --enable-cors-header?`
+    : (err && err.message) || String(err);
+
+  // The panel always starts minimized.
+  let connectedOnce = false;
+  function setForge(open) {
+    $("forgeToggle").setAttribute("aria-expanded", open);
+    $("forgeBody").hidden = !open;
+    if (open && !connectedOnce) { connectedOnce = true; connect(true); }
+  }
+  $("forgeToggle").addEventListener("click", () => setForge($("forgeBody").hidden));
+
+  async function connect(quiet) {
+    saveComfy();
+    if (!cfg.url) { comfyMsg("Enter your ComfyUI address first.", true); return false; }
+    setDot("wait"); if (!quiet) comfyMsg("Knocking on the forge door…");
+    try {
+      const r = await fetch(cfg.url + "/object_info/CheckpointLoaderSimple", { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) throw new Error(`ComfyUI answered ${r.status}`);
+      const info = await r.json();
+      let names = info.CheckpointLoaderSimple.input.required.ckpt_name[0];
+      if (!Array.isArray(names)) names = (info.CheckpointLoaderSimple.input.required.ckpt_name[1] || {}).options || [];
+      const sel = $("cCkpt");
+      sel.innerHTML = names.length ? names.map((n) => `<option${n === cfg.ckpt ? " selected" : ""}>${esc(n)}</option>`).join("") : '<option value="">No checkpoints found</option>';
+      if (names.length && !names.includes(cfg.ckpt)) { cfg.ckpt = names[0]; store.set(COMFY_KEY, cfg); }
+      setDot("ok");
+      $("forgeSub").textContent = `ComfyUI · connected · ${names.length} checkpoint${names.length === 1 ? "" : "s"}`;
+      comfyMsg(quiet ? "" : "Connected.");
+      return true;
+    } catch (err) {
+      setDot("bad");
+      $("forgeSub").textContent = "ComfyUI · not connected";
+      if (!quiet || cfg.url !== comfyDefaults.url) comfyMsg(reachHelp(err), true);
+      else comfyMsg("Not connected. Start ComfyUI with --enable-cors-header, then press Connect.");
+      return false;
+    }
+  }
+  $("cConnect").addEventListener("click", () => connect(false));
+
+  $("cFromSel").addEventListener("click", () => {
+    const sel = ta.value.slice(ta.selectionStart, ta.selectionEnd).trim();
+    if (!sel) { comfyMsg("Select some text in the note first.", true); return; }
+    $("cPrompt").value = sel; saveComfy(); comfyMsg("");
+  });
+  $("cFromLine").addEventListener("click", () => {
+    const v = ta.value, pos = ta.selectionStart;
+    const line = v.slice(v.lastIndexOf("\n", pos - 1) + 1, (v.indexOf("\n", pos) + 1 || v.length + 1) - 1)
+      .replace(/!\[[^\]]*\]\(att:[\w-]+\)/g, "").replace(/^[#>\-*\s]+/, "").trim();
+    if (!line) { comfyMsg("The cursor's line is empty.", true); return; }
+    $("cPrompt").value = line; saveComfy(); comfyMsg("");
+  });
+
+  function builtinGraph(v) {
+    return {
+      "4": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: v.ckpt } },
+      "5": { class_type: "EmptyLatentImage", inputs: { width: v.width, height: v.height, batch_size: 1 } },
+      "6": { class_type: "CLIPTextEncode", inputs: { text: v.prompt, clip: ["4", 1] } },
+      "7": { class_type: "CLIPTextEncode", inputs: { text: v.negative, clip: ["4", 1] } },
+      "3": { class_type: "KSampler", inputs: { seed: v.seed, steps: v.steps, cfg: v.cfg, sampler_name: "euler", scheduler: "normal", denoise: 1, model: ["4", 0], positive: ["6", 0], negative: ["7", 0], latent_image: ["5", 0] } },
+      "8": { class_type: "VAEDecode", inputs: { samples: ["3", 0], vae: ["4", 2] } },
+      "9": { class_type: "SaveImage", inputs: { filename_prefix: "tavernworks-journal", images: ["8", 0] } },
+    };
+  }
+  // Swaps %name% placeholders; a string that is only a placeholder becomes the raw value (so numbers stay numbers).
+  function fill(node, v) {
+    if (Array.isArray(node)) return node.map((n) => fill(n, v));
+    if (node && typeof node === "object") { const o = {}; for (const k in node) o[k] = fill(node[k], v); return o; }
+    if (typeof node === "string") {
+      const whole = node.match(/^%(\w+)%$/);
+      if (whole && whole[1] in v) return v[whole[1]];
+      return node.replace(/%(\w+)%/g, (m, k) => (k in v ? String(v[k]) : m));
+    }
+    return node;
+  }
+
+  let job = null;
+  async function generate() {
+    saveComfy();
+    const target = entry;
+    if (!target) return;
+    const prompt = $("cPrompt").value.trim();
+    if (!prompt) { comfyMsg("Write a prompt first.", true); $("cPrompt").focus(); return; }
+    if (!cfg.useWf && !cfg.ckpt && !(await connect(false))) return;
+    if (!cfg.useWf && !cfg.ckpt) { comfyMsg("Pick a checkpoint first.", true); return; }
+    const seed = cfg.seed < 0 ? Math.floor(Math.random() * 2 ** 32) : cfg.seed;
+    const v = { prompt, negative: cfg.neg, seed, width: cfg.w, height: cfg.h, steps: cfg.steps, cfg: cfg.cfg, ckpt: cfg.ckpt };
+    let graph;
+    if (cfg.useWf) {
+      try { graph = JSON.parse(cfg.workflow); } catch { comfyMsg("The custom workflow isn't valid JSON.", true); return; }
+      if (Array.isArray(graph.nodes)) { comfyMsg("That's the regular workflow format. Export it with Workflow → Export (API) instead.", true); return; }
+      graph = fill(graph, v);
+    } else graph = builtinGraph(v);
+
+    const clientId = uid();
+    const me = job = { cancelled: false, ws: null, id: null };
+    $("cGo").disabled = true; $("cStop").hidden = false;
+    const prog = $("cProg"); prog.hidden = false; prog.removeAttribute("value");
+    setDot("wait"); comfyMsg("Sending to the forge…");
+    try {
+      try {
+        me.ws = new WebSocket(cfg.url.replace(/^http/i, "ws") + "/ws?clientId=" + clientId);
+        me.ws.onmessage = (ev) => {
+          if (typeof ev.data !== "string") return;
+          let m; try { m = JSON.parse(ev.data); } catch { return; }
+          if (m.type === "progress" && m.data && m.data.max) { prog.max = m.data.max; prog.value = m.data.value; comfyMsg(`Forging… step ${m.data.value}/${m.data.max}`); }
+          else if (m.type === "execution_cached" || m.type === "executing") comfyMsg("Forging…");
+        };
+      } catch {}
+      const r = await fetch(cfg.url + "/prompt", { method: "POST", body: JSON.stringify({ prompt: graph, client_id: clientId }) });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const ne = body.node_errors && Object.values(body.node_errors)[0];
+        const detail = ne && ne.errors && ne.errors[0] ? `${ne.class_type}: ${ne.errors[0].message}${ne.errors[0].details ? " (" + ne.errors[0].details + ")" : ""}` : (body.error && body.error.message) || `HTTP ${r.status}`;
+        throw new Error("ComfyUI rejected the workflow. " + detail);
+      }
+      me.id = body.prompt_id;
+      comfyMsg("Queued. Waiting for the forge…");
+      const t0 = Date.now();
+      let run = null;
+      while (!me.cancelled) {
+        await sleep(1200);
+        if (me.cancelled) break;
+        const h = await (await fetch(cfg.url + "/history/" + me.id)).json().catch(() => ({}));
+        run = h[me.id];
+        if (run && (run.status ? run.status.completed || run.status.status_str === "error" : Object.keys(run.outputs || {}).length)) break;
+        if (Date.now() - t0 > 20 * 60e3) throw new Error("Gave up after 20 minutes. The image may still show up in ComfyUI's output folder.");
+      }
+      if (me.cancelled) { comfyMsg("Cancelled."); setDot("ok"); return; }
+      if (run.status && run.status.status_str === "error") {
+        const ex = (run.status.messages || []).find((m) => m[0] === "execution_error");
+        throw new Error("ComfyUI hit an error" + (ex ? `: ${ex[1].exception_message || ""}`.trim() : "."));
+      }
+      let imgs = [];
+      Object.values(run.outputs || {}).forEach((o) => (o.images || []).forEach((i) => imgs.push(i)));
+      if (imgs.some((i) => i.type === "output")) imgs = imgs.filter((i) => i.type === "output");
+      if (!imgs.length) throw new Error("The workflow finished but produced no images. Does it end in a SaveImage node?");
+      comfyMsg(`Fetching ${imgs.length} image${imgs.length === 1 ? "" : "s"}…`);
+      const blobs = [];
+      for (const [n, i] of imgs.entries()) {
+        const q = new URLSearchParams({ filename: i.filename, subfolder: i.subfolder || "", type: i.type || "output" });
+        const b = await (await fetch(cfg.url + "/view?" + q)).blob();
+        const ext = (b.type.split("/")[1] || "png").replace("jpeg", "jpg");
+        blobs.push(new File([b], `forge-${seed}${imgs.length > 1 ? "-" + (n + 1) : ""}.${ext}`, { type: b.type || "image/png" }));
+      }
+      const meta = () => ({ source: "comfyui", prompt, negative: cfg.neg, seed, ckpt: cfg.useWf ? "custom workflow" : cfg.ckpt, width: cfg.w, height: cfg.h, steps: cfg.steps, cfg: cfg.cfg });
+      const stillHere = entry && entry.id === target.id;
+      const recs = await addFiles(blobs, { target, meta, insert: cfg.insert && stillHere });
+      if (cfg.insert && !stillHere && recs.length) {
+        // The user moved on; append to the entry they generated for.
+        target.text = (target.text || "") + recs.map((r) => "\n" + refFor(r) + "\n").join("");
+        target.updated = Date.now();
+        await DB.put("entries", target);
+      }
+      setDot("ok");
+      comfyMsg(`✨ ${recs.length} image${recs.length === 1 ? "" : "s"} added to "${target.title || "Untitled entry"}" (seed ${seed}).`);
+      if (stillHere && recs[0] && !cfg.insert) openViewer(recs[0].id);
+    } catch (err) {
+      setDot("bad");
+      comfyMsg(reachHelp(err), true);
+    } finally {
+      if (me.ws) try { me.ws.close(); } catch {}
+      if (job === me) job = null;
+      $("cGo").disabled = false; $("cStop").hidden = true; prog.hidden = true;
+    }
+  }
+  $("cGo").addEventListener("click", generate);
+  $("cPrompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); generate(); } });
+  $("cStop").addEventListener("click", async () => {
+    if (!job) return;
+    job.cancelled = true;
+    try {
+      // Pull it from the queue if it hasn't started, and stop it if it has.
+      if (job.id) await fetch(cfg.url + "/queue", { method: "POST", body: JSON.stringify({ delete: [job.id] }) });
+      await fetch(cfg.url + "/interrupt", { method: "POST" });
+    } catch {}
+  });
+
+  // ---------- Boot ----------
+  (async function init() {
+    if (!window.indexedDB) {
+      document.body.innerHTML = '<div class="empty"><div class="big">📖</div><h1>Storage unavailable</h1><p>This browser blocks the storage the journal needs (private mode can do this). Try a regular window.</p></div>';
+      return;
+    }
+    try {
+      projects = await DB.all("projects");
+      sortProjects();
+    } catch (err) {
+      $("empty").hidden = false;
+      $("empty").querySelector("p").textContent = "Couldn't open the journal's storage: " + (err && err.message || err);
+      return;
+    }
+    const h = new URLSearchParams(location.hash.slice(1));
+    const pid = [h.get("p"), store.get("journal.lastProject", null)].find((id) => id && projects.some((p) => p.id === id))
+      || (projects[projects.length - 1] || {}).id;
+    renderProjects();
+    if (pid) await openProject(pid, h.get("e"));
+    else showMain();
+    showUsage();
+  })();
+})();
+</script>
+</body>
+</html>

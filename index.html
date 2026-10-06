@@ -78,6 +78,26 @@
   .soon{background:rgba(224,168,74,.12);color:var(--gold)}
   .beta{background:rgba(88,101,242,.18);color:#a5adff}
 
+  .journal{
+    background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:26px;
+    display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:26px;align-items:start
+  }
+  .journal h3{font-family:Cinzel,serif;color:var(--gold2);font-size:21px;display:flex;align-items:center;gap:10px}
+  .journal .txt p{color:var(--muted);font-size:14.5px;margin-top:8px}
+  .journal ul{list-style:none;margin-top:12px;display:flex;flex-direction:column;gap:5px;font-size:14px;color:var(--muted)}
+  .journal ul li::before{content:"✦";color:var(--gold);margin-right:8px;font-size:11px}
+  .journal .cta{justify-content:flex-start;margin-top:20px}
+  .journal .page{
+    background:#0f0b08;border:1px solid var(--line);border-radius:12px;font-size:13.5px;line-height:25px;
+    display:grid;grid-template-columns:38px 1fr;overflow:hidden
+  }
+  .journal .page .n{background:rgba(0,0,0,.3);border-right:1px solid var(--line);color:#6c5945;text-align:right;padding:10px 8px 10px 0;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .journal .page .t{padding:10px 14px;white-space:nowrap;overflow:hidden}
+  .journal .page .t b{font-family:Cinzel,serif;color:var(--gold2);font-weight:600}
+  .journal .page .t i{color:var(--muted)}
+  .journal h4{font-family:Cinzel,serif;font-size:13px;letter-spacing:.08em;color:var(--gold);margin:18px 0 10px}
+  @media (max-width:720px){.journal{grid-template-columns:1fr}}
+
   .about{
     background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px;
     display:flex;gap:22px;align-items:center;flex-wrap:wrap
@@ -197,6 +217,31 @@
       <p>Slips into your Twitch chat undercover, then blows its cover with a playful roast, a quote from your <code>!quote</code> list, or a one-liner riffing on what chat is saying. Only talks while you're live.</p>
       <div class="meta"><span class="url">Add it to your channel →</span><span class="pill live">LIVE</span></div>
     </a>
+  </div>
+
+  <div class="divider" id="journal">THE JOURNAL</div>
+  <div class="journal">
+    <div class="txt">
+      <h3>📖 Adventurer's Journal <span class="pill beta">BETA</span></h3>
+      <p>A campaign notebook that lives in your browser. Keep a project for every campaign, one-shot or character, and fill it with numbered session notes.</p>
+      <ul>
+        <li>Projects with numbered entries, add or remove as you go</li>
+        <li>Line-numbered editor with upload and download (.md, .txt, .html)</li>
+        <li>Attach maps, handouts and portraits with inline image previews</li>
+        <li>Image Forge: scene art from your own ComfyUI, saved to the entry</li>
+      </ul>
+      <div class="cta"><a class="btn" href="/journal/">🪶 Open the journal</a></div>
+    </div>
+    <div>
+      <div class="page" aria-hidden="true">
+        <div class="n">1<br>2<br>3<br>4<br>5<br>6</div>
+        <div class="t"><b># Session 4: The Sunless Citadel</b><br><br>The party rappels into the ravine at dusk.<br>Meepo the kobold begs us to find his dragon.<br><i>![Calcryx the white wyrmling](forge)</i><br>- Loot: 3 gp, a rusted key, one angry dragon</div>
+      </div>
+      <div id="journal-recent" hidden>
+        <h4>Your projects</h4>
+        <div class="chips" id="journal-projects"></div>
+      </div>
+    </div>
   </div>
 
   <div class="divider">THE WORKBENCH</div>
@@ -421,6 +466,36 @@ const PEOPLE = [];
     .catch(() => {
       box.innerHTML = '<p class="note">Couldn\'t reach the guild hall just now. Try again in a bit.</p>';
     });
+})();
+</script>
+<script>
+// Journal: list the projects saved in this browser by /journal/. Opens the
+// database read-only and backs out if it doesn't exist yet, so visiting the
+// home page never creates an empty journal.
+(function () {
+  if (!window.indexedDB) return;
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+  let req;
+  try { req = indexedDB.open("tavernworks-journal"); } catch { return; }
+  req.onupgradeneeded = () => req.transaction.abort();
+  req.onerror = (e) => e.preventDefault();
+  req.onsuccess = () => {
+    const db = req.result;
+    if (!db.objectStoreNames.contains("projects")) { db.close(); return; }
+    const all = db.transaction("projects").objectStore("projects").getAll();
+    all.onsuccess = () => {
+      db.close();
+      const list = (all.result || []).sort((a, b) => b.updated - a.updated).slice(0, 6);
+      if (!list.length) return;
+      document.getElementById("journal-projects").innerHTML = list.map((p) =>
+        `<a class="chip" href="/journal/#p=${encodeURIComponent(p.id)}">` +
+        `<span class="dot">${esc(p.name.trim().charAt(0).toUpperCase() || "?")}</span>` +
+        `<span class="who"><div class="name">${esc(p.name)}</div>` +
+        `<div class="role">Updated ${esc(new Date(p.updated).toLocaleDateString([], { dateStyle: "medium" }))}</div></span></a>`
+      ).join("");
+      document.getElementById("journal-recent").hidden = false;
+    };
+  };
 })();
 </script>
 <script src="/tip-links.js"></script>
