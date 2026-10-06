@@ -82,6 +82,7 @@
   .meta button:hover{color:var(--gold2)}
   .cursor::after{content:"▍";color:var(--gold);animation:blink 1s infinite;margin-left:1px}
   .err{color:#ff9b7a}
+  .note-inline{color:var(--muted);font-style:italic}
 
   .empty{max-width:560px;margin:12vh auto 0;text-align:center;padding:0 18px}
   .empty .orb{font-size:54px;filter:drop-shadow(0 0 24px rgba(155,123,216,.45))}
@@ -280,23 +281,37 @@
   function messageEl(m) {
     const el = document.createElement("div");
     el.className = "msg " + m.role;
-    el.innerHTML = `<div class="av">${m.role === "user" ? "🍺" : "🔮"}</div><div class="body"><div class="who"></div><div class="think" hidden><details><summary>Thinking…</summary><div></div></details></div><div class="content"></div><div class="meta"></div></div>`;
+    el.innerHTML = `<div class="av">${m.role === "user" ? "🍺" : "🔮"}</div><div class="body"><div class="who"></div><div class="think" hidden><details open><summary>Thinking…</summary><div></div></details></div><div class="content"></div><div class="meta"></div></div>`;
     el.querySelector(".who").textContent = m.role === "user" ? "You" : (m.model || "Assistant");
     fillMessage(el, m);
     return el;
   }
+  // Some models put their reasoning inline as <think>…</think> at the start
+  // of the answer; show that as thinking rather than as (or instead of) text.
+  function splitThink(m) {
+    let answer = m.content || "", thinking = m.thinking || "";
+    const t = answer.match(/^\s*<think>([\s\S]*?)(?:<\/think>|$)/);
+    if (t) { thinking += (thinking ? "\n" : "") + t[1].trim(); answer = answer.slice(t[0].length); }
+    return { answer: answer.trim(), thinking: thinking.trim() };
+  }
   function fillMessage(el, m, streaming) {
     const content = el.querySelector(".content");
+    const { answer, thinking } = m.role === "user" ? { answer: m.content, thinking: "" } : splitThink(m);
     if (m.role === "user") content.textContent = m.content;
-    else content.innerHTML = m.error ? `<p class="err">${esc(m.error)}</p>` : markdown(m.content || "");
+    else if (m.error) content.innerHTML = `<p class="err">${esc(m.error)}</p>`;
+    else if (answer) content.innerHTML = markdown(answer);
+    else if (!streaming && thinking) content.innerHTML = '<p class="note-inline">The model only sent its thinking (above), no separate answer.</p>';
+    else if (!streaming) content.innerHTML = '<p class="note-inline">This reply came back empty. Send the message again, or try another model.</p>';
+    else content.innerHTML = "";
     content.classList.toggle("cursor", !!streaming);
     const think = el.querySelector(".think");
-    if (m.thinking) { think.hidden = false; think.querySelector("details div").textContent = m.thinking; think.querySelector("summary").textContent = streaming && !m.content ? "Thinking…" : "Thoughts"; }
+    think.hidden = !thinking;
+    if (thinking) { think.querySelector("details div").textContent = thinking; think.querySelector("summary").textContent = streaming && !answer ? "Thinking…" : "Thoughts"; }
     const meta = el.querySelector(".meta");
     meta.innerHTML = "";
-    if (m.role === "assistant" && !streaming && !m.error) {
+    if (m.role === "assistant" && !streaming && !m.error && (answer || thinking)) {
       const copy = document.createElement("button"); copy.textContent = "Copy";
-      copy.onclick = () => navigator.clipboard?.writeText(m.content).then(() => { copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy"), 1500); });
+      copy.onclick = () => navigator.clipboard?.writeText(splitThink(m).answer || splitThink(m).thinking).then(() => { copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy"), 1500); });
       meta.appendChild(copy);
       if (m.stats) { const s = document.createElement("span"); s.textContent = m.stats; meta.appendChild(s); }
     }
@@ -419,23 +434,37 @@
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       let buf = "", last = null;
+      // One line of the stream. Ollama sends NDJSON; also accept a single
+      // non-streamed JSON body and OpenAI-style "data: {...}" lines, so a
+      // proxy in between can't leave the reply blank.
+      const take = (lineText) => {
+        lineText = lineText.trim().replace(/^data:\s*/, "");
+        if (!lineText || lineText === "[DONE]") return;
+        let chunk;
+        try { chunk = JSON.parse(lineText); } catch { return; }
+        if (chunk.error) throw new Error(typeof chunk.error === "string" ? chunk.error : chunk.error.message || "Ollama error");
+        const msg = chunk.message || chunk.choices?.[0]?.delta || chunk.choices?.[0]?.message || {};
+        const thinkPart = msg.thinking ?? msg.reasoning_content ?? chunk.thinking;
+        const textPart = msg.content ?? chunk.response;
+        if (thinkPart) reply.thinking = (reply.thinking || "") + thinkPart;
+        if (textPart) reply.content += textPart;
+        if (chunk.done) last = chunk;
+      };
       for (;;) {
         const { value, done } = await reader.read();
         if (done) break;
         buf += dec.decode(value, { stream: true });
         let nl;
         while ((nl = buf.indexOf("\n")) !== -1) {
-          const lineText = buf.slice(0, nl).trim();
+          take(buf.slice(0, nl));
           buf = buf.slice(nl + 1);
-          if (!lineText) continue;
-          const chunk = JSON.parse(lineText);
-          if (chunk.error) throw new Error(chunk.error);
-          if (chunk.message?.thinking) reply.thinking = (reply.thinking || "") + chunk.message.thinking;
-          if (chunk.message?.content) reply.content += chunk.message.content;
-          if (chunk.done) last = chunk;
         }
         fillMessage(el, reply, true);
         scrollDown();
+      }
+      take(buf + dec.decode());
+      if (!reply.content.trim() && !(reply.thinking || "").trim()) {
+        reply.error = "The model sent back an empty reply. Try sending it again, or pick another model from the list.";
       }
       if (last && last.eval_count && last.eval_duration) {
         const tps = last.eval_count / (last.eval_duration / 1e9);
