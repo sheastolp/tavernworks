@@ -66,12 +66,17 @@
     border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:10px;
     transition:.15s
   }
-  a.card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  a.card:hover,.card.expand:hover,.card.expand[aria-expanded="true"]{border-color:var(--gold);transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
   .card .icon{font-size:28px;line-height:1}
   .card h3{font-family:Cinzel,serif;font-size:19px;color:var(--gold2)}
   .card p{color:var(--muted);font-size:14.5px;flex:1}
   .card p code{font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--gold2)}
   .card .links{display:flex;flex-wrap:wrap;gap:8px}
+  .card .links[hidden]{display:none}
+  .card.expand{cursor:pointer}
+  .card.expand:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+  .card .chev{display:inline-block;transition:transform .15s}
+  .card.expand[aria-expanded="true"] .chev{transform:rotate(180deg)}
   .btn.sm{padding:6px 12px;font-size:13px;gap:6px;border-radius:10px}
   .meta{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--muted);gap:8px}
   .url{font-family:ui-monospace,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -251,15 +256,15 @@
       <p>Guild receptionist for <i>GuildBreak: Hunt &amp; Hoard</i>, a hunt-and-loot RPG that runs right in Twitch chat. Enlist a character, hunt monsters, claim bounties and spend your gold at the merchant's stall.</p>
       <div class="meta"><span class="url">tavernworks.dev/wandering-clerk</span><span class="pill live">LIVE</span></div>
     </a>
-    <div class="card">
+    <div class="card expand" role="button" tabindex="0" aria-expanded="false" aria-controls="burn-links">
       <div class="icon">🥸</div>
       <h3>UndercoverBurn</h3>
       <p>Slips into your Twitch chat undercover, then blows its cover with a playful roast, a quote from your StreamElements <code>!quote</code> list, or a one-liner riffing on what chat is saying. Also calls out ad breaks and welcomes chat back. Only talks while you're live.</p>
-      <div class="links">
+      <div class="links" id="burn-links" hidden>
         <a class="btn sm" href="https://burn.tavernworks.dev/" target="_blank" rel="noopener">🚪 Onboarding</a>
         <a class="btn sm" href="https://burn.tavernworks.dev/dashboard" target="_blank" rel="noopener">📊 Dashboard</a>
       </div>
-      <div class="meta"><span class="url">burn.tavernworks.dev</span><span class="pill live">LIVE</span></div>
+      <div class="meta"><span class="url">burn.tavernworks.dev <span class="chev" aria-hidden="true">▾</span></span><span class="pill live">LIVE</span></div>
     </div>
   </div>
 
@@ -647,6 +652,21 @@ document.querySelectorAll('.copy').forEach((b) => b.addEventListener('click', as
   catch { b.textContent = 'Select it'; }
   setTimeout(() => { b.textContent = 'Copy'; b.classList.remove('done'); }, 1800);
 }));
+</script>
+<script>
+  // Expandable bot cards: click (or Enter/Space) to show their links.
+  document.querySelectorAll(".card.expand").forEach((card) => {
+    const links = document.getElementById(card.getAttribute("aria-controls"));
+    const toggle = () => {
+      const open = card.getAttribute("aria-expanded") !== "true";
+      card.setAttribute("aria-expanded", String(open));
+      links.hidden = !open;
+    };
+    card.addEventListener("click", (e) => { if (!e.target.closest("a")) toggle(); });
+    card.addEventListener("keydown", (e) => {
+      if (e.target === card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggle(); }
+    });
+  });
 </script>
 </body>
 </html>
