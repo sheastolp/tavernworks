@@ -183,7 +183,7 @@
   .track .day{fill:var(--gold);font:600 11.5px system-ui,sans-serif;letter-spacing:.06em}
   .track .day.again{opacity:.5}
   .track .grid-line{stroke:var(--line);stroke-width:1}
-  .track .lane-line{fill:none;stroke:var(--gold);stroke-width:2.5;stroke-linecap:round;opacity:.75}
+  .track .lane-line{fill:none;stroke:var(--gold);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;opacity:.75}
   .track .hop{fill:none;stroke:var(--gold);stroke-width:1.5;stroke-dasharray:2 5;opacity:.45}
   .track .pt circle{fill:#1a120c;stroke:var(--gold);stroke-width:2;transition:stroke .15s}
   .track .pt text{font-size:14px;text-anchor:middle;dominant-baseline:central;pointer-events:none}
@@ -378,8 +378,8 @@
 </div>
 <script>
 // The path so far: every change on tavernworks.dev, one lane per project,
-// oldest on the left, ending at today. Each lane joins that project's
-// changes in order. Add a point to POINTS when something ships (lane key,
+// oldest on the left, ending at today. One line joins every change in
+// order, turning at an angle when it moves to another project. Add a point to POINTS when something ships (lane key,
 // date, what changed, and where it lives).
 (function () {
   const LANES = {
@@ -458,6 +458,8 @@
     ["home",    "2026-10-07", "Privacy policy and terms", "/privacy/"],
     ["sandbox", "2026-10-07", "Deno mode runs in the browser", "/bot-sandbox/app/"],
     ["home",    "2026-10-07", "The path becomes one lane per project", "#path"],
+    ["sandbox", "2026-10-07", "Resizable log under the editor", "/bot-sandbox/app/"],
+    ["home",    "2026-10-07", "The path turns between projects", "#path"],
   ].map(([lane, date, title, href], i) => ({ lane, date, title, href, i }));
 
   const trail = document.getElementById("trail");
@@ -502,12 +504,14 @@
         `<text class="day${n ? " again" : ""}" x="${(n ? x(d.from + n * 12) - STEP / 2 : x0) + 8}" y="20">${esc(shortDate(d.date))}</text>`).join("");
   }).join("");
 
-  // Each project's changes joined in order, then a faint trail on to today.
+  // Every change joined in order: straight along a lane, at an angle when
+  // the next change is in another project. Then a faint trail from each
+  // project's last change on to today.
   const nowX = x(POINTS.length) - STEP / 2 + 6;
+  svg += `<path class="lane-line" d="${POINTS.map((p, n) => `${n ? "L" : "M"}${x(p.i)} ${y(p.lane)}`).join(" ")}"/>`;
   order.forEach((k) => {
     const pts = POINTS.filter((p) => p.lane === k);
     const yy = y(k);
-    if (pts.length > 1) svg += `<line class="lane-line" x1="${x(pts[0].i)}" y1="${yy}" x2="${x(pts[pts.length - 1].i)}" y2="${yy}"/>`;
     svg += `<line class="hop" x1="${x(pts[pts.length - 1].i) + R}" y1="${yy}" x2="${nowX}" y2="${yy}"/>`;
   });
   svg += `<line class="now" x1="${nowX}" y1="${TOP - 6}" x2="${nowX}" y2="${height}"/>` +

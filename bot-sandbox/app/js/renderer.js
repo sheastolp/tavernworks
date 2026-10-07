@@ -43,6 +43,7 @@ const fileExplorerPanelEl = document.getElementById('file-explorer');
 const explorerResizerEl = document.getElementById('explorer-resizer');
 const editorPaneEl = document.getElementById('editor-pane');
 const chatResizerEl = document.getElementById('chat-resizer');
+const logResizerEl = document.getElementById('log-resizer');
 
 // GitHub Sync modal refs
 const githubSyncBtn = document.getElementById('github-sync-btn');
@@ -157,31 +158,43 @@ function persistUiPrefs() {
   ipcRenderer.invoke('ui:setPrefs', uiPrefs);
 }
 
-function makeResizable(resizerEl, targetEl, { min, max, storageKey }) {
+function makeResizable(resizerEl, targetEl, { min, max, storageKey, axis = 'x', invert = false }) {
   if (!resizerEl || !targetEl) {
     console.error('makeResizable: missing element', { resizerEl, targetEl, storageKey });
     return;
   }
+  const vertical = axis === 'y';
+  const cursor = vertical ? 'row-resize' : 'col-resize';
+  const size = () => {
+    const rect = targetEl.getBoundingClientRect();
+    return vertical ? rect.height : rect.width;
+  };
   let dragging = false;
-  let startX = 0;
-  let startWidth = 0;
+  let startPos = 0;
+  let startSize = 0;
 
   resizerEl.addEventListener('mousedown', (e) => {
     dragging = true;
-    startX = e.clientX;
-    startWidth = targetEl.getBoundingClientRect().width;
+    startPos = vertical ? e.clientY : e.clientX;
+    startSize = size();
     resizerEl.classList.add('dragging');
-    document.body.style.cursor = 'col-resize';
+    document.body.style.cursor = cursor;
     document.body.style.userSelect = 'none';
     e.preventDefault();
   });
 
   window.addEventListener('mousemove', (e) => {
     if (!dragging) return;
-    const delta = e.clientX - startX;
-    const newWidth = Math.min(max, Math.max(min, startWidth + delta));
-    targetEl.style.width = newWidth + 'px';
-    targetEl.style.flex = `0 1 ${newWidth}px`;
+    // invert: the panel sits after the handle (e.g. the log under the editor), so dragging toward it shrinks it.
+    const delta = ((vertical ? e.clientY : e.clientX) - startPos) * (invert ? -1 : 1);
+    const newSize = Math.min(typeof max === 'function' ? max() : max, Math.max(min, startSize + delta));
+    if (vertical) {
+      targetEl.style.height = newSize + 'px';
+      targetEl.style.maxHeight = 'none';
+    } else {
+      targetEl.style.width = newSize + 'px';
+      targetEl.style.flex = `0 1 ${newSize}px`;
+    }
   });
 
   window.addEventListener('mouseup', () => {
@@ -190,7 +203,7 @@ function makeResizable(resizerEl, targetEl, { min, max, storageKey }) {
     resizerEl.classList.remove('dragging');
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
-    uiPrefs[storageKey] = Math.round(targetEl.getBoundingClientRect().width);
+    uiPrefs[storageKey] = Math.round(size());
     persistUiPrefs();
   });
 }
@@ -206,11 +219,23 @@ function applyUiPrefs(prefs) {
   if (uiPrefs.editorPaneWidth) {
     editorPaneEl.style.flex = `0 1 ${uiPrefs.editorPaneWidth}px`;
   }
+  if (uiPrefs.editorLogHeight) {
+    editorLogEl.style.height = uiPrefs.editorLogHeight + 'px';
+    editorLogEl.style.maxHeight = 'none';
+  }
 }
 
 makeResizable(sidebarResizerEl, sidebarEl, { min: 160, max: 480, storageKey: 'sidebarWidth' });
 makeResizable(explorerResizerEl, fileExplorerPanelEl, { min: 120, max: 420, storageKey: 'explorerWidth' });
 makeResizable(chatResizerEl, editorPaneEl, { min: 380, max: 1400, storageKey: 'editorPaneWidth' });
+makeResizable(logResizerEl, editorLogEl, {
+  min: 40,
+  // Always leave some of the code editor showing above the log.
+  max: () => Math.max(40, editorLogEl.parentElement.getBoundingClientRect().height - 120),
+  storageKey: 'editorLogHeight',
+  axis: 'y',
+  invert: true,
+});
 
 // --- Persistence ---
 async function loadProjects() {

@@ -483,6 +483,31 @@ html, body {
   background: var(--burnt-orange);
 }
 
+/* Horizontal handle: sits between the code editor and the log under it. */
+.resizer-row {
+  width: auto;
+  height: 5px;
+  cursor: row-resize;
+}
+
+.resizer-row::after {
+  top: 2px;
+  bottom: auto;
+  left: 0;
+  right: 0;
+  width: auto;
+  height: 1px;
+  background: transparent; /* the log's own top border is the line at rest */
+}
+
+.resizer-row:hover::after,
+.resizer-row.dragging::after {
+  top: 0;
+  left: 0;
+  width: auto;
+  height: 5px;
+}
+
 .pane-header {
   display: flex;
   align-items: center;
@@ -566,6 +591,7 @@ html, body {
 
 .editor-log {
   max-height: 140px;
+  flex-shrink: 0;
   overflow-y: auto;
   border-top: 1px solid var(--border-soft);
   background: var(--bg-panel);
