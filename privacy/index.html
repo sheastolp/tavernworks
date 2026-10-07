@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy · Tavernworks</title>
+<meta name="description" content="What Tavernworks collects, where it's kept and how to have it removed.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍺</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.65;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,168,74,.14), transparent 70%),
+      var(--bg);
+    min-height:100vh;
+  }
+  a{color:var(--gold2)}
+  a:hover{color:var(--gold)}
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px}
+  header{padding:64px 0 28px;text-align:center}
+  header .back{display:inline-block;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:18px}
+  header .back:hover{color:var(--gold2)}
+  h1{font-family:Cinzel,serif;font-weight:800;font-size:clamp(32px,7vw,52px);line-height:1.1;color:var(--gold2)}
+  .updated{margin-top:10px;color:var(--muted);font-size:14px}
+  .doc{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:28px}
+  .doc h2{font-family:Cinzel,serif;color:var(--gold2);font-size:19px;margin:28px 0 8px}
+  .doc h2:first-child{margin-top:0}
+  .doc h3{font-size:15px;color:var(--gold);margin:16px 0 4px}
+  .doc p,.doc li{color:var(--muted);font-size:15px}
+  .doc p + p{margin-top:10px}
+  .doc ul{margin:8px 0 0 20px;display:flex;flex-direction:column;gap:6px}
+  .doc b{color:var(--text);font-weight:600}
+  .doc code{font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--gold2)}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:48px 0 40px}
+  footer span{color:var(--gold)}
+  footer a{color:inherit;text-decoration:none}
+  footer a:hover{color:var(--gold2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="back" href="/">← Back to the tavern</a>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated October 7, 2026</p>
+  </header>
+  <div class="doc">
+    <h2>The short version</h2>
+    <p>Tavernworks (<b>tavernworks.dev</b> and its subdomains) is a one-person hobby workshop run by Stoned Sheamus. There are no ads, no analytics trackers and nothing is sold. Most of the tools keep your data in your own browser. The few things that are sent to us are listed below, along with how to have them removed.</p>
+
+    <h2>Things that stay in your browser</h2>
+    <p>These tools save to your browser's local storage or IndexedDB. That data never leaves your device unless you send it somewhere yourself, and clearing your browser's site data deletes it.</p>
+    <ul>
+      <li><b>Adventurer's Journal</b>: your projects, notes and attached images. The homepage also reads the journal's project list from your browser to show your recent projects; it isn't sent anywhere.</li>
+      <li><b>Sound Bytes</b>: your settings.</li>
+      <li><b>Local AI chat</b>: your chats and connection settings. Messages go straight from your browser to the AI server you point it at.</li>
+      <li><b>TwitchBotSandbox in the browser</b>, when you're not signed in: your projects.</li>
+    </ul>
+    <p>If you use the Journal's Image Forge, prompts go from your browser straight to the ComfyUI server you configure, not to us.</p>
+
+    <h2>Things you send to us</h2>
+    <h3>Hushwave suggestion box</h3>
+    <p>When you drop in a suggestion we keep the name you type (or "Anonymous"), the type of suggestion, your message and the time it was sent. Only the site admin can read them.</p>
+    <h3>TwitchBotSandbox Google sign-in</h3>
+    <p>If you sign in with Google, we receive your Google account ID, name, email address and profile picture link from Google. We store them with your projects, editor layout and any GitHub or Val Town tokens you save (tokens are encrypted). Automatic backups are made about once an hour while you work, and the newest 30 are kept. We use this only to keep your projects in your account. The app's <b>Delete my data</b> button removes your account and all of its backups.</p>
+    <h3>Twitch bots</h3>
+    <p>GuildScribe, UndercoverBurn and The Wandering Clerk work in Twitch chat (and GuildScribe in Discord). To do their job they read chat messages in channels where they're enabled and store what they need: things like usernames, character sheets, game progress and channel settings. When a streamer connects a bot, Twitch asks them to approve the access it needs, and the bot keeps the token Twitch issues so it can keep working. GuildScribe lists the channels that run it on the homepage; a channel can leave that list with <code>!dndbot showcase off</code>.</p>
+    <h3>Server logs and rate limits</h3>
+    <p>Like any website, the servers that handle requests see your IP address and browser details. We use IP addresses briefly, in memory, to rate-limit forms and sign-ins against spam, and don't keep them with your suggestions or projects.</p>
+
+    <h2>Where it's stored</h2>
+    <p>Suggestions, tip jar links and TwitchBotSandbox accounts are kept on a home server run by Tavernworks. The bots run on <a href="https://www.val.town/" target="_blank" rel="noopener">Val Town</a>, and some subdomains are routed through <a href="https://www.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a>.</p>
+
+    <h2>Third parties</h2>
+    <p>Pages load fonts from Google Fonts, and the TwitchBotSandbox sign-in button loads from Google. Links and sign-ins with Twitch, Discord, Google, GitHub and the tip jar platforms take you to those services, and their own privacy policies apply there. We never sell or share your data with anyone for advertising.</p>
+
+    <h2>Cookies</h2>
+    <p>We don't set tracking cookies. Browser storage is used only for the features above, like keeping you signed in or saving your work.</p>
+
+    <h2>Children</h2>
+    <p>Tavernworks isn't directed at children under 13, and we don't knowingly collect their personal information. If you think a child has sent us information, let us know and we'll delete it.</p>
+
+    <h2>Your choices</h2>
+    <p>You can ask to see, correct or delete anything we hold about you. For TwitchBotSandbox, use <b>Delete my data</b> in the app. For anything else, including suggestions and bot data, ask on the <a href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">Tavernworks Discord</a> and we'll take care of it. Removing a bot from your Twitch channel or revoking its access in your Twitch connection settings stops it from collecting anything further.</p>
+
+    <h2>Changes</h2>
+    <p>If this policy changes, the new version will be posted here with a new date at the top.</p>
+
+    <h2>Contact</h2>
+    <p>Questions? Find us on the <a href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">Tavernworks Discord</a>. See also the <a href="/terms/">Terms of Service</a>.</p>
+  </div>
+  <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus<br><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
+</div>
+</body>
+</html>
