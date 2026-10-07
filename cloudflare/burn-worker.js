@@ -2,6 +2,9 @@
 // Serves the UndercoverBurn val from our own domain without Val Town's
 // paid custom-domain feature: every request is forwarded to the val and
 // the response is passed back, so the address bar stays on tavernworks.dev.
+//
+// The bot itself lives in the sheastolp/UndercoverBurn repo, which deploys it
+// to Val Town from GitHub Actions. This file is only the domain forwarder.
 const VAL_ORIGIN = "https://stonedsheamus--d231d1f6a58611f195581607ee4eb77e.web.val.run";
 
 export default {

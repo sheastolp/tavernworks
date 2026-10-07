@@ -1,8 +1,0 @@
-# Wrangler config for the burn.tavernworks.dev Worker, deployed by
-# .github/workflows/deploy-burn-worker.yml. The Worker's name comes from the
-# BURN_WORKER_NAME repo variable (passed as --name) so it targets the Worker
-# that already exists in the dashboard. No routes are listed here: the
-# burn.tavernworks.dev route stays exactly as configured in Cloudflare.
-main = "burn-worker.js"
-compatibility_date = "2025-01-01"
-workers_dev = false
