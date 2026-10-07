@@ -168,14 +168,14 @@
     const found = [];
     const visit = (node) => {
       if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
-        found.push(node.moduleSpecifier);
+        found.push({ node: node.moduleSpecifier, dynamic: false });
       } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments.length && ts.isStringLiteralLike(node.arguments[0])) {
-        found.push(node.arguments[0]);
+        found.push({ node: node.arguments[0], dynamic: true });
       }
       ts.forEachChild(node, visit);
     };
     visit(sf);
-    return found.map((n) => ({ start: n.getStart(sf), end: n.getEnd(), text: n.text }));
+    return found.map(({ node, dynamic }) => ({ start: node.getStart(sf), end: node.getEnd(), text: node.text, dynamic }));
   }
 
   // The names a file exports, read from its source, plus the files its
@@ -228,9 +228,9 @@
       fileIndex.set(normalizePath(m.name), modules.length);
       modules.push(m);
     };
-    files.forEach((f) => add({ name: f.name, kind: 'js', source: f.content, deps: [], entry: true }));
+    files.forEach((f) => add({ name: f.name, kind: 'js', source: f.content, deps: [], remotes: [], entry: true }));
     allFiles.forEach((f) => {
-      if (/\.json$/i.test(f.name) && !fileIndex.has(normalizePath(f.name))) add({ name: f.name, kind: 'json', code: f.content, deps: [] });
+      if (/\.json$/i.test(f.name) && !fileIndex.has(normalizePath(f.name))) add({ name: f.name, kind: 'json', code: f.content, deps: [], remotes: [] });
     });
 
     // Every file's export names, with `export * from` another project file
@@ -284,6 +284,7 @@
           replacement = SQLITE_TOKEN;
         } else {
           replacement = JSON.stringify(r.url);
+          if (!s.dynamic && !m.remotes.includes(r.url)) m.remotes.push(r.url);
         }
         code = code.slice(0, s.start) + replacement + code.slice(s.end);
       }
@@ -325,7 +326,7 @@
     modules.forEach((_, i) => place(i));
 
     return {
-      modules: modules.map(({ name, kind, code, entry }) => ({ name, kind, code, entry: !!entry })),
+      modules: modules.map(({ name, kind, code, entry, deps, remotes }) => ({ name, kind, code, entry: !!entry, deps, remotes })),
       order,
     };
   }
@@ -588,6 +589,52 @@
     const blobUrl = (code, type) => URL.createObjectURL(new Blob([code], { type }));
     const errText = (err) => (err && err.message ? err.message : String(err));
 
+    // The browser only says "Failed to fetch dynamically imported module",
+    // naming the file itself. Try each URL the file and the project files it
+    // imports load up front, and say which one failed and how.
+    const probed = new Map();
+    function probe(url) {
+      if (!probed.has(url)) {
+        probed.set(url, (async () => {
+          if (/^data:/i.test(url)) return '';
+          try {
+            await import(url);
+            return '';
+          } catch (err) {
+            let how = errText(err);
+            try {
+              const res = await originalFetch(url);
+              if (!res.ok) how = `HTTP ${res.status}${res.statusText ? ' ' + res.statusText : ''}`;
+              else if (!/javascript|typescript|ecmascript/i.test(res.headers.get('content-type') || '')) how = `served as ${res.headers.get('content-type') || 'an unknown type'}, not JavaScript`;
+              else how = `it loaded, but something it imports failed (${how})`;
+            } catch {
+              how = 'couldn\u2019t be reached: the site may be down, or may not allow requests from web pages (CORS); the desktop app has no such limit';
+            }
+            return how;
+          }
+        })());
+      }
+      return probed.get(url);
+    }
+
+    async function whyFetchFailed(modules, start) {
+      const seen = new Set();
+      const queue = [start];
+      const problems = [];
+      while (queue.length) {
+        const i = queue.shift();
+        if (seen.has(i)) continue;
+        seen.add(i);
+        const m = modules[i];
+        for (const url of m.remotes || []) {
+          const how = await probe(url);
+          if (how) problems.push(`${m.name} imports ${url}: ${how}`);
+        }
+        (m.deps || []).forEach((d) => queue.push(d));
+      }
+      return problems.length ? `couldn\u2019t load an import. ${problems.join(' | ')}` : '';
+    }
+
     async function load(msg) {
       env = msg.env || {};
       vfs = new Map(Object.entries(msg.files || {}));
@@ -615,7 +662,10 @@
         try {
           loaded.set(m.name, await import(urls.get(i)));
         } catch (err) {
-          console.error(`Load error in ${m.name}: ${errText(err)}`);
+          const why = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(errText(err))
+            ? await whyFetchFailed(msg.modules, i)
+            : '';
+          console.error(`Load error in ${m.name}: ${why || errText(err)}`);
         }
       }
 
