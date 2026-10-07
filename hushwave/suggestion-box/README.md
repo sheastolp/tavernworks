@@ -97,8 +97,24 @@ window.SUGGEST_API = "https://<machine>.<tailnet>.ts.net:10000";
    secret). Put it in `bot-sandbox/app/config.js` on the site, and give the
    server the same one with an `Environment=SANDBOX_GOOGLE_CLIENT_ID=...`
    line in the service file, then restart.
-4. On the consent screen, click **Publish app** so anyone can sign in, not
-   just test users.
+4. Fill in **Google Auth Platform → Branding**:
+   - **App name:** Tavernworks
+   - **User support email** and **Developer contact:** your email
+   - **App logo:** upload `brand/google-consent-logo-120.png` (120×120, under 1 MB)
+   - **Application home page:** `https://tavernworks.dev`
+   - **Privacy policy:** `https://tavernworks.dev/privacy/`
+   - **Terms of service:** `https://tavernworks.dev/terms/`
+   - **Authorized domains:** `tavernworks.dev`
+
+   Google wants proof you own `tavernworks.dev`: add it as a Domain property
+   in [Search Console](https://search.google.com/search-console) with the TXT
+   record it gives you (in Cloudflare DNS), signed in as the same Google
+   account. Adding a logo means Google reviews the branding before it shows
+   on the sign-in screen (usually a few days); sign-in keeps working
+   meanwhile, just without the logo.
+5. On the consent screen, click **Publish app** so anyone can sign in, not
+   just test users. Only name, email and picture are requested, so no
+   further verification is needed.
 
 The first time you sign in with Google from a browser that's still logged in
 as the tip jar admin, the projects you saved with the old password sign-in
