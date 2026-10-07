@@ -33,7 +33,7 @@
           <button id="storage-reload-btn" class="ghost-btn" hidden>Reload</button>
           <button id="signout-btn" class="ghost-btn" hidden>Sign out</button>
         </div>
-        <p class="web-note">Your code runs in a locked-down worker with no network access.</p>
+        <p class="web-note">Fast mode runs your code with no network access. Deno mode can reach the network, so only run code you trust in it.</p>
       </div>
     </aside>
 
@@ -46,12 +46,12 @@
           <span id="active-project-name">Select a project</span>
           <div class="runtime-toggle">
             <button id="runtime-node-btn" class="runtime-btn" title="In-browser sandbox: instant, all files share one scope, no network">Fast</button>
-            <button id="runtime-deno-btn" class="runtime-btn" title="Deno (real) mode runs a bundled deno binary, so it's only in the desktop app" disabled>Deno (desktop app)</button>
+            <button id="runtime-deno-btn" class="runtime-btn" title="Deno in your browser: real ES modules and TypeScript, Deno.env from Env Vars, npm:/jsr:/https imports, std/sqlite kept in this browser, and real network access (fetch), so only run code you trust">Deno</button>
           </div>
           <div class="pane-actions">
             <button id="github-sync-btn" class="ghost-btn">GitHub&hellip;</button>
             <button id="valtown-sync-btn" class="ghost-btn">Val Town&hellip;</button>
-            <button id="envvars-btn" class="ghost-btn" hidden>Env Vars&hellip;</button>
+            <button id="envvars-btn" class="ghost-btn">Env Vars&hellip;</button>
             <button id="import-file-btn" class="ghost-btn">Import Files&hellip;</button>
             <button id="load-code-btn" class="primary-btn">Load Code</button>
             <button id="clear-chat-btn" class="ghost-btn">Clear Chat</button>
@@ -208,7 +208,7 @@ All files in a project run together, in file order, when you click Load Code."><
         <button id="envvars-modal-close" class="modal-close-btn" title="Close">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="modal-hint" style="margin: 0 0 10px 0;">One per line, <code>KEY=value</code>. Lines starting with <code>#</code> are ignored. Only used in Deno (real) mode &mdash; injected into that project's subprocess as real environment variables, exactly like Deno.env.get(...) would see on a real machine. Stored OS-encrypted, separately per project.</p>
+        <p class="modal-hint" style="margin: 0 0 10px 0;">One per line, <code>KEY=value</code>. Lines starting with <code>#</code> are ignored. Only used in Deno mode &mdash; your code reads them with Deno.env.get(...), exactly like on a real machine. Saved separately per project: in your account (encrypted) when you're signed in, otherwise in this browser.</p>
         <textarea id="envvars-textarea" class="envvars-textarea" spellcheck="false" placeholder="OPENAI_API_KEY=sk-...&#10;SOME_OTHER_KEY=..."></textarea>
         <div class="modal-actions">
           <button id="envvars-save-btn" class="primary-btn">Save</button>
@@ -270,6 +270,7 @@ All files in a project run together, in file order, when you click Load Code."><
 
   <script src="/hushwave/suggest-config.js"></script>
   <script src="config.js"></script>
+  <script src="js/deno-runtime.js"></script>
   <script src="js/web-bridge.js"></script>
   <script src="js/renderer.js"></script>
   <script src="js/web-storage.js"></script>

@@ -1,5 +1,6 @@
 // Web build: js/web-bridge.js stands in for Electron's main process, a Web
-// Worker stands in for Node's vm module, and TypeScript loads on first use.
+// Worker stands in for Node's vm module (Fast) and for the deno binary
+// (Deno, js/deno-runtime.js), and TypeScript loads on first use.
 const { ipcRenderer, runner: sandboxRunner, loadTs } = window.TBS_WEB;
 // `ts` below is the global the TypeScript compiler script defines once loadTs() resolves.
 
@@ -248,7 +249,7 @@ function setActionsEnabled(enabled) {
   newFileBtn.disabled = !enabled;
   chatMessageEl.disabled = !enabled;
   runtimeNodeBtn.disabled = !enabled;
-  runtimeDenoBtn.disabled = true; // desktop app only
+  runtimeDenoBtn.disabled = !enabled;
   githubSyncBtn.disabled = !enabled;
   valtownSyncBtn.disabled = !enabled;
   envvarsBtn.disabled = !enabled;
@@ -595,7 +596,7 @@ async function loadCodeNode(proj, files) {
     if (usesRealModuleSyntax(file.content, file.name)) {
       errorCount++;
       logToEditor(
-        `${file.name} uses real import/export syntax between files \u2014 Fast mode's shared-scope model doesn't support genuine ES modules (no real per-file require/exports). Real ES modules need the desktop app's Deno (real) mode.`,
+        `${file.name} uses real import/export syntax between files \u2014 Fast mode's shared-scope model doesn't support genuine ES modules (no real per-file require/exports). Switch this project to Deno mode to run real ES modules.`,
         'error',
       );
       return;
@@ -651,12 +652,13 @@ async function loadCodeNode(proj, files) {
   }
 }
 
-// --- Deno "real" runtime: hands the files to the bundled deno binary via main.js ---
+// --- Deno runtime: hands the files to the Deno worker in js/deno-runtime.js ---
 async function loadCodeDeno(proj, files) {
   setStatus('Starting Deno\u2026', null);
   loadCodeBtn.disabled = true;
 
-  const result = await ipcRenderer.invoke('deno:load', { files, projectId: activeProjectId });
+  const allFiles = (proj.files || []).map((f) => ({ name: f.name, content: f.content }));
+  const result = await ipcRenderer.invoke('deno:load', { files, allFiles, projectId: activeProjectId });
 
   loadCodeBtn.disabled = false;
   denoWebhookMode = !!result.webhookMode;

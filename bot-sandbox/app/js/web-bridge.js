@@ -8,7 +8,8 @@
 //   - GitHub and Val Town sync call their public REST APIs with fetch
 //   - Fast mode runs bot code in a Web Worker (see `runner` below) in place
 //     of Node's vm module, so a runaway loop can be killed after 3 seconds
-//   - Deno mode needs the bundled deno binary, so it answers "desktop only"
+//   - Deno mode runs in a module Web Worker with a Deno stand-in (see
+//     js/deno-runtime.js) in place of the bundled deno binary
 (function () {
   const STORE = {
     projects: 'tbs:projects',
@@ -219,8 +220,7 @@
     for (const id of Object.keys(data)) {
       const proj = data[id];
       if (!Array.isArray(proj.files)) proj.files = [];
-      // Deno mode can't run in a browser; fall back to Fast mode.
-      proj.runtime = 'node';
+      if (proj.runtime !== 'node' && proj.runtime !== 'deno') proj.runtime = 'node';
     }
     return data;
   }
@@ -293,7 +293,14 @@
       cloud.movedToBackup = true;
     }
 
-    for (const name of ['github', 'valtown']) {
+    const envNames = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const m = /^tbs:(env-[A-Za-z0-9_-]{1,80})-token$/.exec(localStorage.key(i));
+        if (m) envNames.push(m[1]);
+      }
+    } catch { /* blocked */ }
+    for (const name of ['github', 'valtown', ...envNames]) {
       const token = readLocalToken(name);
       if (token && !cloud.secrets[name]) {
         await api('PUT', '/sandbox/secrets/' + name, { token });
@@ -659,7 +666,24 @@
   }
 
   // --- ipcRenderer stand-in ---
-  const DENO_UNAVAILABLE = 'Deno (real) mode needs the desktop app \u2014 it runs a bundled deno binary, which a browser can\u2019t.';
+  const listeners = new Map(); // channel -> Set of (event, payload) => void
+  const emit = (channel, payload) => (listeners.get(channel) || new Set()).forEach((fn) => {
+    try { fn(null, payload); } catch (err) { console.error(err); }
+  });
+
+  const envName = (projectId) => 'env-' + String(projectId || '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80);
+  const deno = window.TBS_DENO.createDenoRuntime({ loadTs: () => loadTs(), emit });
+
+  function denoLoad({ files, allFiles, projectId }) {
+    const valtown = readToken('valtown');
+    const env = {
+      // Real Val Town gives vals the caller's API token under this name,
+      // which std/blob, std/email and friends read.
+      ...(valtown ? { valtown } : {}),
+      ...window.TBS_DENO.parseEnvText(readToken(envName(projectId)) || ''),
+    };
+    return deno.load({ files, allFiles, projectId, env });
+  }
 
   const handlers = {
     'projects:load': () => ready().then((r) => r.projects),
@@ -668,11 +692,11 @@
     'ui:setPrefs': savePrefs,
     'app:getVersion': () => '1.9.3 web',
     'dialog:openFiles': () => pickFiles(),
-    'deno:load': () => ({ ok: false, error: DENO_UNAVAILABLE }),
-    'deno:invoke': () => ({ ok: false, error: DENO_UNAVAILABLE }),
-    'deno:stop': () => true,
-    'env:get': () => ({ text: '' }),
-    'env:set': () => ({ ok: false }),
+    'deno:load': denoLoad,
+    'deno:invoke': (payload) => deno.invoke(payload),
+    'deno:stop': () => { deno.stop(); return true; },
+    'env:get': (projectId) => ({ text: readToken(envName(projectId)) || '' }),
+    'env:set': ({ projectId, text }) => writeToken(envName(projectId), text),
     'github:tokenStatus': () => ({ hasToken: !!readToken('github') }),
     'github:setToken': (token) => writeToken('github', token),
     'github:download': githubDownload,
@@ -691,7 +715,10 @@
       if (!handler) return Promise.reject(new Error('Unknown channel: ' + channel));
       return Promise.resolve().then(() => handler(payload));
     },
-    on() { /* only Deno mode pushes events, and it never runs here */ },
+    on(channel, fn) {
+      if (!listeners.has(channel)) listeners.set(channel, new Set());
+      listeners.get(channel).add(fn);
+    },
   };
 
   // --- TypeScript compiler, loaded on first use (it's a few MB) ---
@@ -870,5 +897,5 @@
     };
   }
 
-  window.TBS_WEB = { ipcRenderer, loadTs, runner: createRunner(), storage, DENO_UNAVAILABLE };
+  window.TBS_WEB = { ipcRenderer, loadTs, runner: createRunner(), storage };
 })();

@@ -373,9 +373,10 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true });
       }
 
-      if (req.method === "PUT" && parts[0] === "secrets" && /^(github|valtown)$/.test(parts[1] || "")) {
+      // github / valtown tokens, and env-<projectId>: a project's Deno-mode env vars.
+      if (req.method === "PUT" && parts[0] === "secrets" && /^(github|valtown|env-[A-Za-z0-9_-]{1,80})$/.test(parts[1] || "")) {
         const b = await readBody(req);
-        const token = clean(b.token, 500);
+        const token = clean(b.token, parts[1].startsWith("env-") ? 8000 : 500);
         state.secrets = state.secrets || {};
         if (token) state.secrets[parts[1]] = encrypt(token);
         else delete state.secrets[parts[1]];
