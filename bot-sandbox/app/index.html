@@ -224,17 +224,12 @@ All files in a project run together, in file order, when you click Load Code."><
         <span>Sign in</span>
         <button id="signin-modal-close" class="modal-close-btn" title="Close">&times;</button>
       </div>
-      <form id="signin-form" class="modal-body">
-        <p class="modal-hint" style="margin: 0 0 10px 0;">Signed in, your projects, layout and GitHub/Val Town tokens are kept on the laptop instead of this browser, with automatic backups. Same password as the tip jar admin.</p>
-        <div class="modal-field-row">
-          <label for="signin-password">Password</label>
-          <input id="signin-password" type="password" autocomplete="current-password" required />
-        </div>
-        <div class="modal-actions">
-          <button type="submit" class="primary-btn">Sign in</button>
-        </div>
+      <div class="modal-body">
+        <p class="modal-hint" style="margin: 0 0 12px 0;">Sign in to save your projects, layout and GitHub/Val Town tokens to your own account instead of this browser, with automatic backups. Open them from any computer.</p>
+        <div id="google-signin-btn" class="google-signin-btn"></div>
+        <p class="modal-hint" style="margin: 12px 0 0 0;">Only your name, email and picture are read from Google. Your projects are stored on the Tavernworks server (a home machine, not a big cloud), tokens encrypted. You can delete everything any time from Backups&hellip;</p>
         <div id="signin-modal-log" class="editor-log modal-log"></div>
-      </form>
+      </div>
     </div>
   </div>
 
@@ -245,14 +240,14 @@ All files in a project run together, in file order, when you click Load Code."><
         <button id="backups-modal-close" class="modal-close-btn" title="Close">&times;</button>
       </div>
       <div class="modal-body">
-        <div id="backups-laptop" hidden>
-          <p class="modal-hint" style="margin: 0 0 10px 0;">Kept on the laptop. A backup is made automatically about once an hour while you work, and before every restore. The newest 60 are kept.</p>
+        <div id="backups-cloud" hidden>
+          <p class="modal-hint" style="margin: 0 0 10px 0;">Kept in your account. A backup is made automatically about once an hour while you work, and before every restore. The newest 30 are kept.</p>
           <div class="modal-actions" style="justify-content: flex-start; margin-top: 0;">
             <button id="backup-now-btn" class="primary-btn">Back up now</button>
           </div>
           <ul id="backups-list" class="backups-list"></ul>
         </div>
-        <p id="backups-signed-out" class="modal-hint" style="margin: 0 0 10px 0;">Your projects are only in this browser right now. <a href="#" id="backups-signin-link">Sign in</a> to keep them on the laptop with automatic backups.</p>
+        <p id="backups-signed-out" class="modal-hint" style="margin: 0 0 10px 0;">Your projects are only in this browser right now. <a href="#" id="backups-signin-link">Sign in with Google</a> to keep them in your account with automatic backups.</p>
         <div class="backups-file">
           <div class="sidebar-section-label">Backup file</div>
           <div class="modal-actions" style="justify-content: flex-start; margin-top: 0;">
@@ -261,12 +256,20 @@ All files in a project run together, in file order, when you click Load Code."><
           </div>
           <p class="modal-hint">Files hold your projects and layout, never your tokens.</p>
         </div>
+        <div id="backups-account" class="backups-file" hidden>
+          <div class="sidebar-section-label">Your account</div>
+          <p id="backups-account-who" class="modal-hint" style="margin-top: 0;"></p>
+          <div class="modal-actions" style="justify-content: flex-start; margin-top: 0;">
+            <button id="delete-account-btn" class="ghost-btn danger-btn">Delete my data</button>
+          </div>
+        </div>
         <div id="backups-modal-log" class="editor-log modal-log"></div>
       </div>
     </div>
   </div>
 
   <script src="/hushwave/suggest-config.js"></script>
+  <script src="config.js"></script>
   <script src="js/web-bridge.js"></script>
   <script src="js/renderer.js"></script>
   <script src="js/web-storage.js"></script>

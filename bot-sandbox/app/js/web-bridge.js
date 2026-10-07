@@ -2,8 +2,9 @@
 //
 // The desktop renderer talks to main.js through ipcRenderer.invoke(); this
 // file answers the same channels from inside the page instead:
-//   - projects, UI prefs and tokens live on the laptop server once signed
-//     in (see `cloud` below), or in this browser's localStorage if not
+//   - projects, UI prefs and tokens are saved to the visitor's account on
+//     the Tavernworks server once they sign in with Google (see `cloud`
+//     below), or in this browser's localStorage if not
 //   - GitHub and Val Town sync call their public REST APIs with fetch
 //   - Fast mode runs bot code in a Web Worker (see `runner` below) in place
 //     of Node's vm module, so a runaway loop can be killed after 3 seconds
@@ -36,18 +37,20 @@
     try { localStorage.removeItem(key); } catch { /* blocked */ }
   }
 
-  // --- Laptop storage ---
+  // --- Account storage ---
   //
-  // Signing in uses the same server and password as the tip jar admin
-  // (hushwave/suggestion-box/server.mjs, address in suggest-config.js).
-  // While signed in, projects, prefs and tokens are read from and saved to
-  // the laptop, and nothing but the login session is kept in the browser.
+  // Anyone can sign in with Google. The server (hushwave/suggestion-box/
+  // server.mjs, address in suggest-config.js) checks the Google sign-in and
+  // keeps each account's projects, prefs and tokens separately. While signed
+  // in, nothing but the session is kept in the browser.
   const API = (window.SUGGEST_API || '').replace(/\/+$/, '');
-  const SESSION_KEY = 'hushwave:suggestToken'; // shared with /tips, so one login covers both
+  const SESSION_KEY = 'tbs:session';
+  const ADMIN_SESSION_KEY = 'hushwave:suggestToken'; // the tip jar admin login, used once to hand over pre-Google projects
   const SAVE_DELAY_MS = 700;
 
   const cloud = {
     session: '',
+    user: null, // { name, email, picture }
     signedIn: false,
     rev: 0,
     secrets: {},
@@ -67,9 +70,9 @@
     statusListeners.forEach((fn) => { try { fn(status, message); } catch { /* listener bug */ } });
   }
 
-  function readSession() {
+  function readSession(key = SESSION_KEY) {
     try {
-      const t = JSON.parse(localStorage.getItem(SESSION_KEY));
+      const t = JSON.parse(localStorage.getItem(key));
       return t && t.expires > Date.now() ? t.token : '';
     } catch {
       return '';
@@ -93,7 +96,7 @@
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch {
-      const err = new Error('Couldn\u2019t reach the laptop. Is it on and is the suggestion box server running?');
+      const err = new Error('Couldn\u2019t reach the Tavernworks server. It may be offline for a bit; try again later.');
       err.unreachable = true;
       throw err;
     }
@@ -124,13 +127,13 @@
       await api('PUT', '/sandbox/secrets/' + name, { token: token || '' });
       if (token) cloud.secrets[name] = token;
       else delete cloud.secrets[name];
-      return { ok: true, encrypted: false, laptop: true };
+      return { ok: true, encrypted: true, account: true };
     } catch {
       return { ok: false };
     }
   }
 
-  // Send the newest projects to the laptop, one request at a time.
+  // Send the newest projects to the account, one request at a time.
   async function flushSave() {
     clearTimeout(cloud.timer);
     cloud.timer = null;
@@ -151,9 +154,9 @@
         setStatus('conflict', err.message);
       } else if (err.status === 401) {
         cloud.pending = cloud.pending || projects;
-        setStatus('error', 'Your login ran out. Sign in again to keep saving.');
+        setStatus('error', 'Your sign-in ran out. Sign in again to keep saving.');
       } else {
-        // Laptop asleep or offline: keep the changes and try again shortly.
+        // Server asleep or offline: keep the changes and try again shortly.
         cloud.pending = cloud.pending || projects;
         setStatus('error', 'Not saved yet \u2014 ' + err.message + ' Retrying\u2026');
         cloud.timer = setTimeout(flushSave, 5000);
@@ -224,7 +227,7 @@
 
   const freshDefaults = () => JSON.parse(JSON.stringify(DEFAULT_PROJECTS));
 
-  // Runs once on page load. Signed in: fetch everything from the laptop,
+  // Runs once on page load. Signed in: fetch everything from the account,
   // moving anything still stored in this browser up to it first.
   async function startStorage() {
     cloud.session = readSession();
@@ -241,17 +244,18 @@
       if (err.status === 401) {
         writeSession(null);
         cloud.session = '';
-        setStatus('local', 'Your login ran out, so this is the browser copy. Sign in again to use the laptop.');
+        setStatus('local', 'Your sign-in ran out, so this is the browser copy. Sign in again to use your account.');
         return { projects: normalizeProjects(readJson(STORE.projects, null) || freshDefaults()), prefs: readJson(STORE.prefs, {}) };
       }
-      if (err.status === 404) err.message = 'The laptop\u2019s server is an older version without sandbox storage. Update server.mjs on the laptop (see its README).';
+      if (err.status === 404) err.message = 'The server is an older version without sandbox storage.';
       // Don't fall back to the browser copy: saving it would overwrite the
-      // laptop's newer work later. Show nothing and save nothing instead.
+      // account's newer work later. Show nothing and save nothing instead.
       setStatus('unreachable', err.message);
       return { projects: {}, prefs: {} };
     }
 
     cloud.signedIn = true;
+    cloud.user = state.user || null;
     cloud.rev = state.rev || 0;
     cloud.secrets = state.secrets || {};
     cloud.prefs = state.prefs || {};
@@ -259,7 +263,7 @@
     try {
       await moveBrowserDataUp(state);
     } catch (err) {
-      setStatus('error', 'Couldn\u2019t move this browser\u2019s projects to the laptop: ' + err.message);
+      setStatus('error', 'Couldn\u2019t move this browser\u2019s projects to your account: ' + err.message);
       return { projects: normalizeProjects(state.projects || {}), prefs: cloud.prefs };
     }
 
@@ -267,9 +271,9 @@
     return { projects: normalizeProjects(cloud.projects), prefs: cloud.prefs };
   }
 
-  // First sign-in on a browser that has projects saved in it: if the laptop
-  // is empty they become the laptop's projects, otherwise they're kept on
-  // the laptop as a backup. Either way, the browser copy is then deleted.
+  // First sign-in on a browser that has projects saved in it: if the account
+  // is empty they become its projects, otherwise they're kept in the account
+  // as a backup. Either way, the browser copy is then deleted.
   async function moveBrowserDataUp(state) {
     const localProjects = readJson(STORE.projects, null);
     const localPrefs = readJson(STORE.prefs, null);
@@ -329,16 +333,24 @@
 
   // --- Sign in / out, backups (used by js/web-storage.js) ---
   const storage = {
-    get status() { return { status: cloud.status, message: cloud.message, signedIn: cloud.signedIn, movedToBackup: !!cloud.movedToBackup, hasServer: !!API }; },
+    get status() { return { status: cloud.status, message: cloud.message, signedIn: cloud.signedIn, user: cloud.user, movedToBackup: !!cloud.movedToBackup, hasServer: !!API }; },
     onStatus(fn) { statusListeners.add(fn); fn(cloud.status, cloud.message); return () => statusListeners.delete(fn); },
     hasUnsaved,
     flush: flushSave,
 
-    async signIn(password) {
-      const data = await api('POST', '/login', { password });
-      writeSession(data);
+    // credential: the ID token from Google's sign-in button.
+    async signInWithGoogle(credential) {
+      const data = await api('POST', '/sandbox/google', { credential, adminToken: readSession(ADMIN_SESSION_KEY) || undefined });
+      writeSession({ token: data.token, expires: data.expires });
+      return data;
     },
     signOut() {
+      writeSession(null);
+    },
+    async deleteAccount() {
+      clearTimeout(cloud.timer);
+      cloud.pending = null;
+      await api('DELETE', '/sandbox/account');
       writeSession(null);
     },
 
@@ -351,7 +363,7 @@
       await api('POST', '/sandbox/backups/' + encodeURIComponent(id) + '/restore');
     },
 
-    // A backup file's contents: signed in, it's stored on the laptop as a
+    // A backup file's contents: signed in, it's stored in the account as a
     // backup and restored from there (so the current set is kept as a
     // backup too); signed out, it replaces this browser's copy.
     async restoreFromData({ projects, prefs }) {

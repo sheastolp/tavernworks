@@ -679,3 +679,7 @@ html, body {
 .backups-file { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
 .backups-file .sidebar-section-label { padding-left: 0; }
 @media (max-width: 520px) { .backups-list li { flex-direction: column; align-items: stretch; } }
+.google-signin-btn { display: flex; justify-content: center; min-height: 44px; }
+.danger-btn { color: var(--error-red); border-color: rgba(217, 83, 79, 0.5); }
+.danger-btn:hover { color: #fff; background: var(--error-red); }
+.backups-file .modal-hint { text-align: left; }

@@ -14,18 +14,20 @@
   const reloadBtn = $('storage-reload-btn');
 
   const signinOverlay = $('signin-modal-overlay');
-  const signinForm = $('signin-form');
-  const signinPasswordEl = $('signin-password');
+  const googleBtnEl = $('google-signin-btn');
   const signinLogEl = $('signin-modal-log');
 
   const backupsOverlay = $('backups-modal-overlay');
-  const backupsLaptopEl = $('backups-laptop');
+  const backupsAccountListEl = $('backups-cloud');
   const backupsSignedOutEl = $('backups-signed-out');
   const backupsListEl = $('backups-list');
   const backupNowBtn = $('backup-now-btn');
   const backupDownloadBtn = $('backup-download-btn');
   const backupRestoreFileBtn = $('backup-restore-file-btn');
   const backupsLogEl = $('backups-modal-log');
+  const backupsAccountEl = $('backups-account');
+  const backupsAccountWhoEl = $('backups-account-who');
+  const deleteAccountBtn = $('delete-account-btn');
 
   function log(el, text, kind) {
     const line = document.createElement('div');
@@ -38,16 +40,16 @@
   // --- Status line under the project list ---
   const LABELS = {
     local: ['Saved in this browser', ''],
-    loading: ['Loading from the laptop…', ''],
-    saved: ['Saved on the laptop', 'ok'],
-    saving: ['Saving to the laptop…', ''],
+    loading: ['Loading your projects\u2026', ''],
+    saved: ['Saved to your account', 'ok'],
+    saving: ['Saving to your account\u2026', ''],
     error: ['Not saved', 'error'],
     conflict: ['Changed elsewhere', 'error'],
-    unreachable: ['Laptop unreachable', 'error'],
+    unreachable: ['Server unreachable', 'error'],
   };
 
   function renderStatus(status, message) {
-    const { signedIn, movedToBackup } = storage.status;
+    const { signedIn, movedToBackup, user } = storage.status;
     const [label, kind] = LABELS[status] || [status, ''];
     storageLineEl.className = 'storage-line' + (kind ? ' ' + kind : '');
     storageLineEl.textContent = '';
@@ -55,8 +57,9 @@
     strong.textContent = label;
     storageLineEl.appendChild(strong);
     let note = message;
-    if (!note && status === 'local') note = 'Sign in to keep projects on the laptop instead, with automatic backups.';
-    if (!note && status === 'saved' && movedToBackup) note = 'This browser’s old projects were kept on the laptop as a backup and removed from the browser.';
+    if (!note && status === 'local') note = 'Sign in with Google to keep projects in your account instead, with automatic backups.';
+    if (!note && status === 'saved' && movedToBackup) note = 'This browser\u2019s old projects were kept in your account as a backup and removed from the browser.';
+    if (!note && signedIn && user) note = user.email || user.name || '';
     if (note) {
       const span = document.createElement('span');
       span.textContent = note;
@@ -70,13 +73,60 @@
 
   storage.onStatus(renderStatus);
 
-  // --- Sign in / out ---
-  function openSignin() {
+  // --- Sign in with Google ---
+  const CLIENT_ID = window.TBS_GOOGLE_CLIENT_ID || '';
+  let gsiPromise = null;
+
+  function loadGoogle() {
+    if (window.google && google.accounts && google.accounts.id) return Promise.resolve();
+    if (!gsiPromise) {
+      gsiPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.onload = resolve;
+        script.onerror = () => { gsiPromise = null; reject(new Error('Couldn\u2019t load Google sign-in. Check your connection or ad blocker.')); };
+        document.head.appendChild(script);
+      });
+    }
+    return gsiPromise;
+  }
+
+  async function onGoogleCredential(response) {
     signinLogEl.innerHTML = '';
-    signinPasswordEl.value = '';
-    if (!storage.status.hasServer) log(signinLogEl, 'No server address is set for this site yet.', 'error');
+    log(signinLogEl, 'Signing in\u2026');
+    try {
+      saveActiveFileContent();
+      persist();
+      await storage.signInWithGoogle(response.credential);
+      log(signinLogEl, 'Signed in. Loading your projects\u2026', 'ok');
+      location.reload();
+    } catch (err) {
+      signinLogEl.innerHTML = '';
+      log(signinLogEl, err.message, 'error');
+    }
+  }
+
+  let googleReady = false;
+  async function openSignin() {
+    signinLogEl.innerHTML = '';
     signinOverlay.classList.remove('hidden');
-    signinPasswordEl.focus();
+    if (!CLIENT_ID || !storage.status.hasServer) {
+      log(signinLogEl, 'Sign-in isn\u2019t set up on this site yet. Your projects are saved in this browser for now.', 'error');
+      return;
+    }
+    try {
+      await loadGoogle();
+    } catch (err) {
+      log(signinLogEl, err.message, 'error');
+      return;
+    }
+    if (!googleReady) {
+      google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onGoogleCredential, auto_select: false });
+      googleReady = true;
+    }
+    googleBtnEl.innerHTML = '';
+    google.accounts.id.renderButton(googleBtnEl, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with' });
   }
   const closeSignin = () => signinOverlay.classList.add('hidden');
 
@@ -84,32 +134,14 @@
   $('signin-modal-close').addEventListener('click', closeSignin);
   signinOverlay.addEventListener('click', (e) => { if (e.target === signinOverlay) closeSignin(); });
 
-  signinForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const submit = signinForm.querySelector('button[type="submit"]');
-    submit.disabled = true;
-    signinLogEl.innerHTML = '';
-    log(signinLogEl, 'Checking…');
-    try {
-      saveActiveFileContent();
-      persist();
-      await storage.signIn(signinPasswordEl.value);
-      log(signinLogEl, 'Signed in. Moving to the laptop…', 'ok');
-      location.reload();
-    } catch (err) {
-      signinLogEl.innerHTML = '';
-      log(signinLogEl, err.message, 'error');
-      submit.disabled = false;
-    }
-  });
-
   signoutBtn.addEventListener('click', async () => {
     if (storage.hasUnsaved()) {
       await storage.flush();
-      if (storage.hasUnsaved() && !confirm('Some changes haven’t reached the laptop yet. Sign out anyway and lose them?')) return;
+      if (storage.hasUnsaved() && !confirm('Some changes haven\u2019t been saved to your account yet. Sign out anyway and lose them?')) return;
     }
-    if (!confirm('Sign out? Your projects stay on the laptop. This browser goes back to its own (empty) copy until you sign in again.')) return;
+    if (!confirm('Sign out? Your projects stay in your account. This browser goes back to its own copy until you sign in again.')) return;
     storage.signOut();
+    if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
     location.reload();
   });
 
@@ -168,7 +200,7 @@
     try {
       backups = await storage.listBackups();
     } catch (err) {
-      log(backupsLogEl, 'Couldn’t list backups: ' + err.message, 'error');
+      log(backupsLogEl, 'Couldn\u2019t list backups: ' + err.message, 'error');
       return;
     }
     if (!backups.length) {
@@ -185,7 +217,7 @@
       const when = document.createElement('strong');
       when.textContent = formatWhen(b.at);
       const meta = document.createElement('span');
-      meta.textContent = `${KIND_LABELS[b.kind] || b.kind} · ${b.projects} project${b.projects === 1 ? '' : 's'} · ${Math.max(1, Math.round(b.size / 1024))} KB`;
+      meta.textContent = `${KIND_LABELS[b.kind] || b.kind} \u00b7 ${b.projects} project${b.projects === 1 ? '' : 's'} \u00b7 ${Math.max(1, Math.round(b.size / 1024))} KB`;
       info.append(when, meta);
 
       const actions = document.createElement('div');
@@ -208,7 +240,7 @@
             log(backupsLogEl, 'Download failed: ' + err.message, 'error');
           }
         }),
-        makeButton('✕', 'icon-btn', async () => {
+        makeButton('\u2715', 'icon-btn', async () => {
           if (!confirm(`Delete the backup from ${formatWhen(b.at)}? This can't be undone.`)) return;
           try {
             await storage.deleteBackup(b.id);
@@ -227,8 +259,11 @@
   function openBackups() {
     backupsLogEl.innerHTML = '';
     const { signedIn } = storage.status;
-    backupsLaptopEl.hidden = !signedIn;
+    backupsAccountListEl.hidden = !signedIn;
     backupsSignedOutEl.hidden = signedIn;
+    backupsAccountEl.hidden = !signedIn;
+    const { user } = storage.status;
+    backupsAccountWhoEl.textContent = user ? `Signed in as ${user.name || ''}${user.email ? ' (' + user.email + ')' : ''}.` : '';
     backupsOverlay.classList.remove('hidden');
     if (signedIn) renderBackupList();
   }
@@ -287,8 +322,8 @@
       }
       const count = Object.keys(restored).length;
       const where = storage.status.signedIn
-        ? 'What you have now is kept on the laptop as a backup first.'
-        : 'What’s in this browser now will be gone (download a backup first if you want to keep it).';
+        ? 'What you have now is kept in your account as a backup first.'
+        : 'What\u2019s in this browser now will be gone (download a backup first if you want to keep it).';
       if (!confirm(`Restore ${count} project${count === 1 ? '' : 's'} from ${file.name}?\n\nThis replaces your current projects. ${where}`)) return;
       try {
         await storage.restoreFromData({ projects: restored, prefs: data.prefs });
@@ -298,5 +333,16 @@
       }
     });
     input.click();
+  });
+
+  deleteAccountBtn.addEventListener('click', async () => {
+    if (!confirm('Delete your account\u2019s projects, tokens and every backup from the server?\n\nThis can\u2019t be undone. Download a backup file first if you want to keep anything.')) return;
+    try {
+      await storage.deleteAccount();
+      if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
+      location.reload();
+    } catch (err) {
+      log(backupsLogEl, 'Delete failed: ' + err.message, 'error');
+    }
   });
 })();

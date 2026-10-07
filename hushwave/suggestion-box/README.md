@@ -10,12 +10,13 @@ The same server and password also hold the homepage tip jar links, edited
 at [tavernworks.dev/tips](https://tavernworks.dev/tips/). Anyone can read
 those links; only the admin can change them.
 
-It also stores the admin's [TwitchBotSandbox](https://tavernworks.dev/bot-sandbox/app/)
-projects. Sign in there with the same password and your projects, layout and
-GitHub/Val Town tokens are kept on the laptop instead of in the browser. A
-backup is made automatically about once an hour while you work and before
-every restore (the newest 60 are kept), and the app's **Backups…** button
-lists, restores and downloads them.
+It also stores [TwitchBotSandbox](https://tavernworks.dev/bot-sandbox/app/)
+projects for anyone who signs in there with Google. Each Google account gets
+its own folder of projects, layout and GitHub/Val Town tokens (encrypted),
+with a backup made automatically about once an hour while they work and
+before every restore (the newest 30 per account are kept). The app's
+**Backups…** button lists, restores and downloads them, and **Delete my
+data** removes an account completely. See "Google sign-in" below to turn it on.
 
 It runs on the Local AI laptop, next to Ollama and the Claude bridge. It
 needs Node 18 or newer and has no dependencies.
@@ -36,10 +37,9 @@ node ~/suggestion-box/server.mjs set-password
 This is the one login. Run it again any time to change the password, which
 also signs out every open session.
 
-Suggestions, tip links, sandbox projects (`sandbox/state.json`, backups in
-`sandbox/backups/`) and the password hash live in `~/.local/share/hushwave-suggestions/`.
-`state.json` holds your GitHub and Val Town tokens in plain text, readable
-only by your user, so keep that folder out of anything you share.
+Suggestions, tip links, sandbox accounts (`sandbox/users/`) and the password
+hash live in `~/.local/share/hushwave-suggestions/`. `sandbox/secrets.key`
+encrypts everyone's saved tokens; keep that folder out of anything you share.
 
 ## 3. Run it as a service
 
@@ -86,6 +86,24 @@ Put that address in `hushwave/suggest-config.js` on the site:
 window.SUGGEST_API = "https://<machine>.<tailnet>.ts.net:10000";
 ```
 
+## Google sign-in (TwitchBotSandbox)
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
+   create a project, then **Create credentials → OAuth client ID**. If it asks,
+   set up the consent screen first: External, app name "Tavernworks", your email.
+2. Application type **Web application**. Under **Authorized JavaScript
+   origins** add `https://tavernworks.dev`. No redirect URIs are needed.
+3. Copy the **Client ID** (ends in `.apps.googleusercontent.com`; it isn't a
+   secret). Put it in `bot-sandbox/app/config.js` on the site, and give the
+   server the same one with an `Environment=SANDBOX_GOOGLE_CLIENT_ID=...`
+   line in the service file, then restart.
+4. On the consent screen, click **Publish app** so anyone can sign in, not
+   just test users.
+
+The first time you sign in with Google from a browser that's still logged in
+as the tip jar admin, the projects you saved with the old password sign-in
+move into your Google account.
+
 ## Settings
 
 Environment variables, set with `Environment=` lines in the service file:
@@ -95,6 +113,8 @@ Environment variables, set with `Environment=` lines in the service file:
 | `SUGGEST_PORT` | `8790` | Local port |
 | `SUGGEST_ORIGINS` | `https://tavernworks.dev` | Sites allowed to use it, comma-separated |
 | `SUGGEST_DATA_DIR` | `~/.local/share/hushwave-suggestions` | Where suggestions are stored |
+| `SANDBOX_GOOGLE_CLIENT_ID` | none | Google OAuth Client ID for sandbox sign-in (off without it) |
+| `SANDBOX_MAX_USERS` | `500` | Most sandbox accounts it will create |
 
 ## Updating
 
