@@ -157,43 +157,46 @@
 
 
   .chatfeed{
-    position:relative;width:100%;height:260px;margin:30px 0 0;text-align:left;overflow:hidden;
+    position:relative;width:100%;height:260px;min-height:260px;max-height:260px;flex:none;contain:strict;overflow-anchor:none;
+    margin:30px 0 0;text-align:left;overflow:hidden;
     display:flex;flex-direction:column;justify-content:flex-end;gap:8px;font-size:14px;line-height:1.45;
     -webkit-mask-image:linear-gradient(to bottom,transparent,#000 45%);mask-image:linear-gradient(to bottom,transparent,#000 45%)
   }
-  .chatfeed .msg{overflow-wrap:anywhere;transition:opacity .8s ease,transform .5s ease;color:var(--text)}
+  .chatfeed .msg{flex-shrink:0;overflow-wrap:anywhere;transition:opacity .8s ease,transform .5s ease;color:var(--text)}
   .chatfeed .msg.enter{opacity:0;transform:translateY(10px)}
   .chatfeed .msg.leave{opacity:0}
   .chatfeed .msg.bot{border-left:2px solid var(--gold);padding-left:10px;color:#e9dcc8}
   .chatfeed .u{font-weight:700;margin-right:5px}
   .chatfeed .at{color:var(--gold2)}
-  @media (max-width:520px){.chatfeed{height:360px;font-size:13.5px}}
+  @media (max-width:520px){.chatfeed{height:360px;min-height:360px;max-height:360px;font-size:13.5px}}
 
-  .trail{position:relative;padding:8px 0 4px}
-  .trail svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
-  .trail .road{fill:none;stroke:var(--line);stroke-width:10;stroke-linecap:round}
-  .trail .walked{fill:none;stroke:var(--gold);stroke-width:2.5;stroke-linecap:round;stroke-dasharray:2 9;opacity:.9}
-  .trail ol{position:relative;list-style:none;display:grid;gap:34px 18px;padding:0 34px}
-  .trail.one ol{padding:0}
-  .stop{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;min-width:0}
-  .stop .dot{
-    width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:21px;flex-shrink:0;
-    background:radial-gradient(circle at 30% 30%,#3b2a1c,#1a120c);border:2px solid var(--gold);
-    box-shadow:0 0 0 6px var(--bg),0 4px 14px rgba(0,0,0,.4);transition:.15s
-  }
-  a.stop:hover .dot{transform:scale(1.08);border-color:var(--gold2)}
-  a.stop:hover h4{color:var(--gold)}
-  .stop time{font-size:11.5px;letter-spacing:.06em;color:var(--gold);font-weight:600;margin-top:4px}
-  .stop h4{font-family:Cinzel,serif;font-size:15px;color:var(--gold2);line-height:1.25;transition:.15s}
-  .stop p{color:var(--muted);font-size:13px;line-height:1.45;max-width:210px}
-  .stop.here .dot{width:56px;height:56px;font-size:26px;border-color:var(--gold2);animation:glow 2.6s ease-in-out infinite}
-  @keyframes glow{50%{box-shadow:0 0 0 6px var(--bg),0 0 26px rgba(245,200,115,.55)}}
-  .trail.one ol{gap:22px}
-  .trail.one .stop{flex-direction:row;align-items:flex-start;text-align:left;gap:14px}
-  .trail.one .stop > div{display:flex;flex-direction:column;gap:2px;padding-top:2px}
-  .trail.one .stop time{margin-top:0}
-  .trail.one .stop p{max-width:none}
-  @media (prefers-reduced-motion:reduce){.stop.here .dot{animation:none}}
+  /* The path: one lane per project, a dot for every change, oldest on the left. */
+  .trail{display:grid;grid-template-columns:auto minmax(0,1fr);border:1px solid var(--line);border-radius:14px;background:var(--bg2);overflow:hidden}
+  .lanes{list-style:none;padding-top:var(--top);border-right:1px solid var(--line);background:var(--bg2);position:relative;z-index:1}
+  .lanes li{height:var(--row);display:flex;align-items:center;gap:8px;padding:0 14px 0 12px;font-family:Cinzel,serif;font-size:13px;color:var(--gold2);white-space:nowrap}
+  .lanes li span{font-size:17px;width:22px;text-align:center}
+  .lanes a{color:inherit;text-decoration:none}
+  .lanes a:hover{color:var(--gold)}
+  .track{overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-color:var(--line) transparent}
+  .track svg{display:block}
+  .track .band{fill:rgba(255,255,255,.025)}
+  .track .day{fill:var(--gold);font:600 11.5px system-ui,sans-serif;letter-spacing:.06em}
+  .track .day.again{opacity:.5}
+  .track .grid-line{stroke:var(--line);stroke-width:1}
+  .track .lane-line{fill:none;stroke:var(--gold);stroke-width:2.5;stroke-linecap:round;opacity:.75}
+  .track .hop{fill:none;stroke:var(--gold);stroke-width:1.5;stroke-dasharray:2 5;opacity:.45}
+  .track .pt circle{fill:#1a120c;stroke:var(--gold);stroke-width:2;transition:stroke .15s}
+  .track .pt text{font-size:14px;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+  .track .pt{cursor:pointer;outline:none}
+  .track .pt:hover circle,.track .pt:focus-visible circle,.track .pt.on circle{stroke:var(--gold2);stroke-width:3;fill:#3b2a1c}
+  .track .now{stroke:var(--gold2);stroke-width:1.5;stroke-dasharray:4 4}
+  .track .now-dot{fill:#1a120c;stroke:var(--gold2);stroke-width:2;animation:nowglow 2.6s ease-in-out infinite}
+  @keyframes nowglow{50%{stroke-width:5;stroke:rgba(245,200,115,.55)}}
+  .trail-note{grid-column:1/-1;height:46px;padding:0 14px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted);overflow:hidden}
+  .trail-note time{color:var(--gold);font-weight:600;font-size:12px;letter-spacing:.06em;white-space:nowrap}
+  .trail-note b{color:var(--gold2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @media (max-width:620px){.lanes li{padding:0 8px}.lanes li a{display:none}.trail-note{font-size:12.5px}}
+  @media (prefers-reduced-motion:reduce){.track .now-dot{animation:none}}
 
   footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
   footer span{color:var(--gold)}
@@ -226,9 +229,10 @@
   </header>
 
   <div class="divider" id="path">THE PATH SO FAR</div>
-  <div class="trail" id="trail" aria-label="Milestones on tavernworks.dev, oldest first">
-    <svg aria-hidden="true"><path class="road"/><path class="walked"/></svg>
-    <ol id="stops"></ol>
+  <div class="trail" id="trail">
+    <ul class="lanes" id="lanes"></ul>
+    <div class="track" id="track" tabindex="0" aria-label="Every change on tavernworks.dev, one lane per project, oldest on the left"></div>
+    <p class="trail-note" id="trail-note" aria-live="polite"></p>
   </div>
 
   <div class="divider">THE BOTS</div>
@@ -373,81 +377,171 @@
   <footer>Tavernworks · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus<br><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
 </div>
 <script>
-// The path so far: what has landed on tavernworks.dev, oldest first, ending
-// at today. It only looks back; add a stop here when something ships.
+// The path so far: every change on tavernworks.dev, one lane per project,
+// oldest on the left, ending at today. Each lane joins that project's
+// changes in order. Add a point to POINTS when something ships (lane key,
+// date, what changed, and where it lives).
 (function () {
-  const STOPS = [
-    { when: "Oct 5, 2026", icon: "🍺", title: "The tavern opens", text: "tavernworks.dev goes up with GuildScribe live and Hushwave on GitHub." },
-    { when: "Oct 5, 2026", icon: "🔮", title: "Local AI", text: "A self-hosted LLM on an old laptop gets its own page.", href: "/local-ai/" },
-    { when: "Oct 6, 2026", icon: "🧪", title: "TwitchBotSandbox", text: "The bot-testing app joins the Workbench.", href: "/bot-sandbox/" },
-    { when: "Oct 6, 2026", icon: "🪙", title: "Tip jar & The Company", text: "Discord, the tip jar and a live roll of GuildScribe guilds.", href: "#support" },
-    { when: "Oct 6, 2026", icon: "💬", title: "Local AI chat", text: "Talk to the laptop's LLM from any browser on the tailnet.", href: "/local-ai/chat/" },
-    { when: "Oct 6, 2026", icon: "🌧️", title: "Hushwave", text: "A project page and a suggestion box for the ambient player.", href: "/hushwave/" },
-    { when: "Oct 6, 2026", icon: "🥸", title: "UndercoverBurn", text: "The roast bot moves in at burn.tavernworks.dev.", href: "https://burn.tavernworks.dev/" },
-    { when: "Oct 6, 2026", icon: "🗝️", title: "The Wandering Clerk", text: "Hunt & Hoard's receptionist sets up at hunt.tavernworks.dev.", href: "/wandering-clerk/" },
-    { when: "Oct 6, 2026", icon: "🎲", title: "GuildScribe for Discord", text: "The dice and character sheets reach Discord in beta.", href: "https://discord.gg/BmdDXCrAzK" },
-    { when: "Oct 6, 2026", icon: "📖", title: "Adventurer's Journal", text: "Campaign notes, attachments and ComfyUI scene art.", href: "/journal/" },
-    { when: "Oct 6, 2026", icon: "🔊", title: "Sound Bytes", text: "Tavern sound effects fired from chat through GuildScribe.", href: "/soundbytes/" },
-    { when: "Oct 7, 2026", icon: "🧪", title: "TwitchBotSandbox, live", text: "The bot sandbox now runs in the browser, no install needed.", href: "/bot-sandbox/app/" },
-    { when: "Today", icon: "🏮", title: "You are here", text: "Pull up a stool. The path keeps growing behind us.", here: true },
-  ];
+  const LANES = {
+    home:    { icon: "🍺", name: "The Tavern",       href: "/" },
+    localai: { icon: "🔮", name: "Local AI",         href: "/local-ai/" },
+    sandbox: { icon: "🧪", name: "TwitchBotSandbox", href: "/bot-sandbox/" },
+    tips:    { icon: "🪙", name: "Tip jar & Company", href: "#support" },
+    hush:    { icon: "🌧️", name: "Hushwave",         href: "/hushwave/" },
+    burn:    { icon: "🥸", name: "UndercoverBurn",   href: "https://burn.tavernworks.dev/" },
+    clerk:   { icon: "🗝️", name: "Wandering Clerk",  href: "/wandering-clerk/" },
+    discord: { icon: "🎲", name: "GuildScribe Discord", href: "https://discord.gg/BmdDXCrAzK" },
+    journal: { icon: "📖", name: "Journal",          href: "/journal/" },
+    sound:   { icon: "🔊", name: "Sound Bytes",      href: "/soundbytes/" },
+  };
+  const POINTS = [
+    ["home",    "2026-10-05", "The tavern opens: GuildScribe live, Hushwave on GitHub", "/"],
+    ["localai", "2026-10-06", "Local AI gets its own page", "/local-ai/"],
+    ["localai", "2026-10-06", "Local AI page describes the real setup", "/local-ai/"],
+    ["sandbox", "2026-10-06", "TwitchBotSandbox page and Workbench card", "/bot-sandbox/"],
+    ["tips",    "2026-10-06", "Tip jar and Discord", "#support"],
+    ["tips",    "2026-10-06", "The Company: live list of GuildScribe channels", "#guilds"],
+    ["tips",    "2026-10-06", "Company list hides GuildScribeBot", "#guilds"],
+    ["home",    "2026-10-06", "Example GuildScribe chat under the header", "#chatfeed"],
+    ["home",    "2026-10-06", "Header chat: duels, autohunt, fading messages", "#chatfeed"],
+    ["home",    "2026-10-06", "Header chat covers every GuildScribe feature", "#chatfeed"],
+    ["localai", "2026-10-06", "Browser chat over Tailscale", "/local-ai/chat/"],
+    ["localai", "2026-10-06", "Setup steps, troubleshooting, clearer chat errors", "/local-ai/"],
+    ["localai", "2026-10-06", "Chat never leaves a reply blank", "/local-ai/chat/"],
+    ["localai", "2026-10-06", "Chat gets Stop and Resend", "/local-ai/chat/"],
+    ["localai", "2026-10-06", "Optional Claude Code models via a private bridge", "/local-ai/chat/"],
+    ["localai", "2026-10-06", "Move chat settings between devices by link or QR", "/local-ai/chat/"],
+    ["hush",    "2026-10-06", "Hushwave page with a suggestion box", "/hushwave/"],
+    ["hush",    "2026-10-06", "Suggestions stored on the laptop, one admin login", "/hushwave/"],
+    ["hush",    "2026-10-06", "Suggestion box points at the laptop's Funnel address", "/hushwave/"],
+    ["hush",    "2026-10-06", "Suggestion box defaults to port 8790", "/hushwave/"],
+    ["hush",    "2026-10-06", "Friendly message when the server is away", "/hushwave/"],
+    ["hush",    "2026-10-06", "Inbox link to the suggestions", "/hushwave/"],
+    ["tips",    "2026-10-06", "Twitch subs, Bits and more tip platforms", "#support"],
+    ["tips",    "2026-10-06", "Locked /tips/ page to set the tip links", "/tips/"],
+    ["tips",    "2026-10-06", "Edit links button", "#support"],
+    ["tips",    "2026-10-06", "Working Cash App links from a cashtag", "#support"],
+    ["burn",    "2026-10-06", "UndercoverBurn card", "https://burn.tavernworks.dev/"],
+    ["burn",    "2026-10-06", "Card links to the invite page", "https://burn.tavernworks.dev/"],
+    ["burn",    "2026-10-06", "Moves in at burn.tavernworks.dev", "https://burn.tavernworks.dev/"],
+    ["burn",    "2026-10-06", "Cloudflare Worker for burn.tavernworks.dev", "https://burn.tavernworks.dev/"],
+    ["clerk",   "2026-10-06", "The Wandering Clerk project page", "/wandering-clerk/"],
+    ["clerk",   "2026-10-06", "Command groups as folders", "/wandering-clerk/"],
+    ["clerk",   "2026-10-06", "Dashboard and Back Room links", "/wandering-clerk/"],
+    ["clerk",   "2026-10-06", "The val served at hunt.tavernworks.dev", "/wandering-clerk/"],
+    ["clerk",   "2026-10-06", "Dashboard opens the feature toggles", "/wandering-clerk/"],
+    ["clerk",   "2026-10-06", "Back Room opens the ledger", "/wandering-clerk/"],
+    ["clerk",   "2026-10-06", "Quieter side-by-side links", "/wandering-clerk/"],
+    ["clerk",   "2026-10-06", "Onboarding replaces the Back Room link", "/wandering-clerk/"],
+    ["clerk",   "2026-10-06", "Onboarding page at hunt.tavernworks.dev/onboard", "https://hunt.tavernworks.dev/onboard"],
+    ["clerk",   "2026-10-06", "hunt Worker deployed from GitHub Actions", "/wandering-clerk/"],
+    ["discord", "2026-10-06", "GuildScribe for Discord joins The Bots (beta)", "https://discord.gg/BmdDXCrAzK"],
+    ["clerk",   "2026-10-06", "Dashboard links straight to the val", "/wandering-clerk/"],
+    ["journal", "2026-10-06", "Adventurer's Journal: notes, attachments, ComfyUI art", "/journal/"],
+    ["sound",   "2026-10-06", "Sound Bytes: chat-fired sound effects", "/soundbytes/"],
+    ["home",    "2026-10-06", "The Path So Far", "#path"],
+    ["sound",   "2026-10-06", "Suggests !kaboom instead of !fireball", "/soundbytes/"],
+    ["sound",   "2026-10-06", "\"fireball\" anywhere in chat plays the sound", "/soundbytes/"],
+    ["sound",   "2026-10-06", "Matches GuildScribe's built-in !sound", "/soundbytes/"],
+    ["clerk",   "2026-10-06", "The Wandering Clerk goes live", "/wandering-clerk/"],
+    ["burn",    "2026-10-07", "burn Worker deployed from GitHub Actions", "https://burn.tavernworks.dev/"],
+    ["burn",    "2026-10-07", "Deploy moves to the UndercoverBurn repo", "https://burn.tavernworks.dev/"],
+    ["clerk",   "2026-10-07", "hunt Worker deploy retired", "/wandering-clerk/"],
+    ["burn",    "2026-10-07", "Onboarding and Dashboard links", "https://burn.tavernworks.dev/"],
+    ["burn",    "2026-10-07", "Card expands to show its links", "https://burn.tavernworks.dev/"],
+    ["localai", "2026-10-07", "Attach images and files in chat", "/local-ai/chat/"],
+    ["localai", "2026-10-07", "Attach zips, tarballs and folders", "/local-ai/chat/"],
+    ["sandbox", "2026-10-07", "Live in-browser sandbox", "/bot-sandbox/app/"],
+    ["sandbox", "2026-10-07", "Sign in to keep projects, with backups", "/bot-sandbox/app/"],
+    ["sandbox", "2026-10-07", "Sign in with Google, one account each", "/bot-sandbox/app/"],
+    ["sandbox", "2026-10-07", "Google sign-in switched on", "/bot-sandbox/app/"],
+    ["home",    "2026-10-07", "Privacy policy and terms", "/privacy/"],
+    ["sandbox", "2026-10-07", "Deno mode runs in the browser", "/bot-sandbox/app/"],
+    ["home",    "2026-10-07", "The path becomes one lane per project", "#path"],
+  ].map(([lane, date, title, href], i) => ({ lane, date, title, href, i }));
 
   const trail = document.getElementById("trail");
-  const list = document.getElementById("stops");
   if (!trail) return;
+  const lanesEl = document.getElementById("lanes");
+  const track = document.getElementById("track");
+  const note = document.getElementById("trail-note");
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
-  list.innerHTML = STOPS.map((s) => {
-    const ext = s.href && /^https?:/.test(s.href) ? ' target="_blank" rel="noopener"' : "";
-    const tag = s.href ? `a href="${esc(s.href)}"${ext}` : "div";
-    return `<li><${tag} class="stop${s.here ? " here" : ""}"><span class="dot" aria-hidden="true">${s.icon}</span>` +
-      `<div><time>${esc(s.when)}</time><h4>${esc(s.title)}</h4><p>${esc(s.text)}</p></div></${s.href ? "a" : "div"}></li>`;
-  }).join("");
-  const items = [...list.children];
-  const road = trail.querySelector(".road"), walked = trail.querySelector(".walked");
+  const ext = (h) => (/^https?:/.test(h) ? ' target="_blank" rel="noopener"' : "");
+  const fmtDate = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const shortDate = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-  // Lay the stops out in rows that snake back and forth, then draw one
-  // winding path through their markers.
-  function layout() {
-    const w = trail.clientWidth;
-    const cols = w >= 820 ? 4 : w >= 520 ? 2 : 1;
-    trail.classList.toggle("one", cols === 1);
-    list.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
-    items.forEach((li, i) => {
-      const row = Math.floor(i / cols), k = i % cols;
-      li.style.gridRow = row + 1;
-      li.style.gridColumn = (row % 2 ? cols - k : k + 1);
-    });
-    const box = trail.getBoundingClientRect();
-    const pts = items.map((li) => {
-      const r = li.querySelector(".dot").getBoundingClientRect();
-      return [r.left + r.width / 2 - box.left, r.top + r.height / 2 - box.top];
-    });
-    let d = `M${pts[0][0]},${pts[0][1]}`;
-    for (let i = 1; i < pts.length; i++) {
-      const [x1, y1] = pts[i - 1], [x2, y2] = pts[i];
-      if (cols > 1 && Math.floor(i / cols) === Math.floor((i - 1) / cols)) {
-        // Along a row: a gentle wave.
-        const mx = (x1 + x2) / 2, wave = i % 2 ? -16 : 16;
-        d += ` Q${mx},${y1 + wave} ${x2},${y2}`;
-      } else if (cols === 1) {
-        // Straight down a single column, with a slight sway.
-        const sway = i % 2 ? 14 : -14, dy = y2 - y1;
-        d += ` C${x1 + sway},${y1 + dy * 0.35} ${x2 + sway},${y2 - dy * 0.35} ${x2},${y2}`;
-      } else {
-        // Turning onto the next row: swing out into the side margin, clear
-        // of the text under the marker, and back. A cubic only reaches 3/4
-        // of the way to its control points, so aim those past the edge.
-        const edge = x1 > w / 2 ? w - 6 : 6, cx = x1 + (edge - x1) * 4 / 3, dy = y2 - y1;
-        d += ` C${cx},${y1 + dy * 0.05} ${cx},${y2 - dy * 0.05} ${x2},${y2}`;
-      }
-    }
-    road.setAttribute("d", d);
-    walked.setAttribute("d", d);
+  // Lanes in the order each project first appears.
+  const order = [...new Set(POINTS.map((p) => p.lane))];
+  const ROW = 40, TOP = 34, STEP = 34, PAD = 26, R = 13;
+  trail.style.setProperty("--row", ROW + "px");
+  trail.style.setProperty("--top", TOP + "px");
+  const x = (i) => PAD + i * STEP;
+  const y = (lane) => TOP + order.indexOf(lane) * ROW + ROW / 2;
+  const width = x(POINTS.length) + PAD;
+  const height = TOP + order.length * ROW + 8;
+
+  lanesEl.innerHTML = order.map((k) => {
+    const l = LANES[k];
+    return `<li title="${esc(l.name)}"><span aria-hidden="true">${l.icon}</span><a href="${esc(l.href)}"${ext(l.href)}>${esc(l.name)}</a></li>`;
+  }).join("");
+
+  // Day bands with the date on top.
+  const days = [];
+  POINTS.forEach((p) => {
+    const last = days[days.length - 1];
+    if (last && last.date === p.date) last.to = p.i;
+    else days.push({ date: p.date, from: p.i, to: p.i });
+  });
+  let svg = days.map((d, k) => {
+    const x0 = k ? x(d.from) - STEP / 2 : 0;
+    const x1 = k === days.length - 1 ? x(d.to) + STEP / 2 : x(d.to) + STEP / 2;
+    return (k % 2 ? `<rect class="band" x="${x0}" y="0" width="${x1 - x0}" height="${height}"/>` : "") +
+      (k ? `<line class="grid-line" x1="${x0}" y1="0" x2="${x0}" y2="${height}"/>` : "") +
+      // Repeated along long days, so a date is always in view while scrolling.
+      Array.from({ length: 1 + Math.max(0, Math.floor((d.to - d.from - 5) / 12)) }, (_, n) =>
+        `<text class="day${n ? " again" : ""}" x="${(n ? x(d.from + n * 12) - STEP / 2 : x0) + 8}" y="20">${esc(shortDate(d.date))}</text>`).join("");
+  }).join("");
+
+  // Each project's changes joined in order, then a faint trail on to today.
+  const nowX = x(POINTS.length) - STEP / 2 + 6;
+  order.forEach((k) => {
+    const pts = POINTS.filter((p) => p.lane === k);
+    const yy = y(k);
+    if (pts.length > 1) svg += `<line class="lane-line" x1="${x(pts[0].i)}" y1="${yy}" x2="${x(pts[pts.length - 1].i)}" y2="${yy}"/>`;
+    svg += `<line class="hop" x1="${x(pts[pts.length - 1].i) + R}" y1="${yy}" x2="${nowX}" y2="${yy}"/>`;
+  });
+  svg += `<line class="now" x1="${nowX}" y1="${TOP - 6}" x2="${nowX}" y2="${height}"/>` +
+    `<text class="day" x="${nowX}" y="20" text-anchor="middle">🏮 Today</text>`;
+
+  svg += POINTS.map((p) => {
+    const label = `${LANES[p.lane].name}, ${fmtDate(p.date)}: ${p.title}`;
+    return `<a class="pt" href="${esc(p.href)}"${ext(p.href)} data-i="${p.i}" aria-label="${esc(label)}">` +
+      `<title>${esc(label)}</title><circle cx="${x(p.i)}" cy="${y(p.lane)}" r="${R}"/>` +
+      `<text x="${x(p.i)}" y="${y(p.lane) + 1}">${LANES[p.lane].icon}</text></a>`;
+  }).join("");
+
+  track.innerHTML = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="presentation">${svg}</svg>`;
+
+  // The line under the chart says what the pointed-at dot is (newest by default).
+  const dots = [...track.querySelectorAll(".pt")];
+  let current = null;
+  function show(p) {
+    if (current) current.classList.remove("on");
+    current = dots[p.i];
+    current.classList.add("on");
+    note.innerHTML = `<span aria-hidden="true">${LANES[p.lane].icon}</span><time>${esc(fmtDate(p.date))}</time><b>${esc(p.title)}</b>`;
   }
-  layout();
-  if (document.fonts) document.fonts.ready.then(layout);
-  if (window.ResizeObserver) new ResizeObserver(layout).observe(trail);
-  else addEventListener("resize", layout);
+  const latest = POINTS[POINTS.length - 1];
+  dots.forEach((el) => {
+    const p = POINTS[Number(el.dataset.i)];
+    el.addEventListener("mouseenter", () => show(p));
+    el.addEventListener("focus", () => show(p));
+  });
+  track.addEventListener("mouseleave", () => show(latest));
+  show(latest);
+
+  // Start at the newest end.
+  track.scrollLeft = track.scrollWidth;
 })();
 </script>
 <script>
