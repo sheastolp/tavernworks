@@ -75,7 +75,11 @@
       }
       async #getClient() {
         const apiKey = this.#opts.apiKey || globalThis.Deno?.env.get('OPENAI_API_KEY');
-        if (!apiKey) throw new Error('std/openai in the sandbox talks to OpenAI directly, so it needs your own key: add OPENAI_API_KEY=sk-... in Env Vars. (On Val Town it uses Val Town\u2019s key.)');
+        if (!apiKey) {
+          const names = Object.keys(globalThis.Deno?.env.toObject() || {});
+          throw new Error('std/openai in the sandbox talks to OpenAI directly, so it needs your own key as OPENAI_API_KEY=sk-... in this project\u2019s Env Vars. (On Val Town it uses Val Town\u2019s key.) ' +
+            (names.length ? 'The Env Vars your code sees right now: ' + names.join(', ') + '.' : 'Your code sees no Env Vars right now.'));
+        }
         const Client = await loadSdk();
         return (this.#client ??= new Client({ ...this.#opts, apiKey, dangerouslyAllowBrowser: true }));
       }
@@ -855,6 +859,10 @@
         const result = await invoke(msg.payload);
         return send({ type: 'reply', id: msg.id, result });
       }
+      if (msg.type === 'env') {
+        env = msg.env || {};
+        return send({ type: 'reply', id: msg.id, result: { ok: true } });
+      }
     };
 
     self.addEventListener('error', (e) => {
@@ -959,7 +967,14 @@
       return { ok: false, error: `Stuck for ${INVOKE_TIMEOUT_MS / 1000}s (an infinite loop?) — stopped. Click "Load Code" to start it again.` };
     }
 
-    return { load, invoke, stop, get running() { return !!worker; } };
+    // Env Vars saved while the code is running reach it straight away.
+    async function setEnv(env) {
+      if (!worker) return false;
+      const result = await request({ type: 'env', env: env || {} }, PING_TIMEOUT_MS);
+      return !!(result && result.ok);
+    }
+
+    return { load, invoke, stop, setEnv, get running() { return !!worker; } };
   }
 
   window.TBS_DENO = { createDenoRuntime, parseEnvText, prepareModules };

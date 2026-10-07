@@ -705,15 +705,29 @@
   const envName = (projectId) => 'env-' + String(projectId || '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80);
   const deno = window.TBS_DENO.createDenoRuntime({ loadTs: () => loadTs(), emit });
 
-  function denoLoad({ files, allFiles, projectId }) {
+  let denoProjectId = null; // the project the Deno runtime last loaded
+
+  function denoEnv(projectId) {
     const valtown = readToken('valtown');
-    const env = {
+    return {
       // Real Val Town gives vals the caller's API token under this name,
       // which std/blob, std/email and friends read.
       ...(valtown ? { valtown } : {}),
       ...window.TBS_DENO.parseEnvText(readToken(envName(projectId)) || ''),
     };
-    return deno.load({ files, allFiles, projectId, env });
+  }
+
+  function denoLoad({ files, allFiles, projectId }) {
+    denoProjectId = projectId;
+    return deno.load({ files, allFiles, projectId, env: denoEnv(projectId) });
+  }
+
+  async function envSet({ projectId, text }) {
+    const result = await writeToken(envName(projectId), text);
+    if (result && result.ok && deno.running && denoProjectId === projectId) {
+      result.live = await deno.setEnv(denoEnv(projectId));
+    }
+    return result;
   }
 
   const handlers = {
@@ -727,7 +741,7 @@
     'deno:invoke': (payload) => deno.invoke(payload),
     'deno:stop': () => { deno.stop(); return true; },
     'env:get': (projectId) => ({ text: readToken(envName(projectId)) || '' }),
-    'env:set': ({ projectId, text }) => writeToken(envName(projectId), text),
+    'env:set': envSet,
     'github:tokenStatus': () => ({ hasToken: !!readToken('github') }),
     'github:setToken': (token) => writeToken('github', token),
     'github:download': githubDownload,

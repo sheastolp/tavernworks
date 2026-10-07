@@ -1334,7 +1334,9 @@ envvarsSaveBtn.addEventListener('click', async () => {
   if (!activeProjectId) return;
   const result = await ipcRenderer.invoke('env:set', { projectId: activeProjectId, text: envvarsTextareaEl.value });
   if (result && result.ok) {
-    logToEnvVarsModal('Saved. Takes effect next time you click "Load Code" in Deno mode.', 'ok');
+    logToEnvVarsModal(result.live
+      ? 'Saved, and passed to the code that\'s running now.'
+      : 'Saved. Takes effect next time you click "Load Code" in Deno mode.', 'ok');
     if (result.browserOnly) logToEnvVarsModal('Kept in this browser only: the Tavernworks server needs an update before it can keep env vars in your account.', null);
   } else {
     logToEnvVarsModal('Failed to save' + (result && result.error ? ': ' + result.error : '.'), 'error');
