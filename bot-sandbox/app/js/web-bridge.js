@@ -1,0 +1,582 @@
+// Browser stand-in for the desktop app's Electron main process.
+//
+// The desktop renderer talks to main.js through ipcRenderer.invoke(); this
+// file answers the same channels from inside the page instead:
+//   - projects, UI prefs and tokens live in this browser's localStorage
+//   - GitHub and Val Town sync call their public REST APIs with fetch
+//   - Fast mode runs bot code in a Web Worker (see `runner` below) in place
+//     of Node's vm module, so a runaway loop can be killed after 3 seconds
+//   - Deno mode needs the bundled deno binary, so it answers "desktop only"
+(function () {
+  const STORE = {
+    projects: 'tbs:projects',
+    prefs: 'tbs:ui-prefs',
+    token: (name) => `tbs:${name}-token`,
+  };
+
+  function readJson(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function writeJson(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage full or blocked */ }
+  }
+
+  function readToken(name) {
+    try { return localStorage.getItem(STORE.token(name)) || null; } catch { return null; }
+  }
+
+  function writeToken(name, token) {
+    try {
+      if (token) localStorage.setItem(STORE.token(name), token);
+      else localStorage.removeItem(STORE.token(name));
+      return { ok: true, encrypted: false };
+    } catch {
+      return { ok: false };
+    }
+  }
+
+  // Same starter projects the desktop app ships with.
+  const DEFAULT_PROJECTS = {
+    guildscribe: {
+      label: 'GuildScribe (D&D bot)',
+      runtime: 'node',
+      files: [{
+        id: 'file_default',
+        name: 'commands.js',
+        content: "// GuildScribe sandbox stub.\n// registerCommand(name, handlerFn) — handlerFn receives a context object.\nregisterCommand('roll', (ctx) => {\n  const sides = Number(ctx.args[0]) || 20;\n  const result = Math.floor(Math.random() * sides) + 1;\n  ctx.reply(`${ctx.user} rolled a d${sides}: ${result}`);\n});\n",
+      }],
+      history: [],
+    },
+    huntandhoard: {
+      label: 'Hunt & Hoard (TheWanderingClerk)',
+      runtime: 'node',
+      files: [{
+        id: 'file_default',
+        name: 'commands.js',
+        content: "// Hunt & Hoard sandbox stub.\nregisterCommand('stall', (ctx) => {\n  ctx.reply('The merchant\\'s stall creaks open, wares glinting in the torchlight.');\n});\n",
+      }],
+      history: [],
+    },
+    undercoverburn: {
+      label: 'UndercoverBurn (roast bot)',
+      runtime: 'node',
+      files: [{
+        id: 'file_default',
+        name: 'commands.js',
+        content: "// UndercoverBurn sandbox stub.\nregisterCommand('roast', (ctx) => {\n  ctx.reply(`${ctx.args.join(' ') || ctx.user}, you're the reason the mute button exists.`);\n});\n",
+      }],
+      history: [],
+    },
+  };
+
+  function loadProjects() {
+    const data = readJson(STORE.projects, null) || JSON.parse(JSON.stringify(DEFAULT_PROJECTS));
+    for (const id of Object.keys(data)) {
+      const proj = data[id];
+      if (!Array.isArray(proj.files)) proj.files = [];
+      // Deno mode can't run in a browser; fall back to Fast mode.
+      proj.runtime = 'node';
+    }
+    return data;
+  }
+
+  // --- File picker (stands in for Electron's dialog.showOpenDialog) ---
+  function pickFiles() {
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.accept = '.js,.mjs,.cjs,.ts,.tsx,.jsx,.txt,.json,.md';
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+      input.addEventListener('change', async () => {
+        const list = Array.from(input.files || []);
+        if (!list.length) return finish(null);
+        const picked = await Promise.all(list.map(async (f) => ({ fileName: f.name, content: await f.text() })));
+        finish(picked);
+      });
+      input.addEventListener('cancel', () => finish(null));
+      input.click();
+    });
+  }
+
+  // --- GitHub sync (same REST calls as the desktop main.js) ---
+  const GITHUB_API = 'https://api.github.com';
+
+  function githubApiHeaders(token) {
+    const headers = {
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
+  }
+
+  function encodeURIPathSegments(p) {
+    return (p || '').split('/').filter(Boolean).map(encodeURIComponent).join('/');
+  }
+
+  function joinRepoPath(basePath, fileName) {
+    const trimmed = (basePath || '').replace(/^\/+|\/+$/g, '');
+    return trimmed ? `${trimmed}/${fileName}` : fileName;
+  }
+
+  async function safeReadJson(resp) {
+    try { return await resp.json(); } catch { return null; }
+  }
+
+  function githubStatusHint(status, hasToken) {
+    if (status === 404) {
+      return hasToken
+        ? ' (double-check owner/repo/branch/path are exactly right \u2014 GitHub also returns 404, not 403, for a private repo your token doesn\u2019t have access to)'
+        : ' (if this is a private repo, GitHub returns 404 for it without a token that has access \u2014 save a token first)';
+    }
+    if (status === 401) return ' (your saved token looks invalid or expired)';
+    return '';
+  }
+
+  function decodeBase64Utf8(b64) {
+    const bin = atob((b64 || '').replace(/\s/g, ''));
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+
+  async function githubDownload({ owner, repo, branch, path: repoPath }) {
+    const token = readToken('github');
+    const seg = encodeURIPathSegments(repoPath);
+    const ref = encodeURIComponent(branch || 'main');
+    const listUrl = `${GITHUB_API}/repos/${owner}/${repo}/contents${seg ? '/' + seg : ''}?ref=${ref}`;
+
+    let listResp;
+    try {
+      listResp = await fetch(listUrl, { headers: githubApiHeaders(token) });
+    } catch (err) {
+      return { ok: false, error: 'Network error: ' + err.message };
+    }
+    if (!listResp.ok) {
+      const body = await safeReadJson(listResp);
+      return { ok: false, error: `GitHub error ${listResp.status}: ${(body && body.message) || listResp.statusText}${githubStatusHint(listResp.status, !!token)}` };
+    }
+
+    const listing = await listResp.json();
+    const entries = Array.isArray(listing) ? listing : [listing];
+    const fileEntries = entries.filter((e) => e.type === 'file');
+    if (!fileEntries.length) {
+      return { ok: false, error: 'No files found at that repo path (only a subdirectory, or the path is empty).' };
+    }
+
+    const files = [];
+    for (const entry of fileEntries) {
+      const fileUrl = `${GITHUB_API}/repos/${owner}/${repo}/contents/${encodeURIPathSegments(entry.path)}?ref=${ref}`;
+      let fileResp;
+      try {
+        fileResp = await fetch(fileUrl, { headers: githubApiHeaders(token) });
+      } catch (err) {
+        return { ok: false, error: `Network error fetching ${entry.path}: ${err.message}` };
+      }
+      if (!fileResp.ok) return { ok: false, error: `Failed to fetch ${entry.path}: ${fileResp.status}` };
+      const fileData = await fileResp.json();
+      files.push({ name: entry.name, content: decodeBase64Utf8(fileData.content) });
+    }
+    return { ok: true, files };
+  }
+
+  async function githubUpload({ owner, repo, branch, path: repoPath, files, commitMessage }) {
+    const token = readToken('github');
+    if (!token) return { ok: false, error: 'No GitHub token saved yet. Set one first.' };
+    if (!files || !files.length) return { ok: false, error: 'Nothing to upload \u2014 this project has no files.' };
+
+    const branchName = branch || 'main';
+    const headers = githubApiHeaders(token);
+    const base = `${GITHUB_API}/repos/${owner}/${repo}`;
+
+    try {
+      const refResp = await fetch(`${base}/git/refs/heads/${encodeURIComponent(branchName)}`, { headers });
+      if (!refResp.ok) {
+        const body = await safeReadJson(refResp);
+        return { ok: false, error: `Couldn't read branch "${branchName}": ${(body && body.message) || refResp.status}${githubStatusHint(refResp.status, true)}` };
+      }
+      const baseCommitSha = (await refResp.json()).object.sha;
+
+      const commitResp = await fetch(`${base}/git/commits/${baseCommitSha}`, { headers });
+      if (!commitResp.ok) return { ok: false, error: 'Failed to read the base commit.' };
+      const baseTreeSha = (await commitResp.json()).tree.sha;
+
+      const treeEntries = [];
+      for (const file of files) {
+        const blobResp = await fetch(`${base}/git/blobs`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ content: file.content, encoding: 'utf-8' }),
+        });
+        if (!blobResp.ok) {
+          const body = await safeReadJson(blobResp);
+          return { ok: false, error: `Failed to upload ${file.name}: ${(body && body.message) || blobResp.status}` };
+        }
+        const blobData = await blobResp.json();
+        treeEntries.push({ path: joinRepoPath(repoPath, file.name), mode: '100644', type: 'blob', sha: blobData.sha });
+      }
+
+      const treeResp = await fetch(`${base}/git/trees`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ base_tree: baseTreeSha, tree: treeEntries }),
+      });
+      if (!treeResp.ok) {
+        const body = await safeReadJson(treeResp);
+        return { ok: false, error: `Failed to build the tree: ${(body && body.message) || treeResp.status}` };
+      }
+      const treeData = await treeResp.json();
+
+      const newCommitResp = await fetch(`${base}/git/commits`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          message: commitMessage || 'Update from TwitchBotSandbox',
+          tree: treeData.sha,
+          parents: [baseCommitSha],
+        }),
+      });
+      if (!newCommitResp.ok) {
+        const body = await safeReadJson(newCommitResp);
+        return { ok: false, error: `Failed to create the commit: ${(body && body.message) || newCommitResp.status}` };
+      }
+      const newCommitData = await newCommitResp.json();
+
+      const updateRefResp = await fetch(`${base}/git/refs/heads/${encodeURIComponent(branchName)}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ sha: newCommitData.sha }),
+      });
+      if (!updateRefResp.ok) {
+        const body = await safeReadJson(updateRefResp);
+        return { ok: false, error: `Failed to update branch "${branchName}": ${(body && body.message) || updateRefResp.status}` };
+      }
+
+      return {
+        ok: true,
+        commitSha: newCommitData.sha,
+        commitUrl: `https://github.com/${owner}/${repo}/commit/${newCommitData.sha}`,
+      };
+    } catch (err) {
+      return { ok: false, error: 'Network error: ' + err.message };
+    }
+  }
+
+  // --- Val Town sync (the REST endpoints @valtown/sdk wraps) ---
+  const VALTOWN_API = 'https://api.val.town';
+
+  async function valTownFetch(path, init = {}) {
+    const token = readToken('valtown');
+    const headers = { ...(init.headers || {}) };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (init.body) headers['Content-Type'] = 'application/json';
+    const resp = await fetch(VALTOWN_API + path, { ...init, headers });
+    if (!resp.ok) {
+      const body = await safeReadJson(resp);
+      throw new Error(`${resp.status} ${(body && (body.message || body.error)) || resp.statusText}`);
+    }
+    return resp;
+  }
+
+  async function findVal(owner, valName) {
+    const resp = await valTownFetch(`/v2/alias/vals/${encodeURIComponent(owner)}/${encodeURIComponent(valName)}`);
+    return resp.json();
+  }
+
+  async function listValRoot(valId) {
+    const resp = await valTownFetch(`/v2/vals/${valId}/files?path=&recursive=false&limit=100&offset=0`);
+    const body = await resp.json();
+    return body.data || [];
+  }
+
+  async function valtownDownload({ owner, valName }) {
+    if (!owner || !valName) return { ok: false, error: 'Owner and Val name are required.' };
+
+    let val;
+    try {
+      val = await findVal(owner, valName);
+    } catch (err) {
+      return { ok: false, error: `Couldn't find val "${owner}/${valName}": ${err.message}` };
+    }
+
+    let entries;
+    try {
+      entries = (await listValRoot(val.id)).filter((e) => e.type !== 'directory');
+    } catch (err) {
+      return { ok: false, error: 'Failed to list files: ' + err.message };
+    }
+    if (!entries.length) {
+      return { ok: false, error: 'No files found at the root of that val (subdirectories aren\u2019t synced).' };
+    }
+
+    const files = [];
+    for (const entry of entries) {
+      try {
+        const resp = await valTownFetch(`/v2/vals/${val.id}/files/content?path=${encodeURIComponent(entry.path)}`);
+        files.push({ name: entry.name, content: await resp.text() });
+      } catch (err) {
+        return { ok: false, error: `Failed to fetch ${entry.path}: ${err.message}` };
+      }
+    }
+    return { ok: true, files };
+  }
+
+  async function valtownUpload({ owner, valName, files }) {
+    if (!owner || !valName) return { ok: false, error: 'Owner and Val name are required.' };
+    if (!readToken('valtown')) return { ok: false, error: 'No Val Town token saved yet. Set one first.' };
+    if (!files || !files.length) return { ok: false, error: 'Nothing to upload \u2014 this project has no files.' };
+
+    let val;
+    try {
+      val = await findVal(owner, valName);
+    } catch (err) {
+      return { ok: false, error: `Couldn't find val "${owner}/${valName}": ${err.message}` };
+    }
+
+    let existingNames;
+    try {
+      existingNames = new Set((await listValRoot(val.id)).map((e) => e.name));
+    } catch (err) {
+      return { ok: false, error: 'Failed to list existing files: ' + err.message };
+    }
+
+    for (const file of files) {
+      const path = `/v2/vals/${val.id}/files?path=${encodeURIComponent(file.name)}`;
+      try {
+        if (existingNames.has(file.name)) {
+          await valTownFetch(path, { method: 'PUT', body: JSON.stringify({ content: file.content }) });
+        } else {
+          await valTownFetch(path, { method: 'POST', body: JSON.stringify({ type: 'file', content: file.content }) });
+        }
+      } catch (err) {
+        return { ok: false, error: `Failed to upload ${file.name}: ${err.message}` };
+      }
+    }
+    return { ok: true, uploaded: files.length, valUrl: `https://www.val.town/x/${owner}/${valName}` };
+  }
+
+  // --- ipcRenderer stand-in ---
+  const DENO_UNAVAILABLE = 'Deno (real) mode needs the desktop app \u2014 it runs a bundled deno binary, which a browser can\u2019t.';
+
+  const handlers = {
+    'projects:load': () => loadProjects(),
+    'projects:save': (data) => { writeJson(STORE.projects, data); return true; },
+    'ui:getPrefs': () => readJson(STORE.prefs, {}),
+    'ui:setPrefs': (prefs) => { writeJson(STORE.prefs, prefs); return true; },
+    'app:getVersion': () => '1.9.3 web',
+    'dialog:openFiles': () => pickFiles(),
+    'deno:load': () => ({ ok: false, error: DENO_UNAVAILABLE }),
+    'deno:invoke': () => ({ ok: false, error: DENO_UNAVAILABLE }),
+    'deno:stop': () => true,
+    'env:get': () => ({ text: '' }),
+    'env:set': () => ({ ok: false }),
+    'github:tokenStatus': () => ({ hasToken: !!readToken('github') }),
+    'github:setToken': (token) => writeToken('github', token),
+    'github:download': githubDownload,
+    'github:upload': githubUpload,
+    'valtown:tokenStatus': () => ({ hasToken: !!readToken('valtown') }),
+    'valtown:setToken': (token) => writeToken('valtown', token),
+    'valtown:download': valtownDownload,
+    'valtown:upload': valtownUpload,
+    'shell:openExternal': (url) => { if (/^https:\/\/github\.com\//.test(url)) window.open(url, '_blank', 'noopener'); },
+    'shell:openValTown': (url) => { if (/^https:\/\/(www\.)?val\.town\//.test(url)) window.open(url, '_blank', 'noopener'); },
+  };
+
+  const ipcRenderer = {
+    invoke(channel, payload) {
+      const handler = handlers[channel];
+      if (!handler) return Promise.reject(new Error('Unknown channel: ' + channel));
+      return Promise.resolve().then(() => handler(payload));
+    },
+    on() { /* only Deno mode pushes events, and it never runs here */ },
+  };
+
+  // --- TypeScript compiler, loaded on first use (it's a few MB) ---
+  const TS_URL = 'https://cdn.jsdelivr.net/npm/typescript@5.9.3/lib/typescript.js';
+  let tsPromise = null;
+
+  function loadTs() {
+    if (window.ts) return Promise.resolve(window.ts);
+    if (!tsPromise) {
+      tsPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = TS_URL;
+        script.crossOrigin = 'anonymous';
+        script.onload = () => (window.ts ? resolve(window.ts) : reject(new Error('TypeScript loaded but did not define `ts`')));
+        script.onerror = () => {
+          tsPromise = null;
+          reject(new Error('Could not download the TypeScript compiler \u2014 check your connection and try again.'));
+        };
+        document.head.appendChild(script);
+      });
+    }
+    return tsPromise;
+  }
+
+  // --- Fast-mode runner: a Web Worker in place of Node's vm context ---
+  //
+  // Every file is handed to importScripts() as its own classic script, so
+  // they share one global scope exactly like vm.runInContext on one
+  // context. Network and storage globals are removed before any user code
+  // runs, matching the desktop app's "no network or file access" promise,
+  // and the worker is terminated if loading or a command takes longer than
+  // TIMEOUT_MS (the desktop app's vm timeout).
+  const TIMEOUT_MS = 3000;
+
+  const WORKER_SOURCE = `
+    'use strict';
+    const post = (msg) => self.postMessage(msg);
+    const fmt = (args) => args.map((a) => {
+      if (typeof a === 'string') return a;
+      try { return typeof a === 'object' && a !== null ? JSON.stringify(a) : String(a); } catch { return String(a); }
+    }).join(' ');
+    const commands = new Map();
+    const loadScripts = self.importScripts.bind(self);
+    const send = self.postMessage.bind(self);
+
+    self.console = {
+      log: (...a) => send({ type: 'log', text: fmt(a) }),
+      info: (...a) => send({ type: 'log', text: fmt(a) }),
+      warn: (...a) => send({ type: 'log', text: fmt(a) }),
+      error: (...a) => send({ type: 'log', text: fmt(a), kind: 'error' }),
+      debug: () => {},
+    };
+    self.registerCommand = (name, handler) => {
+      commands.set(String(name).toLowerCase(), handler);
+      send({ type: 'registered', name: String(name) });
+    };
+    self.postSystemLine = (text) => send({ type: 'bot', text: String(text) });
+
+    for (const key of ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'importScripts',
+                       'indexedDB', 'caches', 'BroadcastChannel', 'Worker', 'SharedWorker', 'navigator']) {
+      // Remove it from the prototype chain too, so it can't be fished back out.
+      for (let o = Object.getPrototypeOf(self); o; o = Object.getPrototypeOf(o)) {
+        try { delete o[key]; } catch {}
+      }
+      try { Object.defineProperty(self, key, { value: undefined, configurable: false, writable: false }); } catch {}
+    }
+    try { self.postMessage = undefined; } catch {}
+
+    self.onmessage = (e) => {
+      const msg = e.data;
+      if (msg.type === 'load') {
+        msg.files.forEach((file) => {
+          const url = URL.createObjectURL(new Blob([file.source + '\\n//# sourceURL=' + file.name], { type: 'text/javascript' }));
+          try {
+            loadScripts(url);
+          } catch (err) {
+            send({ type: 'fileError', name: file.name, message: (err && err.message ? err.message : String(err)).replace(/^Failed to execute 'importScripts' on 'WorkerGlobalScope': /, '') });
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        });
+        send({ type: 'loaded' });
+      } else if (msg.type === 'invoke') {
+        const handler = commands.get(msg.command);
+        if (!handler) return send({ type: 'invoked', id: msg.id, ok: false, error: 'unknown-command' });
+        const ctx = {
+          ...msg.ctx,
+          reply: (text) => send({ type: 'bot', text: String(text) }),
+          say: (text) => send({ type: 'bot', text: String(text) }),
+        };
+        let result;
+        try {
+          result = handler(ctx);
+        } catch (err) {
+          return send({ type: 'invoked', id: msg.id, ok: false, error: err && err.message ? err.message : String(err) });
+        }
+        send({ type: 'invoked', id: msg.id, ok: true });
+        if (result && typeof result.then === 'function') {
+          result.then(null, (err) => send({ type: 'asyncError', command: msg.command, message: err && err.message ? err.message : String(err) }));
+        }
+      }
+    };
+
+    self.addEventListener('error', (e) => {
+      send({ type: 'log', text: 'Uncaught error: ' + (e.message || 'unknown'), kind: 'error' });
+      e.preventDefault();
+    });
+    self.addEventListener('unhandledrejection', (e) => {
+      const r = e.reason;
+      send({ type: 'log', text: 'Unhandled promise rejection: ' + (r && r.message ? r.message : String(r)), kind: 'error' });
+      e.preventDefault();
+    });
+  `;
+
+  const workerUrl = URL.createObjectURL(new Blob([WORKER_SOURCE], { type: 'text/javascript' }));
+
+  function createRunner() {
+    let worker = null;
+    let listeners = {};
+    let pending = new Map();
+    let nextId = 1;
+
+    function stop() {
+      if (worker) worker.terminate();
+      worker = null;
+      pending.forEach((p) => { clearTimeout(p.timer); p.resolve({ ok: false, error: 'Code was unloaded.' }); });
+      pending = new Map();
+    }
+
+    function onMessage(e) {
+      const msg = e.data;
+      if (msg.type === 'log') listeners.onLog && listeners.onLog(msg.text, msg.kind || null);
+      else if (msg.type === 'bot') listeners.onBotLine && listeners.onBotLine(msg.text);
+      else if (msg.type === 'registered') listeners.onRegister && listeners.onRegister(msg.name);
+      else if (msg.type === 'fileError') listeners.onFileError && listeners.onFileError(msg.name, msg.message);
+      else if (msg.type === 'asyncError') listeners.onLog && listeners.onLog(`Error in !${msg.command}: ${msg.message}`, 'error');
+      else if (msg.type === 'loaded' || msg.type === 'invoked') {
+        const key = msg.type === 'loaded' ? 'load' : msg.id;
+        const p = pending.get(key);
+        if (!p) return;
+        clearTimeout(p.timer);
+        pending.delete(key);
+        p.resolve(msg);
+      }
+    }
+
+    function request(key, message, timeoutError) {
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          pending.delete(key);
+          stop();
+          resolve({ ok: false, timedOut: true, error: timeoutError });
+        }, TIMEOUT_MS);
+        pending.set(key, { resolve, timer });
+        worker.postMessage(message);
+      });
+    }
+
+    return {
+      // files: [{ name, source }] — already transpiled to plain JS.
+      load(files, newListeners) {
+        stop();
+        listeners = newListeners || {};
+        worker = new Worker(workerUrl);
+        worker.onmessage = onMessage;
+        return request('load', { type: 'load', files },
+          `Loading took longer than ${TIMEOUT_MS / 1000}s (an infinite loop?) \u2014 stopped.`);
+      },
+      invoke(command, ctx) {
+        if (!worker) return Promise.resolve({ ok: false, error: 'unknown-command' });
+        const id = nextId++;
+        return request(id, { type: 'invoke', id, command, ctx },
+          `!${command} ran longer than ${TIMEOUT_MS / 1000}s (an infinite loop?) \u2014 stopped, click "Load Code" to reload.`);
+      },
+      stop,
+    };
+  }
+
+  window.TBS_WEB = { ipcRenderer, loadTs, runner: createRunner(), DENO_UNAVAILABLE };
+})();

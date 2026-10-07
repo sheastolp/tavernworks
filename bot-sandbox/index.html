@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TwitchBotSandbox · Tavernworks</title>
-<meta name="description" content="TwitchBotSandbox — a Windows desktop app for writing and testing Twitch chat bot commands without connecting to Twitch.">
+<meta name="description" content="TwitchBotSandbox — write and test Twitch chat bot commands without connecting to Twitch, on Windows or live in your browser.">
 <meta property="og:title" content="TwitchBotSandbox · Tavernworks">
 <meta property="og:description" content="Write and test Twitch chat bot commands on your desktop, without going live.">
 <meta property="og:image" content="https://tavernworks.dev/bot-sandbox/screenshot.webp">
@@ -95,6 +95,8 @@
   .btn:hover{transform:translateY(-2px);border-color:var(--gold)}
   .btn.twitch{background:var(--twitch);border-color:var(--twitch);color:#fff}
   .btn.twitch:hover{filter:brightness(1.1);border-color:#fff}
+  .btn.try{background:var(--ember);border-color:var(--ember);color:#fff}
+  .btn.try:hover{filter:brightness(1.1);border-color:var(--gold2)}
   .btn svg{width:18px;height:18px;fill:currentColor}
 
   footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
@@ -152,6 +154,10 @@
       <span class="pill live">V1.9.3</span>
       <span class="pill plain">WINDOWS</span>
       <span class="pill plain">WORKS OFFLINE</span>
+      <span class="pill live">TRY IT LIVE</span>
+    </div>
+    <div class="cta" style="justify-content:center">
+      <a class="btn try" href="/bot-sandbox/app/">🧪 Open the live sandbox</a>
     </div>
   </header>
 
@@ -239,8 +245,12 @@
   <div class="divider">QUESTIONS AT THE BAR</div>
   <div class="scroll faq">
     <details>
+      <summary>Can I try it without installing anything?</summary>
+      <p>Yes. <a href="/bot-sandbox/app/" style="color:var(--gold2)">The live sandbox</a> is the same app running in your browser. It has projects, files, Fast mode, the simulated chat and GitHub sync. Deno (real) mode needs the desktop app, since it runs a real <code>deno</code> process. Your projects and tokens are saved in your own browser and nowhere else.</p>
+    </details>
+    <details>
       <summary>Can I download it?</summary>
-      <p>Not yet. It's a personal tool for building my own bots for now. Keep an eye on this page.</p>
+      <p>Not yet. The desktop app is a personal tool for building my own bots for now. Keep an eye on this page.</p>
     </details>
     <details>
       <summary>Does it ever connect to my Twitch channel?</summary>

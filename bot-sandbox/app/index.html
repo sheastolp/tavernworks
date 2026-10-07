@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TwitchBotSandbox · Live</title>
+<meta name="description" content="TwitchBotSandbox in your browser: write Twitch chat bot commands and test them against a simulated chat, without going live." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧪</text></svg>">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar: project switcher -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <span class="brand-mark">&#9670;</span>
+        <span class="brand-text">TwitchBotSandbox</span>
+        <span id="brand-version" class="brand-version"></span>
+      </div>
+      <a class="web-back" href="/bot-sandbox/">&larr; About this app</a>
+
+      <div class="sidebar-section-label">Projects</div>
+      <ul id="project-list" class="project-list"></ul>
+
+      <button id="add-project-btn" class="ghost-btn">+ New Project</button>
+
+      <div class="sidebar-footer">
+        <span id="status-pill" class="status-pill">No code loaded</span>
+        <p class="web-note">Web version: projects and tokens are saved in this browser only. Your code runs in a locked-down worker with no network access.</p>
+      </div>
+    </aside>
+
+    <div id="sidebar-resizer" class="resizer" title="Drag to resize"></div>
+
+    <!-- Main: editor + chat -->
+    <main class="main">
+      <section class="editor-pane" id="editor-pane">
+        <div class="pane-header">
+          <span id="active-project-name">Select a project</span>
+          <div class="runtime-toggle">
+            <button id="runtime-node-btn" class="runtime-btn" title="In-browser sandbox: instant, all files share one scope, no network">Fast</button>
+            <button id="runtime-deno-btn" class="runtime-btn" title="Deno (real) mode runs a bundled deno binary, so it's only in the desktop app" disabled>Deno (desktop app)</button>
+          </div>
+          <div class="pane-actions">
+            <button id="github-sync-btn" class="ghost-btn">GitHub&hellip;</button>
+            <button id="valtown-sync-btn" class="ghost-btn">Val Town&hellip;</button>
+            <button id="envvars-btn" class="ghost-btn" hidden>Env Vars&hellip;</button>
+            <button id="import-file-btn" class="ghost-btn">Import Files&hellip;</button>
+            <button id="load-code-btn" class="primary-btn">Load Code</button>
+            <button id="clear-chat-btn" class="ghost-btn">Clear Chat</button>
+          </div>
+        </div>
+        <div class="editor-body">
+          <aside class="file-explorer" id="file-explorer">
+            <div class="file-explorer-header">
+              <span>Files</span>
+              <button id="new-file-btn" class="icon-btn" title="New file">+</button>
+            </div>
+            <ul id="file-tabs" class="file-explorer-list"></ul>
+          </aside>
+          <div id="explorer-resizer" class="resizer" title="Drag to resize"></div>
+          <div class="editor-main">
+            <div class="code-editor-row">
+              <div id="line-numbers" class="line-numbers" aria-hidden="true">1</div>
+              <textarea id="code-editor" spellcheck="false" placeholder="Paste your commands.js-style code here, or use &quot;+&quot; / &quot;Import Files…&quot; to add more files to this project.
+
+Available in scope:
+  registerCommand(name, handlerFn)
+  postSystemLine(text)
+  console.log(...)
+
+handlerFn(ctx) receives:
+  ctx.user, ctx.args, ctx.message
+  ctx.isMod, ctx.isSub, ctx.isBroadcaster
+  ctx.reply(text) / ctx.say(text)
+
+All files in a project run together, in file order, when you click Load Code."></textarea>
+            </div>
+            <div id="editor-log" class="editor-log"></div>
+          </div>
+        </div>
+      </section>
+
+      <div id="chat-resizer" class="resizer" title="Drag to resize"></div>
+
+      <section class="chat-pane">
+        <div class="pane-header">
+          <span>Simulated Chat</span>
+        </div>
+        <div id="chat-log" class="chat-log"></div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-username" type="text" value="viewer1" title="Username" />
+          <label class="toggle"><input id="chat-mod" type="checkbox" /> Mod</label>
+          <label class="toggle"><input id="chat-sub" type="checkbox" /> Sub</label>
+          <label class="toggle"><input id="chat-broadcaster" type="checkbox" /> Broadcaster</label>
+          <input id="chat-message" type="text" placeholder="Type a message or !command" autocomplete="off" />
+          <button type="submit" class="primary-btn">Send</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div id="github-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <span>GitHub Sync &mdash; <span id="github-modal-project-name"></span></span>
+        <button id="github-modal-close" class="modal-close-btn" title="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field-row">
+          <label for="github-owner">Owner</label>
+          <input id="github-owner" type="text" placeholder="e.g. sheastolp" autocomplete="off" />
+        </div>
+        <div class="modal-field-row">
+          <label for="github-repo">Repo</label>
+          <input id="github-repo" type="text" placeholder="e.g. The-Wandering-Clerk" autocomplete="off" />
+        </div>
+        <div class="modal-field-row">
+          <label for="github-branch">Branch</label>
+          <input id="github-branch" type="text" placeholder="main" autocomplete="off" />
+        </div>
+        <div class="modal-field-row">
+          <label for="github-path">Path</label>
+          <input id="github-path" type="text" placeholder="location IN the repo, e.g. src — blank = repo root" autocomplete="off" />
+        </div>
+        <div class="modal-field-row">
+          <label for="github-token">Token</label>
+          <input id="github-token" type="password" placeholder="paste a GitHub personal access token" autocomplete="off" />
+        </div>
+        <div id="github-token-status" class="modal-hint"></div>
+
+        <div class="modal-field-row">
+          <label for="github-commit-message">Commit msg</label>
+          <input id="github-commit-message" type="text" placeholder="Update from TwitchBotSandbox" autocomplete="off" />
+        </div>
+
+        <div class="modal-actions">
+          <button id="github-save-settings-btn" class="ghost-btn">Save Settings</button>
+          <button id="github-download-btn" class="ghost-btn">Download from GitHub</button>
+          <button id="github-upload-btn" class="primary-btn">Upload to GitHub</button>
+        </div>
+        <div id="github-modal-log" class="editor-log modal-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="valtown-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <span>Val Town Sync &mdash; <span id="valtown-modal-project-name"></span></span>
+        <button id="valtown-modal-close" class="modal-close-btn" title="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field-row">
+          <label for="valtown-owner">Owner</label>
+          <input id="valtown-owner" type="text" placeholder="e.g. sheastolp (your Val Town username)" autocomplete="off" />
+        </div>
+        <div class="modal-field-row">
+          <label for="valtown-name">Val name</label>
+          <input id="valtown-name" type="text" placeholder="e.g. guildscribe" autocomplete="off" />
+        </div>
+        <div class="modal-field-row">
+          <label for="valtown-token">Token</label>
+          <input id="valtown-token" type="password" placeholder="paste a Val Town API token" autocomplete="off" />
+        </div>
+        <div id="valtown-token-status" class="modal-hint"></div>
+
+        <div class="modal-actions">
+          <button id="valtown-save-settings-btn" class="ghost-btn">Save Settings</button>
+          <button id="valtown-download-btn" class="ghost-btn">Download from Val Town</button>
+          <button id="valtown-upload-btn" class="primary-btn">Upload to Val Town</button>
+        </div>
+        <div id="valtown-modal-log" class="editor-log modal-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="input-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-panel input-modal-panel">
+      <div class="modal-header">
+        <span id="input-modal-title">Input</span>
+        <button id="input-modal-close" class="modal-close-btn" title="Cancel">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field-row">
+          <label id="input-modal-label" for="input-modal-field">Value</label>
+          <input id="input-modal-field" type="text" autocomplete="off" />
+        </div>
+        <div class="modal-actions">
+          <button id="input-modal-cancel-btn" class="ghost-btn">Cancel</button>
+          <button id="input-modal-ok-btn" class="primary-btn">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="envvars-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <span>Env Vars &mdash; <span id="envvars-modal-project-name"></span></span>
+        <button id="envvars-modal-close" class="modal-close-btn" title="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-hint" style="margin: 0 0 10px 0;">One per line, <code>KEY=value</code>. Lines starting with <code>#</code> are ignored. Only used in Deno (real) mode &mdash; injected into that project's subprocess as real environment variables, exactly like Deno.env.get(...) would see on a real machine. Stored OS-encrypted, separately per project.</p>
+        <textarea id="envvars-textarea" class="envvars-textarea" spellcheck="false" placeholder="OPENAI_API_KEY=sk-...&#10;SOME_OTHER_KEY=..."></textarea>
+        <div class="modal-actions">
+          <button id="envvars-save-btn" class="primary-btn">Save</button>
+        </div>
+        <div id="envvars-modal-log" class="editor-log modal-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/web-bridge.js"></script>
+  <script src="js/renderer.js"></script>
+</body>
+</html>
