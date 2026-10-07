@@ -11,6 +11,8 @@
 //     Deno.serve, Deno.readTextFile and friends over the project's files
 //   - Val Town's std/sqlite is a real SQLite database (sql.js) kept in this
 //     browser per project, like the desktop app's local sandbox database
+//   - Val Town's std/openai calls OpenAI directly with the project's
+//     OPENAI_API_KEY, and node:async_hooks has a small stand-in
 //   - the same registerCommand/postSystemLine/ctx contract as the harness,
 //     and the same EventSub webhook mode for a Val Town-style main.ts,
 //     catching Twitch's chat-send and app-token calls
@@ -46,6 +48,40 @@
   // Preparing the project's files (main thread, where TypeScript is loaded)
   // ---------------------------------------------------------------------
   const STD_SQLITE_RE = /^https:\/\/esm\.town\/v\/std\/sqlite(?:\/main\.ts)?\/?(?:\?.*)?$/;
+  const STD_OPENAI_RE = /^https:\/\/esm\.town\/v\/std\/openai(?:\/main\.tsx?)?\/?(?:\?.*)?$/;
+
+  // Val Town's std/openai goes through Val Town's own OpenAI proxy, which a
+  // browser can't use. This stand-in has the same shape (new OpenAI(), then
+  // the official SDK's methods) and talks to OpenAI directly with the
+  // project's OPENAI_API_KEY. The SDK only loads on the first call, so a
+  // project without a key still loads and only that call fails.
+  const STD_OPENAI_SHIM = `
+    let sdk;
+    const loadSdk = () => (sdk ??= import('https://esm.sh/openai@4').then((m) => m.OpenAI || m.default));
+    export class OpenAI {
+      #opts; #client;
+      constructor(opts = {}) {
+        this.#opts = opts;
+        const lazy = (path) => new Proxy(function () {}, {
+          get: (_, key) => (key === 'then' ? undefined : lazy([...path, key])),
+          apply: async (_, __, args) => {
+            let target = await this.#getClient();
+            let owner = target;
+            for (const key of path) { owner = target; target = target[key]; }
+            return target.apply(owner, args);
+          },
+        });
+        return new Proxy(this, { get: (t, key) => (key in t ? t[key] : lazy([key])) });
+      }
+      async #getClient() {
+        const apiKey = this.#opts.apiKey || globalThis.Deno?.env.get('OPENAI_API_KEY');
+        if (!apiKey) throw new Error('std/openai in the sandbox talks to OpenAI directly, so it needs your own key: add OPENAI_API_KEY=sk-... in Env Vars. (On Val Town it uses Val Town\u2019s key.)');
+        const Client = await loadSdk();
+        return (this.#client ??= new Client({ ...this.#opts, apiKey, dangerouslyAllowBrowser: true }));
+      }
+    }
+    export default OpenAI;
+  `;
   const FILE_TOKEN = (i) => `"__tbs_file_${i}__"`;
   const SQLITE_TOKEN = '"__tbs_sqlite__"';
 
@@ -152,6 +188,7 @@
       if (viaMap) return resolveSpecifier(viaMap, fromName, fileIndex, importMap, true);
     }
     if (STD_SQLITE_RE.test(spec)) return { sqlite: true };
+    if (STD_OPENAI_RE.test(spec)) return { url: 'data:text/javascript,' + encodeURIComponent(STD_OPENAI_SHIM) };
     if (/^(https?|data|blob):/i.test(spec)) return { url: spec };
     if (spec.startsWith('npm:')) return { url: 'https://esm.sh/' + spec.slice(4).replace(/^\/+/, '') };
     if (spec.startsWith('jsr:')) return { url: 'https://esm.sh/jsr/' + spec.slice(4).replace(/^\/+/, '') };
