@@ -94,9 +94,10 @@ window.SUGGEST_API = "https://<machine>.<tailnet>.ts.net:10000";
 2. Application type **Web application**. Under **Authorized JavaScript
    origins** add `https://tavernworks.dev`. No redirect URIs are needed.
 3. Copy the **Client ID** (ends in `.apps.googleusercontent.com`; it isn't a
-   secret). Put it in `bot-sandbox/app/config.js` on the site, and give the
-   server the same one with an `Environment=SANDBOX_GOOGLE_CLIENT_ID=...`
-   line in the service file, then restart.
+   secret). Put it in `bot-sandbox/app/config.js` on the site and in
+   `GOOGLE_CLIENT_ID` near the top of `server.mjs` (or set
+   `SANDBOX_GOOGLE_CLIENT_ID` in the service's environment). Tavernworks' own
+   ID is already filled in both.
 4. On the consent screen, click **Publish app** so anyone can sign in, not
    just test users.
 

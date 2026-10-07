@@ -30,7 +30,7 @@ const MAX_STORED = 5000;
 // TwitchBotSandbox: anyone can sign in with Google. Set this to the OAuth
 // Client ID from Google Cloud (the same one as bot-sandbox/app/config.js on
 // the site), or set SANDBOX_GOOGLE_CLIENT_ID in the service's environment.
-const GOOGLE_CLIENT_ID = process.env.SANDBOX_GOOGLE_CLIENT_ID || "";
+const GOOGLE_CLIENT_ID = process.env.SANDBOX_GOOGLE_CLIENT_ID || "1080414751828-rtfd6uhg25nat1rdoq22l6hup91ndf7a.apps.googleusercontent.com";
 const SANDBOX_DIR = path.join(DATA_DIR, "sandbox");
 const USERS_DIR = path.join(SANDBOX_DIR, "users");
 const LEGACY_FILE = path.join(SANDBOX_DIR, "state.json"); // the admin's projects from before Google sign-in
