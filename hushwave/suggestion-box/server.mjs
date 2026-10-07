@@ -2,7 +2,9 @@
 // Hushwave suggestion box: a tiny server that keeps suggestions on this
 // machine, in one JSON file. Anyone can drop a suggestion in; reading them
 // takes the one admin password. It also keeps the homepage's tip jar links,
-// which anyone can read and only the admin can change.
+// which anyone can read and only the admin can change, and the admin's
+// TwitchBotSandbox projects (tavernworks.dev/bot-sandbox/app/) with
+// automatic backups.
 //
 //   node server.mjs set-password   set (or change) the admin password
 //   node server.mjs                run the server (default port 8790)
@@ -25,8 +27,15 @@ const ORIGINS = (process.env.SUGGEST_ORIGINS || "https://tavernworks.dev").split
 const KINDS = ["Feature idea", "New sound", "Bug report", "Something else"];
 const SESSION_MS = 7 * 24 * 3600 * 1000;
 const MAX_STORED = 5000;
+const SANDBOX_DIR = path.join(DATA_DIR, "sandbox");
+const SANDBOX_FILE = path.join(SANDBOX_DIR, "state.json");
+const BACKUP_DIR = path.join(SANDBOX_DIR, "backups");
+const AUTO_BACKUP_MS = 3600 * 1000; // at most one automatic backup an hour
+const MAX_BACKUPS = 60;
+const MAX_SANDBOX_BODY = 8 * 1024 * 1024;
 
 fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
+fs.mkdirSync(BACKUP_DIR, { recursive: true, mode: 0o700 });
 
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fallback; } };
 const writeJson = (file, data) => {
@@ -59,6 +68,45 @@ let suggestions = readJson(DB_FILE, []);
 const save = () => writeJson(DB_FILE, suggestions);
 let tips = readJson(TIPS_FILE, { urls: {} });
 
+// ── TwitchBotSandbox storage ──
+// state.json holds the current projects, UI prefs and sync tokens. rev goes
+// up on every project save so two open tabs can't silently overwrite each
+// other. Backups are copies of projects + prefs (never the tokens).
+let sandbox = readJson(SANDBOX_FILE, { rev: 0, projects: null, prefs: {}, secrets: {}, updated: null });
+const saveSandbox = () => writeJson(SANDBOX_FILE, sandbox);
+const BACKUP_ID = /^[0-9TZ-]+-(auto|manual|restore|import)$/;
+
+function listBackups() {
+  return fs.readdirSync(BACKUP_DIR)
+    .filter((f) => f.endsWith(".json") && BACKUP_ID.test(f.slice(0, -5)))
+    .sort().reverse()
+    .map((f) => {
+      const id = f.slice(0, -5);
+      const b = readJson(path.join(BACKUP_DIR, f), {});
+      return { id, at: b.at, kind: b.kind, projects: Object.keys(b.projects || {}).length, size: fs.statSync(path.join(BACKUP_DIR, f)).size };
+    });
+}
+
+function writeBackup(kind, projects, prefs) {
+  if (!projects || typeof projects !== "object") return null;
+  const at = new Date().toISOString();
+  const id = at.replace(/[:.]/g, "-") + "-" + kind;
+  writeJson(path.join(BACKUP_DIR, id + ".json"), { at, kind, projects, prefs: prefs || {} });
+  // Keep the newest MAX_BACKUPS.
+  fs.readdirSync(BACKUP_DIR).filter((f) => f.endsWith(".json")).sort().reverse().slice(MAX_BACKUPS)
+    .forEach((f) => fs.rmSync(path.join(BACKUP_DIR, f), { force: true }));
+  return id;
+}
+
+function maybeAutoBackup() {
+  const last = listBackups().find((b) => b.kind === "auto");
+  if (!last || Date.now() - Date.parse(last.at) > AUTO_BACKUP_MS) writeBackup("auto", sandbox.projects, sandbox.prefs);
+}
+
+// A project map from the browser: { id: { label, runtime, files: [{ id, name, content }], history, ... } }.
+const validProjects = (p) => p && typeof p === "object" && !Array.isArray(p) &&
+  Object.values(p).every((proj) => proj && typeof proj === "object" && typeof proj.label === "string" && Array.isArray(proj.files));
+
 // ── sessions: "<expiry>.<hmac>", signed with the secret in admin.json ──
 const sign = (exp) => crypto.createHmac("sha256", auth.secret).update(String(exp)).digest("hex");
 const newToken = () => { const exp = Date.now() + SESSION_MS; return `${exp}.${sign(exp)}`; };
@@ -90,10 +138,10 @@ function send(res, status, body) {
   res.end(body === undefined ? "" : JSON.stringify(body));
 }
 
-function readBody(req) {
+function readBody(req, max = 16384) {
   return new Promise((resolve, reject) => {
     let size = 0; const chunks = [];
-    req.on("data", (c) => { size += c.length; if (size > 16384) { reject(new Error("too big")); req.destroy(); } else chunks.push(c); });
+    req.on("data", (c) => { size += c.length; if (size > max) { reject(new Error("too big")); req.destroy(); } else chunks.push(c); });
     req.on("end", () => { try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}")); } catch { reject(new Error("bad json")); } });
     req.on("error", reject);
   });
@@ -166,6 +214,75 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, tips);
     }
 
+    if (url.pathname === "/sandbox" || url.pathname.startsWith("/sandbox/")) {
+      if (!isAdmin()) return send(res, 401, { error: "Log in again." });
+      const parts = url.pathname.split("/").slice(2); // after "/sandbox"
+
+      // Everything the app needs to start: projects, prefs and tokens.
+      if (req.method === "GET" && !parts.length) return send(res, 200, sandbox);
+
+      if (req.method === "PUT" && parts[0] === "projects" && parts.length === 1) {
+        const b = await readBody(req, MAX_SANDBOX_BODY);
+        if (!validProjects(b.projects)) return send(res, 400, { error: "That doesn't look like a set of sandbox projects." });
+        if (b.rev !== sandbox.rev) return send(res, 409, { error: "Changed in another tab or device. Reload to get the latest.", rev: sandbox.rev });
+        sandbox.projects = b.projects;
+        sandbox.rev++;
+        sandbox.updated = new Date().toISOString();
+        saveSandbox();
+        maybeAutoBackup();
+        return send(res, 200, { rev: sandbox.rev, updated: sandbox.updated });
+      }
+
+      if (req.method === "PUT" && parts[0] === "prefs" && parts.length === 1) {
+        const b = await readBody(req);
+        sandbox.prefs = b.prefs && typeof b.prefs === "object" ? b.prefs : {};
+        saveSandbox();
+        return send(res, 200, { ok: true });
+      }
+
+      if (req.method === "PUT" && parts[0] === "secrets" && /^(github|valtown)$/.test(parts[1] || "")) {
+        const b = await readBody(req);
+        const token = clean(b.token, 500);
+        if (token) sandbox.secrets[parts[1]] = token;
+        else delete sandbox.secrets[parts[1]];
+        saveSandbox();
+        return send(res, 200, { ok: true });
+      }
+
+      if (parts[0] === "backups") {
+        const id = parts[1];
+        if (req.method === "GET" && !id) return send(res, 200, { backups: listBackups() });
+        // Back up now, or bring in projects from elsewhere (a file, or this
+        // browser's old storage) as a backup without touching the current set.
+        if (req.method === "POST" && !id) {
+          const b = await readBody(req, MAX_SANDBOX_BODY);
+          if (b.projects !== undefined) {
+            if (!validProjects(b.projects)) return send(res, 400, { error: "That doesn't look like a set of sandbox projects." });
+            return send(res, 201, { id: writeBackup("import", b.projects, b.prefs) });
+          }
+          if (!sandbox.projects) return send(res, 400, { error: "Nothing to back up yet." });
+          return send(res, 201, { id: writeBackup("manual", sandbox.projects, sandbox.prefs) });
+        }
+        if (!id || !BACKUP_ID.test(id)) return send(res, 404, { error: "Not found." });
+        const file = path.join(BACKUP_DIR, id + ".json");
+        const backup = readJson(file, null);
+        if (!backup) return send(res, 404, { error: "Not found." });
+        if (req.method === "GET" && parts.length === 2) return send(res, 200, backup);
+        if (req.method === "DELETE" && parts.length === 2) { fs.rmSync(file, { force: true }); return send(res, 200, { ok: true }); }
+        if (req.method === "POST" && parts[2] === "restore") {
+          // Keep what's there now, so a restore can itself be undone.
+          writeBackup("restore", sandbox.projects, sandbox.prefs);
+          sandbox.projects = backup.projects;
+          sandbox.prefs = backup.prefs || sandbox.prefs;
+          sandbox.rev++;
+          sandbox.updated = new Date().toISOString();
+          saveSandbox();
+          return send(res, 200, { rev: sandbox.rev });
+        }
+      }
+      return send(res, 404, { error: "Not found." });
+    }
+
     if (url.pathname === "/suggestions" || url.pathname.startsWith("/suggestions/")) {
       if (!isAdmin()) return send(res, 401, { error: "Log in again." });
       const id = url.pathname.split("/")[2];
@@ -191,6 +308,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`Suggestion box listening on 127.0.0.1:${PORT}, storing in ${DB_FILE}`);
+  console.log(`Suggestion box listening on 127.0.0.1:${PORT}, storing in ${DATA_DIR}`);
   console.log(`Allowed sites: ${ORIGINS.join(", ")}`);
 });

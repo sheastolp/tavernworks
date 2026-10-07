@@ -994,7 +994,7 @@ githubSaveSettingsBtn.addEventListener('click', async () => {
     const result = await ipcRenderer.invoke('github:setToken', tokenValue);
     githubTokenEl.value = '';
     if (result && result.ok) {
-      logToGithubModal('Token saved in this browser only (not encrypted \u2014 use a token scoped to just what you need).', 'ok');
+      logToGithubModal(result.laptop ? 'Token saved on the laptop.' : 'Token saved in this browser only (not encrypted \u2014 sign in to keep it on the laptop instead).', 'ok');
     } else {
       logToGithubModal('Failed to save token.', 'error');
     }
@@ -1169,7 +1169,7 @@ valtownSaveSettingsBtn.addEventListener('click', async () => {
     const result = await ipcRenderer.invoke('valtown:setToken', tokenValue);
     valtownTokenEl.value = '';
     if (result && result.ok) {
-      logToValTownModal('Token saved in this browser only (not encrypted \u2014 use a token scoped to just what you need).', 'ok');
+      logToValTownModal(result.laptop ? 'Token saved on the laptop.' : 'Token saved in this browser only (not encrypted \u2014 sign in to keep it on the laptop instead).', 'ok');
     } else {
       logToValTownModal('Failed to save token.', 'error');
     }

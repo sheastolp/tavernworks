@@ -26,7 +26,14 @@
 
       <div class="sidebar-footer">
         <span id="status-pill" class="status-pill">No code loaded</span>
-        <p class="web-note">Web version: projects and tokens are saved in this browser only. Your code runs in a locked-down worker with no network access.</p>
+        <div id="storage-line" class="storage-line"></div>
+        <div class="storage-actions">
+          <button id="signin-btn" class="primary-btn">Sign in</button>
+          <button id="backups-btn" class="ghost-btn">Backups&hellip;</button>
+          <button id="storage-reload-btn" class="ghost-btn" hidden>Reload</button>
+          <button id="signout-btn" class="ghost-btn" hidden>Sign out</button>
+        </div>
+        <p class="web-note">Your code runs in a locked-down worker with no network access.</p>
       </div>
     </aside>
 
@@ -211,7 +218,57 @@ All files in a project run together, in file order, when you click Load Code."><
     </div>
   </div>
 
+  <div id="signin-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-panel input-modal-panel">
+      <div class="modal-header">
+        <span>Sign in</span>
+        <button id="signin-modal-close" class="modal-close-btn" title="Close">&times;</button>
+      </div>
+      <form id="signin-form" class="modal-body">
+        <p class="modal-hint" style="margin: 0 0 10px 0;">Signed in, your projects, layout and GitHub/Val Town tokens are kept on the laptop instead of this browser, with automatic backups. Same password as the tip jar admin.</p>
+        <div class="modal-field-row">
+          <label for="signin-password">Password</label>
+          <input id="signin-password" type="password" autocomplete="current-password" required />
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="primary-btn">Sign in</button>
+        </div>
+        <div id="signin-modal-log" class="editor-log modal-log"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="backups-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <span>Backups</span>
+        <button id="backups-modal-close" class="modal-close-btn" title="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="backups-laptop" hidden>
+          <p class="modal-hint" style="margin: 0 0 10px 0;">Kept on the laptop. A backup is made automatically about once an hour while you work, and before every restore. The newest 60 are kept.</p>
+          <div class="modal-actions" style="justify-content: flex-start; margin-top: 0;">
+            <button id="backup-now-btn" class="primary-btn">Back up now</button>
+          </div>
+          <ul id="backups-list" class="backups-list"></ul>
+        </div>
+        <p id="backups-signed-out" class="modal-hint" style="margin: 0 0 10px 0;">Your projects are only in this browser right now. <a href="#" id="backups-signin-link">Sign in</a> to keep them on the laptop with automatic backups.</p>
+        <div class="backups-file">
+          <div class="sidebar-section-label">Backup file</div>
+          <div class="modal-actions" style="justify-content: flex-start; margin-top: 0;">
+            <button id="backup-download-btn" class="ghost-btn">Download backup file</button>
+            <button id="backup-restore-file-btn" class="ghost-btn">Restore from file&hellip;</button>
+          </div>
+          <p class="modal-hint">Files hold your projects and layout, never your tokens.</p>
+        </div>
+        <div id="backups-modal-log" class="editor-log modal-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/hushwave/suggest-config.js"></script>
   <script src="js/web-bridge.js"></script>
   <script src="js/renderer.js"></script>
+  <script src="js/web-storage.js"></script>
 </body>
 </html>

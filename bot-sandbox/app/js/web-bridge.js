@@ -2,7 +2,8 @@
 //
 // The desktop renderer talks to main.js through ipcRenderer.invoke(); this
 // file answers the same channels from inside the page instead:
-//   - projects, UI prefs and tokens live in this browser's localStorage
+//   - projects, UI prefs and tokens live on the laptop server once signed
+//     in (see `cloud` below), or in this browser's localStorage if not
 //   - GitHub and Val Town sync call their public REST APIs with fetch
 //   - Fast mode runs bot code in a Web Worker (see `runner` below) in place
 //     of Node's vm module, so a runaway loop can be killed after 3 seconds
@@ -27,19 +28,155 @@
     try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage full or blocked */ }
   }
 
-  function readToken(name) {
+  function readLocalToken(name) {
     try { return localStorage.getItem(STORE.token(name)) || null; } catch { return null; }
   }
 
-  function writeToken(name, token) {
+  function removeLocal(key) {
+    try { localStorage.removeItem(key); } catch { /* blocked */ }
+  }
+
+  // --- Laptop storage ---
+  //
+  // Signing in uses the same server and password as the tip jar admin
+  // (hushwave/suggestion-box/server.mjs, address in suggest-config.js).
+  // While signed in, projects, prefs and tokens are read from and saved to
+  // the laptop, and nothing but the login session is kept in the browser.
+  const API = (window.SUGGEST_API || '').replace(/\/+$/, '');
+  const SESSION_KEY = 'hushwave:suggestToken'; // shared with /tips, so one login covers both
+  const SAVE_DELAY_MS = 700;
+
+  const cloud = {
+    session: '',
+    signedIn: false,
+    rev: 0,
+    secrets: {},
+    prefs: {},
+    // 'local' | 'loading' | 'saved' | 'saving' | 'error' | 'conflict' | 'unreachable'
+    status: 'local',
+    message: '',
+    pending: null, // projects waiting to be sent
+    inFlight: false,
+    timer: null,
+  };
+  const statusListeners = new Set();
+
+  function setStatus(status, message = '') {
+    cloud.status = status;
+    cloud.message = message;
+    statusListeners.forEach((fn) => { try { fn(status, message); } catch { /* listener bug */ } });
+  }
+
+  function readSession() {
     try {
-      if (token) localStorage.setItem(STORE.token(name), token);
-      else localStorage.removeItem(STORE.token(name));
-      return { ok: true, encrypted: false };
+      const t = JSON.parse(localStorage.getItem(SESSION_KEY));
+      return t && t.expires > Date.now() ? t.token : '';
+    } catch {
+      return '';
+    }
+  }
+
+  function writeSession(value) {
+    try {
+      if (value) localStorage.setItem(SESSION_KEY, JSON.stringify(value));
+      else localStorage.removeItem(SESSION_KEY);
+    } catch { /* blocked */ }
+  }
+
+  async function api(method, path, body) {
+    if (!API) throw new Error('No server address set (SUGGEST_API in /hushwave/suggest-config.js).');
+    let resp;
+    try {
+      resp = await fetch(API + path, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...(cloud.session ? { Authorization: 'Bearer ' + cloud.session } : {}) },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    } catch {
+      const err = new Error('Couldn\u2019t reach the laptop. Is it on and is the suggestion box server running?');
+      err.unreachable = true;
+      throw err;
+    }
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const err = new Error(data.error || 'HTTP ' + resp.status);
+      err.status = resp.status;
+      throw err;
+    }
+    return data;
+  }
+
+  function readToken(name) {
+    return cloud.signedIn ? cloud.secrets[name] || null : readLocalToken(name);
+  }
+
+  async function writeToken(name, token) {
+    if (!cloud.signedIn) {
+      try {
+        if (token) localStorage.setItem(STORE.token(name), token);
+        else localStorage.removeItem(STORE.token(name));
+        return { ok: true, encrypted: false };
+      } catch {
+        return { ok: false };
+      }
+    }
+    try {
+      await api('PUT', '/sandbox/secrets/' + name, { token: token || '' });
+      if (token) cloud.secrets[name] = token;
+      else delete cloud.secrets[name];
+      return { ok: true, encrypted: false, laptop: true };
     } catch {
       return { ok: false };
     }
   }
+
+  // Send the newest projects to the laptop, one request at a time.
+  async function flushSave() {
+    clearTimeout(cloud.timer);
+    cloud.timer = null;
+    if (cloud.inFlight || !cloud.pending || cloud.status === 'conflict') return;
+    const projects = cloud.pending;
+    cloud.pending = null;
+    cloud.inFlight = true;
+    setStatus('saving');
+    try {
+      const result = await api('PUT', '/sandbox/projects', { projects, rev: cloud.rev });
+      cloud.rev = result.rev;
+      cloud.inFlight = false;
+      if (cloud.pending) return flushSave();
+      setStatus('saved');
+    } catch (err) {
+      cloud.inFlight = false;
+      if (err.status === 409) {
+        setStatus('conflict', err.message);
+      } else if (err.status === 401) {
+        cloud.pending = cloud.pending || projects;
+        setStatus('error', 'Your login ran out. Sign in again to keep saving.');
+      } else {
+        // Laptop asleep or offline: keep the changes and try again shortly.
+        cloud.pending = cloud.pending || projects;
+        setStatus('error', 'Not saved yet \u2014 ' + err.message + ' Retrying\u2026');
+        cloud.timer = setTimeout(flushSave, 5000);
+      }
+    }
+  }
+
+  function queueSave(projects) {
+    // The renderer mutates its projects object in place, so send a snapshot.
+    cloud.pending = JSON.parse(JSON.stringify(projects));
+    if (cloud.status !== 'conflict') setStatus('saving');
+    clearTimeout(cloud.timer);
+    cloud.timer = setTimeout(flushSave, SAVE_DELAY_MS);
+  }
+
+  const hasUnsaved = () => cloud.signedIn && (!!cloud.pending || cloud.inFlight);
+
+  window.addEventListener('beforeunload', (e) => {
+    if (!hasUnsaved()) return;
+    flushSave();
+    e.preventDefault();
+    e.returnValue = '';
+  });
 
   // Same starter projects the desktop app ships with.
   const DEFAULT_PROJECTS = {
@@ -75,8 +212,7 @@
     },
   };
 
-  function loadProjects() {
-    const data = readJson(STORE.projects, null) || JSON.parse(JSON.stringify(DEFAULT_PROJECTS));
+  function normalizeProjects(data) {
     for (const id of Object.keys(data)) {
       const proj = data[id];
       if (!Array.isArray(proj.files)) proj.files = [];
@@ -85,6 +221,150 @@
     }
     return data;
   }
+
+  const freshDefaults = () => JSON.parse(JSON.stringify(DEFAULT_PROJECTS));
+
+  // Runs once on page load. Signed in: fetch everything from the laptop,
+  // moving anything still stored in this browser up to it first.
+  async function startStorage() {
+    cloud.session = readSession();
+    if (!cloud.session) {
+      setStatus('local');
+      return { projects: normalizeProjects(readJson(STORE.projects, null) || freshDefaults()), prefs: readJson(STORE.prefs, {}) };
+    }
+
+    setStatus('loading');
+    let state;
+    try {
+      state = await api('GET', '/sandbox');
+    } catch (err) {
+      if (err.status === 401) {
+        writeSession(null);
+        cloud.session = '';
+        setStatus('local', 'Your login ran out, so this is the browser copy. Sign in again to use the laptop.');
+        return { projects: normalizeProjects(readJson(STORE.projects, null) || freshDefaults()), prefs: readJson(STORE.prefs, {}) };
+      }
+      if (err.status === 404) err.message = 'The laptop\u2019s server is an older version without sandbox storage. Update server.mjs on the laptop (see its README).';
+      // Don't fall back to the browser copy: saving it would overwrite the
+      // laptop's newer work later. Show nothing and save nothing instead.
+      setStatus('unreachable', err.message);
+      return { projects: {}, prefs: {} };
+    }
+
+    cloud.signedIn = true;
+    cloud.rev = state.rev || 0;
+    cloud.secrets = state.secrets || {};
+    cloud.prefs = state.prefs || {};
+
+    try {
+      await moveBrowserDataUp(state);
+    } catch (err) {
+      setStatus('error', 'Couldn\u2019t move this browser\u2019s projects to the laptop: ' + err.message);
+      return { projects: normalizeProjects(state.projects || {}), prefs: cloud.prefs };
+    }
+
+    setStatus('saved');
+    return { projects: normalizeProjects(cloud.projects), prefs: cloud.prefs };
+  }
+
+  // First sign-in on a browser that has projects saved in it: if the laptop
+  // is empty they become the laptop's projects, otherwise they're kept on
+  // the laptop as a backup. Either way, the browser copy is then deleted.
+  async function moveBrowserDataUp(state) {
+    const localProjects = readJson(STORE.projects, null);
+    const localPrefs = readJson(STORE.prefs, null);
+    cloud.projects = state.projects;
+
+    if (!cloud.projects) {
+      const first = localProjects || freshDefaults();
+      const result = await api('PUT', '/sandbox/projects', { projects: first, rev: cloud.rev });
+      cloud.rev = result.rev;
+      cloud.projects = first;
+      if (localPrefs) {
+        await api('PUT', '/sandbox/prefs', { prefs: localPrefs });
+        cloud.prefs = localPrefs;
+      }
+    } else if (localProjects && !isUntouchedDefaults(localProjects)) {
+      await api('POST', '/sandbox/backups', { projects: localProjects, prefs: localPrefs || {} });
+      cloud.movedToBackup = true;
+    }
+
+    for (const name of ['github', 'valtown']) {
+      const token = readLocalToken(name);
+      if (token && !cloud.secrets[name]) {
+        await api('PUT', '/sandbox/secrets/' + name, { token });
+        cloud.secrets[name] = token;
+      }
+      removeLocal(STORE.token(name));
+    }
+    removeLocal(STORE.projects);
+    removeLocal(STORE.prefs);
+  }
+
+  function isUntouchedDefaults(data) {
+    const strip = (p) => JSON.stringify(Object.entries(p).map(([id, proj]) => [id, proj.label, proj.files.map((f) => [f.name, f.content])]));
+    try { return strip(data) === strip(freshDefaults()); } catch { return false; }
+  }
+
+  let started = null;
+  const ready = () => (started = started || startStorage());
+
+  function saveProjects(data) {
+    if (cloud.signedIn) queueSave(data);
+    else if (cloud.status !== 'unreachable') writeJson(STORE.projects, data);
+    return true;
+  }
+
+  let prefsTimer = null;
+  function savePrefs(prefs) {
+    if (!cloud.signedIn) {
+      if (cloud.status !== 'unreachable') writeJson(STORE.prefs, prefs);
+      return true;
+    }
+    cloud.prefs = prefs;
+    clearTimeout(prefsTimer);
+    prefsTimer = setTimeout(() => api('PUT', '/sandbox/prefs', { prefs }).catch(() => {}), SAVE_DELAY_MS);
+    return true;
+  }
+
+  // --- Sign in / out, backups (used by js/web-storage.js) ---
+  const storage = {
+    get status() { return { status: cloud.status, message: cloud.message, signedIn: cloud.signedIn, movedToBackup: !!cloud.movedToBackup, hasServer: !!API }; },
+    onStatus(fn) { statusListeners.add(fn); fn(cloud.status, cloud.message); return () => statusListeners.delete(fn); },
+    hasUnsaved,
+    flush: flushSave,
+
+    async signIn(password) {
+      const data = await api('POST', '/login', { password });
+      writeSession(data);
+    },
+    signOut() {
+      writeSession(null);
+    },
+
+    listBackups: () => api('GET', '/sandbox/backups').then((d) => d.backups || []),
+    backupNow: () => api('POST', '/sandbox/backups', {}),
+    getBackup: (id) => api('GET', '/sandbox/backups/' + encodeURIComponent(id)),
+    deleteBackup: (id) => api('DELETE', '/sandbox/backups/' + encodeURIComponent(id)),
+    async restoreBackup(id) {
+      await flushSave();
+      await api('POST', '/sandbox/backups/' + encodeURIComponent(id) + '/restore');
+    },
+
+    // A backup file's contents: signed in, it's stored on the laptop as a
+    // backup and restored from there (so the current set is kept as a
+    // backup too); signed out, it replaces this browser's copy.
+    async restoreFromData({ projects, prefs }) {
+      if (!cloud.signedIn) {
+        writeJson(STORE.projects, projects);
+        if (prefs) writeJson(STORE.prefs, prefs);
+        return;
+      }
+      await flushSave();
+      const { id } = await api('POST', '/sandbox/backups', { projects, prefs: prefs || {} });
+      await api('POST', '/sandbox/backups/' + encodeURIComponent(id) + '/restore');
+    },
+  };
 
   // --- File picker (stands in for Electron's dialog.showOpenDialog) ---
   function pickFiles() {
@@ -370,10 +650,10 @@
   const DENO_UNAVAILABLE = 'Deno (real) mode needs the desktop app \u2014 it runs a bundled deno binary, which a browser can\u2019t.';
 
   const handlers = {
-    'projects:load': () => loadProjects(),
-    'projects:save': (data) => { writeJson(STORE.projects, data); return true; },
-    'ui:getPrefs': () => readJson(STORE.prefs, {}),
-    'ui:setPrefs': (prefs) => { writeJson(STORE.prefs, prefs); return true; },
+    'projects:load': () => ready().then((r) => r.projects),
+    'projects:save': saveProjects,
+    'ui:getPrefs': () => ready().then((r) => r.prefs),
+    'ui:setPrefs': savePrefs,
     'app:getVersion': () => '1.9.3 web',
     'dialog:openFiles': () => pickFiles(),
     'deno:load': () => ({ ok: false, error: DENO_UNAVAILABLE }),
@@ -578,5 +858,5 @@
     };
   }
 
-  window.TBS_WEB = { ipcRenderer, loadTs, runner: createRunner(), DENO_UNAVAILABLE };
+  window.TBS_WEB = { ipcRenderer, loadTs, runner: createRunner(), storage, DENO_UNAVAILABLE };
 })();
