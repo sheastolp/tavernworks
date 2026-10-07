@@ -114,6 +114,8 @@
   .atts .gone{font-size:12.5px;color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:8px 10px}
   .atts details{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:13px}
   .atts details summary{cursor:pointer;color:var(--muted)}
+  .atts details details{background:var(--bg2);margin-top:6px}
+  .atts .skipped{color:var(--muted);font-size:12px;margin-top:6px}
   .atts details pre{margin-top:6px;max-height:300px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;white-space:pre-wrap;overflow-wrap:anywhere}
   .box textarea{flex:1;min-width:0;background:none;border:0;outline:none;resize:none;max-height:200px;padding:6px 0;line-height:1.5}
   .send{width:38px;height:38px;border-radius:10px;border:0;background:var(--gold);color:var(--bg);font-weight:800;font-size:17px;flex-shrink:0}
@@ -194,11 +196,13 @@
       <form class="box" id="form">
         <div class="pending" id="pending"></div>
         <button class="attach" id="attach" type="button" aria-label="Attach images or files" title="Attach images or files (or drop / paste them here)">📎</button>
+        <button class="attach" id="attachDir" type="button" aria-label="Attach a folder" title="Attach a project folder">🗂</button>
         <input type="file" id="fileInput" multiple hidden>
+        <input type="file" id="dirInput" webkitdirectory multiple hidden>
         <textarea id="input" rows="1" placeholder="Ask your local model anything…" aria-label="Message"></textarea>
         <button class="send" id="send" type="submit" aria-label="Send">↑</button>
       </form>
-      <p class="hint">Runs on your own hardware over Tailscale. Chats are saved in this browser only. Attach images or text files with 📎, drag-and-drop, or paste.</p>
+      <p class="hint">Runs on your own hardware over Tailscale. Chats are saved in this browser only. Attach images, text files, zips or folders with 📎 / 🗂, drag-and-drop, or paste.</p>
     </div>
   </main>
 </div>
@@ -312,12 +316,15 @@
   // ── Chats ──
   // Images can fill the browser's storage quickly. If the chats don't fit,
   // save them without the image data (they stay visible until the page closes).
+  // If that still doesn't fit, project (zip/folder) contents go too.
   function save() {
     if (store.set(CHATS_KEY, chats)) return;
-    const slim = chats.map((c) => Object.assign({}, c, { messages: c.messages.map((m) => !m.attachments ? m :
-      Object.assign({}, m, { attachments: m.attachments.map((a) => a.kind === "image" ? Object.assign({}, a, { data: "", dropped: true }) : a) })) }));
-    if (!store.set(CHATS_KEY, slim)) console.warn("Couldn't save chats: browser storage is full.");
-    else console.warn("Browser storage is full, so images were saved without their picture data.");
+    const slim = (kinds) => chats.map((c) => Object.assign({}, c, { messages: c.messages.map((m) => !m.attachments ? m :
+      Object.assign({}, m, { attachments: m.attachments.map((a) => !kinds.includes(a.kind) ? a :
+        a.kind === "bundle" ? Object.assign({}, a, { files: a.files.map((f) => ({ path: f.path, data: "" })), dropped: true }) : Object.assign({}, a, { data: "", dropped: true })) })) }));
+    if (store.set(CHATS_KEY, slim(["image"]))) console.warn("Browser storage is full, so images were saved without their picture data.");
+    else if (store.set(CHATS_KEY, slim(["image", "bundle"]))) console.warn("Browser storage is full, so images and project files were saved without their contents.");
+    else console.warn("Couldn't save chats: browser storage is full.");
   }
   const chat = () => chats.find((c) => c.id === current);
   function newChat() {
@@ -417,6 +424,19 @@
       } else if (a.kind === "image") {
         const d = document.createElement("div"); d.className = "gone";
         d.textContent = `🖼 ${a.name} (not kept: browser storage was full)`;
+        box.appendChild(d);
+      } else if (a.kind === "bundle") {
+        const d = document.createElement("details");
+        d.innerHTML = "<summary></summary>";
+        d.querySelector("summary").textContent = `🗂 ${a.name} · ${a.files.length} file${a.files.length === 1 ? "" : "s"} · ${fmtSize(a.size)}${a.dropped ? " (contents not kept: browser storage was full)" : ""}`;
+        for (const f of a.files) {
+          const fd = document.createElement("details");
+          fd.innerHTML = "<summary></summary><pre></pre>";
+          fd.querySelector("summary").textContent = "📄 " + f.path;
+          fd.querySelector("pre").textContent = f.data;
+          d.appendChild(fd);
+        }
+        if (a.skipped) { const sk = document.createElement("div"); sk.className = "skipped"; sk.textContent = `${a.skipped} other file${a.skipped === 1 ? "" : "s"} left out (binary, dependencies/build folders, or over the size limit).`; d.appendChild(sk); }
         box.appendChild(d);
       } else {
         const d = document.createElement("details");
@@ -534,7 +554,7 @@
     }
     input.value = ""; autosize();
     const msg = { role: "user", content: text };
-    if (pending.length) msg.attachments = pending.map(({ kind, name, type, size, data }) => ({ kind, name, type, size, data }));
+    if (pending.length) msg.attachments = pending.map(({ kind, name, type, size, data, files, skipped }) => kind === "bundle" ? { kind, name, size, files, skipped } : { kind, name, type, size, data });
     pending = []; renderPending();
     c.messages.push(msg);
     await generate(c);
@@ -578,7 +598,7 @@
       const res = await fetch(settings.api + "/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: reply.model, messages: history, stream: true }),
+        body: JSON.stringify(Object.assign({ model: reply.model, messages: history, stream: true }, ctxOptions(history))),
         signal: busy.signal,
       });
       if (!res.ok || !res.body) {
@@ -625,6 +645,8 @@
         const tps = last.eval_count / (last.eval_duration / 1e9);
         reply.stats = `${tps.toFixed(1)} tokens/s · ${((performance.now() - started) / 1000).toFixed(1)}s`;
       }
+      const est = estTokens(history);
+      if (est > 32768) reply.stats = (reply.stats ? reply.stats + " · " : "") + `⚠ this chat is about ${Math.round(est / 1000)}k tokens, past the 32k the model was given, so it only saw part of it. Attach fewer files, or start a new chat.`;
     } catch (e) {
       if (e.name === "AbortError") {
         reply.stats = "stopped";
@@ -763,11 +785,27 @@
   function withFiles(m, forClaude) {
     let out = m.content || "";
     for (const a of m.attachments || []) {
-      if (a.kind === "text") out += `${out ? "\n\n" : ""}File: ${a.name}\n\`\`\`\n${a.data.replace(/\n$/, "")}\n\`\`\``;
+      const sep = out ? "\n\n" : "";
+      if (a.kind === "text") out += `${sep}File: ${a.name}\n${fence(a.data)}`;
+      else if (a.kind === "bundle") {
+        out += `${sep}Project: ${a.name} (${a.files.length} file${a.files.length === 1 ? "" : "s"})\n` + a.files.map((f) => "- " + f.path).join("\n");
+        if (a.dropped) out += "\n(The file contents weren't kept in this browser, so only the list is available.)";
+        else out += "\n\n" + a.files.map((f) => `File: ${f.path}\n${fence(f.data)}`).join("\n\n");
+      }
       else if (forClaude) out += `${out ? "\n\n" : ""}[Image attached: ${a.name}. Images can't be passed to Claude Code through the bridge.]`;
     }
     if (!out && m.attachments?.length) out = "(see the attached image" + (m.attachments.length > 1 ? "s" : "") + ")";
     return out;
+  }
+  const fence = (text) => "```\n" + String(text).replace(/\n$/, "") + "\n```";
+  // Ollama only reads the first few thousand tokens unless asked for more,
+  // which would silently cut off a long file or a whole project. Ask for a
+  // window that fits (about 3.5 characters per token), up to 32k.
+  const estTokens = (history) => history.reduce((n, m) => n + m.content.length, 0) / 3.5 + 1024;
+  function ctxOptions(history) {
+    const tokens = estTokens(history);
+    if (tokens <= 4096) return {};
+    return { options: { num_ctx: [8192, 16384, 32768].find((n) => n >= tokens) || 32768 } };
   }
   function renderPending() {
     const box = $("pending");
@@ -777,7 +815,9 @@
       chip.className = "chip" + (p.loading ? " loading" : "");
       if (p.kind === "image" && p.data) { const img = document.createElement("img"); img.src = `data:${p.type};base64,${p.data}`; img.alt = ""; chip.appendChild(img); }
       const name = document.createElement("span");
-      name.className = "name"; name.textContent = (p.kind === "text" ? "📄 " : p.data ? "" : "🖼 ") + p.name + (p.loading ? " …" : " · " + fmtSize(p.size));
+      const icon = p.kind === "text" ? "📄 " : p.kind === "bundle" ? "🗂 " : p.data ? "" : "🖼 ";
+      const info = p.loading ? " …" : p.kind === "bundle" ? ` · ${p.files.length} file${p.files.length === 1 ? "" : "s"}` : " · " + fmtSize(p.size);
+      name.className = "name"; name.textContent = icon + p.name + info;
       name.title = p.name;
       const x = document.createElement("button");
       x.type = "button"; x.textContent = "✕"; x.setAttribute("aria-label", "Remove " + p.name);
@@ -806,24 +846,157 @@
       return { type: "image/jpeg", data, size: Math.round(data.length * 3 / 4) };
     } finally { URL.revokeObjectURL(url); }
   }
-  async function readText(file) {
-    const buf = new Uint8Array(await readAs(file.slice(0, MAX_TEXT + 1), "readAsArrayBuffer"));
-    if (buf.subarray(0, 4096).includes(0)) return null;   // binary
+  const readText = async (file) => textFrom(new Uint8Array(await readAs(file.slice(0, MAX_TEXT + 1), "readAsArrayBuffer")), file.size);
+  // The bytes as text, or null if they look binary. Cuts off past MAX_TEXT.
+  function textFrom(buf, size) {
+    if (buf.subarray(0, 4096).includes(0)) return null;
     let text;
     try { text = new TextDecoder("utf-8", { fatal: true }).decode(buf.subarray(0, MAX_TEXT)); }
-    catch { if (file.size > MAX_TEXT) text = new TextDecoder().decode(buf.subarray(0, MAX_TEXT)); else return null; }
-    if (file.size > MAX_TEXT) text += `\n…(cut off: the file is ${fmtSize(file.size)}, only the first ${fmtSize(MAX_TEXT)} were attached)`;
+    catch { if (size > MAX_TEXT) text = new TextDecoder().decode(buf.subarray(0, MAX_TEXT)); else return null; }
+    if (size > MAX_TEXT) text += `\n…(cut off: the file is ${fmtSize(size)}, only the first ${fmtSize(MAX_TEXT)} were attached)`;
     return text;
+  }
+
+  // ── Projects: zips, tarballs and folders ──
+  // Unpacked in the browser (no upload anywhere). Only text files are kept;
+  // dependency/build folders, lockfiles and binaries are left out.
+  const MAX_BUNDLE = 1.5 * 1024 * 1024, MAX_BUNDLE_FILES = 400;
+  const ARCHIVE = /\.(zip|tar|tgz|tar\.gz|gz)$/i;
+  const SKIP_DIR = /^(node_modules|\.git|\.svn|\.hg|__pycache__|\.venv|venv|\.tox|\.mypy_cache|\.pytest_cache|dist|build|out|target|\.next|\.nuxt|\.cache|\.idea|\.vscode|__MACOSX|coverage|vendor|bin|obj)$/i;
+  const SKIP_FILE = /(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini|package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Cargo\.lock|composer\.lock|Gemfile\.lock|[^/]*\.min\.(js|css)|[^/]*\.map)$/i;
+  const skipPath = (path) => path.split("/").slice(0, -1).some((d) => SKIP_DIR.test(d)) || SKIP_FILE.test(path);
+  const unpack = async (bytes, format) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream(format))).arrayBuffer());
+  // Entries are { path, size, bytes() } so nothing is decompressed until needed.
+  function unzip(buf) {
+    const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    let end = -1;
+    for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { end = i; break; }
+    if (end < 0) throw new Error("that isn't a zip file this page can read");
+    const count = dv.getUint16(end + 10, true);
+    let p = dv.getUint32(end + 16, true);
+    if (p === 0xffffffff || count === 0xffff) throw new Error("zips over 4 GB (zip64) aren't supported");
+    const out = [];
+    for (let n = 0; n < count; n++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) throw new Error("the zip file looks damaged");
+      const flags = dv.getUint16(p + 8, true), method = dv.getUint16(p + 10, true);
+      const csize = dv.getUint32(p + 20, true), size = dv.getUint32(p + 24, true), off = dv.getUint32(p + 42, true);
+      const nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true);
+      const path = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nl));
+      p += 46 + nl + xl + cl;
+      if (path.endsWith("/")) continue;
+      out.push({ path, size, bytes: async () => {
+        if (flags & 1) throw new Error("encrypted");
+        const start = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true);
+        const raw = buf.subarray(start, start + csize);
+        if (method === 0) return raw;
+        if (method === 8) return unpack(raw, "deflate-raw");
+        throw new Error("unsupported compression");
+      } });
+    }
+    return out;
+  }
+  function untar(buf) {
+    const str = (a, b) => new TextDecoder().decode(buf.subarray(a, b)).replace(/\0[\s\S]*$/, "");
+    const out = [];
+    let p = 0, longName = "", paxName = "";
+    while (p + 512 <= buf.length && buf.subarray(p, p + 512).some((b) => b)) {
+      const size = parseInt(str(p + 124, p + 136).trim() || "0", 8) || 0;
+      const type = String.fromCharCode(buf[p + 156] || 48);
+      let name = str(p, p + 100);
+      const prefix = str(p + 345, p + 500);
+      if (str(p + 257, p + 263).startsWith("ustar") && prefix) name = prefix + "/" + name;
+      const data = buf.subarray(p + 512, p + 512 + size);
+      p += 512 + Math.ceil(size / 512) * 512;
+      if (type === "L") { longName = new TextDecoder().decode(data).replace(/\0[\s\S]*$/, ""); continue; }
+      if (type === "x") { paxName = (new TextDecoder().decode(data).match(/^\d+ path=(.*)$/m) || [])[1] || ""; continue; }
+      if (type === "g") continue;
+      const path = paxName || longName || name;
+      paxName = longName = "";
+      if (type === "0" || type === "7") out.push({ path, size, bytes: async () => data });
+    }
+    if (!out.length && p === 0) throw new Error("that isn't a tar file this page can read");
+    return out;
+  }
+  const isTar = (buf) => buf.length >= 512 && new TextDecoder().decode(buf.subarray(257, 262)) === "ustar";
+  async function makeBundle(name, entries, skipped = 0) {
+    const files = [];
+    let total = 0;
+    entries.sort((a, b) => a.path.localeCompare(b.path));
+    for (const e of entries) {
+      const path = e.path.replace(/^\.?\//, "");
+      if (skipPath(path) || files.length >= MAX_BUNDLE_FILES || total >= MAX_BUNDLE || (!TEXT_EXT.test(path) && e.size > 5 * 1024 * 1024)) { skipped++; continue; }
+      let text = null;
+      try { text = textFrom(await e.bytes(), e.size); } catch {}
+      if (text == null || total + text.length > MAX_BUNDLE) { skipped++; continue; }
+      files.push({ path, data: text });
+      total += text.length;
+    }
+    if (!files.length) throw new Error("no text files found inside" + (skipped ? ` (${skipped} left out: binary, dependency/build folders, or too big)` : ""));
+    return { kind: "bundle", name, type: "", size: total, files, skipped };
+  }
+  const fileEntry = (file, path) => ({ path, size: file.size, bytes: async () => new Uint8Array(await file.slice(0, MAX_TEXT + 1).arrayBuffer()) });
+  // A zip/tar/gz file: a project bundle, or (a lone .gz) a single text file.
+  async function readArchive(file) {
+    if (!("DecompressionStream" in window) && !/\.tar$/i.test(file.name)) throw new Error("this browser can't unpack archives, update it or unzip first");
+    let buf = new Uint8Array(await file.arrayBuffer());
+    const base = file.name.replace(ARCHIVE, "");
+    if (buf[0] === 0x50 && buf[1] === 0x4b) return makeBundle(base, unzip(buf));
+    if (buf[0] === 0x1f && buf[1] === 0x8b) {
+      buf = await unpack(buf, "gzip");
+      if (!isTar(buf)) {
+        const text = textFrom(buf.subarray(0, MAX_TEXT + 1), buf.length);
+        if (text == null) throw new Error("only text files and archives of them can be attached");
+        return { kind: "text", name: file.name.replace(/\.gz$/i, ""), type: "text/plain", size: buf.length, data: text };
+      }
+    }
+    return makeBundle(base, untar(buf));
+  }
+  // Folders picked with 🗂 (files carry webkitRelativePath); one bundle per top folder.
+  async function addFolderFiles(files) {
+    const groups = new Map();
+    for (const f of files) {
+      const rel = f.webkitRelativePath || f.name, top = rel.split("/")[0];
+      if (!groups.has(top)) groups.set(top, []);
+      groups.get(top).push(fileEntry(f, rel.split("/").slice(1).join("/") || f.name));
+    }
+    const problems = [];
+    for (const [name, entries] of groups) { const err = await addBundle(name, () => makeBundle(name, entries)); if (err) problems.push(err); }
+    if (problems.length) alert("Couldn't attach:\n\n" + problems.join("\n"));
+  }
+  // Folders dropped onto the page come in as FileSystemEntry trees.
+  async function walk(dir, path, out, counts) {
+    const reader = dir.createReader();
+    for (;;) {
+      const batch = await new Promise((ok, fail) => reader.readEntries(ok, fail));
+      if (!batch.length) break;
+      for (const e of batch) {
+        if (e.isFile) { const f = await new Promise((ok, fail) => e.file(ok, fail)); out.push(fileEntry(f, path + f.name)); }
+        else if (e.isDirectory) { if (SKIP_DIR.test(e.name)) counts.skipped++; else await walk(e, path + e.name + "/", out, counts); }
+      }
+    }
+  }
+  async function addBundle(name, build) {
+    const p = { kind: "bundle", name, files: [], size: 0, loading: true };
+    pending.push(p); renderPending();
+    try { Object.assign(p, await build()); delete p.loading; return null; }
+    catch (e) { pending = pending.filter((q) => q !== p); return `${name}: ${e.message}`; }
+    finally { renderPending(); }
   }
   async function addFiles(files) {
     const problems = [];
     for (const file of files) {
       const name = file.name || (file.type.startsWith("image/") ? "pasted-image." + (file.type.split("/")[1] || "png") : "pasted-file");
       const isImage = file.type.startsWith("image/") && file.type !== "image/svg+xml";
-      const p = { kind: isImage ? "image" : "text", name, type: file.type, size: file.size, data: "", loading: true };
+      const isArchive = ARCHIVE.test(name) || /zip|x-tar|gzip/.test(file.type);
+      const p = { kind: isImage ? "image" : isArchive ? "bundle" : "text", name, type: file.type, size: file.size, data: "", files: [], loading: true };
       pending.push(p); renderPending();
       try {
-        if (isImage) {
+        if (isArchive) {
+          if (file.size > 200 * 1024 * 1024) throw new Error("archives over 200 MB are too big to unpack here");
+          const r = await readArchive(file);
+          delete p.files; delete p.data;
+          Object.assign(p, r);
+        } else if (isImage) {
           if (file.size > MAX_IMAGE) throw new Error("it's over " + fmtSize(MAX_IMAGE));
           Object.assign(p, await readImage(file));
         } else {
@@ -834,6 +1007,7 @@
           p.data = text; p.type = file.type || "text/plain";
         }
         delete p.loading;
+        if (p.kind !== "bundle") delete p.files;
       } catch (e) {
         pending = pending.filter((q) => q !== p);
         problems.push(`${name}: ${e.message === "decode" ? "this browser can't open that image format" : e.message}`);
@@ -845,6 +1019,9 @@
   }
   $("attach").onclick = () => $("fileInput").click();
   $("fileInput").onchange = (e) => { addFiles([...e.target.files]); e.target.value = ""; };
+  $("attachDir").onclick = () => $("dirInput").click();
+  $("dirInput").onchange = (e) => { const files = [...e.target.files]; e.target.value = ""; if (files.length) addFolderFiles(files); };
+  if (!("webkitdirectory" in document.createElement("input")) || /iPhone|iPad|Android/i.test(navigator.userAgent)) $("attachDir").hidden = true;
   $("input").addEventListener("paste", (e) => {
     const files = [...(e.clipboardData?.files || [])];
     if (!files.length) return;
@@ -861,7 +1038,23 @@
     main.addEventListener("drop", (e) => {
       if (!hasFiles(e)) return;
       e.preventDefault(); depth = 0; box.classList.remove("drop");
-      addFiles([...e.dataTransfer.files]);
+      // Grab entries now: the DataTransfer is emptied once this handler returns.
+      const items = [...(e.dataTransfer.items || [])].map((it) => ({ entry: it.webkitGetAsEntry?.(), file: it.getAsFile?.() }));
+      const dirs = items.filter((it) => it.entry?.isDirectory).map((it) => it.entry);
+      const files = items.some((it) => it.entry) ? items.filter((it) => !it.entry?.isDirectory && it.file).map((it) => it.file) : [...e.dataTransfer.files];
+      (async () => {
+        const problems = [];
+        for (const dir of dirs) {
+          const err = await addBundle(dir.name, async () => {
+            const entries = [], counts = { skipped: 0 };
+            await walk(dir, "", entries, counts);
+            return makeBundle(dir.name, entries, counts.skipped);
+          });
+          if (err) problems.push(err);
+        }
+        if (problems.length) alert("Couldn't attach:\n\n" + problems.join("\n"));
+        if (files.length) addFiles(files);
+      })();
     });
   }
 
