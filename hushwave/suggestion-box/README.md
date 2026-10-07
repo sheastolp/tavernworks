@@ -120,15 +120,26 @@ Environment variables, set with `Environment=` lines in the service file:
 ## Updating
 
 To pick up a newer `server.mjs` (for example, the sandbox storage), download it
-again and restart:
+again and restart. Set up as above (a user service):
 
 ```sh
 curl -fsSL https://tavernworks.dev/hushwave/suggestion-box/server.mjs -o ~/suggestion-box/server.mjs
 systemctl --user restart suggestion-box
 ```
 
+If it runs as a system service instead (`systemctl status suggestion-box`
+works without `--user`), this finds the file the service runs, swaps it and
+restarts:
+
+```sh
+F=$(systemctl show -p ExecStart --value suggestion-box | grep -o '/[^ ;]*server\.mjs' | head -1)
+curl -fsSL https://tavernworks.dev/hushwave/suggestion-box/server.mjs -o /tmp/server.mjs \
+  && sudo cp /tmp/server.mjs "$F" && sudo systemctl restart suggestion-box \
+  && sudo journalctl -u suggestion-box -n 3 --no-pager
+```
+
 ## Troubleshooting
 
-- **Log:** `journalctl --user -u suggestion-box`
+- **Log:** `journalctl --user -u suggestion-box` (system service: `sudo journalctl -u suggestion-box`)
 - **"Too many tries":** five wrong passwords lock logins from that address for 15 minutes.
 - **Spam:** each address can send five suggestions per 10 minutes, and a hidden form field catches simple bots.
