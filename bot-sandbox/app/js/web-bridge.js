@@ -110,27 +110,44 @@
     return data;
   }
 
+  // A project's env vars ("env-<projectId>") fall back to this browser when
+  // the server is an older version that only stores the github and valtown
+  // tokens.
+  const isEnvName = (name) => name.startsWith('env-');
+
   function readToken(name) {
-    return cloud.signedIn ? cloud.secrets[name] || null : readLocalToken(name);
+    if (!cloud.signedIn) return readLocalToken(name);
+    return cloud.secrets[name] || (isEnvName(name) ? readLocalToken(name) : null);
+  }
+
+  function writeLocalToken(name, token) {
+    try {
+      if (token) localStorage.setItem(STORE.token(name), token);
+      else localStorage.removeItem(STORE.token(name));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async function writeToken(name, token) {
     if (!cloud.signedIn) {
-      try {
-        if (token) localStorage.setItem(STORE.token(name), token);
-        else localStorage.removeItem(STORE.token(name));
-        return { ok: true, encrypted: false };
-      } catch {
-        return { ok: false };
-      }
+      return writeLocalToken(name, token) ? { ok: true, encrypted: false } : { ok: false, error: 'This browser blocked saving.' };
     }
     try {
       await api('PUT', '/sandbox/secrets/' + name, { token: token || '' });
       if (token) cloud.secrets[name] = token;
       else delete cloud.secrets[name];
+      if (isEnvName(name)) writeLocalToken(name, ''); // the account copy wins from now on
       return { ok: true, encrypted: true, account: true };
-    } catch {
-      return { ok: false };
+    } catch (err) {
+      if (isEnvName(name) && err.status === 404) {
+        delete cloud.secrets[name];
+        return writeLocalToken(name, token)
+          ? { ok: true, encrypted: false, browserOnly: true }
+          : { ok: false, error: 'This browser blocked saving.' };
+      }
+      return { ok: false, error: err.message };
     }
   }
 
@@ -300,13 +317,27 @@
         if (m) envNames.push(m[1]);
       }
     } catch { /* blocked */ }
-    for (const name of ['github', 'valtown', ...envNames]) {
+    for (const name of ['github', 'valtown']) {
       const token = readLocalToken(name);
       if (token && !cloud.secrets[name]) {
         await api('PUT', '/sandbox/secrets/' + name, { token });
         cloud.secrets[name] = token;
       }
       removeLocal(STORE.token(name));
+    }
+    // Env vars move up too when the server can hold them; an older server
+    // can't, so they stay in this browser instead of failing the sign-in.
+    for (const name of envNames) {
+      const token = readLocalToken(name);
+      if (cloud.secrets[name] || !token) {
+        removeLocal(STORE.token(name));
+        continue;
+      }
+      try {
+        await api('PUT', '/sandbox/secrets/' + name, { token });
+        cloud.secrets[name] = token;
+        removeLocal(STORE.token(name));
+      } catch { /* keep the browser copy */ }
     }
     removeLocal(STORE.projects);
     removeLocal(STORE.prefs);
