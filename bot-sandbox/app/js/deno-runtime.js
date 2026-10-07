@@ -49,7 +49,61 @@
   const FILE_TOKEN = (i) => `"__tbs_file_${i}__"`;
   const SQLITE_TOKEN = '"__tbs_sqlite__"';
 
-  const throwModule = (message) => `throw new Error(${JSON.stringify(message)});\n`;
+  // A file that can't load becomes a module that throws its reason. It still
+  // declares the file's exports, so files importing from it fail with that
+  // reason instead of "does not provide an export named ...".
+  const throwModule = (message, exports) => {
+    let code = `throw new Error(${JSON.stringify(message)});\n`;
+    if (exports) {
+      const names = [...exports.names].filter((n) => n !== 'default' && /^[A-Za-z_$][\w$]*$/.test(n));
+      if (names.length) code += `export let ${names.join(', ')};\n`;
+      if (exports.names.has('default')) code += 'export default undefined;\n';
+    }
+    return code;
+  };
+
+  // Browser stand-ins for the Node built-ins small bots lean on.
+  const NODE_SHIMS = {
+    // One store at a time, held until the callback (and its promise) is done.
+    // Enough for the sandbox, which handles one chat message at a time.
+    async_hooks: `
+      export class AsyncLocalStorage {
+        #store; #on = true;
+        getStore() { return this.#on ? this.#store : undefined; }
+        enterWith(store) { this.#store = store; }
+        disable() { this.#on = false; this.#store = undefined; }
+        exit(fn, ...args) { return this.run(undefined, fn, ...args); }
+        run(store, fn, ...args) {
+          const prev = this.#store;
+          this.#store = store;
+          this.#on = true;
+          let result;
+          try { result = fn(...args); } catch (err) { this.#store = prev; throw err; }
+          if (result && typeof result.then === 'function') {
+            return Promise.resolve(result).finally(() => { this.#store = prev; });
+          }
+          this.#store = prev;
+          return result;
+        }
+        static bind(fn) { return fn; }
+        static snapshot() { return (fn, ...args) => fn(...args); }
+      }
+      export class AsyncResource {
+        constructor(type) { this.type = type; }
+        runInAsyncScope(fn, thisArg, ...args) { return fn.apply(thisArg, args); }
+        bind(fn) { return fn.bind(this); }
+        emitDestroy() { return this; }
+        asyncId() { return 0; }
+        triggerAsyncId() { return 0; }
+        static bind(fn) { return fn; }
+      }
+      export const executionAsyncId = () => 0;
+      export const triggerAsyncId = () => 0;
+      export const executionAsyncResource = () => ({});
+      export const createHook = () => ({ enable() { return this; }, disable() { return this; } });
+      export default { AsyncLocalStorage, AsyncResource, executionAsyncId, triggerAsyncId, executionAsyncResource, createHook };
+    `,
+  };
 
   function normalizePath(p) {
     const out = [];
@@ -102,6 +156,8 @@
     if (spec.startsWith('npm:')) return { url: 'https://esm.sh/' + spec.slice(4).replace(/^\/+/, '') };
     if (spec.startsWith('jsr:')) return { url: 'https://esm.sh/jsr/' + spec.slice(4).replace(/^\/+/, '') };
     if (spec.startsWith('node:')) {
+      const shim = NODE_SHIMS[spec.slice(5)];
+      if (shim) return { url: 'data:text/javascript,' + encodeURIComponent(shim) };
       return { error: `"${spec}" (imported from ${fromName}) is a Node built-in, which the browser doesn't have. Deno mode in the desktop app supports it.` };
     }
     return { url: 'https://esm.sh/' + spec };
@@ -122,6 +178,46 @@
     return found.map((n) => ({ start: n.getStart(sf), end: n.getEnd(), text: n.text }));
   }
 
+  // The names a file exports, read from its source, plus the files its
+  // `export * from` lines pull names in from.
+  function exportInfo(ts, source, name) {
+    const names = new Set();
+    const stars = [];
+    let sf;
+    try {
+      sf = ts.createSourceFile(name, source, ts.ScriptTarget.Latest, true, /\.[jt]sx$/i.test(name) ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+    } catch {
+      return { names, stars };
+    }
+    const isExported = (node) => (ts.getCombinedModifierFlags ? ts.getCombinedModifierFlags(node) : 0) & ts.ModifierFlags.Export;
+    const isDefault = (node) => (ts.getCombinedModifierFlags ? ts.getCombinedModifierFlags(node) : 0) & ts.ModifierFlags.Default;
+    const bindingNames = (b) => {
+      if (ts.isIdentifier(b)) names.add(b.text);
+      else b.elements.forEach((e) => { if (!ts.isOmittedExpression(e)) bindingNames(e.name); });
+    };
+    for (const st of sf.statements) {
+      if (ts.isExportAssignment(st)) {
+        if (!st.isExportEquals) names.add('default');
+      } else if (ts.isExportDeclaration(st)) {
+        if (st.isTypeOnly) continue;
+        if (!st.exportClause) {
+          if (st.moduleSpecifier && ts.isStringLiteral(st.moduleSpecifier)) stars.push(st.moduleSpecifier.text);
+        } else if (ts.isNamespaceExport(st.exportClause)) {
+          names.add(st.exportClause.name.text);
+        } else {
+          st.exportClause.elements.forEach((e) => { if (!e.isTypeOnly) names.add(e.name.text); });
+        }
+      } else if (ts.isVariableStatement(st) && isExported(st)) {
+        if (st.modifiers && st.modifiers.some((m) => m.kind === ts.SyntaxKind.DeclareKeyword)) continue;
+        st.declarationList.declarations.forEach((d) => bindingNames(d.name));
+      } else if ((ts.isFunctionDeclaration(st) || ts.isClassDeclaration(st) || ts.isEnumDeclaration(st)) && isExported(st)) {
+        if (isDefault(st)) names.add('default');
+        else if (st.name) names.add(st.name.text);
+      }
+    }
+    return { names, stars };
+  }
+
   // files: the code files to run, in project order. allFiles: every file in
   // the project (JSON files can be imported, and Deno.readTextFile sees all).
   function prepareModules(ts, files, allFiles) {
@@ -137,6 +233,22 @@
       if (/\.json$/i.test(f.name) && !fileIndex.has(normalizePath(f.name))) add({ name: f.name, kind: 'json', code: f.content, deps: [] });
     });
 
+    // Every file's export names, with `export * from` another project file
+    // followed, so a file that fails can still declare them.
+    modules.forEach((m) => { if (m.kind === 'js') m.exports = exportInfo(ts, m.source, m.name); });
+    const allExports = (i, seen = new Set()) => {
+      const m = modules[i];
+      if (!m.exports || seen.has(i)) return new Set();
+      seen.add(i);
+      const names = new Set(m.exports.names);
+      m.exports.stars.forEach((spec) => {
+        const r = resolveSpecifier(spec, m.name, fileIndex, importMap, false);
+        if (r.file !== undefined) allExports(r.file, seen).forEach((n) => { if (n !== 'default') names.add(n); });
+      });
+      return names;
+    };
+    modules.forEach((m, i) => { if (m.exports) m.exports = { names: allExports(i) }; });
+
     modules.forEach((m) => {
       if (m.kind !== 'js') return;
       const out = ts.transpileModule(m.source, {
@@ -151,7 +263,7 @@
       });
       if (out.diagnostics && out.diagnostics.length) {
         const messages = out.diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, ' ')).join('; ');
-        m.code = throwModule(`TypeScript error: ${messages}`);
+        m.code = throwModule(`TypeScript error in ${m.name}: ${messages}`, m.exports);
         return;
       }
       let code = out.outputText;
@@ -160,7 +272,7 @@
         const s = specs[i];
         const r = resolveSpecifier(s.text, m.name, fileIndex, importMap, false);
         if (r.error) {
-          m.code = throwModule(r.error);
+          m.code = throwModule(r.error, m.exports);
           m.deps = [];
           return;
         }
@@ -198,7 +310,7 @@
     modules.forEach((_, i) => { if (!state[i]) findCycles(i); });
     cyclic.forEach((i) => {
       const names = [...cyclic].map((n) => modules[n].name).join(', ');
-      modules[i].code = throwModule(`Circular imports between ${names}. The browser can't load project files that import each other in a loop; Deno mode in the desktop app can.`);
+      modules[i].code = throwModule(`Circular imports between ${names}. The browser can't load project files that import each other in a loop; Deno mode in the desktop app can.`, modules[i].exports);
       modules[i].deps = [];
     });
 
