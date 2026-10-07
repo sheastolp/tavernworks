@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Hushwave suggestion box: a tiny server that keeps suggestions on this
 // machine, in one JSON file. Anyone can drop a suggestion in; reading them
-// takes the one admin password. It also keeps the homepage's tip jar links,
+// takes the admin login: the admin password, or a Google account linked to
+// it. It also keeps the homepage's tip jar links,
 // which anyone can read and only the admin can change. And it stores
 // TwitchBotSandbox projects (tavernworks.dev/bot-sandbox/app/) for anyone
 // who signs in with Google, each account separately, with automatic backups.
@@ -40,6 +41,9 @@ const AUTO_BACKUP_MS = 3600 * 1000; // at most one automatic backup an hour
 const MAX_BACKUPS = 30; // per account
 const MAX_SANDBOX_BODY = 4 * 1024 * 1024;
 const MAX_USERS = Number(process.env.SANDBOX_MAX_USERS || 500);
+// Google accounts (by verified email) that can open the admin pages without
+// being linked first. Optional; linking with the password works too.
+const ADMIN_EMAILS = (process.env.SUGGEST_ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 
 fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
 fs.mkdirSync(USERS_DIR, { recursive: true, mode: 0o700 });
@@ -63,8 +67,10 @@ if (process.argv[2] === "set-password") {
   if (pw !== again) { console.error("Those didn't match. Nothing changed."); process.exit(1); }
   if (pw.length < 12) { console.error("Too short. Use at least 12 characters."); process.exit(1); }
   const salt = crypto.randomBytes(16).toString("hex");
-  // A new secret also signs out every existing session.
-  writeJson(AUTH_FILE, { salt, hash: hashPassword(pw, salt), secret: crypto.randomBytes(32).toString("hex") });
+  // A new secret also signs out every existing session. Linked Google
+  // accounts stay linked.
+  const googleAdmins = (readJson(AUTH_FILE, {}) || {}).googleAdmins || [];
+  writeJson(AUTH_FILE, { salt, hash: hashPassword(pw, salt), secret: crypto.randomBytes(32).toString("hex"), googleAdmins });
   console.log(`Saved to ${AUTH_FILE}. Restart the server if it's running.`);
   process.exit(0);
 }
@@ -202,6 +208,18 @@ async function verifyGoogleToken(idToken) {
   return claims;
 }
 
+// Admin by Google: a Google account linked with the password once (stored in
+// admin.json as the same hashed id the sandbox uses), or one listed in
+// SUGGEST_ADMIN_EMAILS.
+const isGoogleAdmin = (claims) =>
+  (auth.googleAdmins || []).includes(userIdFor(claims.sub)) ||
+  (claims.email_verified === true && ADMIN_EMAILS.includes(String(claims.email || "").toLowerCase()));
+const linkGoogleAdmin = (claims) => {
+  auth.googleAdmins = [...new Set([...(auth.googleAdmins || []), userIdFor(claims.sub)])];
+  writeJson(AUTH_FILE, auth);
+};
+const passwordOk = (pw) => crypto.timingSafeEqual(Buffer.from(hashPassword(String(pw || ""), auth.salt), "hex"), Buffer.from(auth.hash, "hex"));
+
 // ── sessions: "<expiry>.<hmac>", signed with the secret in admin.json ──
 const sign = (exp) => crypto.createHmac("sha256", auth.secret).update(String(exp)).digest("hex");
 const newToken = () => { const exp = Date.now() + SESSION_MS; return `${exp}.${sign(exp)}`; };
@@ -289,13 +307,29 @@ const server = http.createServer(async (req, res) => {
       return send(res, 201, { ok: true });
     }
 
-    // The one login.
+    // The admin login, with the password.
     if (req.method === "POST" && url.pathname === "/login") {
       if (limited("l:" + ip, 5, 15 * 60 * 1000)) return send(res, 429, { error: "Too many tries. Wait 15 minutes." });
       const b = await readBody(req);
-      const got = Buffer.from(hashPassword(String(b.password || ""), auth.salt), "hex");
-      const want = Buffer.from(auth.hash, "hex");
-      if (!crypto.timingSafeEqual(got, want)) return send(res, 401, { error: "Wrong password." });
+      if (!passwordOk(b.password)) return send(res, 401, { error: "Wrong password." });
+      return send(res, 200, { token: newToken(), expires: Date.now() + SESSION_MS });
+    }
+
+    // The admin login, with Google. A Google account that isn't linked yet
+    // can send the password along once to link it.
+    if (req.method === "POST" && url.pathname === "/login/google") {
+      if (!GOOGLE_CLIENT_ID) return send(res, 503, { error: "Google sign-in isn't set up on the server yet." });
+      if (limited("g:" + ip, 20, 15 * 60 * 1000)) return send(res, 429, { error: "Too many sign-ins. Wait a few minutes." });
+      const b = await readBody(req);
+      let claims;
+      try { claims = await verifyGoogleToken(b.credential); } catch { return send(res, 502, { error: "Couldn't check the sign-in with Google. Try again." }); }
+      if (!claims) return send(res, 401, { error: "Google sign-in didn't check out. Try again." });
+      if (!isGoogleAdmin(claims)) {
+        if (b.password === undefined) return send(res, 403, { error: "That Google account isn't linked to the admin login yet.", needsLink: true });
+        if (limited("l:" + ip, 5, 15 * 60 * 1000)) return send(res, 429, { error: "Too many tries. Wait 15 minutes." });
+        if (!passwordOk(b.password)) return send(res, 401, { error: "Wrong password.", needsLink: true });
+        linkGoogleAdmin(claims);
+      }
       return send(res, 200, { token: newToken(), expires: Date.now() + SESSION_MS });
     }
 
@@ -445,5 +479,6 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`Suggestion box listening on 127.0.0.1:${PORT}, storing in ${DATA_DIR}`);
   console.log(`Allowed sites: ${ORIGINS.join(", ")}`);
-  console.log(GOOGLE_CLIENT_ID ? "Sandbox Google sign-in is on." : "Sandbox Google sign-in is off (no SANDBOX_GOOGLE_CLIENT_ID).");
+  console.log(GOOGLE_CLIENT_ID ? "Google sign-in is on (sandbox and admin)." : "Google sign-in is off (no SANDBOX_GOOGLE_CLIENT_ID).");
+  console.log(`Admin Google accounts: ${(auth.googleAdmins || []).length} linked${ADMIN_EMAILS.length ? `, plus ${ADMIN_EMAILS.length} by email` : ""}.`);
 });

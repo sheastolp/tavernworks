@@ -69,18 +69,23 @@
     <h2>Things you send to us</h2>
     <h3>Hushwave suggestion box</h3>
     <p>When you drop in a suggestion we keep the name you type (or "Anonymous"), the type of suggestion, your message and the time it was sent. Only the site admin can read them.</p>
-    <h3>TwitchBotSandbox Google sign-in</h3>
-    <p>If you sign in with Google, we receive your Google account ID, name, email address and profile picture link from Google. We store them with your projects, editor layout and any GitHub or Val Town tokens you save (tokens are encrypted). Automatic backups are made about once an hour while you work, and the newest 30 are kept. We don't ask for, and can't see, anything else in your Google account: no Gmail, Drive, contacts or password. We use this only to keep your projects in your account and to show you who you're signed in as. The app's <b>Delete my data</b> button (under <b>Backups…</b>) removes your account and all of its backups right away, and you can also remove Tavernworks' access in your Google account settings.</p>
+    <h3>Signing in with Google</h3>
+    <p>Tavernworks uses Google sign-in in two places: TwitchBotSandbox, which anyone can use, and the admin pages for the tip jar and the suggestion box, which only the site admin can open. Sign-ins with Twitch, such as connecting The Wandering Clerk or opening its Back Room, stay with Twitch and are covered under <b>Twitch bots</b> below.</p>
+    <p>In every case, Google tells us only your account ID, name, email address and profile picture link. We don't ask for, and can't see, anything else in your Google account: no Gmail, Drive, contacts or password.</p>
+    <h3>TwitchBotSandbox</h3>
+    <p>If you sign in with Google, we receive your Google account ID, name, email address and profile picture link from Google. We store them with your projects, editor layout and any GitHub or Val Town tokens you save (tokens are encrypted). Automatic backups are made about once an hour while you work, and the newest 30 are kept. We use this only to keep your projects in your account and to show you who you're signed in as. The app's <b>Delete my data</b> button (under <b>Backups…</b>) removes your account and all of its backups right away, and you can also remove Tavernworks' access in your Google account settings.</p>
+    <h3>Admin pages</h3>
+    <p>Signing in with Google on the tip jar or suggestion box admin pages only works for an account the admin has linked. For a linked account we keep a one-way hash of its Google account ID, so we can recognize it next time, and nothing else. If an account that isn't linked tries to sign in, nothing about it is stored.</p>
     <h3>Twitch bots</h3>
     <p>GuildScribe, UndercoverBurn and The Wandering Clerk work in Twitch chat (and GuildScribe in Discord). To do their job they read chat messages in channels where they're enabled and store what they need: things like usernames, character sheets, game progress and channel settings. When a streamer connects a bot, Twitch asks them to approve the access it needs, and the bot keeps the token Twitch issues so it can keep working. GuildScribe lists the channels that run it on the homepage; a channel can leave that list with <code>!dndbot showcase off</code>.</p>
     <h3>Server logs and rate limits</h3>
-    <p>Like any website, the servers that handle requests see your IP address and browser details. We use IP addresses briefly, in memory, to rate-limit forms and sign-ins against spam, and don't keep them with your suggestions or projects.</p>
+    <p>Like any website, the servers that handle requests see your IP address and browser details. We use IP addresses briefly, in memory, to rate-limit forms and sign-ins against spam and password guessing, and don't keep them with your suggestions or projects.</p>
 
     <h2>Where it's stored</h2>
     <p>Suggestions, tip jar links and TwitchBotSandbox accounts are kept on a home server run by Tavernworks. The bots run on <a href="https://www.val.town/" target="_blank" rel="noopener">Val Town</a>, and some subdomains are routed through <a href="https://www.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a>.</p>
 
     <h2>Third parties</h2>
-    <p>Pages load fonts from Google Fonts, and the TwitchBotSandbox sign-in button loads from Google. Links and sign-ins with Twitch, Discord, Google, GitHub and the tip jar platforms take you to those services, and their own privacy policies apply there. We never sell or share your data with anyone for advertising.</p>
+    <p>Pages load fonts from Google Fonts, and the Google sign-in button on TwitchBotSandbox and the admin pages loads from Google. Links and sign-ins with Twitch, Discord, Google, GitHub and the tip jar platforms take you to those services, and their own privacy policies apply there. We never sell or share your data with anyone for advertising.</p>
 
     <h2>Cookies</h2>
     <p>We don't set cookies of our own. Google's sign-in button may set its own cookies when you use it. Browser storage is used only for the features above, like keeping you signed in or saving your work.</p>
@@ -89,7 +94,7 @@
     <p>Tavernworks isn't directed at children under 13, and we don't knowingly collect their personal information. If you think a child has sent us information, let us know and we'll delete it.</p>
 
     <h2>Your choices</h2>
-    <p>You can ask to see, correct or delete anything we hold about you. For TwitchBotSandbox, use <b>Delete my data</b> in the app. For anything else, including suggestions and bot data, ask on the <a href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">Tavernworks Discord</a> and we'll take care of it. Removing a bot from your Twitch channel or revoking its access in your Twitch connection settings stops it from collecting anything further.</p>
+    <p>You can ask to see, correct or delete anything we hold about you. For TwitchBotSandbox, use <b>Delete my data</b> in the app. You can also remove Tavernworks' access to your Google account at any time in your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google account settings</a>. For anything else, including suggestions and bot data, ask on the <a href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">Tavernworks Discord</a> and we'll take care of it. Removing a bot from your Twitch channel or revoking its access in your Twitch connection settings stops it from collecting anything further.</p>
 
     <h2>Changes</h2>
     <p>If this policy changes, the new version will be posted here with a new date at the top.</p>

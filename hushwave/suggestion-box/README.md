@@ -2,11 +2,12 @@
 
 A small server that keeps Hushwave suggestions on your own machine, in one
 JSON file. Anyone can drop a suggestion in from
-[tavernworks.dev/hushwave](https://tavernworks.dev/hushwave/). Only one
-admin password can read them, at
-[tavernworks.dev/hushwave/suggestions](https://tavernworks.dev/hushwave/suggestions/).
+[tavernworks.dev/hushwave](https://tavernworks.dev/hushwave/). Only the admin
+can read them, at
+[tavernworks.dev/hushwave/suggestions](https://tavernworks.dev/hushwave/suggestions/),
+signing in with Google or the admin password.
 
-The same server and password also hold the homepage tip jar links, edited
+The same server and login also hold the homepage tip jar links, edited
 at [tavernworks.dev/tips](https://tavernworks.dev/tips/). Anyone can read
 those links; only the admin can change them.
 
@@ -34,8 +35,15 @@ curl -fsSL https://tavernworks.dev/hushwave/suggestion-box/server.mjs -o ~/sugge
 node ~/suggestion-box/server.mjs set-password
 ```
 
-This is the one login. Run it again any time to change the password, which
-also signs out every open session.
+This is the admin login. Run it again any time to change the password, which
+also signs out every open session (linked Google accounts stay linked).
+
+To sign in to the admin pages with Google instead, press **Sign in with
+Google** on `/tips/` or `/hushwave/suggestions/`. The first time, the page
+asks for the admin password once to link that Google account; after that,
+Google alone opens them. (Or list the account's email in
+`SUGGEST_ADMIN_EMAILS` to skip linking.) Linked accounts are kept, hashed, in
+`admin.json`; delete its `googleAdmins` list to unlink them all.
 
 Suggestions, tip links, sandbox accounts (`sandbox/users/`) and the password
 hash live in `~/.local/share/hushwave-suggestions/`. `sandbox/secrets.key`
@@ -86,7 +94,7 @@ Put that address in `hushwave/suggest-config.js` on the site:
 window.SUGGEST_API = "https://<machine>.<tailnet>.ts.net:10000";
 ```
 
-## Google sign-in (TwitchBotSandbox)
+## Google sign-in (TwitchBotSandbox and the admin pages)
 
 1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
    create a project, then **Create credentials → OAuth client ID**. If it asks,
@@ -114,7 +122,8 @@ Environment variables, set with `Environment=` lines in the service file:
 | `SUGGEST_PORT` | `8790` | Local port |
 | `SUGGEST_ORIGINS` | `https://tavernworks.dev` | Sites allowed to use it, comma-separated |
 | `SUGGEST_DATA_DIR` | `~/.local/share/hushwave-suggestions` | Where suggestions are stored |
-| `SANDBOX_GOOGLE_CLIENT_ID` | none | Google OAuth Client ID for sandbox sign-in (off without it) |
+| `SANDBOX_GOOGLE_CLIENT_ID` | built in | Google OAuth Client ID for sandbox and admin sign-in |
+| `SUGGEST_ADMIN_EMAILS` | none | Google emails that can open the admin pages without linking, comma-separated |
 | `SANDBOX_MAX_USERS` | `500` | Most sandbox accounts it will create |
 
 ## Updating
