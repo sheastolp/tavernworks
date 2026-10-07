@@ -237,12 +237,16 @@
 
   <div class="divider">THE BOTS</div>
   <div class="grid">
-    <a class="card" href="https://guildscribe.tavernworks.dev/guide">
+    <div class="card expand" role="button" tabindex="0" aria-expanded="false" aria-controls="guildscribe-links">
       <div class="icon">📜</div>
       <h3>GuildScribe</h3>
       <p>The D&amp;D chat bot behind the stream. Dice rolls, saves and skill checks, spell and monster lookups, and full character sheets with HP tracking.</p>
-      <div class="meta"><span class="url">guildscribe.tavernworks.dev</span><span class="pill live">LIVE</span></div>
-    </a>
+      <div class="links" id="guildscribe-links" hidden>
+        <a class="btn sm" href="https://guildscribe.tavernworks.dev/" target="_blank" rel="noopener">🏠 Homepage</a>
+        <a class="btn sm" href="https://guildscribe.tavernworks.dev/guide" target="_blank" rel="noopener">📖 Guide</a>
+      </div>
+      <div class="meta"><span class="url">guildscribe.tavernworks.dev <span class="chev" aria-hidden="true">▾</span></span><span class="pill live">LIVE</span></div>
+    </div>
     <a class="card" href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">
       <div class="icon">🎲</div>
       <h3>GuildScribe for Discord</h3>
@@ -390,7 +394,7 @@
     hush:    { icon: "🌧️", name: "Hushwave",         href: "/hushwave/" },
     burn:    { icon: "🥸", name: "UndercoverBurn",   href: "https://burn.tavernworks.dev/" },
     clerk:   { icon: "🗝️", name: "Wandering Clerk",  href: "/wandering-clerk/" },
-    guildscribe: { icon: "📜", name: "GuildScribe",    href: "https://guildscribe.tavernworks.dev/guide" },
+    guildscribe: { icon: "📜", name: "GuildScribe",    href: "https://guildscribe.tavernworks.dev/" },
     discord: { icon: "🎲", name: "GuildScribe Discord", href: "https://discord.gg/BmdDXCrAzK" },
     journal: { icon: "📖", name: "Journal",          href: "/journal/" },
     sound:   { icon: "🔊", name: "Sound Bytes",      href: "/soundbytes/" },
@@ -488,6 +492,7 @@
     ["home",    "2026-10-07", "Privacy policy and terms cover Google sign-in", "/privacy/"],
     ["guildscribe", "2026-10-07", "Reconnect advice only when it would help", "https://guildscribe.tavernworks.dev/"],
     ["guildscribe", "2026-10-07", "Keeps EventSub subscriptions after a revocation", "https://guildscribe.tavernworks.dev/"],
+    ["guildscribe", "2026-10-07", "Card expands to Homepage and Guide links", "https://guildscribe.tavernworks.dev/"],
   ].map(([lane, date, title, href], i) => ({ lane, date, title, href, i }));
 
   const trail = document.getElementById("trail");
