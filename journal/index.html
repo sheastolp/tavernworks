@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <title>Adventurer's Journal · Tavernworks</title>
-<meta name="description" content="A D&amp;D campaign journal in your browser: projects, numbered notes, attachments and ComfyUI scene art.">
+<meta name="description" content="A D&amp;D campaign journal in your browser: projects, numbered notes, a character sheet with stats and inventory, attachments and ComfyUI scene art.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -188,6 +188,86 @@
   .view-row button.del{margin-left:auto;color:#ffb59a}
   .view-row button.del:hover{border-color:var(--ember)}
 
+  /* Character card above the editor */
+  .hero{flex-shrink:0;display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:12px;padding:9px 12px;transition:.15s}
+  .hero:hover{border-color:var(--gold)}
+  .pfp{flex-shrink:0;width:58px;height:58px;border-radius:50%;border:2px solid var(--gold);background:radial-gradient(circle at 30% 30%,#3b2a1c,#1a120c);display:grid;place-items:center;font-size:26px;overflow:hidden}
+  .pfp img{width:100%;height:100%;object-fit:cover;display:block}
+  .hero .who{min-width:0;flex:0 1 auto;max-width:300px}
+  .hero .nm,.hero .sub,.hero .where{display:block}
+  .hero .nm{font-family:Cinzel,serif;color:var(--gold2);font-size:17px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hero .sub,.hero .where{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hero .where{color:#9c8a74}
+  .hero .chips{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
+  .chip{display:inline-flex;align-items:baseline;gap:4px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:rgba(0,0,0,.25);font-size:12.5px;white-space:nowrap}
+  .chip b{font:600 10.5px Inter,system-ui,sans-serif;letter-spacing:.06em;color:var(--gold)}
+  .chip.hp b{color:#e0806a}
+  .chip.gear{max-width:260px;overflow:hidden;text-overflow:ellipsis;display:inline-block;color:var(--muted)}
+  .hero.blank .sub{font-style:italic}
+
+  /* Character sheet */
+  .sheet{flex:1;min-height:0;display:flex;flex-direction:column}
+  .sheet-body{flex:1;min-height:0;overflow-y:auto;padding:16px}
+  .sheet-grid{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
+  .card.wide{grid-column:1/-1}
+  .card h2{font-family:Cinzel,serif;color:var(--gold);font-size:13px;letter-spacing:.12em;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+  .card h2 small{font:400 12.5px Inter,system-ui,sans-serif;letter-spacing:0;color:var(--muted);margin-left:auto}
+  .sheet label{display:block;font-size:12px;font-weight:600;color:var(--muted)}
+  .sheet input,.sheet textarea{width:100%;margin-top:3px;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:14px;color:var(--text)}
+  .sheet input:focus,.sheet textarea:focus{outline:0;border-color:var(--gold)}
+  .sheet input[type=number]{font-variant-numeric:tabular-nums}
+  .sheet textarea{resize:vertical;min-height:110px;line-height:1.5}
+  .sheet .ghost{padding:6px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg2);font-weight:600;font-size:13px;white-space:nowrap}
+  .sheet .ghost:hover{border-color:var(--gold);color:var(--gold2)}
+  .ident{display:grid;grid-template-columns:auto 1fr;gap:14px}
+  .ident .pic{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .ident .pfp{width:112px;height:112px;font-size:46px;cursor:pointer;padding:0}
+  .ident .pfp:hover{box-shadow:0 0 0 3px rgba(224,168,74,.25)}
+  .ident .pic button.link{background:none;border:0;color:var(--muted);font-size:12px}
+  .ident .pic button.link:hover{color:var(--gold2)}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;align-content:start}
+  .fields .full{grid-column:1/-1}
+  .vitals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px 10px}
+  .vitals .hpbox{grid-column:1/-1;display:flex;align-items:flex-end;gap:8px}
+  .vitals .hpbox label{flex:1}
+  .vitals .hpbox .ghost{padding:6px 11px}
+  .derived{display:flex;flex-direction:column;justify-content:flex-end;font-size:12px;font-weight:600;color:var(--muted)}
+  .derived span{display:block;margin-top:3px;padding:6px 9px;border:1px dashed var(--line);border-radius:8px;font-size:14px;font-weight:400;color:var(--gold2);text-align:center}
+  .abils{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+  .abil{border:1px solid var(--line);border-radius:12px;background:var(--bg2);padding:7px 6px 8px;text-align:center}
+  .abil b{display:block;font:700 11px Inter,system-ui,sans-serif;letter-spacing:.1em;color:var(--gold)}
+  .abil .mod{display:block;font-family:Cinzel,serif;font-size:22px;color:var(--gold2);line-height:1.3}
+  .abil input{text-align:center;padding:3px 2px;font-size:13px;margin-top:2px}
+  .coins{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .coins label{text-align:center}
+  .coins input{text-align:center}
+  .adj{display:flex;gap:8px;margin-top:10px}
+  .adj input{margin:0;flex:1}
+  .card .hint{font-size:12px;color:#7a6650;margin-top:6px}
+  .additem{display:grid;grid-template-columns:1fr 70px 70px auto;gap:8px;margin-bottom:10px}
+  .additem input{margin:0}
+  .items{display:flex;flex-direction:column;gap:6px}
+  .items .row,.items .hd{display:grid;grid-template-columns:34px minmax(0,1fr) 64px 64px minmax(0,1.1fr) 34px;gap:6px;align-items:center;grid-template-areas:"eq name qty wt note del"}
+  .items .hd{font-size:11px;font-weight:700;letter-spacing:.08em;color:#7a6650;padding:0 2px}
+  .items .row{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:5px 6px}
+  .items .row.on{border-color:#6b5230}
+  .items .row input{margin:0;padding:5px 8px;font-size:13.5px}
+  .items .row input[type=number]{text-align:center;padding:5px 4px}
+  .items .eq{grid-area:eq;display:grid;place-items:center}
+  .items .eq input{width:18px;height:18px;accent-color:var(--gold);margin:0}
+  .items .f-name{grid-area:name}.items .f-qty{grid-area:qty}.items .f-wt{grid-area:wt}.items .f-note{grid-area:note}
+  .items .del{grid-area:del;background:none;border:0;color:var(--muted);border-radius:6px;padding:4px}
+  .items .del:hover{color:var(--ember)}
+  .items .none{color:var(--muted);font-style:italic;font-size:13px;padding:6px 2px}
+  .tally{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12.5px;color:var(--muted)}
+  .tally b{color:var(--text);font-weight:600}
+  .tally .over{color:#ff9b7a}
+  .list li.char button.open{display:flex;align-items:center;gap:8px}
+  .list li.char .mini{width:22px;height:22px;border-radius:50%;border:1px solid var(--gold);flex-shrink:0;display:grid;place-items:center;font-size:12px;overflow:hidden;background:#1a120c}
+  .list li.char .mini img{width:100%;height:100%;object-fit:cover}
+  .list li.char span.t{overflow:hidden;text-overflow:ellipsis}
+
   .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--card);border:1px solid var(--gold);color:var(--text);padding:9px 16px;border-radius:10px;font-size:14px;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:calc(100vw - 32px)}
 
   .scrim{display:none}
@@ -207,6 +287,24 @@
     .gutter{width:42px}
     .gutter .in{padding-right:7px}
     #text,.mirror{padding-left:12px;padding-right:12px}
+    .hero{gap:10px;padding:7px 10px;flex-wrap:wrap}
+    .hero .pfp{width:44px;height:44px;font-size:20px}
+    .hero .who{flex:1;max-width:none}
+    .hero .chips{flex-basis:100%;justify-content:flex-start}
+    .hero .chip.abil,.hero .chip.gear{display:none}
+    .sheet-body{padding:12px}
+    .sheet-grid{grid-template-columns:1fr}
+    .ident{grid-template-columns:1fr}
+    .vitals{grid-template-columns:repeat(2,1fr)}
+    .abils{grid-template-columns:repeat(3,1fr)}
+    .additem{grid-template-columns:1fr 60px auto}
+    .additem #iWt{display:none}
+    .items .hd{display:none}
+    .items .row{grid-template-columns:30px minmax(0,1fr) 56px 30px;grid-template-areas:"eq name qty del" ". note wt ."}
+  }
+  @media (max-width:420px){
+    .fields{grid-template-columns:1fr}
+    .coins{grid-template-columns:repeat(3,1fr)}
   }
 </style>
 </head>
@@ -217,6 +315,8 @@
     <div class="lists">
       <div class="sec">PROJECTS <button id="addProject" title="Start a new project">＋ New</button></div>
       <ul class="list" id="projects"></ul>
+      <div class="sec" id="charHead">CHARACTER</div>
+      <ul class="list" id="charNav"></ul>
       <div class="sec" id="entriesHead">ENTRIES <button id="addEntry" title="Add an entry to this project">＋ New</button></div>
       <ol class="list numbered" id="entries"></ol>
     </div>
@@ -237,7 +337,7 @@
     <div class="empty" id="empty" hidden>
       <div class="big">📖</div>
       <h1>No projects yet</h1>
-      <p>Start a project for each campaign, one-shot or character. Every project holds numbered entries, attachments and scene art.</p>
+      <p>Start a project for each campaign, one-shot or character. Every project holds numbered entries, a character sheet, attachments and scene art.</p>
       <div class="cta">
         <button class="primary" id="emptyNew">＋ New project</button>
         <button id="emptyImport">⬆ Import a backup</button>
@@ -274,6 +374,7 @@
     </div>
 
     <div class="work" id="work" hidden>
+      <button class="hero" id="hero" title="Open the character sheet: stats, gold and inventory"></button>
       <div class="editor" id="editor">
         <div class="gutter" id="gutter"><div class="in" id="gutterIn"></div></div>
         <textarea id="text" spellcheck="true" placeholder="The party arrives at the Yawning Portal…&#10;&#10;Write here. Drop or paste images to attach them. # starts a heading, - a list, &gt; a quote, **bold**, *italic*."></textarea>
@@ -286,6 +387,81 @@
         <div class="strip" id="strip"></div>
       </div>
     </div>
+
+    <section class="sheet" id="sheet" hidden>
+      <div class="bar">
+        <button class="menu" id="menu2" aria-label="Show projects">☰</button>
+        <span class="crumb" id="sheetCrumb"></span>
+        <span class="title" style="cursor:default;border-color:transparent;background:none">🛡 Character sheet</span>
+        <div class="tools"><button class="tb" id="sheetBack" title="Back to the open entry">📖 <span class="lbl">Back to journal</span></button></div>
+        <span class="saved" id="sheetSaved"></span>
+      </div>
+      <div class="sheet-body">
+        <div class="sheet-grid" id="sheetForm">
+          <div class="card">
+            <h2>WHO</h2>
+            <div class="ident">
+              <div class="pic">
+                <button class="pfp" id="pfpBtn" title="Choose a portrait image"></button>
+                <button class="link" id="pfpPick">Choose portrait</button>
+                <button class="link" id="pfpClear" hidden>Remove</button>
+              </div>
+              <div class="fields">
+                <label class="full">Name <input data-k="name" placeholder="Character name" autocomplete="off"></label>
+                <label>Race &amp; class <input data-k="cls" placeholder="Half-elf Ranger" autocomplete="off"></label>
+                <label>Level <input data-k="level" type="number" min="1" max="30"></label>
+                <label class="full">Campaign <input data-k="campaign" id="campaignIn" autocomplete="off"></label>
+                <label class="full">Location <input data-k="location" placeholder="Where the party is now" autocomplete="off"></label>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h2>VITALS</h2>
+            <div class="vitals">
+              <div class="hpbox">
+                <button class="ghost" data-hp="-1" title="Take 1 damage">−</button>
+                <label>Hit points <input data-k="hp" type="number"></label>
+                <label>Max HP <input data-k="hpMax" type="number" min="0"></label>
+                <label>Temp HP <input data-k="hpTemp" type="number" min="0"></label>
+                <button class="ghost" data-hp="1" title="Heal 1">＋</button>
+              </div>
+              <label>Armor class <input data-k="ac" type="number" min="0"></label>
+              <label>Speed (ft) <input data-k="speed" type="number" min="0" step="5"></label>
+              <div class="derived">Initiative <span id="dInit"></span></div>
+              <div class="derived">Proficiency <span id="dProf"></span></div>
+            </div>
+          </div>
+          <div class="card wide">
+            <h2>ABILITY SCORES</h2>
+            <div class="abils" id="abils"></div>
+          </div>
+          <div class="card wide">
+            <h2>PURSE <small id="purseTotal"></small></h2>
+            <div class="coins" id="coins"></div>
+            <div class="adj">
+              <input id="coinAdj" placeholder="Spend or earn: -3 sp, +25 gp" autocomplete="off">
+              <button class="ghost" id="coinApply">Apply</button>
+            </div>
+            <p class="hint">Spending breaks larger coins into change when you need it.</p>
+          </div>
+          <div class="card wide">
+            <h2>INVENTORY <small>Tick ⚔ for gear you have equipped</small></h2>
+            <div class="additem">
+              <input id="iName" placeholder="Add an item: Rope, hempen (50 ft)" autocomplete="off">
+              <input id="iQty" type="number" min="0" value="1" title="Quantity">
+              <input id="iWt" type="number" min="0" step="0.1" placeholder="lb" title="Weight of one, in pounds">
+              <button class="ghost" id="iAdd">＋ Add</button>
+            </div>
+            <div class="items" id="items"></div>
+            <div class="tally" id="tally"></div>
+          </div>
+          <div class="card wide">
+            <h2>FEATURES &amp; NOTES</h2>
+            <textarea data-k="notes" placeholder="Proficiencies, spells, features, bonds, quests…"></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <section class="forge" id="forge" hidden>
       <button class="forge-head" id="forgeToggle" aria-expanded="false" aria-controls="forgeBody">
@@ -335,6 +511,7 @@
 <input type="file" id="uploadInput" accept=".txt,.md,.markdown,.text,.json,text/plain,text/markdown,application/json" multiple hidden>
 <input type="file" id="attachInput" multiple hidden>
 <input type="file" id="importInput" accept=".json,application/json" hidden>
+<input type="file" id="pfpInput" accept="image/*" hidden>
 
 <dialog id="viewer">
   <div class="view-img" id="viewImg"></div>
@@ -342,6 +519,7 @@
   <div class="view-row">
     <button id="vInsert">Insert into note</button>
     <button id="vReuse" hidden>Reuse prompt</button>
+    <button id="vPortrait" hidden>Set as portrait</button>
     <button id="vDownload">Download</button>
     <button id="vClose">Close</button>
     <button class="del" id="vDelete">Delete</button>
@@ -425,6 +603,7 @@
   let projects = [], entries = [], files = [];
   let project = null, entry = null;
   let dirty = false, saveTimer = 0, previewing = false;
+  let view = "entry"; // "entry" or "sheet" (the character sheet)
   const urls = new Map();
   const urlFor = (f) => { if (!urls.has(f.id)) urls.set(f.id, URL.createObjectURL(f.blob)); return urls.get(f.id); };
   const dropUrls = () => { urls.forEach((u) => URL.revokeObjectURL(u)); urls.clear(); };
@@ -441,6 +620,7 @@
       `<button class="x del" title="Delete project">🗑</button></li>`).join("")
       : '<li class="none">No projects yet</li>';
     $("empty").hidden = !!projects.length;
+    renderCharNav();
     $("entriesHead").hidden = $("entries").hidden = !project;
   }
   async function newProject(name) {
@@ -480,10 +660,10 @@
     renderProjects();
     toast(`Deleted "${p.name}"`);
   }
-  async function openProject(id, entryId) {
+  async function openProject(id, entryId, sheet) {
     await flush();
     project = projects.find((p) => p.id === id) || null;
-    entry = null;
+    entry = null; view = "entry";
     if (!project) { showMain(); renderProjects(); return; }
     store.set("journal.lastProject", project.id);
     entries = (await DB.all("entries", "projectId", project.id)).sort((a, b) => a.created - b.created);
@@ -491,6 +671,7 @@
     const target = entries.find((e) => e.id === entryId) || entries.find((e) => e.id === project.lastEntry) || entries[entries.length - 1];
     if (target) await openEntry(target.id);
     else { renderEntries(); showMain(); }
+    if (sheet) await openSheet();
   }
   function touchProject() {
     if (!project) return;
@@ -501,7 +682,7 @@
   // ---------- Entries ----------
   function renderEntries() {
     $("entries").innerHTML = entries.length ? entries.map((e) =>
-      `<li class="${entry && e.id === entry.id ? "on" : ""}" data-id="${e.id}">` +
+      `<li class="${entry && e.id === entry.id && view === "entry" ? "on" : ""}" data-id="${e.id}">` +
       `<button class="open" title="${esc(e.title)}">${esc(e.title || "Untitled entry")}</button>` +
       `<button class="x del" title="Delete entry">🗑</button></li>`).join("")
       : '<li class="none">No entries yet</li>';
@@ -537,6 +718,7 @@
   async function openEntry(id) {
     await flush();
     entry = entries.find((e) => e.id === id) || null;
+    view = "entry";
     dropUrls();
     files = entry ? (await DB.all("files", "entryId", entry.id)).sort((a, b) => a.created - b.created) : [];
     if (entry) {
@@ -548,7 +730,7 @@
       ta.setSelectionRange(0, 0);
       history.replaceState(null, "", `#p=${project.id}&e=${entry.id}`);
     }
-    renderEntries(); renderCrumb(); renderFiles(); showMain();
+    renderEntries(); renderCharNav(); renderCrumb(); renderFiles(); showMain();
     setSaved(entry ? "Saved " + new Date(entry.updated).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "");
     gutter.refresh();
     if (previewing) renderPreview();
@@ -557,15 +739,17 @@
   function renderCrumb() {
     $("crumb").innerHTML = project ? `<b>${esc(project.name)}</b> /` : "";
     $("entryNum").textContent = entry ? "#" + (entries.indexOf(entry) + 1) : "";
-    document.title = (entry ? (entry.title || "Untitled") + " · " : "") + (project ? project.name + " · " : "") + "Adventurer's Journal";
+    if (view === "entry") document.title = (entry ? (entry.title || "Untitled") + " · " : "") + (project ? project.name + " · " : "") + "Adventurer's Journal";
+    renderHero();
   }
   function showMain() {
-    const hasEntry = !!entry;
+    const onSheet = !!project && view === "sheet", hasEntry = !!entry && !onSheet;
     $("bar").hidden = $("work").hidden = $("forge").hidden = !hasEntry;
-    $("noEntries").hidden = !project || hasEntry;
+    $("sheet").hidden = !onSheet;
+    $("noEntries").hidden = !project || !!entry || onSheet;
     $("empty").hidden = !!projects.length;
     // Keep the menu reachable on phones when there's no bar.
-    if (!hasEntry && window.matchMedia("(max-width:820px)").matches && projects.length) $("app").classList.add("open");
+    if (!hasEntry && !onSheet && window.matchMedia("(max-width:820px)").matches && projects.length) $("app").classList.add("open");
   }
 
   // ---------- Saving ----------
@@ -577,6 +761,7 @@
     saveTimer = setTimeout(flush, 600);
   }
   async function flush() {
+    await flushSheet();
     clearTimeout(saveTimer);
     if (!dirty || !entry) return;
     dirty = false;
@@ -602,7 +787,7 @@
   titleIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); ta.focus(); } });
   document.addEventListener("visibilitychange", () => { if (document.hidden) flush(); });
   window.addEventListener("pagehide", () => { flush(); });
-  window.addEventListener("beforeunload", (e) => { if (dirty) { flush(); e.preventDefault(); } });
+  window.addEventListener("beforeunload", (e) => { if (dirty || sheetDirty) { flush(); e.preventDefault(); } });
 
   // Ask the browser not to evict the journal under storage pressure.
   function persistStorage() { try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {} }
@@ -840,9 +1025,11 @@
       (m.source === "comfyui" ? `<div class="p">🎨 ${esc(m.prompt || "")}</div><div>Seed ${esc(m.seed)}${m.ckpt ? " · " + esc(m.ckpt) : ""}${m.width ? ` · ${m.width}×${m.height}` : ""}</div>` : "");
     $("vInsert").textContent = isImage(f) ? "Insert into note" : "Insert link into note";
     $("vReuse").hidden = m.source !== "comfyui";
+    $("vPortrait").hidden = !isImage(f);
     $("viewer").showModal();
   }
   $("vClose").addEventListener("click", () => $("viewer").close());
+  $("vPortrait").addEventListener("click", async () => { if (!viewing) return; $("viewer").close(); await setPortrait(viewing.blob); });
   $("viewer").addEventListener("click", (e) => { if (e.target === $("viewer")) $("viewer").close(); });
   $("vDownload").addEventListener("click", () => viewing && download(viewing.blob, viewing.name));
   $("vInsert").addEventListener("click", () => { if (!viewing) return; $("viewer").close(); insertText("\n" + refFor(viewing) + "\n"); });
@@ -853,6 +1040,278 @@
     if (m.seed != null) $("cSeed").value = m.seed;
     saveComfy(); $("viewer").close(); setForge(true); $("cPrompt").focus();
   });
+
+  // ---------- Character sheet ----------
+  // Lives on the project record as project.sheet, so saving, backups and
+  // Drive sync carry it along with the project. The portrait is a small
+  // square JPEG data URL so it travels inside journal.json too.
+  const ABILS = ["str", "dex", "con", "int", "wis", "cha"];
+  const COINS = ["cp", "sp", "ep", "gp", "pp"], COIN_CP = { cp: 1, sp: 10, ep: 50, gp: 100, pp: 1000 };
+  const NUM_KEYS = new Set(["level", "hp", "hpMax", "hpTemp", "ac", "speed"]);
+  let sheetDirty = false, sheetTimer = 0;
+  function sheetOf(p) {
+    p = p || project;
+    if (!p) return null;
+    const s = p.sheet || (p.sheet = {});
+    s.abil = Object.assign({ str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, s.abil);
+    s.coins = Object.assign({ cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 }, s.coins);
+    if (!Array.isArray(s.items)) s.items = [];
+    if (s.level == null) s.level = 1;
+    return s;
+  }
+  const num = (v) => (v === "" || v == null || isNaN(v) ? null : Number(v));
+  const modOf = (score) => Math.floor(((num(score) ?? 10) - 10) / 2);
+  const signed = (n) => (n < 0 ? "−" + -n : "+" + n);
+  const blankSheet = (s) => !s || !(s.name || s.portrait || s.cls || s.items.length || s.hpMax);
+  const pfpHtml = (s, fallback = "🛡") => s && s.portrait ? `<img src="${esc(s.portrait)}" alt="">` : fallback;
+  function purse(s, all) {
+    const parts = COINS.slice().reverse().filter((c) => num(s.coins[c])).map((c) => `${num(s.coins[c]).toLocaleString()} ${c}`);
+    return parts.length ? (all ? parts : parts.slice(0, 2)).join(" ") : "0 gp";
+  }
+  const totalCp = (coins) => COINS.reduce((t, c) => t + (num(coins[c]) || 0) * COIN_CP[c], 0);
+
+  function renderHero() {
+    const el = $("hero");
+    if (!project) { el.innerHTML = ""; return; }
+    const s = sheetOf();
+    const campaign = s.campaign || project.name;
+    el.classList.toggle("blank", blankSheet(s));
+    if (blankSheet(s)) {
+      el.innerHTML = `<span class="pfp">🛡</span><span class="who"><span class="nm">Add a character</span>` +
+        `<span class="sub">Portrait, stats, gold and gear for ${esc(campaign)}</span></span>`;
+      return;
+    }
+    const hp = num(s.hp), max = num(s.hpMax), temp = num(s.hpTemp);
+    const gear = s.items.filter((i) => i.eq && i.name).map((i) => i.name);
+    const chips = [];
+    if (hp != null || max != null) chips.push(`<span class="chip hp"><b>HP</b>${hp ?? "–"}${max != null ? "/" + max : ""}${temp ? ` +${temp}` : ""}</span>`);
+    if (num(s.ac) != null) chips.push(`<span class="chip"><b>AC</b>${num(s.ac)}</span>`);
+    ABILS.forEach((a) => chips.push(`<span class="chip abil"><b>${a.toUpperCase()}</b>${signed(modOf(s.abil[a]))}</span>`));
+    chips.push(`<span class="chip"><b>💰</b>${esc(purse(s))}</span>`);
+    if (gear.length) chips.push(`<span class="chip gear" title="${esc(gear.join(", "))}">⚔ ${esc(gear.join(", "))}</span>`);
+    const sub = [s.cls, num(s.level) ? "Level " + num(s.level) : ""].filter(Boolean).join(" · ");
+    el.innerHTML = `<span class="pfp">${pfpHtml(s)}</span>` +
+      `<span class="who"><span class="nm">${esc(s.name || "Unnamed adventurer")}</span>` +
+      (sub ? `<span class="sub">${esc(sub)}</span>` : "") +
+      `<span class="where" title="${esc(campaign)}${s.location ? " · " + esc(s.location) : ""}">🗺 ${esc(campaign)}${s.location ? " · 📍 " + esc(s.location) : ""}</span></span>` +
+      `<span class="chips">${chips.join("")}</span>`;
+  }
+  function renderCharNav() {
+    const s = project && sheetOf();
+    $("charHead").hidden = $("charNav").hidden = !project;
+    if (!project) return;
+    $("charNav").innerHTML = `<li class="char${view === "sheet" ? " on" : ""}"><button class="open" id="charOpen" title="Stats, gold and inventory">` +
+      `<span class="mini">${pfpHtml(s, "🛡")}</span><span class="t">${esc(s.name || "Character sheet")}</span></button></li>`;
+  }
+
+  // Fills the form from the sheet. Inputs are only written here, so typing never loses focus.
+  function renderSheet() {
+    if (!project) return;
+    const s = sheetOf();
+    $("sheetCrumb").innerHTML = `<b>${esc(project.name)}</b> /`;
+    $("campaignIn").placeholder = project.name;
+    $("abils").innerHTML = ABILS.map((a) => `<div class="abil"><b>${a.toUpperCase()}</b><span class="mod" id="mod-${a}"></span>` +
+      `<input data-k="abil.${a}" type="number" min="1" max="30" aria-label="${a.toUpperCase()} score"></div>`).join("");
+    $("coins").innerHTML = COINS.map((c) => `<label>${c.toUpperCase()}<input data-k="coins.${c}" type="number" min="0"></label>`).join("");
+    $("sheetForm").querySelectorAll("[data-k]").forEach((inp) => {
+      const [a, b] = inp.dataset.k.split(".");
+      const v = b ? s[a][b] : s[a];
+      inp.value = v == null ? "" : v;
+    });
+    renderPortrait(); renderItems(); renderDerived();
+  }
+  function renderPortrait() {
+    const s = sheetOf();
+    $("pfpBtn").innerHTML = pfpHtml(s);
+    $("pfpClear").hidden = !s.portrait;
+    $("pfpPick").textContent = s.portrait ? "Change portrait" : "Choose portrait";
+  }
+  function renderDerived() {
+    const s = sheetOf();
+    ABILS.forEach((a) => { const m = $("mod-" + a); if (m) m.textContent = signed(modOf(s.abil[a])); });
+    $("dInit").textContent = signed(modOf(s.abil.dex));
+    $("dProf").textContent = signed(2 + Math.floor((Math.max(1, num(s.level) || 1) - 1) / 4));
+    $("purseTotal").textContent = `Worth ${(totalCp(s.coins) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })} gp`;
+    const count = s.items.reduce((t, i) => t + (num(i.qty) ?? 1), 0);
+    const wt = s.items.reduce((t, i) => t + (num(i.qty) ?? 1) * (num(i.wt) || 0), 0);
+    const cap = (num(s.abil.str) ?? 10) * 15;
+    const eq = s.items.filter((i) => i.eq).length;
+    $("tally").innerHTML = `<span><b>${s.items.length}</b> line${s.items.length === 1 ? "" : "s"} · <b>${count}</b> item${count === 1 ? "" : "s"}</span>` +
+      `<span><b>${eq}</b> equipped</span>` +
+      `<span class="${wt > cap ? "over" : ""}">Carrying <b>${+wt.toFixed(1)}</b> of ${cap} lb${wt > cap ? " (over capacity)" : ""}</span>`;
+    renderHero(); renderCharNav();
+  }
+  function renderItems() {
+    const s = sheetOf();
+    $("items").innerHTML = s.items.length
+      ? `<div class="hd"><span title="Equipped">⚔</span><span>ITEM</span><span>QTY</span><span>LB EACH</span><span>NOTES</span><span></span></div>` +
+        s.items.map((it, i) => `<div class="row${it.eq ? " on" : ""}" data-i="${i}">` +
+          `<label class="eq" title="Equipped"><input type="checkbox" data-f="eq"${it.eq ? " checked" : ""}></label>` +
+          `<input class="f-name" data-f="name" value="${esc(it.name || "")}" placeholder="Item" aria-label="Item name">` +
+          `<input class="f-qty" data-f="qty" type="number" min="0" value="${esc(it.qty ?? "")}" aria-label="Quantity">` +
+          `<input class="f-wt" data-f="wt" type="number" min="0" step="0.1" value="${esc(it.wt ?? "")}" placeholder="lb" aria-label="Weight of one in pounds">` +
+          `<input class="f-note" data-f="note" value="${esc(it.note || "")}" placeholder="Notes" aria-label="Notes">` +
+          `<button class="del" title="Remove item">🗑</button></div>`).join("")
+      : '<div class="none">Nothing in the pack yet. Add the first item above.</div>';
+  }
+
+  function queueSheetSave() {
+    if (!project) return;
+    sheetDirty = true; $("sheetSaved").textContent = "Editing…";
+    clearTimeout(sheetTimer);
+    sheetTimer = setTimeout(flushSheet, 600);
+  }
+  async function flushSheet() {
+    clearTimeout(sheetTimer);
+    if (!sheetDirty || !project) return;
+    sheetDirty = false;
+    project.updated = Date.now();
+    try {
+      await DB.put("projects", project);
+      Sync.soon();
+      $("sheetSaved").textContent = "Saved";
+    } catch (err) {
+      sheetDirty = true;
+      $("sheetSaved").textContent = "⚠ Not saved";
+      toast("Couldn't save: " + (err && err.message || err));
+    }
+  }
+
+  $("sheetForm").addEventListener("input", (e) => {
+    const s = sheetOf(); if (!s) return;
+    const t = e.target;
+    if (t.dataset.k) {
+      const [a, b] = t.dataset.k.split(".");
+      const v = b || NUM_KEYS.has(a) ? num(t.value) : t.value;
+      if (b) s[a][b] = v; else s[a] = v;
+    } else if (t.dataset.f) {
+      const row = t.closest(".row"), it = row && s.items[+row.dataset.i];
+      if (!it) return;
+      const f = t.dataset.f;
+      it[f] = f === "eq" ? t.checked : f === "qty" || f === "wt" ? num(t.value) : t.value;
+      if (f === "eq") row.classList.toggle("on", t.checked);
+    } else return;
+    renderDerived(); queueSheetSave();
+  });
+  $("sheetForm").addEventListener("click", (e) => {
+    const s = sheetOf(); if (!s) return;
+    const hpb = e.target.closest("[data-hp]");
+    if (hpb) {
+      const max = num(s.hpMax);
+      let hp = (num(s.hp) ?? max ?? 0) + Number(hpb.dataset.hp);
+      if (max != null) hp = Math.min(hp, max);
+      s.hp = hp;
+      $("sheetForm").querySelector('[data-k="hp"]').value = hp;
+      renderDerived(); queueSheetSave();
+      return;
+    }
+    const del = e.target.closest(".items .del");
+    if (del) {
+      const i = +del.closest(".row").dataset.i;
+      s.items.splice(i, 1);
+      renderItems(); renderDerived(); queueSheetSave();
+    }
+  });
+  function addItem() {
+    const s = sheetOf(), name = $("iName").value.trim();
+    if (!s) return;
+    if (!name) { $("iName").focus(); return; }
+    s.items.push({ id: uid(), name, qty: num($("iQty").value) ?? 1, wt: num($("iWt").value), eq: false, note: "" });
+    $("iName").value = ""; $("iQty").value = 1; $("iWt").value = "";
+    renderItems(); renderDerived(); queueSheetSave();
+    $("iName").focus();
+  }
+  $("iAdd").addEventListener("click", addItem);
+  ["iName", "iQty", "iWt"].forEach((id) => $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }));
+
+  // "-3 sp, +25 gp" adjusts the purse; a bare number means gold. Spending
+  // breaks the nearest larger coin into change (skipping electrum).
+  function adjustCoins() {
+    const s = sheetOf(), src = $("coinAdj").value;
+    if (!s || !src.trim()) return;
+    const delta = {}, re = /([+-]?)\s*(\d+(?:\.\d+)?)\s*(cp|sp|ep|gp|pp)?/gi;
+    let m, any = false;
+    while ((m = re.exec(src))) { const c = (m[3] || "gp").toLowerCase(); delta[c] = (delta[c] || 0) + (m[1] === "-" ? -1 : 1) * Math.round(+m[2]); any = true; }
+    if (!any) { toast("Try something like -3 sp or +25 gp"); return; }
+    const c = {};
+    COINS.forEach((k) => { c[k] = (num(s.coins[k]) || 0) + (delta[k] || 0); });
+    if (totalCp(c) < 0) { toast(`Not enough coin: the purse holds ${purse(s, true)}`); return; }
+    for (let i = 0; i < COINS.length; i++) {
+      while (c[COINS[i]] < 0) {
+        const j = COINS.findIndex((h, jj) => jj > i && c[h] > 0);
+        if (j < 0) break;
+        const from = COINS[j], to = COINS[j - 1] === "ep" && from !== "ep" ? "sp" : COINS[j - 1];
+        c[from]--; c[to] += COIN_CP[from] / COIN_CP[to];
+      }
+    }
+    if (COINS.some((k) => c[k] < 0)) {
+      // Only larger coins are short: count it all out again in gold, silver and copper.
+      let left = totalCp(c);
+      COINS.forEach((k) => { c[k] = 0; });
+      ["gp", "sp", "cp"].forEach((k) => { c[k] = Math.floor(left / COIN_CP[k]); left -= c[k] * COIN_CP[k]; });
+    }
+    s.coins = c;
+    COINS.forEach((k) => { $("coins").querySelector(`[data-k="coins.${k}"]`).value = c[k]; });
+    $("coinAdj").value = "";
+    renderDerived(); queueSheetSave();
+    toast("Purse: " + purse(s, true));
+  }
+  $("coinApply").addEventListener("click", adjustCoins);
+  $("coinAdj").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); adjustCoins(); } });
+
+  // Portraits: a top-weighted square crop (faces sit high in tall art), 320 px.
+  async function toPortrait(blob) {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      const w = img.naturalWidth, h = img.naturalHeight, side = Math.min(w, h), size = Math.min(320, side);
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = size;
+      const cx = cv.getContext("2d");
+      cx.fillStyle = "#1a120c"; cx.fillRect(0, 0, size, size);
+      cx.drawImage(img, (w - side) / 2, (h - side) * 0.2, side, side, 0, 0, size, size);
+      return cv.toDataURL("image/jpeg", 0.86);
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async function setPortrait(blob) {
+    if (!project) return;
+    let data;
+    try { data = await toPortrait(blob); } catch { toast("Couldn't read that image"); return; }
+    sheetOf().portrait = data;
+    renderPortrait(); renderDerived(); queueSheetSave();
+    toast("Portrait set");
+  }
+  [$("pfpBtn"), $("pfpPick")].forEach((b) => b.addEventListener("click", () => $("pfpInput").click()));
+  $("pfpInput").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) setPortrait(f); });
+  $("pfpClear").addEventListener("click", () => {
+    if (!confirm("Remove the portrait?")) return;
+    sheetOf().portrait = null;
+    renderPortrait(); renderDerived(); queueSheetSave();
+  });
+
+  async function openSheet() {
+    if (!project) return;
+    await flush();
+    view = "sheet";
+    renderSheet();
+    $("sheetSaved").textContent = "";
+    renderProjects(); renderEntries(); showMain();
+    history.replaceState(null, "", `#p=${project.id}&v=sheet`);
+    document.title = "Character sheet · " + project.name + " · Adventurer's Journal";
+    $("app").classList.remove("open");
+  }
+  async function closeSheet() {
+    await flushSheet();
+    view = "entry";
+    if (entry) await openEntry(entry.id);
+    else { renderProjects(); renderEntries(); showMain(); }
+  }
+  $("hero").addEventListener("click", openSheet);
+  $("charNav").addEventListener("click", (e) => { if (e.target.closest("#charOpen")) view === "sheet" ? $("app").classList.remove("open") : openSheet(); });
+  $("sheetBack").addEventListener("click", closeSheet);
+  $("menu2").addEventListener("click", () => $("app").classList.add("open"));
 
   // ---------- Uploads & downloads ----------
   $("uploadBtn").addEventListener("click", () => $("uploadInput").click());
@@ -913,7 +1372,7 @@
     const taken = new Set(projects.map((p) => p.name));
     let name = data.project.name || "Imported project";
     if (taken.has(name)) name += " (imported)";
-    const p = { id: pid, name, created: now, updated: now, lastEntry: null };
+    const p = { id: pid, name, created: now, updated: now, lastEntry: null, sheet: data.project.sheet || null };
     (data.entries || []).forEach((e) => idMap.set(e.id, uid()));
     (data.files || []).forEach((f) => idMap.set(f.id, uid()));
     const remap = (t) => String(t || "").replace(/\(att:([\w-]+)\)/g, (m, id) => `(att:${idMap.get(id) || id})`);
@@ -963,8 +1422,9 @@
   $("scrim").addEventListener("click", () => $("app").classList.remove("open"));
   window.addEventListener("hashchange", () => {
     const h = new URLSearchParams(location.hash.slice(1));
-    const pid = h.get("p"), eid = h.get("e");
-    if (pid && (!project || pid !== project.id)) openProject(pid, eid);
+    const pid = h.get("p"), eid = h.get("e"), sheet = h.get("v") === "sheet";
+    if (pid && (!project || pid !== project.id)) openProject(pid, eid, sheet);
+    else if (sheet && view !== "sheet") openSheet();
     else if (eid && (!entry || eid !== entry.id) && entries.some((e) => e.id === eid)) openEntry(eid);
   });
 
@@ -1485,14 +1945,18 @@
       if (last) await openProject(last.id); else { renderProjects(); showMain(); }
       return;
     }
+    if (sheetDirty) p.sheet = project.sheet; // keep what's being typed
     project = p;
+    if (view === "sheet" && !$("sheet").contains(document.activeElement)) renderSheet();
     const fresh = (await DB.all("entries", "projectId", p.id)).sort((a, b) => a.created - b.created);
     const cur = entry && fresh.find((e) => e.id === entry.id);
     if (!cur) {
       entries = fresh; entry = null;
       const t = fresh.find((e) => e.id === p.lastEntry) || fresh[fresh.length - 1];
+      const onSheet = view === "sheet";
       renderProjects();
       if (t) await openEntry(t.id); else { renderEntries(); showMain(); }
+      if (onSheet) await openSheet();
       return;
     }
     if (dirty) fresh[fresh.indexOf(cur)] = entry; // keep what's being typed
@@ -1533,7 +1997,7 @@
     const pid = [h.get("p"), store.get("journal.lastProject", null)].find((id) => id && projects.some((p) => p.id === id))
       || (projects[projects.length - 1] || {}).id;
     renderProjects();
-    if (pid) await openProject(pid, h.get("e"));
+    if (pid) await openProject(pid, h.get("e"), h.get("v") === "sheet" && pid === h.get("p"));
     else showMain();
     showUsage();
     Sync.start();
