@@ -1,27 +1,25 @@
 # Hosting the bots on the Yoga laptop
 
-GuildScribe, UndercoverBurn and The Wandering Clerk run on the Yoga laptop at
-home as plain Deno processes. Nothing runs on Val Town any more.
+GuildScribe and UndercoverBurn run on the Yoga laptop at home as plain Deno
+processes instead of Val Town. (The Wandering Clerk stays where it is, on Val
+Town and GitHub Actions.)
 
 | Bot | Repo | Local port | Public address |
 |-----|------|-----------|----------------|
 | GuildScribe | `sheastolp/dnd-twitch-bot` | 8801 | guildscribe.tavernworks.dev |
 | UndercoverBurn | `sheastolp/UndercoverBurn` (private) | 8802 | burn.tavernworks.dev |
-| The Wandering Clerk | `sheastolp/The-Wandering-Clerk` | 8803 | hunt.tavernworks.dev |
 
 How the pieces fit:
 
 - Each bot is one systemd service (`tavernworks-<bot>`) running its
   `server.ts` as the unprivileged `tavernworks` account: the web side
   (EventSub webhooks, OAuth, dashboards, overlays) on `127.0.0.1` only, plus
-  the scheduled jobs that used to be Val Town crons. The Clerk's chat bot runs
-  in the same process and stays connected (no more 6-hour GitHub Actions
-  runs).
+  the scheduled jobs that used to be Val Town crons.
 - Code: `/var/lib/tavernworks/bots/`. Data: one SQLite file per bot in
   `/var/lib/tavernworks/data/`, backed up every night to
   `/var/lib/tavernworks/data/backups/` (newest 14 kept). Settings (Twitch
   secrets and so on): `/etc/tavernworks/<bot>.env`.
-- A **Cloudflare Tunnel** carries the three subdomains to the laptop. No
+- A **Cloudflare Tunnel** carries the two subdomains to the laptop. No
   ports are opened on the router, and the home IP stays hidden.
 - **Deploys:** push to `main` as before. Every 3 minutes the laptop pulls new
   commits, type-checks them and restarts that bot. A commit that doesn't
@@ -34,7 +32,7 @@ All steps below run as **root** (e.g. a `tailscale ssh root@<yoga>` session).
 `setup.sh` also works as a normal user, with systemd user services and
 everything under the home folder; use `systemctl --user` then.
 
-`<bot>` below is `guildscribe`, `undercoverburn` or `clerk`.
+`<bot>` below is `guildscribe` or `undercoverburn`.
 
 ## 1. Prepare the Yoga
 
@@ -74,7 +72,6 @@ again is always safe: it never overwrites settings or data.
 ```sh
 nano /etc/tavernworks/guildscribe.env
 nano /etc/tavernworks/undercoverburn.env
-nano /etc/tavernworks/clerk.env
 ```
 
 Copy the values over from where they live today:
@@ -82,10 +79,6 @@ Copy the values over from where they live today:
 - `guildscribe.env` and `undercoverburn.env`: the val's **Environment
   variables** page on Val Town. Copy every variable, including optional ones
   you set.
-- `clerk.env`: the Clerk repo's GitHub Actions secrets (bot tokens) and the
-  `huntandhoardbot` val's environment variables (`ADMIN_USERNAMES`,
-  `ADMIN_SESSION_SECRET`). `VALTOWN_API_BASE_URL`, `VALTOWN_API_SECRET` and
-  `API_SHARED_SECRET` aren't needed any more.
 
 Leave `PORT` and `DB_PATH` as setup wrote them. For AI replies, pick one in
 `guildscribe.env` and `undercoverburn.env`:
@@ -138,8 +131,7 @@ written on Val Town after the import is lost.
    - Val Town: on the GuildScribe and UndercoverBurn vals, pause or delete
      their cron triggers (GuildScribe's merchant, timed messages, autohunt and
      watchtime crons; UndercoverBurn's poster cron val).
-   - GitHub: **The-Wandering-Clerk → Actions → Hunt and Hoard Bot → ⋯ →
-     Disable workflow**, then cancel the run in progress.
+
 2. **Copy the data.** Each command runs once, as the `tavernworks` account.
    Nothing on Val Town is changed. You need a Val Town API token (val.town →
    Settings → API tokens).
@@ -166,29 +158,13 @@ written on Val Town after the import is lost.
      deno task import-db --file /tmp/gs/<file>.sqlite
    ```
 
-   The Wandering Clerk copies over the old val's storage API, plus a scan of
-   your Val Town databases for character sheets:
-
-   ```sh
-   cd /var/lib/tavernworks/bots/The-Wandering-Clerk
-   runuser -u tavernworks -- env HOME=/var/lib/tavernworks \
-     DB_PATH=/var/lib/tavernworks/data/clerk.sqlite \
-     OLD_API_SECRET=<the val's API_SHARED_SECRET> VAL_TOWN_API_KEY=<token> \
-     deno task import-db
-   ```
-
-   If it reports `characters: 0`, the val stored them somewhere the scan
-   can't see. Stop here and keep the val; the characters need another way
-   out.
-
 3. **Start the bots** and check them locally:
 
    ```sh
-   systemctl start tavernworks-guildscribe tavernworks-undercoverburn tavernworks-clerk
-   systemctl status tavernworks-guildscribe tavernworks-undercoverburn tavernworks-clerk --no-pager
+   systemctl start tavernworks-guildscribe tavernworks-undercoverburn
+   systemctl status tavernworks-guildscribe tavernworks-undercoverburn --no-pager
    curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8801/   # 200
    curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8802/   # 200
-   curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8803/   # 200
    ```
 
 ## 6. Point the subdomains at the laptop
@@ -196,56 +172,45 @@ written on Val Town after the import is lost.
 In the Cloudflare dashboard for tavernworks.dev:
 
 1. **Workers routes:** remove the route for `burn.tavernworks.dev/*` and any
-   route on `guildscribe.tavernworks.dev`. Keep `hunt.tavernworks.dev/*`, and
-   redeploy that Worker from `cloudflare/hunt-worker.js` in this repo: it still
-   serves the onboarding page, and now passes everything else through to the
-   tunnel.
-2. **DNS:** delete the existing records for `guildscribe`, `burn` and `hunt`.
+   route on `guildscribe.tavernworks.dev`. Leave `hunt.tavernworks.dev` alone.
+2. **DNS:** delete the existing records for `guildscribe` and `burn`.
 
 Then on the Yoga:
 
 ```sh
 cloudflared tunnel route dns tavernworks-bots guildscribe.tavernworks.dev
 cloudflared tunnel route dns tavernworks-bots burn.tavernworks.dev
-cloudflared tunnel route dns tavernworks-bots hunt.tavernworks.dev
 ```
 
-Check from your phone (off Wi-Fi): https://guildscribe.tavernworks.dev,
-https://burn.tavernworks.dev and https://hunt.tavernworks.dev/onboard should
-all load.
+Check from your phone (off Wi-Fi): https://guildscribe.tavernworks.dev and
+https://burn.tavernworks.dev should both load.
 
 ## 7. Twitch settings
 
-- **GuildScribe and UndercoverBurn** already use their tavernworks.dev
-  addresses for OAuth and EventSub, so existing channels keep working with no
-  reconnect.
-- **The Wandering Clerk** used `huntandhoardbot.val.run` for sign-in. In the
-  [Twitch developer console](https://dev.twitch.tv/console/apps), add these
-  OAuth Redirect URLs to its app:
-  `https://hunt.tavernworks.dev/oauth/callback` and
-  `https://hunt.tavernworks.dev/admin/callback`.
+GuildScribe and UndercoverBurn already use their tavernworks.dev addresses for
+OAuth and EventSub, so existing channels keep working with no reconnect.
 
 Then try a command in a channel for each bot, and watch the logs:
 `journalctl -u tavernworks-<bot> -f`.
 
 ## 8. Clean up
 
-- Merge the laptop changes in the three bot repos and tavernworks. If you
+- Merge the laptop changes in the two bot repos and tavernworks. If you
   installed from a branch, move the laptop onto `main`:
 
   ```sh
-  for r in dnd-twitch-bot UndercoverBurn The-Wandering-Clerk; do
+  for r in dnd-twitch-bot UndercoverBurn; do
     runuser -u tavernworks -- env HOME=/var/lib/tavernworks sh -c \
       "cd /var/lib/tavernworks/bots/$r && git fetch -q origin main && git checkout -q -B main origin/main"
   done
   git -C /root/tavernworks fetch -q origin main && git -C /root/tavernworks checkout -q -B main origin/main
-  systemctl restart tavernworks-guildscribe tavernworks-undercoverburn tavernworks-clerk
+  systemctl restart tavernworks-guildscribe tavernworks-undercoverburn
   ```
 
 - Val Town: delete the GuildScribe, UndercoverBurn (roastbot and its cron
-  val) and `huntandhoardbot` vals, and revoke the API token from step 5.
+  val) vals, and revoke the API token from step 5.
 - GitHub: delete the `VAL_TOWN_API_KEY` secret from `dnd-twitch-bot` and
-  `UndercoverBurn`, and the bot secrets from `The-Wandering-Clerk`.
+  `UndercoverBurn`.
 
 ## Day to day
 

@@ -10,7 +10,7 @@ DENO=${DENO:-$HOME/.deno/bin/deno}
 stamp=$(date +%Y-%m-%d_%H%M)
 mkdir -p "$BACKUP_DIR"
 
-for name in guildscribe undercoverburn clerk; do
+for name in guildscribe undercoverburn; do
   db="$DATA_DIR/$name.sqlite"
   [ -f "$db" ] || continue
   out="$BACKUP_DIR/$name-$stamp.sqlite"

@@ -1,9 +1,14 @@
 // Cloudflare Worker for hunt.tavernworks.dev.
-// Serves the onboarding page below for a bare GET /onboard. Everything else
-// (including /onboard with a query string: the page's own "Connect with
-// Twitch" button and Twitch's ?code=/?error= callback) passes straight
-// through to the origin, which is the Wandering Clerk on the Yoga laptop,
-// reached through the Cloudflare Tunnel (see bot-host/README.md).
+// Serves the Wandering Clerk (Hunt & Hoard) val from our own domain without Val Town's
+// paid custom-domain feature: every request is forwarded to the val and
+// the response is passed back, so the address bar stays on tavernworks.dev.
+//
+// One exception: a bare GET /onboard is answered here with the onboarding
+// page below. Any /onboard request carrying a query string (the page's own
+// "Connect with Twitch" button, and Twitch's ?code=/?error= callback) still
+// goes to the val, so its existing channel:bot OAuth flow is untouched.
+const VAL_ORIGIN = "https://huntandhoardbot.val.run";
+
 export default {
   async fetch(request) {
     const url = new URL(request.url);
@@ -14,9 +19,22 @@ export default {
       });
     }
 
-    // A Worker's request to its own hostname goes to the origin (the tunnel),
-    // not back into this Worker.
-    return fetch(request);
+    const target = new URL(url.pathname + url.search, VAL_ORIGIN);
+
+    const upstream = await fetch(new Request(target, request), { redirect: "manual" });
+
+    // Keep redirects that point back at the val on our domain. Redirects to
+    // anywhere else (e.g. Twitch login) pass through untouched.
+    const location = upstream.headers.get("Location");
+    if (location) {
+      const loc = new URL(location, VAL_ORIGIN);
+      if (loc.origin === VAL_ORIGIN) {
+        const headers = new Headers(upstream.headers);
+        headers.set("Location", url.origin + loc.pathname + loc.search + loc.hash);
+        return new Response(upstream.body, { status: upstream.status, headers });
+      }
+    }
+    return upstream;
   },
 };
 
