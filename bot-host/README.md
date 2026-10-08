@@ -174,6 +174,11 @@ In the Cloudflare dashboard for tavernworks.dev:
 1. **Workers routes:** remove the route for `burn.tavernworks.dev/*` and any
    route on `guildscribe.tavernworks.dev`. Leave `hunt.tavernworks.dev` alone.
 2. **DNS:** delete the existing records for `guildscribe` and `burn`.
+3. **Wildcard custom domains:** on **Workers & Pages → tavernworks → Domains**,
+   make sure the website Worker doesn't hold `*.tavernworks.dev`. A wildcard
+   custom domain beats the tunnel's DNS records, and every bot subdomain shows
+   Cloudflare's "There is nothing here yet" page. Keep only `tavernworks.dev`
+   (plus `www.tavernworks.dev` if you use it).
 
 Then on the Yoga:
 
