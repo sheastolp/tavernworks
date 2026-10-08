@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <title>Adventurer's Journal · Tavernworks</title>
-<meta name="description" content="A D&amp;D campaign journal in your browser: projects, numbered notes, a character sheet with stats and inventory, attachments and ComfyUI scene art.">
+<meta name="description" content="A D&amp;D campaign journal in your browser: projects, numbered notes, a character sheet with stats and inventory, a dice roller, attachments and ComfyUI scene art.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -268,6 +268,34 @@
   .list li.char .mini img{width:100%;height:100%;object-fit:cover}
   .list li.char span.t{overflow:hidden;text-overflow:ellipsis}
 
+  /* Dice roller (toolbar dropdown) */
+  .dd .pop.dice{width:330px;max-width:calc(100vw - 24px);padding:10px;gap:8px;font-size:13px}
+  .dice .lab{font:600 11px Inter,system-ui,sans-serif;letter-spacing:.1em;color:var(--gold)}
+  .dice .dice-row{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+  .dd .pop.dice button{padding:5px 9px;border:1px solid var(--line);background:var(--card);border-radius:8px;font-weight:600;font-size:13px;text-align:center}
+  .dd .pop.dice button:hover{border-color:var(--gold);background:var(--card)}
+  .dd .pop.dice button.on{border-color:var(--gold);color:var(--gold2);background:rgba(224,168,74,.12)}
+  .dice #diceQuick button{flex:1;min-width:0;padding:6px 0}
+  .dice #diceChar button small{display:inline;color:var(--muted);font-weight:400;font-size:12px;margin-left:3px}
+  .dice input{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:13.5px;color:var(--text);min-width:0}
+  .dice input:focus{outline:0;border-color:var(--gold)}
+  .dice .nums{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .dice .nums label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12.5px}
+  .dice .nums input{width:100%;text-align:center}
+  .dice #dExpr{flex:1}
+  .dice-out{min-height:44px;border:1px dashed var(--line);border-radius:10px;padding:6px 10px;display:flex;align-items:center;gap:10px}
+  .dice-out .tot{font-family:Cinzel,serif;font-size:26px;color:var(--gold2);min-width:40px;text-align:center}
+  .dice-out .det{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere;line-height:1.4}
+  .dice-out .det b{color:var(--text);font-weight:600}
+  .dice-out.crit .tot{color:var(--green)}
+  .dice-out.fumble .tot{color:var(--ember)}
+  .dice-out.err .det{color:#ff9b7a}
+  .dice-log{list-style:none;max-height:120px;overflow-y:auto;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+  .dice-log li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dice-log li b{color:var(--gold2)}
+  .dice .check{display:flex;gap:7px;align-items:center;color:var(--text);font-size:12.5px}
+  .dice .check input{width:auto;accent-color:var(--gold)}
+
   .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--card);border:1px solid var(--gold);color:var(--text);padding:9px 16px;border-radius:10px;font-size:14px;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:calc(100vw - 32px)}
 
   .scrim{display:none}
@@ -282,6 +310,7 @@
     .work{padding:10px 12px 8px}
     .tb .lbl{display:none}
     .saved{order:5}
+    .dd .pop.dice{position:fixed;left:12px;right:12px;top:54px;width:auto;max-width:none;max-height:calc(100dvh - 66px);overflow-y:auto}
     .forge-body{grid-template-columns:1fr}
     .forge .nums{grid-template-columns:repeat(3,1fr)}
     .gutter{width:42px}
@@ -360,6 +389,32 @@
         <button class="tb" id="previewBtn" title="Toggle between editing and a preview with images (Ctrl+E)">👁 <span class="lbl">Preview</span></button>
         <button class="tb" id="uploadBtn" title="Open text files as new entries">📂 <span class="lbl">Upload</span></button>
         <button class="tb" id="attachBtn" title="Attach images or any file to this entry">📎 <span class="lbl">Attach</span></button>
+        <details class="dd" id="rollMenu">
+          <summary class="tb" title="Roll dice, with or without modifiers">🎲 <span class="lbl">Roll</span></summary>
+          <div class="pop dice">
+            <span class="lab">QUICK ROLL</span>
+            <div class="dice-row" id="diceQuick"></div>
+            <div class="nums">
+              <label>Dice <input id="dCount" type="number" min="1" max="100" value="1" aria-label="Number of dice"></label>
+              <label>Modifier <input id="dMod" type="number" value="0" aria-label="Modifier added to the roll"></label>
+            </div>
+            <div class="dice-row" id="dMode">
+              <button data-mode="" title="Roll once">Normal</button>
+              <button data-mode="adv" title="Roll a d20 twice, keep the higher">Advantage</button>
+              <button data-mode="dis" title="Roll a d20 twice, keep the lower">Disadvantage</button>
+            </div>
+            <span class="lab">CHARACTER <small style="font-weight:400;letter-spacing:0;color:var(--muted)">d20 + modifier from the sheet</small></span>
+            <div class="dice-row" id="diceChar"></div>
+            <span class="lab">ANY ROLL</span>
+            <div class="dice-row">
+              <input id="dExpr" placeholder="2d6+3, 4d6kh3, d20-1" autocomplete="off" spellcheck="false" aria-label="Dice to roll">
+              <button id="dRoll">Roll</button>
+            </div>
+            <div class="dice-out" id="dOut"><span class="det">Pick a die, or type a roll like <b>1d20+5</b>.</span></div>
+            <ol class="dice-log" id="dLog"></ol>
+            <label class="check"><input type="checkbox" id="dInsert"> Write each roll into the entry</label>
+          </div>
+        </details>
         <details class="dd" id="dlMenu">
           <summary class="tb" title="Download">⬇ <span class="lbl">Download</span></summary>
           <div class="pop">
@@ -1351,7 +1406,115 @@
       download(new Blob([html], { type: "text/html" }), base + ".html");
     } else if (kind === "json") await exportBackup(project);
   });
-  document.addEventListener("click", (e) => { if (!e.target.closest("#dlMenu")) $("dlMenu").open = false; });
+  document.addEventListener("click", (e) => {
+    ["dlMenu", "rollMenu"].forEach((id) => { if (!e.target.closest("#" + id)) $(id).open = false; });
+  });
+
+  // ---------- Dice ----------
+  // Rolls like "2d6+3", "d20-1", "4d6kh3" (keep highest 3), "2d20kl1", "d%".
+  const DIE_SIDES = [4, 6, 8, 10, 12, 20, 100];
+  const ABIL_NAMES = { str: "Strength", dex: "Dexterity", con: "Constitution", int: "Intelligence", wis: "Wisdom", cha: "Charisma" };
+  const rollLog = [];
+  let rollMode = store.get("journal.rollMode", "");
+  // Unbiased 1..sides from the crypto RNG.
+  const rollDie = (sides) => {
+    const buf = new Uint32Array(1), lim = Math.floor(0x100000000 / sides) * sides;
+    do crypto.getRandomValues(buf); while (buf[0] >= lim);
+    return (buf[0] % sides) + 1;
+  };
+  function parseRoll(src) {
+    const s = String(src).toLowerCase().replace(/\s+/g, "");
+    if (!s) throw new Error("Type a roll like 1d20+5");
+    const re = /([+-])?(?:(\d*)d(\d+|%)(?:k([hl])?(\d+))?|(\d+))/y, terms = [];
+    let dice = 0;
+    while (re.lastIndex < s.length) {
+      const at = re.lastIndex, m = re.exec(s);
+      if (!m || (!m[1] && terms.length)) throw new Error(`Can't read "${s.slice(at)}"`);
+      const sign = m[1] === "-" ? -1 : 1;
+      if (m[6] != null) { terms.push({ sign, n: +m[6] }); continue; }
+      const count = m[2] === "" ? 1 : +m[2], sides = m[3] === "%" ? 100 : +m[3];
+      if (count < 1 || count > 100) throw new Error("Roll between 1 and 100 dice at a time");
+      if (sides < 2 || sides > 1000) throw new Error("Dice need 2 to 1000 sides");
+      const keep = m[5] != null ? Math.min(count, Math.max(1, +m[5])) : count;
+      if ((dice += count) > 200) throw new Error("That's too many dice for one roll");
+      terms.push({ sign, count, sides, keep, low: m[4] === "l" });
+    }
+    return terms;
+  }
+  // Returns { expr, total, text, d20 } where text spells out every die.
+  function doRoll(expr) {
+    const terms = parseRoll(expr);
+    let total = 0, d20 = null;
+    const bits = terms.map((t, i) => {
+      const op = i === 0 ? (t.sign < 0 ? "−" : "") : t.sign < 0 ? " − " : " + ";
+      if (t.n != null) { total += t.sign * t.n; return op + t.n; }
+      const rolls = Array.from({ length: t.count }, () => rollDie(t.sides));
+      const order = rolls.map((v, j) => j).sort((a, b) => t.low ? rolls[a] - rolls[b] : rolls[b] - rolls[a]);
+      const kept = new Set(order.slice(0, t.keep));
+      const sum = rolls.reduce((a, v, j) => a + (kept.has(j) ? v : 0), 0);
+      total += t.sign * sum;
+      if (t.sides === 20 && t.keep === 1 && d20 == null) d20 = rolls[order[0]];
+      return op + "[" + rolls.map((v, j) => kept.has(j) ? v : `(${v})`).join(", ") + "]";
+    });
+    const clean = String(expr).toLowerCase().replace(/\s+/g, "");
+    return { expr: clean, total, text: bits.join(""), d20 };
+  }
+  // Builds "NdS±M" from the quick-roll controls; advantage only touches a single d20.
+  function quickExpr(sides, mod, count = 1) {
+    let dice = `${count}d${sides}`;
+    if (sides === 20 && count === 1 && rollMode) dice = rollMode === "adv" ? "2d20kh1" : "2d20kl1";
+    return dice + (mod ? (mod > 0 ? "+" : "") + mod : "");
+  }
+  function showRoll(expr, label) {
+    const out = $("dOut");
+    let r;
+    try { r = doRoll(expr); }
+    catch (err) { out.className = "dice-out err"; out.innerHTML = `<span class="det">${esc(err.message)}</span>`; return; }
+    const nat = r.d20 === 20 ? " · natural 20!" : r.d20 === 1 ? " · natural 1" : "";
+    const mode = /^2d20k[hl]1/.test(r.expr) ? (r.expr[5] === "h" ? " (advantage)" : " (disadvantage)") : "";
+    out.className = "dice-out" + (r.d20 === 20 ? " crit" : r.d20 === 1 ? " fumble" : "");
+    out.innerHTML = `<span class="tot">${r.total}</span><span class="det">${label ? `<b>${esc(label)}</b> · ` : ""}${esc(r.expr)}${mode}<br>${esc(r.text)} = <b>${r.total}</b>${nat}</span>`;
+    const line = `🎲 ${label ? label + " · " : ""}${r.expr}${mode} → ${r.text} = **${r.total}**${nat}`;
+    rollLog.unshift(line);
+    rollLog.length = Math.min(rollLog.length, 10);
+    $("dLog").innerHTML = rollLog.slice(1).map((l) => `<li title="${esc(l)}">${esc(l).replace(/\*\*(.+?)\*\*/, "<b>$1</b>")}</li>`).join("");
+    if ($("dInsert").checked && entry) logRoll(line);
+  }
+  // Writes the roll on its own line after the cursor's line, without pulling focus from the roller.
+  function logRoll(line) {
+    const v = ta.value, end = v.indexOf("\n", ta.selectionEnd), at = end < 0 ? v.length : end;
+    const lineStart = v.lastIndexOf("\n", at - 1) + 1;
+    ta.setSelectionRange(at, at);
+    insertAt((at > lineStart ? "\n" : "") + line);
+    if (previewing) renderPreview();
+  }
+  function renderDice() {
+    $("diceQuick").innerHTML = DIE_SIDES.map((d) => `<button data-die="${d}" title="Roll d${d}">d${d}</button>`).join("");
+    $("dMode").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.mode === rollMode));
+    const s = sheetOf();
+    if (!s) { $("diceChar").innerHTML = ""; return; }
+    const init = modOf(s.abil.dex);
+    $("diceChar").innerHTML = ABILS.map((a) => `<button data-abil="${a}" title="${ABIL_NAMES[a]} check: d20 ${signed(modOf(s.abil[a]))}">${a.toUpperCase()}<small>${signed(modOf(s.abil[a]))}</small></button>`).join("") +
+      `<button data-abil="init" title="Initiative: d20 ${signed(init)}">Init<small>${signed(init)}</small></button>`;
+  }
+  $("dInsert").checked = store.get("journal.rollInsert", true);
+  $("dInsert").addEventListener("change", () => store.set("journal.rollInsert", $("dInsert").checked));
+  $("rollMenu").addEventListener("toggle", () => { if ($("rollMenu").open) { renderDice(); } });
+  $("rollMenu").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.mode != null) { rollMode = b.dataset.mode; store.set("journal.rollMode", rollMode); renderDice(); return; }
+    if (b.dataset.die) {
+      const count = Math.min(100, Math.max(1, parseInt($("dCount").value, 10) || 1));
+      showRoll(quickExpr(+b.dataset.die, parseInt($("dMod").value, 10) || 0, count));
+    } else if (b.dataset.abil) {
+      const s = sheetOf(), a = b.dataset.abil;
+      const mod = modOf(s.abil[a === "init" ? "dex" : a]);
+      const who = s.name ? s.name + ": " : "";
+      showRoll(quickExpr(20, mod), who + (a === "init" ? "Initiative" : ABIL_NAMES[a] + " check"));
+    } else if (b.id === "dRoll") showRoll($("dExpr").value);
+  });
+  $("dExpr").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); showRoll($("dExpr").value); } });
 
   async function exportBackup(p) {
     toast("Packing the backup…");
