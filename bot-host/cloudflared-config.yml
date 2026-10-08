@@ -1,0 +1,13 @@
+# ~/.cloudflared/config.yml on the Yoga laptop (see README.md, step 4).
+# Replace <TUNNEL-ID> with the id `cloudflared tunnel create` printed.
+tunnel: <TUNNEL-ID>
+credentials-file: /home/<you>/.cloudflared/<TUNNEL-ID>.json
+
+ingress:
+  - hostname: guildscribe.tavernworks.dev
+    service: http://127.0.0.1:8801
+  - hostname: burn.tavernworks.dev
+    service: http://127.0.0.1:8802
+  - hostname: hunt.tavernworks.dev
+    service: http://127.0.0.1:8803
+  - service: http_status:404
