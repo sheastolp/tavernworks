@@ -1,7 +1,7 @@
-# ~/.cloudflared/config.yml on the Yoga laptop (see README.md, step 4).
+# /etc/cloudflared/config.yml on the Yoga laptop (see README.md, step 7).
 # Replace <TUNNEL-ID> with the id `cloudflared tunnel create` printed.
 tunnel: <TUNNEL-ID>
-credentials-file: /home/<you>/.cloudflared/<TUNNEL-ID>.json
+credentials-file: /root/.cloudflared/<TUNNEL-ID>.json
 
 ingress:
   - hostname: guildscribe.tavernworks.dev

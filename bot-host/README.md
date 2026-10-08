@@ -6,21 +6,23 @@ home as plain Deno processes. Nothing runs on Val Town any more.
 | Bot | Repo | Local port | Public address |
 |-----|------|-----------|----------------|
 | GuildScribe | `sheastolp/dnd-twitch-bot` | 8801 | guildscribe.tavernworks.dev |
-| UndercoverBurn | `sheastolp/UndercoverBurn` | 8802 | burn.tavernworks.dev |
+| UndercoverBurn | `sheastolp/UndercoverBurn` (private) | 8802 | burn.tavernworks.dev |
 | The Wandering Clerk | `sheastolp/The-Wandering-Clerk` | 8803 | hunt.tavernworks.dev |
 
 How the pieces fit:
 
-- Each bot is one systemd user service (`tavernworks-<bot>`) running its
-  `server.ts`: the web side (EventSub webhooks, OAuth, dashboards, overlays) on
-  `127.0.0.1` only, plus the scheduled jobs that used to be Val Town crons. The
-  Clerk's chat bot runs in the same process and stays connected (no more
-  6-hour GitHub Actions runs).
-- Data is one SQLite file per bot in `~/.local/share/tavernworks/`, backed up
-  every night to `~/.local/share/tavernworks/backups/` (newest 14 kept).
-- Settings (Twitch secrets and so on) are in `~/.config/tavernworks/<bot>.env`.
+- Each bot is one systemd service (`tavernworks-<bot>`) running its
+  `server.ts` as the unprivileged `tavernworks` account: the web side
+  (EventSub webhooks, OAuth, dashboards, overlays) on `127.0.0.1` only, plus
+  the scheduled jobs that used to be Val Town crons. The Clerk's chat bot runs
+  in the same process and stays connected (no more 6-hour GitHub Actions
+  runs).
+- Code: `/var/lib/tavernworks/bots/`. Data: one SQLite file per bot in
+  `/var/lib/tavernworks/data/`, backed up every night to
+  `/var/lib/tavernworks/data/backups/` (newest 14 kept). Settings (Twitch
+  secrets and so on): `/etc/tavernworks/<bot>.env`.
 - A **Cloudflare Tunnel** carries the three subdomains to the laptop. No
-  ports are opened on the router, and the laptop's home IP stays hidden.
+  ports are opened on the router, and the home IP stays hidden.
 - **Deploys:** push to `main` as before. Every 3 minutes the laptop pulls new
   commits, type-checks them and restarts that bot. A commit that doesn't
   type-check isn't started; the bot stays on the last good one.
@@ -28,40 +30,54 @@ How the pieces fit:
   commentary) used Val Town's built-in OpenAI. Now they use either your own
   OpenAI key or Ollama on the Local AI laptop.
 
-The Local AI laptop keeps what it already runs (Ollama, Open WebUI, the
-suggestion box). The bots don't depend on it, except for AI replies if you
-point them at its Ollama.
+All steps below run as **root** (e.g. a `tailscale ssh root@<yoga>` session).
+`setup.sh` also works as a normal user, with systemd user services and
+everything under the home folder; use `systemctl --user` then.
+
+`<bot>` below is `guildscribe`, `undercoverburn` or `clerk`.
 
 ## 1. Prepare the Yoga
 
-Ubuntu with `git` and `curl` (`sudo apt install -y git curl`). Keep it awake
-with the lid shut, like the Local AI laptop:
-
 ```sh
-sudo sed -i 's/^#\?HandleLidSwitch=.*/HandleLidSwitch=ignore/; s/^#\?HandleLidSwitchExternalPower=.*/HandleLidSwitchExternalPower=ignore/' /etc/systemd/logind.conf
-sudo systemctl restart systemd-logind
-sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-```
+apt-get update && apt-get install -y git curl unzip openssh-client
 
-If the bot repos are private, give the laptop read access first, for example
-`sudo apt install gh && gh auth login && gh auth setup-git`.
+# keep running with the lid shut, never sleep
+sed -i 's/^#\?HandleLidSwitch=.*/HandleLidSwitch=ignore/; s/^#\?HandleLidSwitchExternalPower=.*/HandleLidSwitchExternalPower=ignore/' /etc/systemd/logind.conf
+systemctl restart systemd-logind
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+```
 
 ## 2. Run the setup script
 
 ```sh
-curl -fsSL https://tavernworks.dev/bot-host/setup.sh -o setup.sh
-bash setup.sh
+git clone https://github.com/sheastolp/tavernworks.git /root/tavernworks
+bash /root/tavernworks/bot-host/setup.sh
 ```
 
-It installs Deno, clones the three repos into `~/bots`, creates the settings
-files, installs the services and timers, and turns on lingering so they run
-while you're logged out. It doesn't start the bots yet. Running it again is
-safe: it never overwrites settings or data.
+Until the bot repos' laptop changes are merged to `main`, install from their
+branch instead (clone tavernworks with `-b <branch>` too):
+
+```sh
+BRANCH=<branch> bash /root/tavernworks/bot-host/setup.sh
+```
+
+The first run creates the `tavernworks` account and installs Deno, then stops
+at UndercoverBurn (a private repo) and prints a deploy key. Add it on GitHub:
+**UndercoverBurn → Settings → Deploy keys → Add deploy key**, paste it, leave
+*Allow write access* off. Then run the same command again to finish.
+
+It installs the services and timers but doesn't start the bots. Running it
+again is always safe: it never overwrites settings or data.
 
 ## 3. Fill in the settings
 
-Edit each file in `~/.config/tavernworks/`. Copy the values over from where
-they live today:
+```sh
+nano /etc/tavernworks/guildscribe.env
+nano /etc/tavernworks/undercoverburn.env
+nano /etc/tavernworks/clerk.env
+```
+
+Copy the values over from where they live today:
 
 - `guildscribe.env` and `undercoverburn.env`: the val's **Environment
   variables** page on Val Town. Copy every variable, including optional ones
@@ -71,97 +87,127 @@ they live today:
   `ADMIN_SESSION_SECRET`). `VALTOWN_API_BASE_URL`, `VALTOWN_API_SECRET` and
   `API_SHARED_SECRET` aren't needed any more.
 
-For AI replies, pick one in `guildscribe.env` and `undercoverburn.env`:
+Leave `PORT` and `DB_PATH` as setup wrote them. For AI replies, pick one in
+`guildscribe.env` and `undercoverburn.env`:
 
 ```sh
 # OpenAI (pay as you go; gpt-4o-mini is what the bots ask for)
 OPENAI_API_KEY=sk-...
 
-# or Ollama on the Local AI laptop, free. The Yoga must be on the tailnet
-# (curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up).
-# Use the HTTPS address `tailscale serve status` shows on the AI laptop:
+# or Ollama on the Local AI laptop, free, over the tailnet. Use the HTTPS
+# address `tailscale serve status` shows on the AI laptop:
 OPENAI_BASE_URL=https://<ai-laptop>.<tailnet>.ts.net/v1
 OPENAI_MODEL=llama3.2
 ```
 
 Without either, the bots still run; only the AI replies fail.
 
-## 4. Move the data off Val Town
+## 4. Get the tunnel ready (nothing switches yet)
 
-Do this right before the switch in step 6, so little changes on Val Town in
-between. Each command runs once, with that bot stopped, from its folder.
-Nothing on Val Town is changed.
-
-**UndercoverBurn** kept its tables in your Val Town account-wide database.
-Create an API token at val.town → Settings → API tokens, then:
+Install `cloudflared` from Cloudflare's package repo and create the tunnel:
 
 ```sh
-cd ~/bots/UndercoverBurn
-export DB_PATH=~/.local/share/tavernworks/undercoverburn.sqlite
-VAL_TOWN_API_KEY=<token> deno task import-db --valtown-global
-```
+mkdir -p --mode=0755 /usr/share/keyrings
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg -o /usr/share/keyrings/cloudflare-main.gpg
+echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' > /etc/apt/sources.list.d/cloudflared.list
+apt-get update && apt-get install -y cloudflared
 
-**GuildScribe** kept its tables in the val's own database (std/sqlite
-`main.ts`), which the account-wide API doesn't reach. Download that database
-as a `.sqlite` file from the val on Val Town, then:
-
-```sh
-cd ~/bots/dnd-twitch-bot
-export DB_PATH=~/.local/share/tavernworks/guildscribe.sqlite
-deno task import-db --file ~/Downloads/<the download>.sqlite
-```
-
-**The Wandering Clerk** copies over the old val's storage API, plus a scan of
-your Val Town databases for character sheets:
-
-```sh
-cd ~/bots/The-Wandering-Clerk
-export DB_PATH=~/.local/share/tavernworks/clerk.sqlite
-OLD_API_SECRET=<the val's API_SHARED_SECRET> VAL_TOWN_API_KEY=<token> deno task import-db
-```
-
-If it reports `characters: 0`, the val stored them somewhere the scan can't
-see. Don't switch the val off yet; the characters need another route out.
-
-## 5. Start the bots
-
-```sh
-systemctl --user start tavernworks-guildscribe tavernworks-undercoverburn tavernworks-clerk
-systemctl --user status tavernworks-guildscribe     # should say active (running)
-curl -s http://127.0.0.1:8801/ | head -5           # GuildScribe answers locally
-journalctl --user -u tavernworks-guildscribe -f     # live log (Ctrl+C to leave)
-```
-
-## 6. Point the subdomains at the laptop (Cloudflare Tunnel)
-
-Install `cloudflared`
-([Cloudflare's package repo](https://pkg.cloudflare.com/index.html) has the
-Ubuntu steps), then:
-
-```sh
-cloudflared tunnel login                    # pick the tavernworks.dev zone in the browser
+cloudflared tunnel login                    # open the printed link on any device, pick tavernworks.dev
 cloudflared tunnel create tavernworks-bots  # prints the tunnel id
-mkdir -p ~/.cloudflared
-curl -fsSL https://tavernworks.dev/bot-host/cloudflared-config.yml -o ~/.cloudflared/config.yml
-nano ~/.cloudflared/config.yml              # fill in the tunnel id and your home folder
 ```
 
-Then the cut-over. In the Cloudflare dashboard for tavernworks.dev:
+Write the config, with the id from the last command:
+
+```sh
+TID=<tunnel id>
+mkdir -p /etc/cloudflared
+sed "s/<TUNNEL-ID>/$TID/g" /root/tavernworks/bot-host/cloudflared-config.yml > /etc/cloudflared/config.yml
+cloudflared tunnel ingress validate         # should say OK
+cloudflared service install
+systemctl enable --now cloudflared
+```
+
+The tunnel is now running but no hostname points at it yet.
+
+## 5. Cut over: stop the old copies, move the data
+
+Do steps 5 to 7 in one sitting, ideally while no one is streaming. Anything
+written on Val Town after the import is lost.
+
+1. **Stop the old copies** so nothing posts twice:
+   - Val Town: on the GuildScribe and UndercoverBurn vals, pause or delete
+     their cron triggers (GuildScribe's merchant, timed messages, autohunt and
+     watchtime crons; UndercoverBurn's poster cron val).
+   - GitHub: **The-Wandering-Clerk → Actions → Hunt and Hoard Bot → ⋯ →
+     Disable workflow**, then cancel the run in progress.
+2. **Copy the data.** Each command runs once, as the `tavernworks` account.
+   Nothing on Val Town is changed. You need a Val Town API token (val.town →
+   Settings → API tokens).
+
+   UndercoverBurn kept its tables in your Val Town account-wide database:
+
+   ```sh
+   cd /var/lib/tavernworks/bots/UndercoverBurn
+   runuser -u tavernworks -- env HOME=/var/lib/tavernworks \
+     DB_PATH=/var/lib/tavernworks/data/undercoverburn.sqlite \
+     VAL_TOWN_API_KEY=<token> deno task import-db --valtown-global
+   ```
+
+   GuildScribe kept its tables in the val's own database, which the
+   account-wide API doesn't reach. Download it from the val on Val Town as a
+   `.sqlite` file on your PC, send it to the Yoga with
+   `tailscale file cp <file>.sqlite <yoga>:`, then on the Yoga:
+
+   ```sh
+   mkdir -p /tmp/gs && tailscale file get /tmp/gs/ && chmod -R a+rX /tmp/gs
+   cd /var/lib/tavernworks/bots/dnd-twitch-bot
+   runuser -u tavernworks -- env HOME=/var/lib/tavernworks \
+     DB_PATH=/var/lib/tavernworks/data/guildscribe.sqlite \
+     deno task import-db --file /tmp/gs/<file>.sqlite
+   ```
+
+   The Wandering Clerk copies over the old val's storage API, plus a scan of
+   your Val Town databases for character sheets:
+
+   ```sh
+   cd /var/lib/tavernworks/bots/The-Wandering-Clerk
+   runuser -u tavernworks -- env HOME=/var/lib/tavernworks \
+     DB_PATH=/var/lib/tavernworks/data/clerk.sqlite \
+     OLD_API_SECRET=<the val's API_SHARED_SECRET> VAL_TOWN_API_KEY=<token> \
+     deno task import-db
+   ```
+
+   If it reports `characters: 0`, the val stored them somewhere the scan
+   can't see. Stop here and keep the val; the characters need another way
+   out.
+
+3. **Start the bots** and check them locally:
+
+   ```sh
+   systemctl start tavernworks-guildscribe tavernworks-undercoverburn tavernworks-clerk
+   systemctl status tavernworks-guildscribe tavernworks-undercoverburn tavernworks-clerk --no-pager
+   curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8801/   # 200
+   curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8802/   # 200
+   curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8803/   # 200
+   ```
+
+## 6. Point the subdomains at the laptop
+
+In the Cloudflare dashboard for tavernworks.dev:
 
 1. **Workers routes:** remove the route for `burn.tavernworks.dev/*` and any
    route on `guildscribe.tavernworks.dev`. Keep `hunt.tavernworks.dev/*`, and
    redeploy that Worker from `cloudflare/hunt-worker.js` in this repo: it still
    serves the onboarding page, and now passes everything else through to the
    tunnel.
-2. **DNS:** delete the existing records for `guildscribe`, `burn` and `hunt`
-   (the placeholders for the Workers, or a Val Town custom domain).
-3. Route the names to the tunnel and run it as a system service:
+2. **DNS:** delete the existing records for `guildscribe`, `burn` and `hunt`.
+
+Then on the Yoga:
 
 ```sh
 cloudflared tunnel route dns tavernworks-bots guildscribe.tavernworks.dev
 cloudflared tunnel route dns tavernworks-bots burn.tavernworks.dev
 cloudflared tunnel route dns tavernworks-bots hunt.tavernworks.dev
-sudo cloudflared --config ~/.cloudflared/config.yml service install
 ```
 
 Check from your phone (off Wi-Fi): https://guildscribe.tavernworks.dev,
@@ -179,31 +225,39 @@ all load.
   `https://hunt.tavernworks.dev/oauth/callback` and
   `https://hunt.tavernworks.dev/admin/callback`.
 
-## 8. Switch Val Town off
+Then try a command in a channel for each bot, and watch the logs:
+`journalctl -u tavernworks-<bot> -f`.
 
-Once everything answers from the laptop:
+## 8. Clean up
 
-- On Val Town, delete (or at least disable) the GuildScribe, UndercoverBurn
-  (roastbot and its cron val) and `huntandhoardbot` vals and their cron
-  triggers.
-- On GitHub, delete the `VAL_TOWN_API_KEY` secret from `dnd-twitch-bot` and
-  `UndercoverBurn`, and the bot secrets from `The-Wandering-Clerk` (its
-  workflow is gone). The deploy workflows were removed from the repos.
-- Revoke the Val Town API token you made for step 4.
+- Merge the laptop changes in the three bot repos and tavernworks. If you
+  installed from a branch, move the laptop onto `main`:
+
+  ```sh
+  for r in dnd-twitch-bot UndercoverBurn The-Wandering-Clerk; do
+    runuser -u tavernworks -- env HOME=/var/lib/tavernworks sh -c \
+      "cd /var/lib/tavernworks/bots/$r && git fetch -q origin main && git checkout -q -B main origin/main"
+  done
+  git -C /root/tavernworks fetch -q origin main && git -C /root/tavernworks checkout -q -B main origin/main
+  systemctl restart tavernworks-guildscribe tavernworks-undercoverburn tavernworks-clerk
+  ```
+
+- Val Town: delete the GuildScribe, UndercoverBurn (roastbot and its cron
+  val) and `huntandhoardbot` vals, and revoke the API token from step 5.
+- GitHub: delete the `VAL_TOWN_API_KEY` secret from `dnd-twitch-bot` and
+  `UndercoverBurn`, and the bot secrets from `The-Wandering-Clerk`.
 
 ## Day to day
 
 | Task | Command |
 |------|---------|
-| Live log | `journalctl --user -u tavernworks-<bot> -f` |
-| Restart a bot | `systemctl --user restart tavernworks-<bot>` |
-| Change a setting | edit `~/.config/tavernworks/<bot>.env`, then restart that bot |
-| See recent deploys | `journalctl --user -u tavernworks-update -n 50` |
-| Deploy right now | `systemctl --user start tavernworks-update` |
-| Back up right now | `systemctl --user start tavernworks-backup` |
-| Restore a backup | stop the bot, copy the backup over `~/.local/share/tavernworks/<bot>.sqlite`, delete the `-wal`/`-shm` files next to it, start the bot |
-
-`<bot>` is `guildscribe`, `undercoverburn` or `clerk`.
+| Live log | `journalctl -u tavernworks-<bot> -f` |
+| Restart a bot | `systemctl restart tavernworks-<bot>` |
+| Change a setting | edit `/etc/tavernworks/<bot>.env`, then restart that bot |
+| See recent deploys | `journalctl -u tavernworks-update -n 50` |
+| Deploy right now | `systemctl start tavernworks-update` |
+| Back up right now | `systemctl start tavernworks-backup` |
+| Restore a backup | stop the bot, copy the backup over `/var/lib/tavernworks/data/<bot>.sqlite` (owned by `tavernworks`), delete the `-wal`/`-shm` files next to it, start the bot |
 
 Backups live on the same laptop. For a copy that survives the laptop, sync
-`~/.local/share/tavernworks/backups/` somewhere else now and then.
+`/var/lib/tavernworks/data/backups/` somewhere else now and then.

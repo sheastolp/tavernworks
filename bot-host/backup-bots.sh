@@ -4,7 +4,7 @@
 # ~/.local/share/tavernworks/backups/, keeping the newest 14 per bot.
 set -uo pipefail
 
-DATA_DIR="$HOME/.local/share/tavernworks"
+DATA_DIR=${DATA_DIR:-$HOME/.local/share/tavernworks}
 BACKUP_DIR="$DATA_DIR/backups"
 DENO=${DENO:-$HOME/.deno/bin/deno}
 stamp=$(date +%Y-%m-%d_%H%M)
