@@ -51,6 +51,11 @@
   .side .bottom a,.side .bottom button{background:none;border:0;color:var(--muted);text-align:left;text-decoration:none;padding:1px 0}
   .side .bottom a:hover,.side .bottom button:hover{color:var(--gold2)}
   .side .bottom small{color:#7a6650;font-size:12px}
+  .cloud{display:flex;flex-direction:column;gap:3px;padding-bottom:8px;margin-bottom:2px;border-bottom:1px solid var(--line)}
+  .side .bottom .cloud #syncBtn{color:var(--gold2);font-weight:600}
+  .side .bottom .cloud #syncBtn:disabled{opacity:.6;cursor:default}
+  .cloud small.bad{color:#e08a6a}
+  .side .bottom .cloud #unlinkBtn{font-size:12px;color:#7a6650}
 
   /* Main */
   .main{display:flex;flex-direction:column;min-width:0;min-height:0}
@@ -216,6 +221,11 @@
       <ol class="list numbered" id="entries"></ol>
     </div>
     <div class="bottom">
+      <div class="cloud">
+        <button id="syncBtn">☁ Sync across devices with Google</button>
+        <small id="syncLine">Keep this journal on your phone and other computers too.</small>
+        <button id="unlinkBtn" hidden>Stop syncing</button>
+      </div>
       <button id="importBtn">⬆ Import a project backup (.json)</button>
       <a href="/">← Back to Tavernworks</a>
       <small id="usage">Saved in this browser only. Download a backup now and then.</small>
@@ -338,6 +348,8 @@
   </div>
 </dialog>
 
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
 <script>
 (function () {
   "use strict";
@@ -403,7 +415,10 @@
       });
       return done(t);
     };
-    return { open, all, put, del, delWhere };
+    const get = async (s, id) => req((await open()).transaction(s).objectStore(s).get(id));
+    // Deletes [store, id] pairs in one transaction.
+    const delMany = async (pairs) => { const t = (await open()).transaction(["projects", "entries", "files"], "readwrite"); pairs.forEach(([s, id]) => t.objectStore(s).delete(id)); return done(t); };
+    return { open, all, get, put, del, delWhere, delMany };
   })();
 
   // ---------- State ----------
@@ -446,13 +461,16 @@
     if (name == null || !name.trim()) return;
     p.name = name.trim(); p.updated = Date.now();
     await DB.put("projects", p);
+    Sync.soon();
     renderProjects(); renderCrumb();
   }
   async function deleteProject(p) {
     const n = (await DB.all("entries", "projectId", p.id)).length;
     if (!confirm(`Delete "${p.name}" with its ${n} ${n === 1 ? "entry" : "entries"} and all attachments?\n\nThis can't be undone. Tip: Download → Whole project backup first.`)) return;
     if (project && project.id === p.id) { clearTimeout(saveTimer); dirty = false; }
+    const gone = [p.id, ...(await DB.all("entries", "projectId", p.id)).map((x) => x.id), ...(await DB.all("files", "projectId", p.id)).map((x) => x.id)];
     await DB.delWhere(["entries", "files"], "projectId", p.id, [["projects", p.id]]);
+    Sync.forget(gone);
     projects = projects.filter((x) => x.id !== p.id);
     if (project && project.id === p.id) {
       project = entry = null;
@@ -477,7 +495,7 @@
   function touchProject() {
     if (!project) return;
     project.updated = Date.now();
-    DB.put("projects", project).catch(() => {});
+    DB.put("projects", project).then(() => Sync.soon(), () => {});
   }
 
   // ---------- Entries ----------
@@ -504,7 +522,9 @@
     const n = (await DB.all("files", "entryId", e.id)).length;
     if (!confirm(`Delete entry "${e.title || "Untitled entry"}"${n ? ` and its ${n} attachment${n === 1 ? "" : "s"}` : ""}? This can't be undone.`)) return;
     if (entry && entry.id === e.id) { clearTimeout(saveTimer); dirty = false; }
+    const gone = [e.id, ...(await DB.all("files", "entryId", e.id)).map((x) => x.id)];
     await DB.delWhere(["files"], "entryId", e.id, [["entries", e.id]]);
+    Sync.forget(gone);
     const i = entries.indexOf(e);
     entries.splice(i, 1);
     touchProject();
@@ -589,7 +609,9 @@
   function showUsage() {
     if (!navigator.storage || !navigator.storage.estimate) return;
     navigator.storage.estimate().then(({ usage }) => {
-      $("usage").textContent = `Saved in this browser only (${fmtSize(usage || 0)} used). Download a backup now and then.`;
+      $("usage").textContent = Sync.linked()
+        ? `Saved in this browser (${fmtSize(usage || 0)}) and synced to your Google Drive.`
+        : `Saved in this browser only (${fmtSize(usage || 0)} used). Download a backup now and then.`;
     }).catch(() => {});
   }
 
@@ -762,6 +784,7 @@
   async function removeFile(f) {
     if (!confirm(`Delete attachment "${f.name}"?`)) return false;
     await DB.del("files", f.id);
+    Sync.forget([f.id]);
     files = files.filter((x) => x.id !== f.id);
     if (urls.has(f.id)) { URL.revokeObjectURL(urls.get(f.id)); urls.delete(f.id); }
     // Drop references to it from the note too.
@@ -907,7 +930,7 @@
     if (fs.length) await DB.put("files", ...fs);
     projects.push(p); sortProjects();
     await openProject(pid);
-    persistStorage(); showUsage();
+    persistStorage(); showUsage(); Sync.soon();
     toast(`Imported "${name}" (${es.length} entr${es.length === 1 ? "y" : "ies"}, ${fs.length} attachment${fs.length === 1 ? "" : "s"})`);
   }
   [$("importBtn"), $("emptyImport")].forEach((b) => b.addEventListener("click", () => $("importInput").click()));
@@ -1144,6 +1167,354 @@
     } catch {}
   });
 
+  // ---------- Sync across devices (Google Drive) ----------
+  // Once linked, the journal is copied to the hidden app folder in the
+  // user's own Google Drive: journal.json holds the projects, entries,
+  // attachment details and deletions, and each attachment is its own
+  // blob-<id> file. It goes straight between this browser and Google, never
+  // through tavernworks.dev. Every device keeps its full copy in IndexedDB and
+  // merges record by record; the newest `updated` wins, and an entry changed
+  // on two devices since they last synced keeps both, the older as a
+  // "(conflict copy)". Google's access tokens last an hour, so after that
+  // (or a new tab) syncing waits for a tap on the Sync button.
+  const Sync = (() => {
+    const SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+    const API = "https://www.googleapis.com/drive/v3", UP = "https://www.googleapis.com/upload/drive/v3/files";
+    const MANIFEST = "journal.json", KEY = "journal.sync", TOKEN_KEY = "journal.sync.token";
+    const STORES = ["projects", "entries", "files"];
+    const KEEP_DELETIONS = 180 * 864e5;
+    // {linked, email, last, base: {id: updated at last sync}, deleted: {id: when}}
+    const state = () => { const s = store.get(KEY, {}); s.base = s.base || {}; s.deleted = s.deleted || {}; return s; };
+    const ver = (r) => r ? r.updated || r.created || 0 : -1;
+    let token = null, running = null, busy = false, again = false, timer = 0, needsTap = false;
+    try { const t = JSON.parse(sessionStorage.getItem(TOKEN_KEY) || "null"); if (t && t.exp > Date.now() + 60000) token = t; } catch {}
+    const hasToken = () => !!token && token.exp > Date.now() + 30000;
+    const dropToken = () => { token = null; try { sessionStorage.removeItem(TOKEN_KEY); } catch {} };
+    const signInError = () => Object.assign(new Error("Sign in again to sync."), { signIn: true });
+
+    // ----- UI -----
+    function show(line, bad) {
+      const s = state();
+      $("syncBtn").textContent = !s.linked ? "☁ Sync across devices with Google" : needsTap ? "☁ Sign in to sync" : "☁ Sync now";
+      $("syncBtn").disabled = busy;
+      $("unlinkBtn").hidden = !s.linked;
+      const el = $("syncLine");
+      el.className = bad ? "bad" : "";
+      el.textContent = line || (!s.linked ? "Keep this journal on your phone and other computers too."
+        : needsTap ? "Tap above to pick up changes from your other devices."
+        : s.last ? `Synced ${new Date(s.last).toLocaleTimeString([], { timeStyle: "short" })}${s.email ? " · " + s.email : ""}`
+        : s.email || "");
+    }
+
+    // ----- Google -----
+    async function signIn() {
+      const clientId = window.TBS_GOOGLE_CLIENT_ID;
+      if (!clientId || !window.googleLoad) throw new Error("Google sign-in isn't set up on this site yet.");
+      await window.googleLoad();
+      await new Promise((res, rej) => {
+        google.accounts.oauth2.initTokenClient({
+          client_id: clientId, scope: SCOPE, login_hint: state().email || undefined,
+          callback: (r) => {
+            if (r.error) return rej(new Error(r.error_description || r.error));
+            if (!google.accounts.oauth2.hasGrantedAllScopes(r, SCOPE)) return rej(new Error("Tick the Google Drive box when Google asks, so the journal can keep its copy there."));
+            token = { value: r.access_token, exp: Date.now() + (Number(r.expires_in) || 3600) * 1000 };
+            try { sessionStorage.setItem(TOKEN_KEY, JSON.stringify(token)); } catch {}
+            res();
+          },
+          error_callback: (e) => rej(new Error(
+            e && e.type === "popup_failed_to_open" ? "The Google window was blocked. Allow pop-ups for tavernworks.dev and try again."
+            : e && e.type === "popup_closed" ? "The Google window was closed before signing in."
+            : "Google sign-in failed.")),
+        }).requestAccessToken({ prompt: "" });
+      });
+      needsTap = false;
+    }
+    async function g(url, opt = {}) {
+      if (!hasToken()) throw signInError();
+      const r = await fetch(url.startsWith("http") ? url : API + url, { ...opt, headers: { Authorization: "Bearer " + token.value, ...(opt.headers || {}) } });
+      if (r.ok) return r;
+      let msg = "Google Drive said " + r.status, reason = "";
+      try { const j = await r.json(); msg = (j.error && j.error.message) || msg; reason = (j.error && j.error.errors && j.error.errors[0] && j.error.errors[0].reason) || ""; } catch {}
+      if (r.status === 401 || /insufficient(Permissions|Scopes)/.test(reason)) { dropToken(); throw signInError(); }
+      if (reason === "accessNotConfigured" || /has not been used|is disabled/.test(msg)) throw new Error("Google Drive sync isn't switched on for this site yet.");
+      if (reason === "storageQuotaExceeded") throw new Error("Your Google Drive is full, so the journal can't sync.");
+      throw new Error(msg);
+    }
+    async function listDrive() {
+      const out = [];
+      let page = "";
+      do {
+        const q = new URLSearchParams({ spaces: "appDataFolder", fields: "nextPageToken,files(id,name,version)", pageSize: "1000" });
+        if (page) q.set("pageToken", page);
+        const j = await (await g("/files?" + q)).json();
+        out.push(...(j.files || []));
+        page = j.nextPageToken;
+      } while (page);
+      return out;
+    }
+    async function upload(name, blob, id) {
+      const type = blob.type || "application/octet-stream";
+      if (id) return g(`${UP}/${id}?uploadType=media`, { method: "PATCH", headers: { "Content-Type": type }, body: blob });
+      const meta = JSON.stringify({ name, parents: ["appDataFolder"] });
+      if (blob.size <= 4 * 1048576) {
+        const b = "journal" + uid().replace(/-/g, "");
+        const body = new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: ${type}\r\n\r\n`, blob, `\r\n--${b}--\r\n`]);
+        return g(`${UP}?uploadType=multipart&fields=id`, { method: "POST", headers: { "Content-Type": "multipart/related; boundary=" + b }, body });
+      }
+      const r = await g(`${UP}?uploadType=resumable`, { method: "POST", headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": type }, body: meta });
+      const loc = r.headers.get("Location");
+      if (!loc) throw new Error("Google Drive didn't take the upload.");
+      return g(loc, { method: "PUT", headers: { "Content-Type": type }, body: blob });
+    }
+    const remove = (id) => g(`/files/${id}`, { method: "DELETE" }).catch(() => {});
+    // Runs fn over items, a few at a time.
+    async function pool(items, fn, n = 4) {
+      let i = 0;
+      await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) await fn(items[i++]); }));
+    }
+
+    // ----- Merge -----
+    const emptySet = () => ({ projects: {}, entries: {}, files: {}, deleted: {} });
+    function mergeInto(a, b, base) {
+      const out = emptySet(), copies = [];
+      out.deleted = { ...a.deleted };
+      for (const [id, at] of Object.entries(b.deleted || {})) out.deleted[id] = Math.max(out.deleted[id] || 0, at);
+      for (const s of STORES) {
+        for (const id of new Set([...Object.keys(a[s] || {}), ...Object.keys(b[s] || {})])) {
+          const l = (a[s] || {})[id], r = (b[s] || {})[id];
+          const win = ver(l) >= ver(r) ? l : r;
+          if (out.deleted[id] && out.deleted[id] >= ver(win)) continue;
+          const since = base[id] || 0;
+          if (s === "entries" && l && r && ver(l) !== ver(r) && ver(l) > since && ver(r) > since && (l.text !== r.text || l.title !== r.title)) {
+            // The same id on every device, so the other one doesn't copy it again.
+            const lose = win === l ? r : l, cid = lose.id + "-c" + ver(lose);
+            if (!out.deleted[cid]) copies.push({ ...lose, id: cid, title: (lose.title || "Untitled entry") + " (conflict copy)" });
+          }
+          out[s][id] = win;
+        }
+      }
+      copies.forEach((c) => { out.entries[c.id] = c; });
+      // Nothing outlives its project or entry.
+      const now = Date.now();
+      for (const [id, e] of Object.entries(out.entries)) if (!out.projects[e.projectId]) { delete out.entries[id]; out.deleted[id] = out.deleted[id] || now; }
+      for (const [id, f] of Object.entries(out.files)) if (!out.entries[f.entryId]) { delete out.files[id]; out.deleted[id] = out.deleted[id] || now; }
+      return out;
+    }
+
+    // ----- One sync -----
+    async function once(progress) {
+      await flush();
+      const s = state();
+      const loc = emptySet();
+      loc.deleted = { ...s.deleted };
+      for (const st of STORES) (await DB.all(st)).forEach((r) => { loc[st][r.id] = r; });
+
+      progress("Checking Google Drive…");
+      const drive = await listDrive();
+      const blobs = new Map(drive.filter((f) => f.name.startsWith("blob-")).map((f) => [f.name.slice(5), f]));
+      const manifests = drive.filter((f) => f.name === MANIFEST);
+      let remote = emptySet();
+      for (const m of manifests) {
+        const j = await (await g(`/files/${m.id}?alt=media`)).json().catch(() => null);
+        if (j && j.format === "tavernworks-journal-sync") remote = mergeInto(remote, j, s.base);
+      }
+      const merged = mergeInto(loc, remote, s.base);
+
+      // Bring this browser up to date.
+      const keepBase = new Set(), puts = { projects: [], entries: [], files: [] }, dels = [];
+      const fetchFiles = [];
+      for (const st of STORES) {
+        for (const [id, w] of Object.entries(merged[st])) {
+          const l = loc[st][id];
+          if (l === w) continue;
+          if (st === "files") { if (!l && blobs.has(id)) fetchFiles.push(w); continue; }
+          if (dirty && entry && id === entry.id) { keepBase.add(id); continue; }
+          puts[st].push(st === "projects" && l ? { ...w, lastEntry: l.lastEntry } : w);
+        }
+        for (const id of Object.keys(loc[st])) if (!merged[st][id]) dels.push([st, id]);
+      }
+      let n = 0;
+      await pool(fetchFiles, async (f) => {
+        progress(`Downloading attachments… ${++n} of ${fetchFiles.length}`);
+        const b = await (await g(`/files/${blobs.get(f.id).id}?alt=media`)).blob();
+        puts.files.push({ ...f, blob: new Blob([b], { type: f.type || b.type }) });
+      });
+      // Don't overwrite anything edited here while this sync ran.
+      for (const st of STORES) {
+        const fresh = [];
+        for (const w of puts[st]) {
+          const now = await DB.get(st, w.id);
+          if (now && loc[st][w.id] && ver(now) > ver(loc[st][w.id])) keepBase.add(w.id); else fresh.push(w);
+        }
+        if (fresh.length) await DB.put(st, ...fresh);
+      }
+      if (dels.length) await DB.delMany(dels);
+      const changedHere = dels.length || STORES.some((st) => puts[st].length);
+
+      // Then Drive: attachments first, so journal.json never names a missing one.
+      const ups = Object.values(merged.files).filter((f) => !blobs.has(f.id) && loc.files[f.id]);
+      n = 0;
+      await pool(ups, async (f) => {
+        progress(`Uploading attachments… ${++n} of ${ups.length}`);
+        await upload("blob-" + f.id, loc.files[f.id].blob);
+      });
+      const out = { format: "tavernworks-journal-sync", version: 1, saved: new Date().toISOString(), projects: merged.projects, entries: merged.entries, files: {}, deleted: {} };
+      for (const [id, f] of Object.entries(merged.files)) { const { blob, ...rest } = f; out.files[id] = rest; }
+      const cutoff = Date.now() - KEEP_DELETIONS;
+      for (const [id, at] of Object.entries(merged.deleted)) if (at > cutoff) out.deleted[id] = at;
+      const [first, ...extra] = manifests;
+      if (first) {
+        // Another device wrote meanwhile: go round again with its version.
+        const { version } = await (await g(`/files/${first.id}?fields=version`)).json();
+        if (String(version) !== String(first.version)) return "again";
+      }
+      progress("Saving to Google Drive…");
+      await upload(MANIFEST, new Blob([JSON.stringify(out)], { type: "application/json" }), first && first.id);
+      await Promise.all(extra.map((m) => remove(m.id)));
+      await Promise.all(Object.keys(merged.deleted).filter((id) => blobs.has(id)).map((id) => remove(blobs.get(id).id)));
+
+      const done = state(); // re-read: deletions may have happened meanwhile
+      for (const id of Object.keys(done.deleted)) if (!(id in loc.deleted)) out.deleted[id] = done.deleted[id];
+      done.deleted = out.deleted;
+      const base = {};
+      for (const st of ["projects", "entries"]) for (const [id, r] of Object.entries(merged[st])) base[id] = keepBase.has(id) ? s.base[id] || 0 : ver(r);
+      done.base = base;
+      done.last = Date.now();
+      store.set(KEY, done);
+      if (changedHere) await reloadView();
+      return "ok";
+    }
+
+    async function run(interactive) {
+      if (running) { again = true; return running; }
+      if (!state().linked) return;
+      clearTimeout(timer);
+      busy = true;
+      running = (async () => {
+        let msg = "", bad = false;
+        try {
+          if (!hasToken()) {
+            if (!interactive) { needsTap = true; return; }
+            show("Waiting for Google…");
+            await signIn();
+          }
+          show("Syncing…");
+          for (let i = 0; i < 3 && (await once((t) => show(t))) === "again"; i++);
+          showUsage();
+        } catch (err) {
+          console.warn("Journal sync:", err);
+          if (err && err.signIn) needsTap = true;
+          else { msg = "⚠ " + (err && err.message || err); bad = true; }
+        } finally {
+          running = null; busy = false;
+          show(msg, bad);
+        }
+        if (again && !bad) soon(1500);
+        again = false;
+      })();
+      return running;
+    }
+    function soon(ms = 4000) {
+      if (!state().linked || !hasToken()) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => run(false), ms);
+    }
+
+    async function link() {
+      try {
+        busy = true;
+        show("Waiting for Google…");
+        await signIn();
+        busy = false;
+        const s = state();
+        s.linked = true;
+        try { s.email = (await (await g("/about?fields=user(emailAddress)")).json()).user.emailAddress; } catch {}
+        store.set(KEY, s);
+        await run(true);
+        toast("Syncing with your Google Drive");
+      } catch (err) {
+        busy = false;
+        show("⚠ " + (err && err.message || err), true);
+      }
+    }
+    async function unlink() {
+      if (!confirm("Stop syncing this browser?\n\nYour journal stays here, and its copy stays in your Google Drive for your other devices.")) return;
+      const wipe = hasToken() && confirm("Also delete the journal's copy from your Google Drive?\n\nOK deletes it (other devices keep their own copies but stop syncing). Cancel keeps it.");
+      try {
+        if (wipe) { show("Deleting the copy in Google Drive…"); await pool(await listDrive(), (f) => remove(f.id)); }
+        if (hasToken() && window.google && google.accounts.oauth2) google.accounts.oauth2.revoke(token.value, () => {});
+      } catch (err) { toast("Couldn't delete the Drive copy: " + (err && err.message || err)); }
+      const s = state();
+      store.set(KEY, { deleted: s.deleted });
+      dropToken(); needsTap = false; clearTimeout(timer);
+      show(); showUsage();
+      toast(wipe ? "Stopped syncing and deleted the Drive copy" : "Stopped syncing");
+    }
+
+    // Load Google's script before the click, so its window opens straight from
+    // the tap (Safari blocks pop-ups that open after a wait).
+    const preload = () => { if (window.googleLoad && window.TBS_GOOGLE_CLIENT_ID) window.googleLoad().catch(() => {}); };
+    ["pointerenter", "focus", "touchstart"].forEach((ev) => $("syncBtn").addEventListener(ev, preload, { passive: true, once: true }));
+    $("syncBtn").addEventListener("click", () => state().linked ? run(true) : link());
+    $("unlinkBtn").addEventListener("click", unlink);
+    setInterval(() => { if (!document.hidden && hasToken()) run(false); }, 120000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && hasToken()) soon(500); });
+
+    return {
+      linked: () => !!state().linked,
+      soon,
+      start() { show(); if (state().linked) { preload(); run(false); } },
+      // Remembers deletions so other devices delete them too.
+      forget(ids) {
+        const s = state(), now = Date.now();
+        ids.forEach((id) => { s.deleted[id] = now; });
+        store.set(KEY, s);
+        soon();
+      },
+    };
+  })();
+
+  // Re-reads the open project and entry after a sync changed them.
+  async function reloadView() {
+    projects = await DB.all("projects");
+    sortProjects();
+    const p = project && projects.find((x) => x.id === project.id);
+    if (!p) {
+      project = entry = null;
+      const last = projects[projects.length - 1];
+      if (last) await openProject(last.id); else { renderProjects(); showMain(); }
+      return;
+    }
+    project = p;
+    const fresh = (await DB.all("entries", "projectId", p.id)).sort((a, b) => a.created - b.created);
+    const cur = entry && fresh.find((e) => e.id === entry.id);
+    if (!cur) {
+      entries = fresh; entry = null;
+      const t = fresh.find((e) => e.id === p.lastEntry) || fresh[fresh.length - 1];
+      renderProjects();
+      if (t) await openEntry(t.id); else { renderEntries(); showMain(); }
+      return;
+    }
+    if (dirty) fresh[fresh.indexOf(cur)] = entry; // keep what's being typed
+    else {
+      if (cur.text !== ta.value) {
+        const a = ta.selectionStart, b = ta.selectionEnd;
+        ta.value = cur.text;
+        ta.setSelectionRange(Math.min(a, ta.value.length), Math.min(b, ta.value.length));
+        gutter.refresh();
+      }
+      if (document.activeElement !== titleIn) titleIn.value = cur.title;
+      entry = cur;
+    }
+    entries = fresh;
+    const nf = (await DB.all("files", "entryId", entry.id)).sort((a, b) => a.created - b.created);
+    if (nf.map((f) => f.id).join() !== files.map((f) => f.id).join()) {
+      files = nf; renderFiles();
+      if (previewing) renderPreview();
+    }
+    renderProjects(); renderEntries(); renderCrumb();
+  }
+
   // ---------- Boot ----------
   (async function init() {
     if (!window.indexedDB) {
@@ -1165,6 +1536,7 @@
     if (pid) await openProject(pid, h.get("e"));
     else showMain();
     showUsage();
+    Sync.start();
   })();
 })();
 </script>

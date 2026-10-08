@@ -3,6 +3,7 @@
 // loaded first). Call:
 //   window.googleSignIn(el, (credential) => { ... })
 // to put Google's button in el; credential is the ID token for the server.
+// The journal's Drive sync uses window.googleLoad() to load Google's script.
 (function () {
   let loading = null;
   const load = () => {
@@ -28,5 +29,6 @@
     el.innerHTML = "";
     google.accounts.id.renderButton(el, { theme: "filled_black", size: "large", shape: "pill", text: "signin_with" });
   };
+  window.googleLoad = load;
   window.googleSignOut = () => { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); };
 })();

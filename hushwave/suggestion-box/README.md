@@ -108,6 +108,11 @@ window.SUGGEST_API = "https://<machine>.<tailnet>.ts.net:10000";
    ID is already filled in both.
 4. On the consent screen, click **Publish app** so anyone can sign in, not
    just test users.
+5. For the Adventurer's Journal's sync, open **APIs & Services → Library** in
+   the same project and enable the **Google Drive API**, then under the
+   consent screen's **Data access** add the scope
+   `https://www.googleapis.com/auth/drive.appdata`. The journal talks to
+   Drive straight from the browser; this server isn't involved.
 
 The first time you sign in with Google from a browser that's still logged in
 as the tip jar admin, the projects you saved with the old password sign-in

@@ -50,7 +50,7 @@
   <header>
     <a class="back" href="/">← Back to the tavern</a>
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated October 7, 2026</p>
+    <p class="updated">Last updated October 8, 2026</p>
   </header>
   <div class="doc">
     <h2>The short version</h2>
@@ -59,19 +59,22 @@
     <h2>Things that stay in your browser</h2>
     <p>These tools save to your browser's local storage or IndexedDB. That data never leaves your device unless you send it somewhere yourself, and clearing your browser's site data deletes it.</p>
     <ul>
-      <li><b>Adventurer's Journal</b>: your projects, notes and attached images. The homepage also reads the journal's project list from your browser to show your recent projects; it isn't sent anywhere.</li>
+      <li><b>Adventurer's Journal</b>: your projects, notes and attached images. The homepage also reads the journal's project list from your browser to show your recent projects; it isn't sent anywhere. If you turn on syncing, see <b>Adventurer's Journal sync</b> below.</li>
       <li><b>Sound Bytes</b>: your settings.</li>
       <li><b>Local AI chat</b>: your chats and connection settings. Messages go straight from your browser to the AI server you point it at.</li>
       <li><b>TwitchBotSandbox in the browser</b>, when you're not signed in: your projects.</li>
     </ul>
     <p>If you use the Journal's Image Forge, prompts go from your browser straight to the ComfyUI server you configure, not to us.</p>
 
+    <h3>Adventurer's Journal sync</h3>
+    <p>If you press <b>Sync across devices with Google</b> in the journal, Google asks you to let it use its own app folder in your Google Drive. The journal then keeps a copy of your projects, notes and attachments in that hidden folder, so your other devices can load them. The copy goes straight between your browser and Google; it never passes through or is stored by Tavernworks, and the journal can't see any of your other Drive files. It counts toward your Drive storage. <b>Stop syncing</b> in the journal can delete that copy, and you can also remove it under <b>Manage apps</b> in Google Drive's settings, or remove Tavernworks' access in your Google account settings.</p>
+
     <h2>Things you send to us</h2>
     <h3>Hushwave suggestion box</h3>
     <p>When you drop in a suggestion we keep the name you type (or "Anonymous"), the type of suggestion, your message and the time it was sent. Only the site admin can read them.</p>
     <h3>Signing in with Google</h3>
     <p>Tavernworks uses Google sign-in in two places: TwitchBotSandbox, which anyone can use, and the admin pages for the tip jar and the suggestion box, which only the site admin can open. Sign-ins with Twitch, such as connecting The Wandering Clerk or opening its Back Room, stay with Twitch and are covered under <b>Twitch bots</b> below.</p>
-    <p>In every case, Google tells us only your account ID, name, email address and profile picture link. We don't ask for, and can't see, anything else in your Google account: no Gmail, Drive, contacts or password.</p>
+    <p>In both cases, Google tells us only your account ID, name, email address and profile picture link. We don't ask for, and can't see, anything else in your Google account: no Gmail, Drive, contacts or password. (The journal's sync, above, also signs in with Google, but nothing from it reaches us.)</p>
     <h3>TwitchBotSandbox</h3>
     <p>If you sign in with Google, we receive your Google account ID, name, email address and profile picture link from Google. We store them with your projects, editor layout and any GitHub or Val Town tokens you save (tokens are encrypted). Automatic backups are made about once an hour while you work, and the newest 30 are kept. We use this only to keep your projects in your account and to show you who you're signed in as. The app's <b>Delete my data</b> button (under <b>Backups…</b>) removes your account and all of its backups right away, and you can also remove Tavernworks' access in your Google account settings.</p>
     <h3>Admin pages</h3>
