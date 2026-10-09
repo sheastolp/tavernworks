@@ -146,10 +146,10 @@
     <h1>Hushwave</h1>
     <p class="tag">An ambient sound player for Windows. <b>Rain, fire and room tone</b> to focus or chill to, and a prompt studio that makes a soundscape from a sentence.</p>
     <div class="badges">
-      <span class="pill live">V1.0.10</span>
+      <span class="pill live">V1.0.13</span>
       <span class="pill plain">WINDOWS</span>
       <span class="pill plain">STREAM-SAFE LIBRARY</span>
-      <span class="pill plain">MIT LICENSE</span>
+      <span class="pill plain">WORKS OFFLINE</span>
     </div>
     <div class="cta">
       <a class="btn gold" href="https://github.com/sheastolp/Hushwave" target="_blank" rel="noopener">
@@ -163,7 +163,7 @@
   <div class="divider">THE IDEA</div>
   <div class="scroll">
     <p>Most ambient sound apps are a browser tab full of ads, or a library you can't safely play on stream. <b>Hushwave is a small, native Windows player</b> with a library of original sounds that won't get a VOD muted.</p>
-    <p>Pick a sound, layer a couple more under it with Quick Mix, set a sleep timer and forget about it. When nothing in the library fits, type what you want to hear, like <code>rain on a skylight</code> or <code>late-night train cabin</code>, and the prompt studio makes one.</p>
+    <p>Pick a sound, layer a couple more under it with Quick Mix, set a sleep timer and forget about it. When nothing in the library fits, type what you want to hear, like <code>crackling fireplace with heavy rain and distant thunder</code> or <code>gentle stream with birdsong</code>, and the prompt studio makes a seamless loop of it on your PC.</p>
   </div>
 
   <div class="divider">THE LIBRARY</div>
@@ -186,22 +186,27 @@
     <div class="card">
       <div class="icon">✨</div>
       <h3>Prompt studio</h3>
-      <p>Describe a mood, place or texture and get a soundscape. The same prompt always gives the same sound.</p>
+      <p>Describe it and Hushwave layers up to five sounds: rain, thunder, wind, fire, waves, a stream, crickets, birdsong, traffic, café murmur, a train, drones, chimes, pads and noise. Words like <i>gentle</i>, <i>dark</i>, <i>cathedral</i> or <i>underwater</i> shape it, a "Will layer" line shows what it heard, and every press gives a new variation.</p>
     </div>
     <div class="card">
       <div class="icon">🔁</div>
       <h3>Loops &amp; sleep timer</h3>
-      <p>Loop a track, loop the playlist, or turn looping off. A sleep timer stops playback after 30 or 60 minutes.</p>
+      <p>Generated loops are 30 seconds, 1 minute or 2 minutes and repeat without a gap. Repeat one sound, play through the library, or stop at the end. The sleep timer stops everything after 15, 30, 60 or 90 minutes, with a live countdown.</p>
     </div>
     <div class="card">
       <div class="icon">📂</div>
       <h3>Your own files</h3>
-      <p>Add your own audio to the library, search it by name or tag, and hide built-in tracks you don't want.</p>
+      <p>Drag MP3, WAV, OGG, FLAC or M4A files onto the window. Search by name, click a tag to filter, and hide built-in tracks you don't want, with Undo if you change your mind.</p>
     </div>
     <div class="card">
       <div class="icon">🎥</div>
       <h3>OBS-friendly output</h3>
-      <p>Send Hushwave to its own audio device so OBS can capture it on a separate track from the rest of your PC.</p>
+      <p>Send Hushwave to its own audio device so OBS can capture it on a separate track. A notice in the player says when sound isn't going to your default speakers, with a one-click <b>Use default</b>.</p>
+    </div>
+    <div class="card">
+      <div class="icon">⌨️</div>
+      <h3>Keys and media buttons</h3>
+      <p>Space to play or pause, arrows to skip, M to mute, Ctrl+K or / to search. Keyboard media keys, headset buttons and the Windows media overlay work too.</p>
     </div>
     <div class="card">
       <div class="icon">🪶</div>
@@ -214,11 +219,11 @@
   <div class="sources">
     <div class="source">
       <h3>🛠️ Offline generator <span class="pill live">DEFAULT</span></h3>
-      <p>Builds the sound right on your PC from your prompt. No account, no network, and original audio you can stream.</p>
+      <p>Layers the sounds your prompt names right on your PC, with seamless loops. No account, no network, and original audio you can stream.</p>
     </div>
     <div class="source">
       <h3>🎙️ Freesound <span class="pill plain">FREE KEY</span></h3>
-      <p>Searches Freesound for a real CC0 recording that matches your prompt. Needs your own free Freesound API key.</p>
+      <p>Searches Freesound for a real CC0 recording that matches your prompt. Needs your own free Freesound API key. If a request fails, Hushwave falls back to the offline generator.</p>
     </div>
     <div class="source">
       <h3>🤖 ElevenLabs <span class="pill soon">PAID KEY</span></h3>
@@ -230,7 +235,7 @@
   <div class="scroll faq">
     <details>
       <summary>How do I install it?</summary>
-      <p>The code and build instructions are on <a href="https://github.com/sheastolp/Hushwave" target="_blank" rel="noopener">GitHub</a>. A GitHub Actions workflow builds the <code>.exe</code> and <code>.msi</code> installers on GitHub's own Windows servers, so you don't need Node or Rust on your PC. You can also build it yourself with <code>npm install</code> and <code>npm run tauri:build</code>.</p>
+      <p>On <a href="https://github.com/sheastolp/Hushwave" target="_blank" rel="noopener">GitHub</a>, open the <b>Actions</b> tab, pick the newest green <b>Build Windows installer</b> run, and download <b>hushwave-windows-installer</b> from its Artifacts (you need to be signed in to GitHub). Unzip it and run the <code>-setup.exe</code>. If Windows says it protected your PC, click <b>More info → Run anyway</b>; the app just isn't signed with a paid certificate. To update, run a newer installer over the old one and your settings stay. The <a href="https://github.com/sheastolp/Hushwave#setup-guide" target="_blank" rel="noopener">README</a> has the full setup guide.</p>
     </details>
     <details>
       <summary>Is it safe to play on stream?</summary>
@@ -242,7 +247,11 @@
     </details>
     <details>
       <summary>How do I get it into OBS on its own track?</summary>
-      <p>In Hushwave's Preferences, set <b>Audio output device</b> to a spare or virtual device, then add that device as an audio source in OBS.</p>
+      <p>Install the free <a href="https://vb-audio.com/Cable/" target="_blank" rel="noopener">VB-Audio Virtual Cable</a> and restart. In Hushwave's <b>Preferences → Audio output</b>, choose <b>CABLE Input</b> (click <b>Show all devices by name</b> if you only see generic names; Windows asks for the microphone once just to reveal them, and nothing is recorded). In OBS, add an <b>Audio Input Capture</b> for <b>CABLE Output</b>. To hear it yourself too, turn on <b>Listen to this device</b> for CABLE Output in Windows' recording devices.</p>
+    </details>
+    <details>
+      <summary>I can't hear anything.</summary>
+      <p>Open <b>Preferences → Audio output</b> and press <b>Play test sound</b>; it tells you which device it played through. If the player shows a yellow "Sound is going to…" notice, click <b>Use default</b>. Also check that Hushwave isn't muted in the Windows volume mixer or by its own mute button. If the device you picked was unplugged or removed, Hushwave now falls back to your default speakers on its own.</p>
     </details>
     <details>
       <summary>Mac or Linux?</summary>
