@@ -249,19 +249,29 @@
 
   <div class="divider" id="install">GET THE INSTALLER</div>
   <div class="scroll guide">
-    <p>GitHub builds a fresh Windows installer every time the code changes, so there's nothing to compile and no developer tools to install. You just need a free <a href="https://github.com/signup" target="_blank" rel="noopener">GitHub account</a>, since GitHub only lets signed-in people download builds.</p>
+    <p>Hushwave's installer is built by GitHub, not on your PC, so there's nothing to compile and no developer tools to install. You make your own copy of the files on GitHub, switch on its build, and download the installer it makes. All you need is a free <a href="https://github.com/signup" target="_blank" rel="noopener">GitHub account</a>. The first time takes about 20 minutes, most of it waiting.</p>
     <ol class="steps" style="margin-top:20px">
       <li><div>
-        <h3>Open the Actions tab</h3>
-        <p>Go to <a href="https://github.com/sheastolp/Hushwave/actions/workflows/build-windows.yml" target="_blank" rel="noopener">Hushwave's Build Windows installer runs</a> on GitHub. (From the repo's front page, that's the <b>Actions</b> tab, then <b>Build Windows installer</b> on the left.)</p>
+        <h3>Sign in to GitHub</h3>
+        <p>Sign in at <a href="https://github.com/login" target="_blank" rel="noopener">github.com</a>, or <a href="https://github.com/signup" target="_blank" rel="noopener">make a free account</a> first. GitHub only lets signed-in people run builds and download them.</p>
       </div></li>
       <li><div>
-        <h3>Pick the newest green run</h3>
-        <p>Click the top run that has a green check mark ✅. A yellow dot means it's still building; give it a few minutes and refresh. A red ✖ means that build failed, so take the next green one down.</p>
+        <h3>Make your own copy (fork)</h3>
+        <p>Open <a href="https://github.com/sheastolp/Hushwave" target="_blank" rel="noopener">github.com/sheastolp/Hushwave</a> and click <b>Fork</b> near the top right. Leave the settings as they are and click <b>Create fork</b>.</p>
+        <p>GitHub takes you to your copy at <code>github.com/your-name/Hushwave</code>. Do the rest of the steps there.</p>
       </div></li>
       <li><div>
-        <h3>Download the artifact</h3>
-        <p>Scroll to the bottom of the run page to <b>Artifacts</b> and click <b>hushwave-windows-installer</b>. A zip file downloads. If clicking does nothing, check that you're signed in to GitHub.</p>
+        <h3>Turn on GitHub Actions</h3>
+        <p>In your copy, click the <b>Actions</b> tab. GitHub keeps builds switched off on new copies, so you'll see <b>"Workflows aren't being run on this forked repository"</b>. Click <b>I understand my workflows, go ahead and enable them</b>.</p>
+      </div></li>
+      <li><div>
+        <h3>Build the installer</h3>
+        <p>Still on the Actions tab, click <b>Build Windows installer</b> in the list on the left. Click the <b>Run workflow</b> button on the right, leave the branch on <code>main</code>, and click the green <b>Run workflow</b>.</p>
+        <p>A new run appears after a few seconds (refresh if it doesn't). The yellow dot means it's building. The first build takes 10 to 15 minutes; later ones are faster. When it turns into a green check mark ✅, it's done. A red ✖ means the build failed; click <b>Re-run jobs</b> on the run, and if it fails again, ask in the <a href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">Discord</a>.</p>
+      </div></li>
+      <li><div>
+        <h3>Download the installer</h3>
+        <p>Click the finished green run, scroll to <b>Artifacts</b> at the bottom, and click <b>hushwave-windows-installer</b>. A zip file downloads.</p>
       </div></li>
       <li><div>
         <h3>Unzip it</h3>
@@ -278,9 +288,10 @@
       </div></li>
     </ol>
     <div class="note">
-      <b>Updating:</b> grab the newest installer the same way and run it over the old one. Your settings stay.<br>
+      <b>Updating:</b> on your copy's front page, click <b>Sync fork → Update branch</b> to pull in the newest changes. Then build and download again (steps 4 to 7) and run the new installer over the old one. Your settings stay.<br>
       <b>Needs:</b> Windows 10 or 11 with the Microsoft WebView2 runtime, which Windows 11 and up-to-date Windows 10 already have.<br>
-      <b>No Artifacts on the run?</b> GitHub deletes old builds after a while. Pick a newer run, or ask in the <a href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">Discord</a> for a fresh build.<br>
+      <b>No Artifacts on an old run?</b> GitHub deletes builds after a while. Just run the workflow again (step 4).<br>
+      <b>Costs nothing:</b> builds on public copies are free on GitHub, and your copy is public like the original.<br>
       The <a href="https://github.com/sheastolp/Hushwave#setup-guide" target="_blank" rel="noopener">README's setup guide</a> covers first run, online sound sources and OBS too.
     </div>
   </div>
@@ -289,7 +300,7 @@
   <div class="scroll faq">
     <details>
       <summary>How do I install it?</summary>
-      <p>Download the latest installer from GitHub's Actions tab, unzip it and run the <code>-setup.exe</code>. The <a href="#install">step-by-step guide above</a> walks through it. To update, run a newer installer over the old one and your settings stay.</p>
+      <p>Make your own copy (fork) of Hushwave on GitHub, turn on Actions, run <b>Build Windows installer</b>, then download the installer it makes and run the <code>-setup.exe</code>. The <a href="#install">step-by-step guide above</a> walks through it. To update, run a newer installer over the old one and your settings stay.</p>
     </details>
     <details>
       <summary>Is it safe to play on stream?</summary>
