@@ -87,6 +87,21 @@
   .source h3{font-family:Cinzel,serif;font-size:17px;color:var(--gold2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .source p{color:var(--muted);font-size:14.5px;margin-top:6px}
 
+  .steps{list-style:none;counter-reset:step;display:grid;gap:14px}
+  .steps > li{counter-increment:step;display:grid;grid-template-columns:34px 1fr;gap:14px;align-items:start}
+  .steps > li::before{
+    content:counter(step);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
+    font:800 15px Cinzel,serif;color:var(--bg);background:linear-gradient(180deg,var(--gold2),var(--gold))
+  }
+  .steps h3{font-family:Cinzel,serif;font-size:16px;color:var(--gold2);line-height:1.3;padding-top:7px}
+  .steps p{color:var(--muted);font-size:14.5px}
+  .steps p + p{margin-top:6px}
+  .steps ul{color:var(--muted);font-size:14.5px;margin:6px 0 0 18px;display:grid;gap:4px}
+  .guide a{color:var(--gold2)}
+  .steps b{color:var(--text);font-weight:600}
+  .note{margin-top:18px;padding:14px 16px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:14px}
+  .note b{color:var(--text);font-weight:600}
+
   .faq details{border-bottom:1px solid var(--line);padding:14px 0}
   .faq details:last-child{border-bottom:0}
   .faq summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px}
@@ -156,6 +171,7 @@
         <svg viewBox="0 0 24 24"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5Z"/></svg>
         Get it on GitHub
       </a>
+      <a class="btn" href="#install">📦 How to install</a>
       <a class="btn" href="#suggest">💡 Suggest a feature</a>
     </div>
   </header>
@@ -231,11 +247,49 @@
     </div>
   </div>
 
+  <div class="divider" id="install">GET THE INSTALLER</div>
+  <div class="scroll guide">
+    <p>GitHub builds a fresh Windows installer every time the code changes, so there's nothing to compile and no developer tools to install. You just need a free <a href="https://github.com/signup" target="_blank" rel="noopener">GitHub account</a>, since GitHub only lets signed-in people download builds.</p>
+    <ol class="steps" style="margin-top:20px">
+      <li><div>
+        <h3>Open the Actions tab</h3>
+        <p>Go to <a href="https://github.com/sheastolp/Hushwave/actions/workflows/build-windows.yml" target="_blank" rel="noopener">Hushwave's Build Windows installer runs</a> on GitHub. (From the repo's front page, that's the <b>Actions</b> tab, then <b>Build Windows installer</b> on the left.)</p>
+      </div></li>
+      <li><div>
+        <h3>Pick the newest green run</h3>
+        <p>Click the top run that has a green check mark ✅. A yellow dot means it's still building; give it a few minutes and refresh. A red ✖ means that build failed, so take the next green one down.</p>
+      </div></li>
+      <li><div>
+        <h3>Download the artifact</h3>
+        <p>Scroll to the bottom of the run page to <b>Artifacts</b> and click <b>hushwave-windows-installer</b>. A zip file downloads. If clicking does nothing, check that you're signed in to GitHub.</p>
+      </div></li>
+      <li><div>
+        <h3>Unzip it</h3>
+        <p>Right-click the zip and choose <b>Extract All</b>. Inside are two installers; you only need one:</p>
+        <ul>
+          <li><code>Hushwave_x.y.z_x64-setup.exe</code>: use this one.</li>
+          <li><code>Hushwave_x.y.z_x64_en-US.msi</code>: only for work PCs that require MSI installers.</li>
+        </ul>
+      </div></li>
+      <li><div>
+        <h3>Run the installer</h3>
+        <p>Double-click the <code>-setup.exe</code>. If Windows says <b>"Windows protected your PC"</b>, click <b>More info → Run anyway</b>. That shows up because the app isn't signed with a paid code-signing certificate, not because anything's wrong.</p>
+        <p>When it finishes, open <b>Hushwave</b> from the Start menu. The version in the top-left corner (like <code>v1.0.13</code>) tells you which build you have.</p>
+      </div></li>
+    </ol>
+    <div class="note">
+      <b>Updating:</b> grab the newest installer the same way and run it over the old one. Your settings stay.<br>
+      <b>Needs:</b> Windows 10 or 11 with the Microsoft WebView2 runtime, which Windows 11 and up-to-date Windows 10 already have.<br>
+      <b>No Artifacts on the run?</b> GitHub deletes old builds after a while. Pick a newer run, or ask in the <a href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">Discord</a> for a fresh build.<br>
+      The <a href="https://github.com/sheastolp/Hushwave#setup-guide" target="_blank" rel="noopener">README's setup guide</a> covers first run, online sound sources and OBS too.
+    </div>
+  </div>
+
   <div class="divider">QUESTIONS AT THE BAR</div>
   <div class="scroll faq">
     <details>
       <summary>How do I install it?</summary>
-      <p>On <a href="https://github.com/sheastolp/Hushwave" target="_blank" rel="noopener">GitHub</a>, open the <b>Actions</b> tab, pick the newest green <b>Build Windows installer</b> run, and download <b>hushwave-windows-installer</b> from its Artifacts (you need to be signed in to GitHub). Unzip it and run the <code>-setup.exe</code>. If Windows says it protected your PC, click <b>More info → Run anyway</b>; the app just isn't signed with a paid certificate. To update, run a newer installer over the old one and your settings stay. The <a href="https://github.com/sheastolp/Hushwave#setup-guide" target="_blank" rel="noopener">README</a> has the full setup guide.</p>
+      <p>Download the latest installer from GitHub's Actions tab, unzip it and run the <code>-setup.exe</code>. The <a href="#install">step-by-step guide above</a> walks through it. To update, run a newer installer over the old one and your settings stay.</p>
     </details>
     <details>
       <summary>Is it safe to play on stream?</summary>
