@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Oddsparks Assistant · Tavernworks</title>
-<meta name="description" content="Oddsparks Assistant: a Spark field guide, path and logistics rules, a quest tracker, enemy notes, a production planner and calculators. Runs in your browser.">
+<meta name="description" content="Oddsparks Assistant: guides, suggested production layouts, every crafting recipe, buildings, a Spark field guide, a quest tracker, a production planner and calculators. Runs in your browser.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>">
 <style>
 :root{--bg:#10140f;--panel:#182017;--panel2:#202a1e;--line:#2f3d2b;--tx:#e4e9dc;--dim:#93a08a;--acc:#ffb547;--acc2:#7fd6c2;--ok:#7ad37f;--warn:#f2c14e;--err:#ff7a6b}
@@ -55,6 +55,13 @@ label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
 .tree{font-family:Consolas,"Cascadia Mono",monospace;font-size:13px;white-space:pre;overflow:auto}
 .bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
 .bar i{display:block;height:100%;background:var(--acc)}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+a.mob{color:var(--acc);text-decoration:none;font-weight:600}a.mob:hover{text-decoration:underline}
+ol.steps{margin:4px 0;padding-left:22px}ol.steps li{margin:4px 0}
+details.card summary{cursor:pointer}
 </style>
 <script src="/bot-sandbox/app/config.js"></script>
 <script src="/google-signin.js"></script>
@@ -101,7 +108,21 @@ const QUESTS=[
 {t:6,n:'Mountain Spark R&D - 2',d:'More Spark Workstation recipes.',conf:true},
 {t:7,n:'Mountain Spark R&D - 3',d:'More Spark Workstation recipes.',conf:true},
 {t:8,n:'Metal Spark R&D - 1',d:'Unlocks Drilly Sparks.',conf:true},
-{t:10,n:'Final tier quests',d:'The Corrupted Ruins, the last biome, added in 1.0.',conf:true}
+{t:10,n:'Final tier quests',d:'The Corrupted Ruins, the last biome, added in 1.0.',conf:true},
+{t:3,n:'Woodcraft - 3',d:'Unlocks the Wood Workshop.',conf:true},
+{t:3,n:'Processing Organics',d:'Deliver 20 Wooden Blades. Unlocks the Cutter and Fertiliser.',conf:true},
+{t:4,n:'Stone Harvesting & Cutting',d:'Unlocks the Stonecutter: Stone Plate and Pebble.',conf:true},
+{t:4,n:'Rope Making (Merchant)',d:'Deliver 80 Tree Bark, 160 Leaves and 6 Pengus Tendons. Unlocks the Loom and Rope.',conf:true},
+{t:4,n:'Leaves Harvesting',d:'Lets Loggers harvest Leaves.',conf:true},
+{t:5,n:'Stonecraft - 1 (Mason Sisters)',d:'Deliver Pebbles and Stone Plates (200 or 300 each; sources differ). Unlocks the Stone Workshop and Stone Wheels.',conf:true},
+{t:5,n:'Village Expansion',d:'Grows the village.',conf:true},
+{t:6,n:'Alchemy - 1',d:'Starts the Alchemy Lab recipes.',conf:true},
+{t:6,n:'Fibrecraft',d:'Deliver 400 Rope and 200 Stone Wheels. Unlocks Fabric at the Loom.',conf:true},
+{t:7,n:'Metallurgy (Merchant)',d:'Build an Ore Miner and move 90 Copper Ore. Unlocks Ore Smelting at the Furnace.',conf:true},
+{t:8,n:'Geode Breaker - 1',d:'Opens geode processing.',conf:true},
+{t:8,n:'Temperature Control - 1',d:'Heat and cold handling for the Glacial Plateau and Volcanic Cave.',conf:true},
+{t:9,n:'Botanical Metallurgy',d:'Unlocks the Plant Extractor, Copper Cuttings, Sap Smelting and Copper Beading.',conf:true},
+{t:10,n:'Aetheric Enrichment',d:'A final-tier Aether quest.',conf:true}
 ];
 
 const BIOMES=[
@@ -133,77 +154,231 @@ const RULES=[
 ];
 
 const GUIDES=[
-{id:'start',title:'Your first hours',blurb:'From the first Stumpy to a running line.',body:`
-<p>Oddsparks is a factory game with no belts. You build workshops, lay paths, and Sparks walk the paths carrying items. Progress comes from villager quests that unlock new buildings.</p>
-<h3>Checklist</h3>
-<label class="chk"><input type="checkbox" data-k="s1"> Hunt a few Spunnies for Aether Shards.</label>
-<label class="chk"><input type="checkbox" data-k="s2"> Build a Spark Workbench and make Stumpy Sparks (wood + Aether Shards).</label>
-<label class="chk"><input type="checkbox" data-k="s3"> Place a Logger. It produces logs without running out.</label>
-<label class="chk"><input type="checkbox" data-k="s4"> Place a Sawbench and path it to the Logger so Sparks carry logs over to be cut.</label>
+{id:'words',title:'Words the game uses',blurb:'Sparks, Aether Shards, Ancient Bases and the rest, in plain terms.',body:`
+<table>
+<tr><td><b>Spark</b></td><td>The little creatures that do everything. Workers carry items along paths and staff buildings, Fighters follow you into fights, Specials are thrown once for an effect.</td></tr>
+<tr><td><b>Path</b></td><td>Your conveyor belt. Sparks only move items along paths you lay. No path, no delivery.</td></tr>
+<tr><td><b>Aether Shard</b></td><td>The magic ingredient in every new Spark. Early on you collect them from Spunnies; later an Aetheric Distiller makes them.</td></tr>
+<tr><td><b>Ancient Base</b></td><td>A fixed stone platform. Spark Workbenches can only go on one.</td></tr>
+<tr><td><b>Giant Tree / Giant Rock</b></td><td>Fixed resource spots. A Logger goes on a Giant Tree, a Drill on a Giant Rock. They never run out.</td></tr>
+<tr><td><b>Spark Pen</b></td><td>Storage for Sparks you aren't using. Call them out when you need an army.</td></tr>
+<tr><td><b>Splitter</b></td><td>A path piece that sends Sparks down each branch in turn.</td></tr>
+<tr><td><b>Tier</b></td><td>Quest level. Finishing quests in a tier opens the next one and its buildings.</td></tr>
+</table>`},
+{id:'start',title:'Your first hours',blurb:'From the first Stumpy to a running line, step by step.',body:`
+<p>Oddsparks is a factory game with no conveyor belts. You build workshops, lay paths between them, and Sparks walk the paths carrying items. New buildings come from villager quests.</p>
+<h3>1. Your first Sparks</h3>
+<label class="chk"><input type="checkbox" data-k="s1"> Hunt a few Spunnies (the small hopping creatures) and pick up the Aether Shards they drop.</label>
+<label class="chk"><input type="checkbox" data-k="s2"> Build a Spark Workbench on the Ancient Base (20 Wooden Log, 5 Aether Shard). Make Stumpy Sparks: 5 logs and 1 shard each.</label>
+<h3>2. Your first line</h3>
+<label class="chk"><input type="checkbox" data-k="s3"> Place a Logger on a Giant Tree. It makes logs forever.</label>
+<label class="chk"><input type="checkbox" data-k="s4"> Place a Sawbench and lay a path from the Logger to it and back. Sparks carry logs over and the bench cuts them into Sawn Timber.</label>
 <label class="chk"><input type="checkbox" data-k="s5"> Finish "Your First Production Line" and "Path Logistics".</label>
+<h3>3. Get ready for Tier 2</h3>
 <label class="chk"><input type="checkbox" data-k="s6"> Build a Spark Pen to store the Sparks you aren't using.</label>
-<label class="chk"><input type="checkbox" data-k="s7"> Start saving Stumpies and Wooden Panels for "Crafting Crafties" (60 + 40).</label>
+<label class="chk"><input type="checkbox" data-k="s7"> Start saving for "Crafting Crafties": 60 Stumpy Sparks and 40 Wooden Panels. The <a href="#layouts/panels">Panel block</a> and <a href="#layouts/stumpy">Stumpy workshop</a> layouts get you there fastest.</label>
 <h3>Habits</h3>
-<ul><li>Talk to every villager. Quests are how buildings unlock.</li><li>Stuck in the terrain? Pause menu &rarr; <b>Unstuck</b> teleports you back to the village.</li><li>The developers put a full run at roughly 50 hours. There's no rush.</li></ul>`},
-{id:'logistics',title:'Designing paths',blurb:'Traffic rules for belt-less factories.',body:`
-<p>The short version: <b>Sparks go right, Splitters alternate, loops beat dead ends.</b> The full list is on the <a href="#logistics">Logistics</a> page.</p>
+<ul><li>Talk to every villager. Quests are how buildings unlock.</li><li>Stuck in the terrain? Pause menu &rarr; <b>Unstuck</b> teleports you back to the village.</li><li>Don't tear down a working line to rebuild it bigger. Build the bigger one next to it, then switch.</li><li>The developers put a full run at roughly 50 hours. There's no rush.</li></ul>`},
+{id:'tiers',title:'What to aim for in each tier',blurb:'A short road map from Tier 1 to the Corrupted Ruins.',body:`
+<table>
+<tr><th>Tier</th><th>Main goal</th><th>Build</th></tr>
+<tr><td>1</td><td>Stumpies and timber</td><td>Spark Workbench, Logger, Sawbench. <a href="#layouts/panels">Panel block</a>.</td></tr>
+<tr><td>2</td><td>Crafty Sparks (60 Stumpies + 40 Panels)</td><td>A second Logger. <a href="#layouts/crafty">Crafty line</a>.</td></tr>
+<tr><td>3</td><td>Woodland Sparks and the Wood Workshop</td><td>Wood Workshop for Wooden Blades, then a Cutter (20 Wooden Blades) for Fertiliser.</td></tr>
+<tr><td>4</td><td>Stone and Rope</td><td>Stonecutter. Loom (needs 3 Pengus Tendons, so hunt Pengus). <a href="#layouts/plates">Stone plate block</a>.</td></tr>
+<tr><td>5</td><td>Stone Workshop and the Spark Workstation</td><td>Drills on Giant Rocks. <a href="#layouts/wheels">Stone Wheel line</a>. Rocky Sparks.</td></tr>
+<tr><td>6</td><td>Fabric and Alchemy</td><td>Fibrecraft wants 400 Rope and 200 Stone Wheels. <a href="#layouts/rope">Rope and Fabric</a>.</td></tr>
+<tr><td>7</td><td>Metal</td><td>Ore Miner and Furnace (Metallurgy: 90 Copper Ore). <a href="#layouts/hauling">Hauling Sparks</a>.</td></tr>
+<tr><td>8-9</td><td>Drilly Sparks, cold and heat</td><td>Drilly Sparks for Permafrost and Obsidian. Bring spare Sparks to the Glacial Plateau and Volcanic Cave.</td></tr>
+<tr><td>10</td><td>The Corrupted Ruins</td><td>Defensive Walls, Enemy Sensors, Scrubby Sparks.</td></tr>
+</table>
+<p class="dim">Exact quest amounts change between patches. The <a href="#quests">Quest Tracker</a> lists the ones we could confirm.</p>`},
+{id:'logistics',title:'Designing paths',blurb:'Traffic rules for factories without belts.',body:`
+<p>The short version: <b>Sparks go right, Splitters alternate, loops beat dead ends.</b></p>
+{{loop}}
 <h3>Before you build a line</h3>
 <label class="chk"><input type="checkbox" data-k="l1"> Each producer has a path out and each consumer a path in.</label>
-<label class="chk"><input type="checkbox" data-k="l2"> Every fork is either a Splitter, or the left branch is meant to be skipped.</label>
-<label class="chk"><input type="checkbox" data-k="l3"> Sparks can come back round without walking against traffic (a loop).</label>
-<label class="chk"><input type="checkbox" data-k="l4"> Count the Sparks the line needs with the <a href="#calc">Route calculator</a>.</label>
-<label class="chk"><input type="checkbox" data-k="l5"> No merge has more traffic than its shared tiles can hold.</label>`},
+<label class="chk"><input type="checkbox" data-k="l2"> Every fork is either a Splitter, or you mean Sparks to skip the left branch (they turn right by default).</label>
+<label class="chk"><input type="checkbox" data-k="l3"> Sparks can get back to the start without walking against traffic (a loop).</label>
+<label class="chk"><input type="checkbox" data-k="l4"> You've counted the Sparks the line needs with the <a href="#calc">Route calculator</a>.</label>
+<label class="chk"><input type="checkbox" data-k="l5"> No merge carries more Sparks than its shared tiles can hold.</label>
+<h3>Common jams and fixes</h3>
+<ul><li><b>Sparks stand still at a merge:</b> too many Sparks on shared tiles. Split the line in two, or swap to Carry or Hauling Sparks so fewer Sparks move the same amount.</li>
+<li><b>One consumer gets everything:</b> it's on the right-hand branch. Add a Splitter at the fork.</li>
+<li><b>Two lines steal each other's Sparks:</b> where they cross, use a Crossing piece so each line keeps its own path.</li>
+<li><b>Buildings packed too tight:</b> players report that 4 tiles between buildings clogs; 6 to 8 flows.</li></ul>
+<p>The full list is on the <a href="#logistics">Logistics</a> page.</p>`},
+{id:'aether',title:'Getting Aether Shards',blurb:'Every Spark needs them. How to stop running out.',body:`
+<p>Every Stumpy Spark costs one Aether Shard, and Stumpies go into almost every other Spark. Shards are the thing that limits you early on.</p>
+<h3>Early: by hand</h3>
+<label class="chk"><input type="checkbox" data-k="a1"> Hunt Spunnies whenever you pass them. Pick up the shards from their bodies too.</label>
+<label class="chk"><input type="checkbox" data-k="a2"> Forest Spunnies are tougher. Take Slashy Sparks once you have them.</label>
+<label class="chk"><input type="checkbox" data-k="a3"> Keep a stack of shards in every Spark Workbench so it never stops.</label>
+<h3>Later: automated</h3>
+<label class="chk"><input type="checkbox" data-k="a4"> Build an Aetheric Distiller. One Aetheric Pellet makes 6 Shards.</label>
+<label class="chk"><input type="checkbox" data-k="a5"> Set a Cutter to Aetheric Pellet. One Aetheric Clump makes 6 Pellets, so a Clump is worth 36 Shards. See the <a href="#layouts/shards">Aether Shard factory</a>.</label>
+<label class="chk"><input type="checkbox" data-k="a6"> End game: Refined Aether in the Distiller gives 30 Shards at once.</label>`},
+{id:'stone',title:'The stone age',blurb:'Stonecutters, Drills and the Stone Workshop (Tiers 4-6).',body:`
+<p>Stone opens the mid game: Stone Plates build most new buildings, and Stone Wheels go into Hauling Sparks.</p>
+<label class="chk"><input type="checkbox" data-k="t1"> Finish Stone Harvesting & Cutting (Tier 4) to unlock the Stonecutter.</label>
+<label class="chk"><input type="checkbox" data-k="t2"> Stone Plates are slow (32 s each, from 2 Stone). Build plenty of Stonecutters. See the <a href="#layouts/plates">Stone plate block</a>.</label>
+<label class="chk"><input type="checkbox" data-k="t3"> Save a Beelephant Carapace and build a Drill on a Giant Rock (20 Stone Plate, 10 Sawn Timber, 1 Carapace).</label>
+<label class="chk"><input type="checkbox" data-k="t4"> Find rocks for Stone, Limestone and Quartz. Each Drill mines what its rock gives.</label>
+<label class="chk"><input type="checkbox" data-k="t5"> Finish Stonecraft - 1 for the Stone Workshop (20 Stone Plate, 20 Pebble).</label>
+<label class="chk"><input type="checkbox" data-k="t6"> Build a <a href="#layouts/wheels">Stone Wheel line</a>. Fibrecraft (Tier 6) wants 200 wheels.</label>`},
+{id:'organics',title:'Leaves, bark and rope',blurb:'Cutter, Loom, Fertiliser and Fabric.',body:`
+<p>A Logger can harvest Tree Bark or Leaves instead of logs. These feed a whole second set of products.</p>
+<label class="chk"><input type="checkbox" data-k="o1"> Make 20 Wooden Blades in the Wood Workshop. They build the Cutter and finish Processing Organics.</label>
+<label class="chk"><input type="checkbox" data-k="o2"> Set a Cutter to Fertiliser (4 Leaves make 2). Fertiliser goes into Loamy Sparks and Explosives.</label>
+<label class="chk"><input type="checkbox" data-k="o3"> Hunt Pengus for their tendons. The Loom costs 3, and Rope Making asks for 6.</label>
+<label class="chk"><input type="checkbox" data-k="o4"> Rope Making (Tier 4, Merchant) wants 80 Tree Bark, 160 Leaves and 6 Pengus Tendons.</label>
+<label class="chk"><input type="checkbox" data-k="o5"> Rope: 1 Bark + 2 Leaves. Fabric: 4 Bark + 2 Rope. See <a href="#layouts/rope">Rope and Fabric</a>.</label>
+<div class="tip">Pengus spew toxic gas. Throw an empty Puffy Spark to soak it up, if you have one.</div>`},
+{id:'sparks',title:'Which Sparks to make',blurb:'What each Spark is for, and the order to make them in.',body:`
+<table><tr><th>Spark</th><th>Make it for</th><th>Recipe</th></tr>
+{{sparks}}
+</table>
+<p class="dim">Full details on the <a href="#sparks">Spark Field Guide</a>.</p>`},
 {id:'combat',title:'Fighting with Sparks',blurb:'Throw the right Sparks at the right enemy.',body:`
-<ul><li>Fighter Sparks follow you and attack. Switch Spark types from your Spark inventory.</li><li>On PC, press <b>R</b> while in Spark inventory mode to rush every Spark of the selected type at the enemy.</li><li>Damage types matter: Slashy deals Cutting, Drilly Piercing, Scrubby Blunt. Cutting also fells big trees.</li><li>Gas enemies (Pengus, Squillians): bring an empty Puffy Spark.</li><li>Cold enemies freeze Sparks and hot ones burn them. Expect losses on the Glacial Plateau and in the Volcanic Cave, and bring extras.</li><li>Upgrade before Mantis Stags. Stumpies alone won't do it.</li></ul>`},
-{id:'late',title:'Late game and corruption',blurb:'Hauling buses, trains and the Corrupted Ruins.',body:`
-<label class="chk"><input type="checkbox" data-k="g1"> Replace Carry Spark lines with Hauling Sparks (2 Carry + 4 Stone Wheel).</label>
-<label class="chk"><input type="checkbox" data-k="g2"> Lay a rail loop with one coal station.</label>
+<ul><li>Fighter Sparks follow you and attack. Switch Spark types from your Spark inventory.</li><li>On PC, press <b>R</b> in Spark inventory mode to rush every Spark of the selected type at the enemy.</li><li>Damage types matter: Slashy deals Cutting, Drilly Piercing, Scrubby Blunt. Cutting also fells big trees.</li><li>Gas enemies (Pengus, Squillians): bring an empty Puffy Spark.</li><li>Cold enemies freeze Sparks and hot ones burn them. Expect losses on the Glacial Plateau and in the Volcanic Cave, and bring extras.</li><li>Upgrade before Mantis Stags. Stumpies alone won't do it.</li><li>Beelephants turn orange before a big attack: back off or finish them fast. They drop the Carapaces you need for Loggers and Drills.</li></ul>`},
+{id:'late',title:'Late game and corruption',blurb:'Hauling Sparks, trains and the Corrupted Ruins.',body:`
+<label class="chk"><input type="checkbox" data-k="g1"> Replace Carry Spark lines with Hauling Sparks (2 Carry + 4 Stone Wheel). See the <a href="#layouts/hauling">Hauling Spark factory</a>.</label>
+<label class="chk"><input type="checkbox" data-k="g2"> Lay a one-way rail loop with one coal station on a branch, so engines refuel as they pass.</label>
 <label class="chk"><input type="checkbox" data-k="g3"> Wall off production in the Corrupted Ruins with Defensive Walls.</label>
 <label class="chk"><input type="checkbox" data-k="g4"> Place Enemy Sensors near exposed workstations.</label>
 <label class="chk"><input type="checkbox" data-k="g5"> Keep Scrubby Sparks ready to clean Corrupted Aether.</label>
 <label class="chk"><input type="checkbox" data-k="g6"> Stock Drilly Sparks for Permafrost and Obsidian.</label>`}
 ];
+/* Parts of guides built from the data when the guide opens. */
+const SPARK_USE={Stumpy:'Everything early, and the base of most Sparks',Crafty:'Crafting work and Carry Sparks',Carry:'Moving more than one item per trip',Choppy:'Woodland work, and Slashy Sparks',Rocky:'Stone work, and most stone-age Sparks',Slashy:'Fighting (Cutting damage) and felling big trees',Hauling:'High-traffic paths',Puffy:'Gas enemies and pulling items in',Boomy:'Explosions, and Crashy Sparks',Drilly:'Drilling Permafrost and Obsidian'};
+const GUIDE_PARTS={loop:()=>loopFigure(),sparks:()=>Object.entries(SPARK_USE).map(([n,u])=>{const r=RECIPES.find(x=>x.out===n+' Spark');return `<tr><td>${itemLink(n+' Spark')}</td><td>${esc(u)}</td><td>${r?inList(r)+` <span class="dim">(${esc(r.b)})</span>`:''}</td></tr>`;}).join('')};
+const guideBody=g=>g.body.replace(/\{\{(\w+)\}\}/g,(_,k)=>GUIDE_PARTS[k]?GUIDE_PARTS[k]():'');
 
-/* recipes for the planner: {out, q (made per craft), s (seconds), b (building), in:{item:qty}} */
-const BASE_RECIPES=[
-{out:'Hauling Spark',q:1,s:64,b:'Spark Workstation',in:{'Carry Spark':2,'Stone Wheel':4}},
-{out:'Carry Spark',q:1,s:30,b:'Spark Workbench',in:{'Crafty Spark':1,'Sawn Timber':4},guess:true},
-{out:'Slashy Spark',q:1,s:30,b:'Spark Workstation',in:{'Rocky Spark':1,'Choppy Spark':1},guess:true},
-{out:'Drilly Spark',q:1,s:30,b:'Spark Workstation',in:{'Slashy Spark':6,'Drill Bit':3,'Aether Crystal':3},guess:true}
+/* ================= RECIPES =================
+   {out, q: made per craft, s: seconds per craft, b: building, in:{item:qty}, conf}
+   conf: true  = matches the official wiki.
+   conf: false = worked out from a community recipe-chain list; check the building's recipe panel.
+   Rates are the base rate for one building. Gatherers (Logger, Drill...) have no inputs. */
+const RECIPES=[
+{out:'Wooden Log',q:1,s:2,b:'Logger',in:{},conf:true,note:'A Logger makes one of Wooden Log, Tree Bark or Leaves at a time. Pick it in the building.'},
+{out:'Tree Bark',q:1,s:2,b:'Logger',in:{},conf:true},
+{out:'Leaves',q:1,s:2,b:'Logger',in:{},conf:true},
+{out:'Stone',q:1,s:2,b:'Drill',in:{},conf:false,note:'A Drill mines one of Stone, Quartz or Limestone, depending on the Giant Rock it sits on.'},
+{out:'Quartz',q:1,s:2,b:'Drill',in:{},conf:false},
+{out:'Limestone',q:1,s:2,b:'Drill',in:{},conf:false},
+{out:'Copper Ore',q:1,s:60,b:'Ore Miner',in:{},conf:false},
+{out:'Miasma',q:1,s:12,b:'Noxious Coral',in:{},conf:false},
+{out:'Sawn Timber',q:1,s:16,b:'Sawbench',in:{'Wooden Log':2},conf:true},
+{out:'Wooden Panel',q:1,s:8,b:'Sawbench',in:{'Sawn Timber':2},conf:true},
+{out:'Wooden Blade',q:1,s:48,b:'Wood Workshop',in:{'Sawn Timber':1,'Wooden Panel':2},conf:false},
+{out:'Ladder',q:2,s:32,b:'Wood Workshop',in:{'Wooden Log':4,'Sawn Timber':10},conf:false},
+{out:'Explosives',q:1,s:24,b:'Wood Workshop',in:{'Fertiliser':2,'Limestone':4},conf:false},
+{out:'Stone Plate',q:1,s:32,b:'Stonecutter',in:{'Stone':2},conf:true},
+{out:'Pebble',q:2,s:32,b:'Stonecutter',in:{'Stone':1},conf:true},
+{out:'Path Tile',q:5,s:32,b:'Stone Workshop',in:{'Limestone':5,'Pebble':10},conf:false},
+{out:'Stone Wheel',q:2,s:16,b:'Stone Workshop',in:{'Path Tile':4,'Stone Plate':2},conf:true},
+{out:'Stone Spike',q:4,s:16,b:'Stone Workshop',in:{'Stone Plate':4,'Wooden Blade':1},conf:false},
+{out:'Dowsing Stone',q:3,s:24,b:'Stone Workshop',in:{'Quartz':1,'Rope':1},conf:false},
+{out:'Fertiliser',q:2,s:24,b:'Cutter',in:{'Leaves':4},conf:false},
+{out:'Aetheric Pellet',q:6,s:128,b:'Cutter',in:{'Aetheric Clump':1},conf:false},
+{out:'Rope',q:1,s:16,b:'Loom',in:{'Tree Bark':1,'Leaves':2},conf:false},
+{out:'Fabric',q:1,s:8,b:'Loom',in:{'Tree Bark':4,'Rope':2},conf:false},
+{out:'Small Vial',q:2,s:32,b:'Furnace',in:{'Quartz':4},conf:false,note:'The Furnace also burns fuel.'},
+{out:'Miasma Vial',q:2,s:24,b:'Miasma Collector',in:{'Small Vial':2,'Miasma':2},conf:false},
+{out:'Raw Aether',q:1,s:48,b:'Alchemy Lab',in:{'Miasma Vial':2,'Aether Shard':1},conf:false},
+{out:'Refined Aether',q:1,s:64,b:'Alchemy Lab',in:{'Raw Aether':4,'Big Vial':1},conf:false,note:'Big Vials come from the Furnace (Quartz and Coal).'},
+{out:'Aether Shard',q:6,s:48,b:'Aetheric Distiller',in:{'Aetheric Pellet':1},conf:true,note:'Before you have a Distiller, collect shards by hand from Spunnies.'},
+{out:'Aether Shard',q:6,s:48,b:'Aetheric Distiller',in:{'Raw Aether':1},conf:true},
+{out:'Aether Shard',q:30,s:128,b:'Aetheric Distiller',in:{'Refined Aether':1},conf:true},
+{out:'Stumpy Spark',q:1,s:32,b:'Spark Workbench',in:{'Aether Shard':1,'Wooden Log':5},conf:true},
+{out:'Crafty Spark',q:1,s:48,b:'Spark Workbench',in:{'Stumpy Spark':2,'Wooden Panel':2},conf:true},
+{out:'Carry Spark',q:1,s:32,b:'Spark Workbench',in:{'Crafty Spark':1,'Sawn Timber':4},conf:true},
+{out:'Choppy Spark',q:1,s:64,b:'Spark Workbench',in:{'Stumpy Spark':3,'Wooden Blade':2},conf:false},
+{out:'Arty Spark',q:1,s:32,b:'Spark Workbench',in:{'Stumpy Spark':2,'Rope':5},conf:false},
+{out:'Loamy Spark',q:5,s:32,b:'Spark Workbench',in:{'Aether Shard':5,'Fertiliser':3},conf:false},
+{out:'Rocky Spark',q:1,s:32,b:'Spark Workstation',in:{'Stumpy Spark':2,'Stone':5},conf:false},
+{out:'Scouty Spark',q:1,s:32,b:'Spark Workstation',in:{'Stumpy Spark':1,'Dowsing Stone':1},conf:false},
+{out:'Puffy Spark',q:1,s:32,b:'Spark Workstation',in:{'Rocky Spark':1,'Fabric':4},conf:false},
+{out:'Boomy Spark',q:1,s:48,b:'Spark Workstation',in:{'Rocky Spark':3,'Explosives':5},conf:false},
+{out:'Slashy Spark',q:1,s:64,b:'Spark Workstation',in:{'Rocky Spark':2,'Choppy Spark':3},conf:true},
+{out:'Crashy Spark',q:1,s:64,b:'Spark Workstation',in:{'Boomy Spark':2,'Stone Spike':7},conf:false},
+{out:'Hauling Spark',q:1,s:64,b:'Spark Workstation',in:{'Carry Spark':2,'Stone Wheel':4},conf:true},
+{out:'Drilly Spark',q:1,s:30,b:'Spark Workstation',in:{'Slashy Spark':6,'Drill Bit':3,'Aether Crystal':3},conf:true,guess:true,note:'Ingredients from the wiki; the craft time is a placeholder.'}
 ];
 
+/* Buildings: what they cost, where they go, which quest unlocks them. Blank = not confirmed. */
+const BUILDINGS=[
+{n:'Spark Workbench',cost:'20 Wooden Log, 5 Aether Shard',place:'An Ancient Base',unlock:'Woodland Spark Creation (Tier 1)',d:'Makes woodland Sparks: Stumpy, Crafty, Carry, Choppy, Arty, Loamy.'},
+{n:'Logger',cost:'10 Wooden Log, 5 Stone, 1 Beelephant Carapace',place:'A Giant Tree',unlock:'Wood Harvesting',d:'Harvests Wooden Log, Tree Bark or Leaves forever. Never runs out.'},
+{n:'Sawbench',cost:'20 Wooden Log',place:'Anywhere',unlock:'Woodcraft - 1 (Tier 1); Wooden Panel from Woodcraft - 2',d:'Cuts logs into Sawn Timber and timber into Wooden Panels.'},
+{n:'Wood Workshop',cost:'20 Sawn Timber, 10 Wooden Panel',place:'Anywhere',unlock:'Woodcraft - 3 (Tier 3)',d:'Wooden Blades, Ladders and Explosives.'},
+{n:'Cutter',cost:'20 Wooden Blade',place:'Anywhere',unlock:'Processing Organics (Tier 3)',d:'Fertiliser from Leaves, and Aetheric Pellets from Aetheric Clumps.'},
+{n:'Stonecutter',cost:'',place:'Anywhere',unlock:'Stone Harvesting & Cutting (Tier 4)',d:'Stone Plates and Pebbles from Stone.'},
+{n:'Loom',cost:'20 Stone Plate, 3 Pengus Tendon',place:'Anywhere',unlock:'Rope Making (Tier 4, Merchant); Fabric from Fibrecraft (Tier 6)',d:'Rope, then Fabric.'},
+{n:'Drill',cost:'20 Stone Plate, 10 Sawn Timber, 1 Beelephant Carapace',place:'A Giant Rock',unlock:'',d:'Mines Stone, Quartz or Limestone from the rock it sits on.'},
+{n:'Stone Workshop',cost:'20 Stone Plate, 20 Pebble',place:'Anywhere',unlock:'Stonecraft - 1 (Tier 5, Mason Sisters)',d:'Path Tiles, Stone Wheels, Stone Spikes and Dowsing Stones.'},
+{n:'Spark Workstation',cost:'',place:'',unlock:'Mountain Spark R&D - 1 (Tier 5)',d:'Makes stone and later Sparks: Rocky, Scouty, Puffy, Boomy, Slashy, Crashy, Hauling, Drilly.'},
+{n:'Furnace',cost:'20 Limestone, 3 Rock Teron Shell',place:'Anywhere',unlock:'Ore smelting from Metallurgy (Tier 7)',d:'Vials from Quartz, Coal, and copper ingots from ore.'},
+{n:'Ore Miner',cost:'',place:'A copper deposit',unlock:'',d:'Mines Copper Ore slowly (one a minute).'},
+{n:'Miasma Collector',cost:'',place:'',unlock:'',d:'Fills Small Vials with Miasma from Noxious Coral.'},
+{n:'Alchemy Lab',cost:'',place:'',unlock:'Alchemy - 1 (Tier 6)',d:'Raw Aether and Refined Aether.'},
+{n:'Aetheric Distiller',cost:'',place:'',unlock:'',d:'Turns Aetheric Pellets, Raw Aether or Refined Aether into Aether Shards.'}
+];
+const perMin=r=>60/r.s*r.q;
+const inPerMin=(r,k)=>60/r.s*r.in[k];
+const recipesFor=item=>RECIPES.filter(r=>r.out===item);
+const usedIn=item=>RECIPES.filter(r=>item in r.in);
+const itemLink=n=>`<a class="mob" href="#recipes/${slug(n)}">${esc(n)}</a>`;
+const inList=r=>Object.entries(r.in).map(([k,q])=>`${q} ${itemLink(k)}`).join(' + ')||'<span class="dim">gathered</span>';
+const BASE_RECIPES=RECIPES.map(({out,q,s,b,in:i,guess})=>Object.assign({out,q,s,b,in:i},guess?{guess}:{}));
+/* Saved recipe lists from before v2 only held four defaults; keep any the player changed. */
+const OLD_DEFAULTS=['{"out":"Hauling Spark","q":1,"s":64,"b":"Spark Workstation","in":{"Carry Spark":2,"Stone Wheel":4}}'];
+
 /* ================= STATE ================= */
-let S={checks:{},quests:{},extraQuests:[],notes:'',recipes:null};
+let S={checks:{},quests:{},extraQuests:[],notes:'',recipes:null,recipesV:0,planItem:'',planRate:1,planHand:true};
 try{const x=JSON.parse(localStorage.getItem('osa_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
-if(!Array.isArray(S.recipes))S.recipes=BASE_RECIPES.map(r=>JSON.parse(JSON.stringify(r)));
+if(!Array.isArray(S.recipes))S.recipes=[];
+if(S.recipesV!==2){const mine=S.recipes.filter(r=>!r.guess&&!OLD_DEFAULTS.includes(JSON.stringify(r)));
+  S.recipes=BASE_RECIPES.map(r=>JSON.parse(JSON.stringify(r)));
+  mine.forEach(r=>{const i=S.recipes.findIndex(x=>x.out.toLowerCase()===r.out.toLowerCase());if(i>=0)S.recipes[i]=r;else S.recipes.push(r);});
+  S.recipesV=2;}
 const save=()=>{try{localStorage.setItem('osa_state',JSON.stringify(S));}catch(e){}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=id=>document.getElementById(id);
+const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 const fmt=x=>Number.isFinite(x)?(Number.isInteger(x)?String(x):String(+x.toFixed(2))):'—';
 
 /* ================= PAGES ================= */
-const PAGES=[['home','Home'],['guides','Guides'],['sparks','Spark Field Guide'],['logistics','Logistics'],['quests','Quest Tracker'],['world','Biomes & Enemies'],['planner','Production Planner'],['calc','Calculators'],['notes','My Notes']];
+const PAGES=[['home','Home'],['guides','Guides'],['layouts','Suggested Layouts'],['recipes','Recipes'],['buildings','Buildings'],['sparks','Spark Field Guide'],['logistics','Logistics'],['quests','Quest Tracker'],['world','Biomes & Enemies'],['planner','Production Planner'],['calc','Calculators'],['notes','My Notes']];
 function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>ODDSPARKS<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
 
-const TILE={guides:'Getting started, path design, combat, late game',sparks:'Every Spark: role, recipe, unlock',logistics:'Traffic rules for belt-less factories',quests:'Tick off quests tier by tier',world:'Biomes, enemies and how to beat them',planner:'Work out buildings and inputs for a target rate',calc:'Rates, ratios and Sparks per route',notes:'Your own notes'};
+const TILE={guides:'Start here: first hours, a tier road map, stone, rope, Aether Shards, combat',layouts:'Ready-made production lines with diagrams and building counts',recipes:'Every recipe with its building, time and rate',buildings:'Costs, where to build, and what unlocks each building',sparks:'Every Spark: role, recipe, unlock',logistics:'Traffic rules for belt-less factories',quests:'Tick off quests tier by tier',world:'Biomes, enemies and how to beat them',planner:'Work out buildings and inputs for a target rate',calc:'Rates, ratios and Sparks per route',notes:'Your own notes'};
 function pgHome(){return `${TWArt.hero(1817800,'Oddsparks: An Automation Adventure')}<h2>Oddsparks Assistant</h2><p class="sub">A companion for <i>Oddsparks: An Automation Adventure</i>. Your checklists, quests, recipes and notes are saved on this device.</p>
+<div class="card"><h3 style="margin-top:0">New to the game? Start here</h3><ol class="steps">
+<li>Read <a href="#guides/words">Words the game uses</a> and <a href="#guides/start">Your first hours</a>.</li>
+<li>Build the <a href="#layouts/panels">Panel block</a>: your first proper production line.</li>
+<li>Use <a href="#guides/tiers">What to aim for in each tier</a> as your road map, and tick quests off in the <a href="#quests">Quest Tracker</a>.</li>
+<li>Look up anything you need to make in <a href="#recipes">Recipes</a>.</li></ol></div>
 <div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
 <div class="note">Facts marked <span class="conf">●</span> come from the official Oddsparks wiki. Facts marked <span class="unv">○</span> come from player reports or are guesses from a Spark's name. The game changes with updates, so trust what you see in-game first.</div>`;}
 
 function pgGuides(sub){
-  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div>`;}
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><p class="sub">${g.blurb}</p><div class="card">${guideBody(g)}</div>`;}
   return `<h2>Guides</h2><p class="sub">Checkboxes are saved on this device.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
 }
 
 const KIND={Worker:'w',Fighter:'f',Special:'s'};
-function pgSparks(){return `<h2>Spark Field Guide</h2><p class="sub">The game has 18 Sparks. Search by name, role, recipe or ingredient.</p>
+function pgSparks(){return `<h2>Spark Field Guide</h2><p class="sub">Every Spark we know of, with its recipe. Search by name, role or ingredient.</p>
 <div class="row"><input id="sq" type="text" style="width:260px" placeholder="Search (e.g. timber, drill, gas)"><select id="sk"><option value="">All roles</option><option>Worker</option><option>Fighter</option><option>Special</option></select><label class="chk" style="margin:0"><input type="checkbox" id="sc"> Confirmed only</label><span class="dim" id="scn"></span></div>
 <div class="card" id="sl"></div>`;}
+function sparkRecipe(s){const r=RECIPES.find(x=>x.out===s.n+' Spark');
+  if(r)return `<div class="src"><b>Recipe:</b> ${esc(r.b)}: ${inList(r)} &rarr; ${r.q} ${itemLink(r.out)}, ${r.s} s${r.guess?' (time not confirmed)':''}</div>`;
+  return s.r?`<div class="src"><b>Recipe:</b> ${esc(s.r)}</div>`:'<div class="src"><b>Recipe:</b> not confirmed yet</div>';}
 function sparksRender(){
   const q=$('sq').value.toLowerCase(),k=$('sk').value,c=$('sc').checked;
-  const r=SPARKS.filter(s=>(!k||s.k===k)&&(!c||s.conf)&&(!q||(s.n+' '+s.k+' '+s.d+' '+s.r+' '+s.u).toLowerCase().includes(q)));
+  const r=SPARKS.filter(s=>(!k||s.k===k)&&(!c||s.conf)&&(!q||(s.n+' '+s.k+' '+s.d+' '+s.r+' '+s.u+' '+(RECIPES.find(x=>x.out===s.n+' Spark')||{in:{}}).b+' '+Object.keys((RECIPES.find(x=>x.out===s.n+' Spark')||{in:{}}).in).join(' ')).toLowerCase().includes(q)));
   $('scn').textContent=r.length+' Spark'+(r.length===1?'':'s');
-  $('sl').innerHTML=r.map(s=>`<div class="sp"><span class="n">${s.conf?'<span class="conf">●</span>':'<span class="unv">○</span>'} ${esc(s.n)} Spark</span><span class="tag ${KIND[s.k]}">${s.k}</span><div>${esc(s.d)}</div>${s.r?`<div class="src"><b>Recipe:</b> ${esc(s.r)}</div>`:''}${s.u?`<div class="src"><b>Unlock:</b> ${esc(s.u)}</div>`:''}</div>`).join('')||'<p class="dim">No Sparks match.</p>';
+  $('sl').innerHTML=r.map(s=>`<div class="sp"><span class="n">${s.conf?'<span class="conf">●</span>':'<span class="unv">○</span>'} ${esc(s.n)} Spark</span><span class="tag ${KIND[s.k]}">${s.k}</span><div>${esc(s.d)}</div>${sparkRecipe(s)}${s.u?`<div class="src"><b>Unlock:</b> ${esc(s.u)}</div>`:''}</div>`).join('')||'<p class="dim">No Sparks match.</p>';
 }
 
 function pgLogistics(){return `<h2>Logistics</h2><p class="sub">There are no conveyor belts. Sparks walk paths, so path layout is your factory design.</p>
@@ -248,6 +423,135 @@ ${worldMap()}<p class="tw-cap">Rough layout, not to scale. The glacial northwest
 <div class="grid">${BIOMES.map((b,i)=>`<div class="card" id="bio${i}" style="margin:0"><h3 style="margin-top:0">${esc(b.n)}</h3><div>${esc(b.d)}</div>${b.e.length?`<div class="src" style="margin-top:6px">${b.e.map(esc).join(' · ')}</div>`:''}</div>`).join('')}</div>
 <h3>Enemy notes</h3><div class="card tbl"><table><tr><th>Enemy</th><th>What to know</th></tr>${ENEMIES.map(([n,d])=>`<tr><td><b>${esc(n)}</b></td><td>${esc(d)}</td></tr>`).join('')}</table></div>`;}
 
+/* ---- production chains ----
+   chain(item, rate, hand) walks the recipes (S.recipes, so your edits count) and adds up, per item,
+   how much is needed per minute and how many buildings that takes. Items in `hand` are fed by hand. */
+function chain(item,rate,hand){
+  const nodes={},edges={},col={};
+  (function walk(it,need,depth,seen){
+    const r=hand.includes(it)||seen.has(it)?null:recipeFor(it);
+    const n=nodes[it]||(nodes[it]={item:it,r,need:0});
+    n.need+=need;col[it]=Math.max(col[it]||0,depth);
+    if(!r)return;
+    const crafts=need/r.q,next=new Set(seen).add(it);
+    for(const [k,q] of Object.entries(r.in)){edges[k+'>'+it]=(edges[k+'>'+it]||0)+crafts*q;walk(k,crafts*q,depth+1,next);}
+  })(item,rate,0,new Set());
+  Object.values(nodes).forEach(n=>{n.count=n.r?n.need/(60/n.r.s*n.r.q):0;n.col=col[n.item];});
+  return {nodes,edges};
+}
+const busy=n=>{const b=Math.ceil(n.count-1e-9);return {b,pct:Math.round(n.count/b*100)};};
+function chainSVG(g){
+  const ns=Object.values(g.nodes),maxC=Math.max(...ns.map(n=>n.col)),W=200,H=62,GX=44,GY=14,byCol={};
+  ns.forEach(n=>(byCol[n.col]=byCol[n.col]||[]).push(n));
+  const rows=Math.max(...Object.values(byCol).map(c=>c.length)),pos={};
+  Object.entries(byCol).forEach(([c,list])=>list.forEach((n,i)=>{pos[n.item]=[(maxC-c)*(W+GX)+10,10+(i+(rows-list.length)/2)*(H+GY)];}));
+  const w=(maxC+1)*(W+GX)-GX+20,h=rows*(H+GY)-GY+20;
+  const arrows=Object.keys(g.edges).map(k=>{const [a,b]=k.split('>'),[x1,y1]=pos[a],[x2,y2]=pos[b],sx=x1+W,sy=y1+H/2,ex=x2,ey=y2+H/2,m=(sx+ex)/2;
+    return `<path d="M${sx} ${sy}C${m} ${sy} ${m} ${ey} ${ex-6} ${ey}" fill="none" stroke="#93a08a" stroke-width="1.6" marker-end="url(#ah)"/>`;}).join('');
+  const boxes=ns.map(n=>{const [x,y]=pos[n.item],raw=!n.r,b=raw?null:busy(n);
+    return `<g><title>${esc(n.item)}: ${fmt(n.need)}/min${raw?'':' from '+fmt(n.count)+' '+esc(n.r.b)}</title><rect x="${x}" y="${y}" width="${W}" height="${H}" rx="8" fill="${raw?'#202a1e':'#2a2f1c'}" stroke="${n.col===0?'#ffb547':raw?'#2f3d2b':'#5b6b45'}" stroke-width="${n.col===0?2:1.2}"/>
+<text x="${x+10}" y="${y+19}" font-size="12.5" font-weight="700" fill="#e4e9dc">${esc(n.item)}</text>
+<text x="${x+10}" y="${y+36}" font-size="11.5" fill="#ffd48a">${raw?'by hand / brought in':esc(n.r.b)+' ×'+b.b}${!raw&&b.pct<100?' <tspan fill="#93a08a">('+b.pct+'% busy)</tspan>':''}</text>
+<text x="${x+10}" y="${y+52}" font-size="11.5" fill="#93a08a">${fmt(n.need)} per minute</text></g>`;}).join('');
+  return `<div class="tbl"><svg class="tw-map" viewBox="0 0 ${w} ${h}" style="min-width:${Math.min(w,640)}px;max-width:${w}px" role="img" aria-label="Production chain diagram">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#93a08a"/></marker></defs>
+<rect width="${w}" height="${h}" fill="#141a12"/>${arrows}${boxes}</svg></div>`;
+}
+function chainTable(g){
+  const ns=Object.values(g.nodes).sort((a,b)=>b.col-a.col);
+  return `<div class="tbl"><table><tr><th>Item</th><th>Per minute</th><th>Build</th></tr>${ns.map(n=>`<tr><td>${itemLink(n.item)}</td><td>${fmt(n.need)}</td><td>${n.r?`${busy(n).b} × ${esc(n.r.b)}${busy(n).pct<100?` <span class="dim">(${busy(n).pct}% busy)</span>`:''}`:'<span class="dim">hand-fed or brought in</span>'}</td></tr>`).join('')}</table></div>`;
+}
+
+/* ---- suggested layouts ---- */
+const LAYOUTS=[
+{id:'panels',t:'Panel block',item:'Wooden Panel',rate:7.5,hand:[],when:'Tier 1-2. Your first real line.',
+ why:'One Logger makes exactly what four Sawbenches cut, and four Sawbenches of timber feed exactly one Sawbench making panels. Nothing waits and nothing piles up.',
+ steps:['Build the Logger on a Giant Tree and set it to Wooden Log.','Put the four timber Sawbenches in a row along one path loop that starts and ends at the Logger.','Run a second short loop from the timber benches to the panel Sawbench.','Panels pile up in the panel Sawbench. Run a path from it to wherever you need them (Crafty Sparks, the Wood Workshop, quest deliveries).']},
+{id:'stumpy',t:'Stumpy workshop',item:'Stumpy Spark',rate:5.625,hand:['Aether Shard'],when:'Tier 1 onward. Stumpies go into nearly every other Spark.',
+ why:'Three Spark Workbenches eat almost exactly one Logger\'s output. Aether Shards are the limit early on: you bring them by hand from Spunnies until you have an Aetheric Distiller.',
+ steps:['One Logger on Wooden Log, three Spark Workbenches next to it on one loop.','Keep a stack of Aether Shards in each Workbench. Each Stumpy takes one.','Send finished Stumpies to a Spark Pen, or straight into the Crafty line below.']},
+{id:'crafty',t:'Crafty line',item:'Crafty Spark',rate:2.5,hand:['Aether Shard'],when:'Tier 2, for the "Crafting Crafties" quest and then for Carry Sparks.',
+ why:'Two Crafty benches need Stumpies and panels in equal amounts. This combines the two blocks above, sized down to match.',
+ steps:['Build two Loggers: one for the Stumpy benches, one for the timber benches.','Bring Stumpies and panels to the Crafty benches on one shared loop.','Put a Splitter on the return path so Sparks share out between the two Crafty benches.']},
+{id:'plates',t:'Stone plate block',item:'Stone Plate',rate:15,hand:[],when:'Tier 4-5. Stone Plates build the Loom, Drill, Stone Workshop and more.',
+ why:'One Drill on Stone keeps eight Stonecutters busy. Plates are slow (32 seconds each), so you need a lot of cutters.',
+ steps:['Drill on a Giant Rock that gives Stone.','Eight Stonecutters set to Stone Plate around one loop from the Drill.','Want Pebbles too? Swap two plate cutters for four Pebble cutters. They use the same Stone and make 15 Pebbles a minute.']},
+{id:'wheels',t:'Stone Wheel line',item:'Stone Wheel',rate:7.5,hand:[],when:'Tier 5-6. Wheels go into Hauling Sparks and the Fibrecraft quest.',
+ why:'One Stone Wheel workshop needs a whole Stone Drill and part of a Limestone Drill behind it. This is the line that teaches you to share one Drill between two kinds of Stonecutter.',
+ steps:['Two Drills: one on Stone, one on Limestone.','From the Stone Drill: eight Stonecutters on Pebbles and four on Stone Plates. That uses the Drill\'s 30 Stone a minute exactly.','Two Stone Workshops on Path Tiles take Pebbles and Limestone. They run at 80%, which is fine.','One Stone Workshop on Stone Wheels takes the Path Tiles and Plates.']},
+{id:'hauling',t:'Hauling Spark factory',item:'Hauling Spark',rate:0.9375,hand:['Aether Shard'],when:'Mid game. Replace Carry Sparks on your busiest paths.',
+ why:'One Spark Workstation making Hauling Sparks uses half a Stone Wheel line, plus a small Carry line. Send the spare wheels to the Fibrecraft quest (200 wheels), or build a second Workstation later.',
+ steps:['Build the Stone Wheel line above first.','Next to it, a Carry line: Stumpy and panel benches into Crafty benches, Crafty and timber into a Carry bench.','Bring wheels and Carry Sparks to one Spark Workstation.']},
+{id:'rope',t:'Rope and Fabric',item:'Fabric',rate:7.5,hand:[],when:'Tier 4-6. Rope for the Loom quests, Fabric for Puffy Sparks.',
+ why:'Fabric eats a lot of Tree Bark: four bark plus two Rope each. Set Loggers to bark and leaves rather than logs.',
+ steps:['Three Loggers: two on Tree Bark, one on Leaves.','Four Looms on Rope, fed bark and leaves on one loop.','One Loom on Fabric, fed Rope and more bark.']},
+{id:'boomy',t:'Boomy Spark line',item:'Boomy Spark',rate:1.25,hand:['Aether Shard'],when:'Late Tier 5 onward. Explosive Sparks, and the base for Crashy Sparks.',
+ why:'Boomy Sparks need Rocky Sparks and Explosives. Explosives need Fertiliser (from Leaves) and Limestone, so this ties together your wood, organics and stone.',
+ steps:['Leaves Logger into Cutters on Fertiliser.','Fertiliser and Limestone into Wood Workshops on Explosives.','Stumpies and Stone into Spark Workstations on Rocky.','Rocky Sparks and Explosives into one Workstation on Boomy.']},
+{id:'shards',t:'Aether Shard factory',item:'Aether Shard',rate:7.5,hand:['Aetheric Clump'],when:'Once you have an Aetheric Distiller. Ends the Spunny hunting.',
+ why:'Each Aetheric Clump becomes 6 Pellets in a Cutter, and each Pellet becomes 6 Shards in the Distiller: 36 Shards per Clump.',
+ steps:['Bring Aetheric Clumps to a Cutter set to Aetheric Pellet.','Path the Pellets to an Aetheric Distiller.','Send Shards to your Spark Workbenches. One Distiller covers about four Stumpy benches.']}
+];
+function pgLayouts(sub){
+  const L=sub&&LAYOUTS.find(x=>x.id===sub);
+  if(L){const g=chain(L.item,L.rate,L.hand);
+    return `<p><a href="#layouts">&larr; All layouts</a></p><h2>${esc(L.t)}</h2><p class="sub">Makes <b>${fmt(L.rate)} ${esc(L.item)}</b> per minute. ${esc(L.when)}</p>
+${chainSVG(g)}<p class="tw-cap">Read left to right: raw materials on the left, the product on the right (gold outline). "% busy" means that building has spare capacity.</p>
+<div class="tip"><b>Why this works:</b> ${esc(L.why)}</div>
+<div class="card"><h3 style="margin-top:0">How to build it</h3><ol class="steps">${L.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol></div>
+<div class="card"><h3 style="margin-top:0">Shopping list</h3>${chainTable(g)}</div>
+<p><a href="#planner" onclick="S.planItem='${esc(L.item)}';S.planRate=${L.rate};save()">Change the rate in the Production Planner &rarr;</a></p>
+<div class="note">Rates use each recipe's base craft time. A building worked by faster Sparks runs quicker, so check its rate in-game and add buildings if a step falls behind. Path length matters too: see <a href="#logistics">Logistics</a>.</div>`;}
+  return `<h2>Suggested Layouts</h2><p class="sub">Tested building ratios for the lines everyone ends up building, from your first panels to Hauling Sparks. Each has a diagram, a build order and a shopping list.</p>
+${loopFigure()}<p class="tw-cap">The basic shape behind every layout: a one-way loop from the producer past each consumer and back, with a Splitter on the return.</p>
+<div class="grid">${LAYOUTS.map(L=>`<div class="tile" onclick="location.hash='layouts/${L.id}'"><b>${esc(L.t)}</b><div class="dim">${fmt(L.rate)} ${esc(L.item)}/min. ${esc(L.when)}</div></div>`).join('')}</div>`;
+}
+/* Static figure: a producer, two consumers, a one-way loop and a splitter on the return. */
+function loopFigure(){
+  return `<svg class="tw-map" viewBox="0 0 600 220" style="max-width:640px" role="img" aria-label="A one-way path loop from a producer past two consumers, with a splitter on the return path">
+<defs><marker id="la" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ffb547"/></marker></defs>
+<rect width="600" height="220" fill="#141a12"/>
+<path d="M150 70H450" stroke="#ffb547" stroke-width="10" stroke-opacity=".25"/><path d="M150 70H450" stroke="#ffb547" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#la)"/>
+<path d="M480 90V150H120V95" fill="none" stroke="#ffb547" stroke-width="10" stroke-opacity=".25"/><path d="M480 90V150H120V95" fill="none" stroke="#ffb547" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#la)"/>
+<path d="M300 150V185" stroke="#7fd6c2" stroke-width="2" marker-end="url(#la)"/>
+<rect x="40" y="45" width="110" height="50" rx="8" fill="#2a2f1c" stroke="#5b6b45"/><text x="95" y="67" text-anchor="middle" font-size="12.5" font-weight="700" fill="#e4e9dc">Producer</text><text x="95" y="84" text-anchor="middle" font-size="11" fill="#93a08a">e.g. Logger</text>
+<rect x="230" y="10" width="110" height="40" rx="8" fill="#2a2f1c" stroke="#5b6b45"/><text x="285" y="35" text-anchor="middle" font-size="12" fill="#e4e9dc">Consumer A</text>
+<rect x="370" y="10" width="110" height="40" rx="8" fill="#2a2f1c" stroke="#5b6b45"/><text x="425" y="35" text-anchor="middle" font-size="12" fill="#e4e9dc">Consumer B</text>
+<path d="M285 50V66M425 50V66" stroke="#93a08a" stroke-width="2"/>
+<rect x="282" y="140" width="36" height="20" rx="4" fill="#7fd6c2"/><text x="300" y="154" text-anchor="middle" font-size="10" font-weight="700" fill="#10140f">SPLIT</text>
+<text x="300" y="205" text-anchor="middle" font-size="11" fill="#7fd6c2">spare branch (e.g. to a Spark Pen)</text>
+<text x="300" y="118" text-anchor="middle" font-size="11" fill="#93a08a">Sparks walk one way only: no turning round, no head-on jams</text></svg>`;
+}
+
+/* ---- recipes & buildings ---- */
+function pgRecipes(sub){
+  const all=[...new Set(RECIPES.map(r=>r.out).concat(RECIPES.flatMap(r=>Object.keys(r.in))))];
+  const it=sub&&all.find(x=>slug(x)===sub);
+  if(it){const made=recipesFor(it),uses=usedIn(it),bld=made.map(r=>BUILDINGS.find(b=>b.n===r.b)).filter(Boolean);
+    return `<p><a href="#recipes">&larr; All recipes</a></p><h2>${esc(it)}</h2>
+${made.length?`<div class="card"><h3 style="margin-top:0">How to make it</h3><div class="tbl"><table><tr><th>Building</th><th>Inputs</th><th>Makes</th><th>Time</th><th>Per building</th></tr>${made.map(r=>`<tr><td>${conf(r.conf)} <a href="#buildings">${esc(r.b)}</a></td><td>${inList(r)}</td><td>${r.q}</td><td>${r.s} s</td><td>${fmt(perMin(r))}/min</td></tr>`).join('')}</table></div>${made.filter(r=>r.note).map(r=>`<p class="dim">${esc(r.note)}</p>`).join('')}</div>`
+:`<div class="card">Not made in a building. You find it, harvest it from enemies, or it comes from a recipe this assistant doesn't list yet.</div>`}
+${uses.length?`<div class="card"><h3 style="margin-top:0">Used to make</h3><div class="tbl"><table><tr><th>Makes</th><th>Needs per craft</th><th>Uses per building</th></tr>${uses.map(r=>`<tr><td>${itemLink(r.out)} <span class="dim">(${esc(r.b)})</span></td><td>${inList(r)}</td><td>${fmt(inPerMin(r,it))} ${esc(it)}/min</td></tr>`).join('')}</table></div></div>`:''}
+${made.some(r=>Object.keys(r.in).length)?`<p><a href="#planner" onclick="S.planItem='${esc(it)}';save()">Plan a ${esc(it)} line &rarr;</a></p>`:''}`;}
+  const bs=[...new Set(RECIPES.map(r=>r.b))];
+  return `<h2>Recipes</h2><p class="sub">Every recipe we could confirm, with its building, craft time and rate. Tap an item to see what makes it and what it's used for.</p>
+<div class="row"><input id="rq2" type="text" style="width:240px" placeholder="Search (e.g. stone, rope, spark)"><select id="rb2"><option value="">All buildings</option>${bs.map(b=>`<option>${esc(b)}</option>`).join('')}</select><span class="dim" id="rcn"></span></div>
+<div class="card tbl"><table><thead><tr><th>Makes</th><th>Building</th><th>Inputs</th><th>Time</th><th>Per building</th></tr></thead><tbody id="rl"></tbody></table></div>
+<div class="note"><span class="conf">●</span> matches the official wiki. <span class="unv">○</span> worked out from a community recipe list; it fits every wiki recipe we checked, but confirm in the building's recipe panel. "Per building" is the base rate for one building working flat out.</div>`;
+}
+const conf=c=>c?'<span class="conf" title="Matches the wiki">●</span>':'<span class="unv" title="Community list; check in-game">○</span>';
+function recipesRender(){
+  const q=$('rq2').value.toLowerCase(),b=$('rb2').value;
+  const r=RECIPES.filter(x=>(!b||x.b===b)&&(!q||(x.out+' '+x.b+' '+Object.keys(x.in).join(' ')).toLowerCase().includes(q)));
+  $('rcn').textContent=r.length+' recipe'+(r.length===1?'':'s');
+  $('rl').innerHTML=r.map(x=>`<tr><td>${conf(x.conf)} ${itemLink(x.out)}${x.q>1?` <span class="dim">×${x.q}</span>`:''}</td><td>${esc(x.b)}</td><td>${inList(x)}</td><td>${x.s} s</td><td>${fmt(perMin(x))}/min</td></tr>`).join('')||'<tr><td colspan="5" class="dim">No recipes match.</td></tr>';
+}
+function pgBuildings(){return `<h2>Buildings</h2><p class="sub">What each building costs, where it has to go, and which quest unlocks it. Blank means we couldn't confirm it.</p>
+<div class="grid">${BUILDINGS.map(b=>{const rs=RECIPES.filter(r=>r.b===b.n);return `<div class="card" style="margin:0"><h3 style="margin-top:0">${esc(b.n)}</h3><div>${esc(b.d)}</div>
+<div class="stats"><div class="stat"><small>Costs</small>${esc(b.cost||'—')}</div><div class="stat"><small>Build on</small>${esc(b.place||'—')}</div></div>
+${b.unlock?`<div class="src"><b>Unlock:</b> ${esc(b.unlock)}</div>`:''}${rs.length?`<div class="src" style="margin-top:4px"><b>Makes:</b> ${[...new Set(rs.map(r=>r.out))].map(itemLink).join(', ')}</div>`:''}</div>`;}).join('')}</div>
+<div class="tip">Loggers need a <b>Giant Tree</b>, Drills a <b>Giant Rock</b> and Spark Workbenches an <b>Ancient Base</b>. These spots are limited, so plan your lines around them rather than the other way round.</div>`;}
+
 /* ---- production planner ---- */
 function recipeFor(item){return S.recipes.find(r=>r.out.toLowerCase()===item.toLowerCase());}
 function plan(item,perMin,depth,lines,raw,seen){
@@ -258,19 +562,24 @@ function plan(item,perMin,depth,lines,raw,seen){
   const next=new Set(seen);next.add(r.out.toLowerCase());
   for(const [k,q] of Object.entries(r.in))plan(k,crafts*q,depth+1,lines,raw,next);
 }
-function pgPlanner(){return `<h2>Production Planner</h2><p class="sub">Pick a target and a rate; the planner walks the recipe tree and tells you how many buildings each step needs. Recipes are editable, since craft times change between versions.</p>
-<div class="card"><div class="row">Make <select id="pt">${S.recipes.map(r=>`<option>${esc(r.out)}</option>`).join('')}</select> at <input id="pr" type="number" value="1" step="0.1" style="width:80px"> per minute <button class="pri" onclick="runPlan()">Plan</button></div><div class="res tree" id="pres">Press Plan.</div></div>
-<div class="card"><h3 style="margin-top:0">Recipes</h3><div class="tbl"><table><tr><th>Makes</th><th>Qty</th><th>Seconds</th><th>Building</th><th>Inputs</th><th></th></tr>
-${S.recipes.map((r,i)=>`<tr><td>${esc(r.out)}${r.guess?' <span class="tag c" title="Recipe from the wiki, craft time is a placeholder">time?</span>':''}</td><td>${r.q}</td><td>${r.s}</td><td>${esc(r.b||'')}</td><td>${Object.entries(r.in).map(([k,q])=>q+' '+esc(k)).join(', ')}</td><td><button onclick="editRecipe(${i})">Edit</button> <button onclick="delRecipe(${i})">Delete</button></td></tr>`).join('')}</table></div>
+function pgPlanner(){const outs=[...new Set(S.recipes.filter(r=>Object.keys(r.in).length).map(r=>r.out))].sort();
+  const cur=S.planItem&&outs.includes(S.planItem)?S.planItem:'Wooden Panel';
+  return `<h2>Production Planner</h2><p class="sub">Pick what you want and how many per minute. The planner works back through the recipes and tells you every building you need, with a diagram.</p>
+<div class="card"><div class="row">Make <select id="pt">${outs.map(o=>`<option${o===cur?' selected':''}>${esc(o)}</option>`).join('')}</select> at <input id="pr" type="number" value="${S.planRate||1}" min="0" step="0.1" style="width:80px"> per minute
+<label class="chk" style="margin:0"><input type="checkbox" id="ph"${S.planHand?' checked':''}> I collect Aether Shards by hand</label></div>
+<div id="pres"></div></div>
+<details class="card"><summary><b>Recipes the planner uses</b> <span class="dim">(${S.recipes.length}; edit them if your game differs)</span></summary><div class="tbl"><table><tr><th>Makes</th><th>Qty</th><th>Seconds</th><th>Building</th><th>Inputs</th><th></th></tr>
+${S.recipes.map((r,i)=>`<tr><td>${esc(r.out)}${r.guess?' <span class="tag c" title="Craft time is a placeholder">time?</span>':''}</td><td>${r.q}</td><td>${r.s}</td><td>${esc(r.b||'')}</td><td>${Object.entries(r.in).map(([k,q])=>q+' '+esc(k)).join(', ')}</td><td><button onclick="editRecipe(${i})">Edit</button> <button onclick="delRecipe(${i})">Delete</button></td></tr>`).join('')}</table></div>
 <h3>Add or edit a recipe</h3>
 <div class="row"><input id="ro" type="text" style="width:170px" placeholder="Makes (e.g. Sawn Timber)"> Qty <input id="rq" type="number" value="1" style="width:70px"> Seconds <input id="rs" type="number" value="10" style="width:80px"> <input id="rb" type="text" style="width:150px" placeholder="Building"></div>
-<div class="row"><input id="ri" type="text" style="width:420px" placeholder="Inputs: 2 Log, 1 Aether Shard"> <button class="pri" onclick="saveRecipe()">Save recipe</button> <button onclick="resetRecipes()">Reset to defaults</button></div>
-<p class="dim">Saving a recipe with the same "Makes" name replaces it. Read the numbers off the building's recipe panel in-game.</p></div>`;}
+<div class="row"><input id="ri" type="text" style="width:420px" placeholder="Inputs: 2 Wooden Log, 1 Aether Shard"> <button class="pri" onclick="saveRecipe()">Save recipe</button> <button onclick="resetRecipes()">Reset to defaults</button></div>
+<p class="dim">Saving a recipe with the same "Makes" name replaces it. Read the numbers off the building's recipe panel in-game. Where an item has more than one recipe, the planner uses the first.</p></details>`;}
 function runPlan(){
-  const item=$('pt').value,rate=parseFloat($('pr').value);
-  if(!item||!(rate>0)){$('pres').textContent='Pick a recipe and a rate above zero.';return;}
-  const lines=[],raw={};plan(item,rate,0,lines,raw,new Set());
-  $('pres').textContent=lines.join('\n')+'\n\nRaw inputs per minute:\n'+Object.entries(raw).map(([k,v])=>`  ${k}: ${fmt(v)}`).join('\n');
+  const item=$('pt').value,rate=parseFloat($('pr').value),hand=$('ph').checked;
+  S.planItem=item;S.planRate=rate;S.planHand=hand;save();
+  if(!item||!(rate>0)){$('pres').innerHTML='<p class="dim">Enter a rate above zero.</p>';return;}
+  const g=chain(item,rate,hand?['Aether Shard']:[]);
+  $('pres').innerHTML=chainSVG(g)+chainTable(g);
 }
 function parseInputs(t){const o={};t.split(',').forEach(p=>{const m=p.trim().match(/^(\d+(?:\.\d+)?)\s*x?\s+(.+)$/i);if(m)o[m[2].trim()]=(o[m[2].trim()]||0)+parseFloat(m[1]);});return o;}
 function saveRecipe(){
@@ -280,7 +589,7 @@ function saveRecipe(){
   const i=S.recipes.findIndex(x=>x.out.toLowerCase()===out.toLowerCase());
   if(i>=0)S.recipes[i]=r;else S.recipes.push(r);save();route();
 }
-function editRecipe(i){const r=S.recipes[i];$('ro').value=r.out;$('rq').value=r.q;$('rs').value=r.s;$('rb').value=r.b||'';$('ri').value=Object.entries(r.in).map(([k,q])=>q+' '+k).join(', ');$('ro').focus();}
+function editRecipe(i){const r=S.recipes[i];$('ro').closest('details').open=true;$('ro').value=r.out;$('rq').value=r.q;$('rs').value=r.s;$('rb').value=r.b||'';$('ri').value=Object.entries(r.in).map(([k,q])=>q+' '+k).join(', ');$('ro').focus();}
 function delRecipe(i){if(confirm('Delete the '+S.recipes[i].out+' recipe?')){S.recipes.splice(i,1);save();route();}}
 function resetRecipes(){if(confirm('Replace your recipes with the defaults?')){S.recipes=BASE_RECIPES.map(r=>JSON.parse(JSON.stringify(r)));save();route();}}
 
@@ -314,10 +623,12 @@ function route(){
   const page=PAGES.some(p=>p[0]===pg)?pg:'home';
   buildNav(page);
   const m=$('main');
-  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),sparks:pgSparks,logistics:pgLogistics,quests:pgQuests,world:pgWorld,planner:pgPlanner,calc:pgCalc,notes:pgNotes})[page]();
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),layouts:()=>pgLayouts(sub),recipes:()=>pgRecipes(sub),buildings:pgBuildings,sparks:pgSparks,logistics:pgLogistics,quests:pgQuests,world:pgWorld,planner:pgPlanner,calc:pgCalc,notes:pgNotes})[page]();
   m.scrollTop=0;
   m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
   m.querySelectorAll('input[type=checkbox][data-q]').forEach(cb=>{cb.onchange=()=>{S.quests[cb.dataset.q]=cb.checked;save();questProgress();};});
+  if(page==='recipes'&&$('rq2')){$('rq2').oninput=recipesRender;$('rb2').onchange=recipesRender;recipesRender();}
+  if(page==='planner'){['pt','pr','ph'].forEach(id=>$(id).oninput=$(id).onchange=runPlan);runPlan();}
   if(page==='sparks'){$('sq').oninput=sparksRender;$('sk').onchange=sparksRender;$('sc').onchange=sparksRender;sparksRender();}
   if(page==='calc'){m.querySelectorAll('input,select').forEach(e=>e.oninput=calcAll);calcAll();}
   if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
