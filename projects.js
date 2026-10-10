@@ -356,6 +356,7 @@ window.TAVERN_PROJECTS = {
     ["guildscribe","2026-10-10","!rob @GuildScribeBot fines the robber into the swear jar","https://guildscribe.tavernworks.dev/"],
     ["burn","2026-10-10","Smarter AI: sharper commentary and roasts from what you said","https://burn.tavernworks.dev/"],
     ["station","2026-10-10","Stationeers Assistant: guides, IC10 tutorial, linter and emulator","/stationeers/"],
-    ["home","2026-10-10","The Workshop: edit projects, the path and every project's files in the browser","/workshop/"]
+    ["home","2026-10-10","The Workshop: edit projects, the path and every project's files in the browser","/workshop/"],
+    ["station","2026-10-10","created web implemented version","https://tavernworks.dev/stationeers/"]
   ]
 };
