@@ -357,6 +357,122 @@ const FOODS = [
 ['Rotten Flesh',4,0.8,'80% chance of Hunger. Better traded to clerics.']
 ];
 
+/* Crafting recipes. g: grid rows (space = empty slot), k: what each letter is, o: how many you get,
+   s: shapeless (any arrangement), t: note, j/b: edition notes. Tools and armor are generated below. */
+const RECIPES = [
+{n:'Planks',c:'Basics',o:4,g:['L'],k:{L:'Log'},s:1,t:'Any log, stem or wood block. Each wood type makes its own planks.'},
+{n:'Sticks',c:'Basics',o:4,g:['P','P'],k:{P:'Planks'}},
+{n:'Crafting Table',c:'Basics',o:1,g:['PP','PP'],k:{P:'Planks'},t:'Fits in the 2x2 grid in your inventory.'},
+{n:'Torch',c:'Basics',o:4,g:['C','S'],k:{C:'Coal',S:'Stick'},t:'Charcoal works too: smelt logs in a furnace.'},
+{n:'Furnace',c:'Basics',o:1,g:['CCC','C C','CCC'],k:{C:'Cobblestone'},t:'Cobbled deepslate or blackstone also work.'},
+{n:'Chest',c:'Basics',o:1,g:['PPP','P P','PPP'],k:{P:'Planks'},t:'Two chests side by side make a double chest.'},
+{n:'Bed',c:'Basics',o:1,g:['WWW','PPP'],k:{W:'Wool',P:'Planks'},t:'All three wool must be the same color. Sets your spawn point.'},
+{n:'Barrel',c:'Basics',o:1,g:['PSP','P P','PSP'],k:{P:'Planks',S:'Wooden Slab'},t:'Same space as a chest, and opens with a block on top.'},
+{n:'Ladder',c:'Basics',o:3,g:['S S','SSS','S S'],k:{S:'Stick'}},
+{n:'Wooden Door',c:'Basics',o:3,g:['PP','PP','PP'],k:{P:'Planks'}},
+{n:'Wooden Trapdoor',c:'Basics',o:2,g:['PPP','PPP'],k:{P:'Planks'}},
+{n:'Fence',c:'Basics',o:3,g:['PSP','PSP'],k:{P:'Planks',S:'Stick'},t:'Mobs can\'t jump over fences.'},
+{n:'Fence Gate',c:'Basics',o:1,g:['SPS','SPS'],k:{S:'Stick',P:'Planks'}},
+{n:'Boat',c:'Basics',o:1,g:['P P','PPP'],k:{P:'Planks'},t:'Add a chest (shapeless) for a boat with a chest.'},
+{n:'Sign',c:'Basics',o:3,g:['PPP','PPP',' S '],k:{P:'Planks',S:'Stick'}},
+{n:'Bowl',c:'Basics',o:4,g:['P P',' P '],k:{P:'Planks'}},
+{n:'Campfire',c:'Basics',o:1,g:[' S ','SCS','LLL'],k:{S:'Stick',C:'Coal',L:'Log'},t:'Cooks 4 foods at once without fuel. Charcoal works too.'},
+{n:'Item Frame',c:'Basics',o:1,g:['SSS','SLS','SSS'],k:{S:'Stick',L:'Leather'}},
+{n:'Armor Stand',c:'Basics',o:1,g:['SSS',' S ','SBS'],k:{S:'Stick',B:'Smooth Stone Slab'}},
+{n:'Scaffolding',c:'Basics',o:6,g:['BTB','B B','B B'],k:{B:'Bamboo',T:'String'},t:'Climb up with jump and down with sneak.'},
+
+{n:'Bow',c:'Combat',o:1,g:[' ST','S T',' ST'],k:{S:'Stick',T:'String'}},
+{n:'Arrow',c:'Combat',o:4,g:['F','S','E'],k:{F:'Flint',S:'Stick',E:'Feather'}},
+{n:'Crossbow',c:'Combat',o:1,g:['SIS','THT',' S '],k:{S:'Stick',I:'Iron Ingot',T:'String',H:'Tripwire Hook'}},
+{n:'Shield',c:'Combat',o:1,g:['PIP','PPP',' P '],k:{P:'Planks',I:'Iron Ingot'},t:'Add a banner (shapeless) to put a pattern on it.'},
+{n:'Spectral Arrow',c:'Combat',o:2,g:[' G ','GAG',' G '],k:{G:'Glowstone Dust',A:'Arrow'},t:'Hit mobs glow through walls.'},
+
+{n:'Flint and Steel',c:'Tools',o:1,g:['IF'],k:{I:'Iron Ingot',F:'Flint'},s:1,t:'Lights Nether portals, TNT and campfires.'},
+{n:'Shears',c:'Tools',o:1,g:[' I','I '],k:{I:'Iron Ingot'}},
+{n:'Bucket',c:'Tools',o:1,g:['I I',' I '],k:{I:'Iron Ingot'}},
+{n:'Fishing Rod',c:'Tools',o:1,g:['  S',' ST','S T'],k:{S:'Stick',T:'String'}},
+{n:'Compass',c:'Tools',o:1,g:[' I ','IRI',' I '],k:{I:'Iron Ingot',R:'Redstone'},t:'Points to world spawn. Use it on a lodestone to point there instead.'},
+{n:'Clock',c:'Tools',o:1,g:[' G ','GRG',' G '],k:{G:'Gold Ingot',R:'Redstone'}},
+{n:'Spyglass',c:'Tools',o:1,g:['A','C','C'],k:{A:'Amethyst Shard',C:'Copper Ingot'}},
+{n:'Lead',c:'Tools',o:2,g:['TT ','TB ','  T'],k:{T:'String',B:'Slimeball'}},
+{n:'Map',c:'Tools',o:1,g:['PPP','PCP','PPP'],k:{P:'Paper',C:'Compass'},
+ j:'Java: this makes an empty map that shows your position. Zoom out by adding 8 more paper around it in a cartography table.',
+ b:'Bedrock: this makes an empty locator map. 9 paper alone makes a map without your position marker.'},
+{n:'Brush',c:'Tools',o:1,g:['F','C','S'],k:{F:'Feather',C:'Copper Ingot',S:'Stick'},t:'Brush suspicious sand and gravel for archaeology loot.'},
+
+{n:'Paper',c:'Materials',o:3,g:['SSS'],k:{S:'Sugar Cane'}},
+{n:'Book',c:'Materials',o:1,g:['PPP','L  '],k:{P:'Paper',L:'Leather'},s:1},
+{n:'Bookshelf',c:'Materials',o:1,g:['PPP','BBB','PPP'],k:{P:'Planks',B:'Book'},t:'15 around an enchanting table unlock level 30 enchants.'},
+{n:'Iron Block',c:'Materials',o:1,g:['III','III','III'],k:{I:'Iron Ingot'},t:'Every storage block works the same way: 9 ingots, gems or nuggets. Put the block back in the grid to get the 9 back.'},
+{n:'Netherite Ingot',c:'Materials',o:1,g:['NNN','NGG','GG '],k:{N:'Netherite Scrap',G:'Gold Ingot'},s:1,t:'Smelt ancient debris for scrap.'},
+{n:'Netherite Upgrade Template (copy)',c:'Materials',o:2,g:['DTD','DND','DDD'],k:{D:'Diamond',T:'Netherite Upgrade',N:'Netherrack'},t:'Find the first template in bastion remnants. Copy it before you use it.'},
+{n:'Glass Pane',c:'Materials',o:16,g:['GGG','GGG'],k:{G:'Glass'}},
+{n:'Stone Bricks',c:'Materials',o:4,g:['SS','SS'],k:{S:'Stone'},t:'Smelt cobblestone for stone. A stonecutter makes these 1 to 1.'},
+{n:'Blaze Powder',c:'Materials',o:2,g:['R'],k:{R:'Blaze Rod'}},
+{n:'Eye of Ender',c:'Materials',o:1,g:['PB'],k:{P:'Ender Pearl',B:'Blaze Powder'},s:1,t:'Throw it to find the stronghold. You need about 12 for the End portal, plus spares.'},
+{n:'TNT',c:'Materials',o:1,g:['GSG','SGS','GSG'],k:{G:'Gunpowder',S:'Sand'}},
+{n:'Firework Rocket',c:'Materials',o:3,g:['PG'],k:{P:'Paper',G:'Gunpowder'},s:1,t:'1 to 3 gunpowder: more gunpowder flies further. For elytra, 1 or 2 is plenty.'},
+
+{n:'Bread',c:'Food',o:1,g:['WWW'],k:{W:'Wheat'}},
+{n:'Golden Carrot',c:'Food',o:1,g:['NNN','NCN','NNN'],k:{N:'Gold Nugget',C:'Carrot'},t:'The best everyday food.'},
+{n:'Golden Apple',c:'Food',o:1,g:['GGG','GAG','GGG'],k:{G:'Gold Ingot',A:'Apple'},t:'Needed to cure zombie villagers, along with a Weakness potion.'},
+{n:'Cookie',c:'Food',o:8,g:['WCW'],k:{W:'Wheat',C:'Cocoa Beans'}},
+{n:'Cake',c:'Food',o:1,g:['MMM','SES','WWW'],k:{M:'Milk Bucket',S:'Sugar',E:'Egg',W:'Wheat'},t:'You keep the empty buckets.'},
+{n:'Pumpkin Pie',c:'Food',o:1,g:['PSE'],k:{P:'Pumpkin',S:'Sugar',E:'Egg'},s:1},
+{n:'Mushroom Stew',c:'Food',o:1,g:['BRM'],k:{B:'Bowl',R:'Red Mushroom',M:'Brown Mushroom'},s:1},
+
+{n:'Enchanting Table',c:'Stations',o:1,g:[' B ','DOD','OOO'],k:{B:'Book',D:'Diamond',O:'Obsidian'}},
+{n:'Anvil',c:'Stations',o:1,g:['BBB',' I ','III'],k:{B:'Iron Block',I:'Iron Ingot'},t:'31 iron ingots in total. Repairs and combines enchanted gear.'},
+{n:'Brewing Stand',c:'Stations',o:1,g:[' R ','CCC'],k:{R:'Blaze Rod',C:'Cobblestone'},t:'Cobbled deepslate or blackstone also work. See the Brewing page.'},
+{n:'Cauldron',c:'Stations',o:1,g:['I I','I I','III'],k:{I:'Iron Ingot'}},
+{n:'Smithing Table',c:'Stations',o:1,g:['II','PP','PP'],k:{I:'Iron Ingot',P:'Planks'},t:'Upgrades diamond gear to netherite and adds armor trims.'},
+{n:'Grindstone',c:'Stations',o:1,g:['STS','P P'],k:{S:'Stick',T:'Stone Slab',P:'Planks'},t:'Removes enchantments (not curses) and gives back some XP.'},
+{n:'Stonecutter',c:'Stations',o:1,g:[' I ','SSS'],k:{I:'Iron Ingot',S:'Stone'},t:'Cuts stone blocks into stairs, slabs and walls with no waste.'},
+{n:'Smoker',c:'Stations',o:1,g:[' L ','LFL',' L '],k:{L:'Log',F:'Furnace'},t:'Cooks food twice as fast.'},
+{n:'Blast Furnace',c:'Stations',o:1,g:['III','IFI','SSS'],k:{I:'Iron Ingot',F:'Furnace',S:'Smooth Stone'},t:'Smelts ores twice as fast.'},
+{n:'Loom',c:'Stations',o:1,g:['TT','PP'],k:{T:'String',P:'Planks'}},
+{n:'Cartography Table',c:'Stations',o:1,g:['AA','PP','PP'],k:{A:'Paper',P:'Planks'}},
+{n:'Fletching Table',c:'Stations',o:1,g:['FF','PP','PP'],k:{F:'Flint',P:'Planks'}},
+{n:'Lectern',c:'Stations',o:1,g:['SSS',' B ',' S '],k:{S:'Wooden Slab',B:'Bookshelf'}},
+{n:'Composter',c:'Stations',o:1,g:['S S','S S','SSS'],k:{S:'Wooden Slab'},t:'Turns extra crops into bone meal.'},
+{n:'Beacon',c:'Stations',o:1,g:['GGG','GNG','OOO'],k:{G:'Glass',N:'Nether Star',O:'Obsidian'}},
+{n:'Ender Chest',c:'Stations',o:1,g:['OOO','OEO','OOO'],k:{O:'Obsidian',E:'Eye of Ender'},t:'Same items in every ender chest you open. Mine with Silk Touch.'},
+{n:'Shulker Box',c:'Stations',o:1,g:['S','C','S'],k:{S:'Shulker Shell',C:'Chest'},t:'Keeps its items when you break it.'},
+{n:'Respawn Anchor',c:'Stations',o:1,g:['OOO','GGG','OOO'],k:{O:'Crying Obsidian',G:'Glowstone'},t:'Sets your spawn in the Nether. Explodes in the Overworld.'},
+{n:'Crafter',c:'Stations',o:1,g:['III','ICI','RDR'],k:{I:'Iron Ingot',C:'Crafting Table',R:'Redstone',D:'Dropper'},t:'Crafts by itself on a redstone pulse. Click slots to lock them.'},
+
+{n:'Redstone Torch',c:'Redstone',o:1,g:['R','S'],k:{R:'Redstone',S:'Stick'}},
+{n:'Lever',c:'Redstone',o:1,g:['S','C'],k:{S:'Stick',C:'Cobblestone'}},
+{n:'Stone Button',c:'Redstone',o:1,g:['S'],k:{S:'Stone'}},
+{n:'Stone Pressure Plate',c:'Redstone',o:1,g:['SS'],k:{S:'Stone'},t:'Only players and mobs press stone plates. Wooden ones also react to items.'},
+{n:'Repeater',c:'Redstone',o:1,g:['TRT','SSS'],k:{T:'Redstone Torch',R:'Redstone',S:'Stone'}},
+{n:'Comparator',c:'Redstone',o:1,g:[' T ','TQT','SSS'],k:{T:'Redstone Torch',Q:'Nether Quartz',S:'Stone'}},
+{n:'Piston',c:'Redstone',o:1,g:['PPP','CIC','CRC'],k:{P:'Planks',C:'Cobblestone',I:'Iron Ingot',R:'Redstone'}},
+{n:'Sticky Piston',c:'Redstone',o:1,g:['S','P'],k:{S:'Slimeball',P:'Piston'}},
+{n:'Observer',c:'Redstone',o:1,g:['CCC','RRQ','CCC'],k:{C:'Cobblestone',R:'Redstone',Q:'Nether Quartz'},t:'The face points at the block it watches.'},
+{n:'Dispenser',c:'Redstone',o:1,g:['CCC','CBC','CRC'],k:{C:'Cobblestone',B:'Bow',R:'Redstone'}},
+{n:'Dropper',c:'Redstone',o:1,g:['CCC','C C','CRC'],k:{C:'Cobblestone',R:'Redstone'}},
+{n:'Hopper',c:'Redstone',o:1,g:['I I','ICI',' I '],k:{I:'Iron Ingot',C:'Chest'},t:'Moves items into the block it points at. A redstone signal locks it.'},
+{n:'Daylight Detector',c:'Redstone',o:1,g:['GGG','QQQ','SSS'],k:{G:'Glass',Q:'Nether Quartz',S:'Wooden Slab'}},
+{n:'Redstone Lamp',c:'Redstone',o:1,g:[' R ','RGR',' R '],k:{R:'Redstone',G:'Glowstone'}},
+{n:'Note Block',c:'Redstone',o:1,g:['PPP','PRP','PPP'],k:{P:'Planks',R:'Redstone'}},
+{n:'Target',c:'Redstone',o:1,g:[' R ','RHR',' R '],k:{R:'Redstone',H:'Hay Bale'}},
+{n:'Tripwire Hook',c:'Redstone',o:2,g:['I','S','P'],k:{I:'Iron Ingot',S:'Stick',P:'Planks'}},
+{n:'Rail',c:'Redstone',o:16,g:['I I','ISI','I I'],k:{I:'Iron Ingot',S:'Stick'}},
+{n:'Powered Rail',c:'Redstone',o:6,g:['G G','GSG','GRG'],k:{G:'Gold Ingot',S:'Stick',R:'Redstone'},t:'Place one every 34 blocks or so on flat track.'},
+{n:'Minecart',c:'Redstone',o:1,g:['I I','III'],k:{I:'Iron Ingot'}}
+];
+/* Tools and armor in every material. */
+[['Wooden','Planks'],['Stone','Cobblestone'],['Iron','Iron Ingot'],['Golden','Gold Ingot'],['Diamond','Diamond']].forEach(([m, mat]) => {
+  [['Pickaxe',['MMM',' S ',' S ']],['Axe',['MM','MS',' S']],['Shovel',['M','S','S']],['Hoe',['MM',' S',' S']],['Sword',['M','M','S']]]
+    .forEach(([n, g]) => RECIPES.push({n:m + ' ' + n, c:'Tools', o:1, g, k:{M:mat, S:'Stick'}, t:m === 'Stone' ? 'Cobbled deepslate or blackstone also work.' : ''}));
+});
+[['Leather','Leather'],['Iron','Iron Ingot'],['Golden','Gold Ingot'],['Diamond','Diamond']].forEach(([m, mat]) => {
+  [['Helmet',['MMM','M M']],['Chestplate',['M M','MMM','MMM']],['Leggings',['MMM','M M','M M']],['Boots',['M M','M M']]]
+    .forEach(([n, g]) => RECIPES.push({n:m + ' ' + n, c:'Armor', o:1, g, k:{M:mat}, t:''}));
+});
+const CRAFT_CATS = ['Basics','Tools','Combat','Armor','Materials','Food','Stations','Redstone'];
+
 /* Auto farms. tier: 1 starter, 2 mid game, 3 advanced. q: tutorial search terms. j/b: edition notes. */
 const FARMS = [
 {id:'sugarcane',name:'Sugar cane',tier:1,cat:'Crops',makes:'Sugar cane for paper (books, rockets, trades) and sugar.',
@@ -477,13 +593,14 @@ const nv = id => parseFloat($(id).value);
 const iv = id => { const v = parseInt($(id).value, 10); return Number.isFinite(v) ? v : 0; };
 
 /* ================= PAGES ================= */
-const PAGES = [['home','Home'],['guides','Guides'],['farms','Auto farms'],['tutorials','Find tutorials'],['commands','Commands']]
+const PAGES = [['home','Home'],['guides','Guides'],['farms','Auto farms'],['tutorials','Find tutorials'],['crafting','Crafting'],['commands','Commands']]
   .concat(B ? [['realms','Realms']] : [])
   .concat([['diff','Java vs Bedrock'],['brewing','Brewing'],['enchants','Enchantments'],['mobs','Mobs'],['food','Food'],['ores','Ores'],['calc','Calculators'],['coords','Coordinates'],['notes','My Notes']]);
 const TILE = {
   guides:'First night to the End, farming, redstone, raids, monuments, Ancient Cities, elytra',
   farms:'Step-by-step auto farms for crops, iron, XP, mobs and more, in ' + ED_NAME + ' terms',
   tutorials:'Search YouTube, the Minecraft Wiki and Reddit for ' + ED_NAME + ' tutorials',
+  crafting:'Every crafting table recipe in the 3x3 grid, with a materials planner',
   commands:'Every command in ' + ED_NAME + ' syntax, game rules, a command builder',
   realms:'Plans, setup, invites, roles, backups, a member list and backup log',
   diff:'What changes between the two editions',
@@ -710,6 +827,76 @@ function tutWire() {
   tutRender();
 }
 
+/* ---- crafting ---- */
+const recipeFor = item => RECIPES.find(r => r.n === item || r.n === item + 's');
+const recipeCounts = r => { const c = {}; r.g.join('').split('').forEach(ch => { if (ch !== ' ') c[r.k[ch]] = (c[r.k[ch]] || 0) + 1; }); return c; };
+const CELL_HUES = [32, 200, 120, 280, 0, 55, 170, 320];
+function craftGrid(r) {
+  const letters = Object.keys(r.k), rows = [0, 1, 2].map(i => (r.g[i] || '').padEnd(3, ' '));
+  return `<div class="cgrid">${rows.join('').split('').map(ch => ch === ' ' ? '<i></i>'
+    : `<i style="--h:${CELL_HUES[letters.indexOf(ch) % CELL_HUES.length]}" title="${esc(r.k[ch])}">${esc(r.k[ch])}</i>`).join('')}</div>`;
+}
+function pgCrafting(sub) {
+  const pick = sub ? decodeURIComponent(sub) : '';
+  return `<h2>Crafting</h2><p class="sub">${RECIPES.length} crafting table recipes as they sit in the 3x3 grid. Shapeless recipes work in any arrangement. Pick a recipe to plan how much you need.</p>
+<div class="card"><h3 style="margin-top:0">Crafting basics</h3><ul style="margin:0;padding-left:20px">
+<li>Your inventory has a 2x2 grid. Anything bigger needs a crafting table (4 planks).</li>
+<li>Open the <b>recipe book</b> (the green book next to the grid) to see what you can make and auto-fill the grid. ${J ? 'Recipes unlock as you pick up the items they use. Use the filter button at the top of the book to show only what you can craft now.' : 'Turn on "Show craftable only" to see what you can make right now.'}</li>
+<li>${J ? '<b>Shift-click</b> the result to craft as many as you can. <b>Right-click and drag</b> over slots to drop one item in each; <b>left-click and drag</b> to split a stack evenly.' : 'Craft many at once: on PC <b>shift-click</b> the result; on controller and touch, select the recipe several times or hold the craft button.'}</li>
+<li>Tools and armor follow one pattern for every material: learn it once. Netherite gear is made at a <b>smithing table</b>: diamond gear, a netherite ingot and a netherite upgrade template.</li>
+${J ? '<li>Command: <code>/recipe give @s *</code> unlocks every recipe in the recipe book.</li>' : ''}</ul></div>
+<div class="card"><h3 style="margin-top:0">Materials planner</h3>
+<div class="row"><select id="crp">${CRAFT_CATS.map(c => `<optgroup label="${c}">${RECIPES.filter(r => r.c === c).map(r => `<option${r.n === pick ? ' selected' : ''}>${esc(r.n)}</option>`).join('')}</optgroup>`).join('')}</select>
+<span>How many?</span><input id="crq" type="number" min="1" value="1" style="width:80px">
+<label class="chk" style="margin:0"><input type="checkbox" id="crd"> Break down into raw materials</label></div>
+<div id="cro"></div></div>
+<div class="row"><input id="crs" type="text" style="width:260px" placeholder="Search (e.g. piston, diamond, iron ingot)">
+<select id="crc"><option value="">All categories</option>${CRAFT_CATS.map(c => `<option>${c}</option>`).join('')}</select><span class="dim" id="crn"></span></div>
+<div class="grid" id="crl"></div>`;
+}
+function craftingRender() {
+  const q = $('crs').value.toLowerCase(), c = $('crc').value;
+  const r = RECIPES.filter(x => (!c || x.c === c) && (!q || (x.n + ' ' + Object.values(x.k).join(' ') + ' ' + (x.t || '')).toLowerCase().includes(q)));
+  $('crn').textContent = r.length + ' recipes';
+  $('crl').innerHTML = r.map(x => {
+    const cnt = recipeCounts(x), note = x[ED[0]] || x.t;
+    return `<div class="card craft"><div class="row" style="justify-content:space-between;margin:0 0 8px"><b class="cn">${esc(x.n)}</b><span>${x.s ? '<span class="tag t">shapeless</span>' : ''}<span class="tag">${x.c}</span></span></div>
+<div class="row" style="align-items:center;gap:12px;flex-wrap:nowrap">${craftGrid(x)}<span class="carrow">&rarr;</span><span class="cout">${x.o > 1 ? x.o + ' ' : ''}${esc(x.n)}</span></div>
+<div class="dim" style="margin-top:8px">${Object.entries(cnt).map(([n, k]) => `${k} ${esc(n)}`).join(' · ')}</div>
+${note ? `<div style="margin-top:6px">${esc(note)}</div>` : ''}
+<div style="margin-top:6px"><a href="#crafting/${encodeURIComponent(x.n)}" data-cp="${esc(x.n)}">Plan this</a></div></div>`;
+  }).join('') || '<p class="dim">No recipes match.</p>';
+  $('crl').querySelectorAll('[data-cp]').forEach(a => a.onclick = e => { e.preventDefault(); $('crp').value = a.dataset.cp; craftingPlan(); $('main').scrollTo({top: 0, behavior: 'smooth'}); });
+}
+function craftingPlan() {
+  const r = RECIPES.find(x => x.n === $('crp').value); if (!r) return;
+  const want = Math.max(1, iv('crq')), times = Math.ceil(want / r.o), extra = times * r.o - want;
+  const need = {}, spare = {}, steps = [];
+  Object.entries(recipeCounts(r)).forEach(([n, k]) => need[n] = k * times);
+  if ($('crd').checked) {
+    for (let guard = 0; guard < 20; guard++) {
+      const item = Object.keys(need).find(n => recipeFor(n)); if (!item) break;
+      const sub = recipeFor(item), qty = need[item]; delete need[item];
+      const t = Math.ceil(qty / sub.o);
+      if (t * sub.o > qty) spare[item] = t * sub.o - qty;
+      steps.push(`craft ${esc(sub.n)} ${t} time${t > 1 ? 's' : ''} (${t * sub.o})`);
+      Object.entries(recipeCounts(sub)).forEach(([n, k]) => {
+        let n2 = k * t; const s = Math.min(spare[n] || 0, n2); if (s) { spare[n] -= s; n2 -= s; }
+        if (n2) need[n] = (need[n] || 0) + n2;
+      });
+    }
+  }
+  const stacks = n => n >= 64 ? ` <span class="dim">(${Math.floor(n / 64)} stack${n >= 128 ? 's' : ''}${n % 64 ? ' + ' + n % 64 : ''})</span>` : '';
+  $('cro').innerHTML = `<div class="res">Craft <b>${esc(r.n)}</b> ${times} time${times > 1 ? 's' : ''} to get ${times * r.o}${extra ? ` (${extra} spare)` : ''}. You need:
+<ul style="margin:6px 0 0;padding-left:20px">${Object.entries(need).sort((a, b) => b[1] - a[1]).map(([n, k]) => `<li><b>${k}</b> ${esc(n)}${stacks(k)}</li>`).join('')}</ul>
+${steps.length ? `<div class="dim" style="margin-top:6px">Order: ${steps.reverse().join(', then ')}, then ${esc(r.n)}.</div>` : ''}</div>`;
+}
+function craftingWire() {
+  $('crs').oninput = craftingRender; $('crc').onchange = craftingRender;
+  $('crp').onchange = craftingPlan; $('crq').oninput = craftingPlan; $('crd').onchange = craftingPlan;
+  craftingRender(); craftingPlan();
+}
+
 /* ---- mobs and food ---- */
 function pgMobs() {
   return `<h2>Mobs</h2><p class="sub">Where they spawn, what they drop, and how to handle them. Hostile mobs spawn at light level 0 since 1.18, so light everything above 0 to keep them away.</p>
@@ -841,7 +1028,7 @@ function route() {
   const page = PAGES.some(p => p[0] === pg) ? pg : 'home';
   buildNav(page);
   const m = $('main');
-  m.innerHTML = ({home:pgHome, guides:() => pgGuides(sub), farms:() => pgFarms(sub), tutorials:() => pgTutorials(sub), mobs:pgMobs, food:pgFood, commands:pgCommands, realms:pgRealms, diff:pgDiff, brewing:pgBrewing, enchants:pgEnchants, ores:pgOres, calc:pgCalc, coords:pgCoords, notes:pgNotes})[page]();
+  m.innerHTML = ({home:pgHome, guides:() => pgGuides(sub), farms:() => pgFarms(sub), tutorials:() => pgTutorials(sub), crafting:() => pgCrafting(sub), mobs:pgMobs, food:pgFood, commands:pgCommands, realms:pgRealms, diff:pgDiff, brewing:pgBrewing, enchants:pgEnchants, ores:pgOres, calc:pgCalc, coords:pgCoords, notes:pgNotes})[page]();
   m.scrollTop = 0;
   m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb => { cb.checked = !!S.checks[cb.dataset.k]; cb.onchange = () => { S.checks[cb.dataset.k] = cb.checked; save(); }; });
   if (page === 'commands') {
@@ -851,6 +1038,7 @@ function route() {
   if (page === 'realms') realmsWire();
   if (page === 'farms' && $('ft')) { $('ft').onchange = farmsRender; $('fc').onchange = farmsRender; farmsRender(); }
   if (page === 'tutorials') tutWire();
+  if (page === 'crafting') craftingWire();
   if (page === 'mobs') { $('mq').oninput = mobsRender; mobsRender(); }
   if (page === 'enchants') { $('eq').oninput = enchantsRender; $('et').onchange = enchantsRender; enchantsRender(); }
   if (page === 'calc') { m.querySelectorAll('input,select').forEach(e => e.oninput = calcAll); calcAll(); }
