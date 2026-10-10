@@ -32,6 +32,12 @@
   .card p{color:var(--muted);font-size:14.5px;flex:1}
   .meta{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted)}
   .pill{font-size:11px;font-weight:600;letter-spacing:.08em;padding:3px 9px;border-radius:999px;border:1px solid #7a5a2a;color:var(--gold2)}
+  h2.sec{font-family:Cinzel,serif;font-size:22px;color:var(--gold2);margin:40px 0 6px}
+  .sec-sub{color:var(--muted);font-size:15px;margin-bottom:16px}
+  .card .art{margin:-22px -22px 4px;aspect-ratio:460/215;border-radius:16px 16px 0 0;overflow:hidden;background:#0f0b08;position:relative;
+    display:flex;align-items:center;justify-content:center;font-family:Cinzel,serif;font-size:34px;color:#6b5238}
+  .card .art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .card.link{border-style:dashed}
   footer{margin-top:40px;color:var(--muted);font-size:13px}
 </style>
 </head>
@@ -54,7 +60,39 @@
       <div class="meta"><span>tavernworks.dev/assistants/oddsparks</span><span class="pill">BETA</span></div>
     </a>
   </div>
+  <h2 class="sec">Your games</h2>
+  <p class="sec-sub">Link Steam, the Epic Games Launcher or GOG Galaxy and every game you have installed gets its own companion app.</p>
+  <div class="grid" id="yours">
+    <a class="card link" href="/assistants/library/">
+      <div class="icon">🔗</div>
+      <h2>Link your launchers</h2>
+      <p>Find the games installed through Steam, Epic Games and GOG Galaxy and build a companion for each: launch button, goals, notes, a play-session log and guides. The list stays in your browser.</p>
+      <div class="meta"><span>tavernworks.dev/assistants/library</span><span class="pill">NEW</span></div>
+    </a>
+  </div>
   <footer>Fan-made tools. Not affiliated with the games' developers or publishers.</footer>
 </div>
+<script src="/assistants/launchers.js"></script>
+<script>
+(function () {
+  const T = window.TavernLaunchers;
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const games = T.load().games;
+  if (!games.length) return;
+  const box = document.getElementById('yours');
+  const link = box.querySelector('.card.link');
+  link.querySelector('h2').textContent = 'Manage linked launchers';
+  link.querySelector('p').textContent = games.length + ' game' + (games.length === 1 ? '' : 's') + ' linked. Rescan after installing something new, or unlink a launcher.';
+  link.querySelector('.pill').textContent = games.length + ' GAMES';
+  box.insertAdjacentHTML('afterbegin', games.map(g => {
+    const L = T.LAUNCHERS[g.l], ded = T.dedicated(g), art = T.art(g);
+    return `<a class="card" href="${esc(T.companionHref(g))}">
+      <div class="art">${esc((ded && ded.icon) || g.n.trim()[0] || '?')}${art ? `<img src="${esc(art)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</div>
+      <h2>${esc(g.n)}</h2>
+      <div class="meta"><span>${L.icon} ${esc(L.name)}</span><span class="pill">${ded ? 'ASSISTANT' : 'COMPANION'}</span></div>
+    </a>`;
+  }).join(''));
+})();
+</script>
 </body>
 </html>

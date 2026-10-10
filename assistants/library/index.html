@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Link Your Launchers · Tavernworks</title>
+<meta name="description" content="Link Steam, the Epic Games Launcher and GOG Galaxy. Tavernworks finds the games you have installed and builds a companion app for each one. Everything stays in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔗</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873; --ok:#8fd18a; --err:#ff8a7a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none!important}
+  body{background:radial-gradient(1200px 600px at 50% -10%,#2a1d13,var(--bg) 60%);min-height:100vh;
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 16px 60px}
+  a{color:var(--gold2)}
+  a.back{color:var(--muted);text-decoration:none;font-size:14px}
+  a.back:hover{color:var(--gold2)}
+  h1{font-family:Cinzel,serif;font-weight:800;font-size:clamp(30px,6vw,48px);margin:18px 0 6px;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent}
+  h2{font-family:Cinzel,serif;font-size:21px;color:var(--gold2);margin:34px 0 12px}
+  .sub{color:var(--muted);font-size:16.5px;margin-bottom:8px}
+  .panel{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:20px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+  .launcher h3{font-family:Cinzel,serif;font-size:18px;color:var(--gold2);display:flex;gap:10px;align-items:center}
+  .launcher p{color:var(--muted);font-size:14px;margin:8px 0}
+  .status{font-size:13px;margin:6px 0 12px}
+  .status.on{color:var(--ok)}
+  code{background:#0f0b08;border:1px solid var(--line);padding:1px 6px;border-radius:5px;font-size:12.5px;color:#ffd48a;word-break:break-all}
+  ol{margin:6px 0 0 20px;color:var(--muted);font-size:14.5px}
+  ol li{margin:6px 0}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button,.btn{font:inherit;font-size:14px;background:#2d2118;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:7px 14px;cursor:pointer;text-decoration:none;display:inline-block}
+  button:hover,.btn:hover{border-color:var(--gold)}
+  button.pri,.btn.pri{background:var(--gold);border-color:var(--gold);color:#2a1a08;font-weight:600}
+  button.ghost{background:transparent;color:var(--muted)}
+  textarea{width:100%;min-height:80px;background:#0f0b08;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px;font:12.5px/1.4 Consolas,"Cascadia Mono",monospace;margin:8px 0}
+  pre{background:#0f0b08;border:1px solid var(--line);border-radius:9px;padding:10px;font:12px/1.45 Consolas,"Cascadia Mono",monospace;color:#e8d8bf;overflow:auto;max-height:220px;margin:8px 0}
+  details summary{cursor:pointer;color:var(--muted);font-size:14px}
+  #msg{min-height:24px;margin:14px 0 0;font-size:14.5px}
+  #msg.ok{color:var(--ok)} #msg.err{color:var(--err)}
+  .games{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+  .game{position:relative;background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+  .game:hover{border-color:var(--gold)}
+  .game .art{position:relative;aspect-ratio:460/215;background:#0f0b08;display:flex;align-items:center;justify-content:center;font-family:Cinzel,serif;font-size:34px;color:#6b5238}
+  .game .art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .dim{color:var(--muted);font-size:13.5px}
+  .game .body{padding:12px 14px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .game b{font-size:15px}
+  .game .meta{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+  .pill{font-size:10.5px;font-weight:600;letter-spacing:.06em;padding:2px 8px;border-radius:999px;border:1px solid #7a5a2a;color:var(--gold2)}
+  .pill.ded{border-color:#3f7a3a;color:var(--ok)}
+  .game .row{margin-top:auto}
+  .game .x{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);border:0;border-radius:50%;width:26px;height:26px;padding:0;color:var(--muted);font-size:14px;line-height:26px}
+  .game .x:hover{color:var(--err)}
+  .empty{color:var(--muted);font-size:15px}
+  .filter{background:#0f0b08;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:7px 10px;font:inherit;font-size:14px;width:220px;max-width:100%}
+  footer{margin-top:40px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/assistants/">&larr; Game Assistants</a>
+  <h1>Link Your Launchers</h1>
+  <p class="sub">Link Steam, the Epic Games Launcher or GOG Galaxy and we'll find the games you have installed, then build a companion app for each one: launch button, goals, notes, a play-session log and the best guides and wikis. Games with a hand-built assistant open that instead.</p>
+  <p class="sub" style="font-size:14px">Your browser reads the launchers' install records on your own PC. The list stays in this browser and is never uploaded.</p>
+
+  <h2>One-step scan (Windows)</h2>
+  <div class="panel">
+    <ol>
+      <li><button class="pri" id="copyScript">Copy the scan script</button> <span class="dim" id="copied"></span></li>
+      <li>Open <b>PowerShell</b> (Start menu, type <i>PowerShell</i>), paste the script and press Enter. It reads Steam, Epic and GOG at once and copies the result.</li>
+      <li>Paste the result here:
+        <textarea id="scanIn" placeholder='{"tavernworks":1,"games":[...]}'></textarea>
+        <button class="pri" id="scanGo">Link these games</button>
+      </li>
+    </ol>
+    <details style="margin-top:12px"><summary>What the script does</summary><pre id="scriptView"></pre>
+      <p class="empty" style="font-size:13.5px">It only reads: Steam's <code>appmanifest_*.acf</code> files in every library, Epic's <code>.item</code> manifests in <code>ProgramData</code>, and GOG Galaxy's game list in the registry. It changes nothing and sends nothing anywhere; the result goes to your clipboard.</p>
+    </details>
+  </div>
+
+  <h2>Or link one launcher</h2>
+  <div class="grid" id="launchers"></div>
+  <div id="msg"></div>
+
+  <h2 id="yours">Your companions</h2>
+  <div class="row" style="margin-bottom:14px" id="tools" hidden>
+    <input class="filter" id="filter" type="search" placeholder="Filter games">
+  </div>
+  <div class="games" id="games"></div>
+
+  <footer>Fan-made tools. Not affiliated with Valve, Epic Games, GOG or the games' developers and publishers.</footer>
+</div>
+<input type="file" id="files" multiple hidden>
+<script src="/assistants/launchers.js"></script>
+<script>
+const T = window.TavernLaunchers;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const canPickFolder = 'showDirectoryPicker' in window;
+
+const WHERE = {
+  steam: {
+    files: '<code>appmanifest_*.acf</code> in <code>Steam\\steamapps</code> (default <code>C:\\Program Files (x86)\\Steam\\steamapps</code>, or <code>~/.steam/steam/steamapps</code> on Linux). Add <code>libraryfolders.vdf</code> to find your other libraries.',
+    folder: 'your Steam folder or a library folder',
+    accept: '.acf,.vdf',
+  },
+  epic: {
+    files: '<code>.item</code> files in <code>C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests</code>. ProgramData is hidden: paste the path into the file dialog\'s address bar.',
+    folder: 'the Manifests folder',
+    accept: '.item',
+  },
+  gog: {
+    files: 'the <code>goggame-*.info</code> file in each game\'s folder (default <code>C:\\Program Files (x86)\\GOG Galaxy\\Games\\&lt;game&gt;</code>). The scan script above finds every GOG game in one go.',
+    folder: 'your GOG Games folder',
+    accept: '.info',
+  },
+};
+
+function say(text, kind) { const m = $('#msg'); m.textContent = text; m.className = kind || ''; }
+
+function report(launcherName, res, libraries) {
+  const n = res.lib.games.length;
+  let text = res.added
+    ? `Linked ${launcherName}: ${res.added} new companion${res.added === 1 ? '' : 's'} created. ${n} game${n === 1 ? '' : 's'} in total.`
+    : `Linked ${launcherName}. No new games found; ${n} game${n === 1 ? '' : 's'} in total.`;
+  const extra = (libraries || []).filter((p, i, a) => a.indexOf(p) === i);
+  if (extra.length > 1) text += ` Steam also has libraries at ${extra.join(', ')}. Pick those folders too to add their games.`;
+  say(text, 'ok');
+  render();
+  if (res.added) $('#yours').scrollIntoView({ behavior: 'smooth' });
+}
+
+function renderLaunchers() {
+  const lib = T.load();
+  $('#launchers').innerHTML = Object.entries(T.LAUNCHERS).map(([k, L]) => {
+    const count = lib.games.filter(g => g.l === k).length;
+    const on = !!lib.linked[k];
+    return `<div class="panel launcher">
+      <h3><span>${L.icon}</span>${esc(L.name)}</h3>
+      <div class="status ${on ? 'on' : ''}">${on ? `Linked · ${count} game${count === 1 ? '' : 's'} · ${new Date(lib.linked[k]).toLocaleDateString()}` : 'Not linked'}</div>
+      <p>Pick ${WHERE[k].files}</p>
+      <div class="row">
+        ${canPickFolder ? `<button class="pri" data-folder="${k}" title="Choose ${esc(WHERE[k].folder)}">Choose folder</button>` : ''}
+        <button class="${canPickFolder ? '' : 'pri'}" data-files="${k}">Choose files</button>
+        ${on ? `<button class="ghost" data-unlink="${k}">Unlink</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderGames() {
+  const lib = T.load();
+  const q = ($('#filter').value || '').toLowerCase();
+  $('#tools').hidden = lib.games.length < 8;
+  if (!lib.games.length) {
+    $('#games').innerHTML = '<p class="empty">No games linked yet. Run the scan or link a launcher above, and a companion app appears here for each installed game.</p>';
+    return;
+  }
+  const shown = lib.games.filter(g => !q || g.n.toLowerCase().includes(q));
+  $('#games').innerHTML = shown.map(g => {
+    const L = T.LAUNCHERS[g.l], ded = T.dedicated(g), art = T.art(g);
+    return `<div class="game">
+      <div class="art">${esc((ded && ded.icon) || g.n.trim()[0] || '?')}${art ? `<img src="${esc(art)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</div>
+      <button class="x" data-remove="${esc(g.key)}" title="Remove this game">✕</button>
+      <div class="body">
+        <b>${esc(g.n)}</b>
+        <div class="meta"><span>${L.icon} ${esc(L.name)}</span>${ded ? '<span class="pill ded">ASSISTANT</span>' : '<span class="pill">COMPANION</span>'}</div>
+        <div class="row">
+          <a class="btn pri" href="${esc(T.companionHref(g))}">Open</a>
+          <a class="btn" href="${esc(T.launchURI(g))}">▶ Play</a>
+        </div>
+      </div>
+    </div>`;
+  }).join('') || '<p class="empty">No games match.</p>';
+}
+
+function render() { renderLaunchers(); renderGames(); }
+
+$('#scriptView').textContent = T.SCAN_SCRIPT;
+$('#copyScript').onclick = async () => {
+  try { await navigator.clipboard.writeText(T.SCAN_SCRIPT); $('#copied').textContent = 'Copied.'; }
+  catch { $('#scriptView').closest('details').open = true; $('#copied').textContent = 'Copy it from "What the script does" below.'; }
+};
+$('#scanGo').onclick = () => {
+  const text = $('#scanIn').value.trim();
+  if (!text) return say('Paste the scan result first.', 'err');
+  let games;
+  try { games = T.fromScan(text); } catch { return say("That doesn't look like the scan result. Run the script again and paste what it copies.", 'err'); }
+  const res = T.merge(games, { replace: Object.keys(T.LAUNCHERS) });
+  $('#scanIn').value = '';
+  report('Steam, Epic Games and GOG', res);
+};
+
+let pickFor = null;
+$('#files').onchange = async e => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  if (!files.length || !pickFor) return;
+  const { games, libraries } = await T.readFiles(files);
+  if (!games.length) return say(`No ${T.LAUNCHERS[pickFor].name} games in those files. Check you picked the right files (see the card).`, 'err');
+  report(T.LAUNCHERS[pickFor].name, T.merge(games), libraries);
+};
+
+$('#launchers').onclick = async e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.files) {
+    pickFor = b.dataset.files;
+    $('#files').accept = WHERE[pickFor].accept;
+    $('#files').click();
+  } else if (b.dataset.folder) {
+    const k = b.dataset.folder;
+    let dir;
+    try { dir = await window.showDirectoryPicker({ id: 'tw-' + k, mode: 'read' }); }
+    catch (err) {
+      if (err && err.name === 'AbortError') return;
+      return say('Your browser won\'t open that folder (it blocks system folders like Program Files). Use "Choose files" or the scan script instead.', 'err');
+    }
+    say('Reading ' + dir.name + '…');
+    try {
+      const { games, libraries } = await T.readFolder(k, dir);
+      if (!games.length) return say(`No ${T.LAUNCHERS[k].name} games in "${dir.name}". Pick ${WHERE[k].folder}.`, 'err');
+      report(T.LAUNCHERS[k].name, T.merge(games), libraries);
+    } catch {
+      say('Couldn\'t read that folder. Use "Choose files" or the scan script instead.', 'err');
+    }
+  } else if (b.dataset.unlink) {
+    const k = b.dataset.unlink;
+    if (!confirm(`Unlink ${T.LAUNCHERS[k].name}? Its games leave this list. Notes and goals you wrote in their companions are kept.`)) return;
+    T.unlink(k);
+    say(`${T.LAUNCHERS[k].name} unlinked.`);
+    render();
+  }
+};
+
+$('#games').onclick = e => {
+  const b = e.target.closest('[data-remove]');
+  if (!b) return;
+  T.remove(b.dataset.remove);
+  renderGames(); renderLaunchers();
+};
+$('#filter').oninput = renderGames;
+
+render();
+</script>
+</body>
+</html>
