@@ -10,14 +10,14 @@
 :root{--bg:#10140f;--panel:#182017;--panel2:#202a1e;--line:#2f3d2b;--tx:#e4e9dc;--dim:#93a08a;--acc:#ffb547;--acc2:#7fd6c2;--ok:#7ad37f;--warn:#f2c14e;--err:#ff7a6b}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
-#app{display:flex;height:100vh}
-#nav{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#app{display:flex;min-height:100vh}
+#nav{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto;position:sticky;top:0;align-self:flex-start;height:100vh;height:100dvh}
 #nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
 #nav a{display:block;padding:8px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
 #nav a:hover{background:var(--panel2)}
 #nav a.home{color:var(--dim);font-size:13px}
 #nav a.on{background:var(--acc);color:#241500;font-weight:600}
-#main{flex:1;overflow:auto;padding:20px 24px}
+#main{flex:1;min-width:0;padding:20px 24px}
 h2{margin:0 0 4px;font-size:22px}
 h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
 p.sub{color:var(--dim);margin:0 0 16px}
@@ -27,7 +27,7 @@ a{color:var(--acc2)}
 .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
 .tile:hover{border-color:var(--acc)}
 .tile b{color:var(--acc)}
-@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#main{padding:16px}}
+@media(max-width:760px){#app{flex-direction:column}#nav{position:static;height:auto;align-self:stretch;width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#main{padding:16px}}
 button,select,input,textarea{font:inherit;color:var(--tx)}
 button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
 button:hover{border-color:var(--acc)}
@@ -624,7 +624,7 @@ function route(){
   buildNav(page);
   const m=$('main');
   m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),layouts:()=>pgLayouts(sub),recipes:()=>pgRecipes(sub),buildings:pgBuildings,sparks:pgSparks,logistics:pgLogistics,quests:pgQuests,world:pgWorld,planner:pgPlanner,calc:pgCalc,notes:pgNotes})[page]();
-  m.scrollTop=0;
+  window.scrollTo(0,0);
   m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
   m.querySelectorAll('input[type=checkbox][data-q]').forEach(cb=>{cb.onchange=()=>{S.quests[cb.dataset.q]=cb.checked;save();questProgress();};});
   if(page==='recipes'&&$('rq2')){$('rq2').oninput=recipesRender;$('rb2').onchange=recipesRender;recipesRender();}
