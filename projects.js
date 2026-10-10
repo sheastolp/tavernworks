@@ -191,7 +191,7 @@ window.TAVERN_PROJECTS = {
       "card": {
         "section": "workbench",
         "title": "Game Assistants",
-        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games or GOG.",
+        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i>, <i>Icarus</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games or GOG.",
         "href": "/assistants/",
         "url": "tavernworks.dev/assistants",
         "pill": "BETA",
@@ -213,6 +213,14 @@ window.TAVERN_PROJECTS = {
       "name": "Oddsparks Assistant",
       "href": "/assistants/oddsparks/",
       "dir": "assistants/oddsparks",
+      "card": null
+    },
+    {
+      "key": "icarus",
+      "icon": "🪂",
+      "name": "Icarus Assistant",
+      "href": "/assistants/icarus/",
+      "dir": "assistants/icarus",
       "card": null
     },
     {
@@ -390,6 +398,8 @@ window.TAVERN_PROJECTS = {
     ["assistants","2026-10-10","Link Steam, Epic Games and GOG: a companion app for every installed game","/assistants/library/"],
     ["minecraft","2026-10-10","Minecraft Assistants: Bedrock Edition with Realms, and Java Edition","/assistants/minecraft/"],
     ["minecraft","2026-10-10","Minecraft Assistants: auto farm guides, a tutorial finder, mobs, food and six new guides","/assistants/minecraft/"],
-    ["minecraft","2026-10-10","Minecraft Assistants: crafting guide with recipe grids and a materials planner","/assistants/minecraft/java/#crafting"]
+    ["minecraft","2026-10-10","Minecraft Assistants: crafting guide with recipe grids and a materials planner","/assistants/minecraft/java/#crafting"],
+    ["icarus","2026-10-10","Icarus Assistant: survival guides, creature mechanics, tech tiers, maps and a prospect timer","/assistants/icarus/"],
+    ["minecraft","2026-10-10","Minecraft Assistants: tap a mob for its health, attack, spawning and mechanics","/assistants/minecraft/java/#mobs"]
   ]
 };

@@ -60,3 +60,9 @@ a.tile{display:block;text-decoration:none;color:var(--tx)}
 .carrow{font-size:20px;color:var(--dim)}
 .cout{font-weight:600;color:var(--acc)}
 .craft .cn{color:var(--acc)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:10px 0 14px}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.mech{margin:0;padding-left:20px}.mech li{margin:4px 0}

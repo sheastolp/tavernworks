@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Icarus Assistant · Tavernworks</title>
+<meta name="description" content="Icarus Assistant: survival guides, a creature field guide with mechanics, tech tiers, maps, a prospect timer, drop checklists and notes. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪂</text></svg>">
+<style>
+:root{--bg:#12100e;--panel:#1c1814;--panel2:#26201a;--line:#3a3027;--tx:#ece5db;--dim:#a4978a;--acc:#f08a3c;--acc-ink:#2a1200;--acc2:#7cc9c4;--ok:#7ad37f;--warn:#f2c14e;--err:#ff7a6b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:8px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#0c0a08;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.tag.p{color:#a6dd8c}.tag.d{color:#f2dc8b}.tag.a{color:#ffb3a6}.tag.b{color:#d7b4ff}.tag.t{color:#a9d6f5}
+.note{border-left:3px solid var(--warn);background:#2a2519;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.res{background:#0c0a08;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:8px}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.mech li{margin:4px 0}
+.clock{font:600 40px/1.1 Consolas,"Cascadia Mono",monospace;margin:6px 0}
+</style>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   conf: true  = from the Icarus wiki or widely published guides.
+   conf: false = player reports or general experience; check in-game. */
+
+/* Creatures. k: Passive | Defensive | Aggressive | Boss | Tame.
+   mech: how it behaves and fights. tip: how to handle it. */
+const CREATURES=[
+{n:'Deer',k:'Passive',conf:true,where:'Forests and grasslands on Olympus and Styx',drops:'Raw meat, leather, bone',
+ mech:['Flees as soon as it sees, hears or smells you.','Runs in a straight line for a while, then circles back to where it was grazing.','Crouching and approaching from downwind lets you get much closer.'],
+ tip:'A good first hunt. Use a bow and aim for a body shot, then follow the blood. Skin it with a knife for leather.'},
+{n:'Rabbit',k:'Passive',conf:true,where:'Most temperate biomes',drops:'Small amount of meat, fur',
+ mech:['Zig-zags when it flees, which makes it hard to hit with arrows.','Dies to almost any hit.'],
+ tip:'Not worth arrows unless you need fur. Traps work better.'},
+{n:'Moa',k:'Tame',conf:true,where:'Conifer, desert and grassland biomes',drops:'Meat, feathers, leather',
+ mech:['A large flightless bird. Wild Moa run from you and kick if cornered.','Can be tamed and ridden as a mount.','Arctic Moa are the cold-weather variant and handle snow biomes better.'],
+ tip:'Tame one early for faster travel and extra carry weight. Feathers are needed for arrows.'},
+{n:'Boar',k:'Defensive',conf:false,where:'Forests and riverlands',drops:'Meat, leather, tusks',
+ mech:['Ignores you until you get too close or hit it, then charges in a straight line.','After a charge it turns slowly, which gives you a window to hit it.','Charges stagger you and knock you back.'],
+ tip:'Side-step the charge and hit it from the side while it turns around. A spear keeps it at range.'},
+{n:'Wolf',k:'Aggressive',conf:false,where:'Forests; arctic wolves in snow biomes',drops:'Meat, fur, bone',
+ mech:['Hunts in packs of two to five.','Wolves circle you and lunge one at a time, then back off. While you face one, others close in behind.','A pack that loses members may break off and flee.','Howls carry a long way, so more wolves can join the fight.'],
+ tip:'Put your back against a rock or a wall so they can only come from the front. Kill the first one that commits to a lunge. Fight near a campfire or your shelter.'},
+{n:'Bear',k:'Aggressive',conf:false,where:'Forests and rivers; polar bears in the arctic',drops:'Lots of meat, thick fur, fat, bone',
+ mech:['Charges and swipes for heavy damage, and can cause bleeding.','Stands up for a big two-handed swipe that hits a wide arc.','Has a lot of health and keeps chasing longer than most animals.','Polar bears in the arctic hit harder and are tougher.'],
+ tip:'Fight from a height or behind a structure and use a bow. Up close, dodge the swipe and hit it while it recovers. Bring bandages.'},
+{n:'Mammoth',k:'Defensive',conf:false,where:'Arctic biomes',drops:'Huge amounts of meat, fur, tusks',
+ mech:['Leaves you alone unless you attack it or a calf, then stomps and gores.','Very high health. Its stomp has a large area.','Knocks you back a long way.'],
+ tip:'Only take one on with good ranged weapons and a way to get out of reach (high rocks, a structure). A group can split its attention.'},
+{n:'Buffalo',k:'Defensive',conf:false,where:'Grasslands',drops:'Meat, leather, horn',
+ mech:['Lives in herds. Hitting one can set the herd off.','Charges like a boar, but with more health.'],
+ tip:'Pick off one at the edge of the herd with a bow from far away.'},
+{n:'Scorpion',k:'Aggressive',conf:false,where:'Deserts and desert canyons',drops:'Chitin, venom',
+ mech:['Small and fast, and easy to miss in the sand.','The sting poisons you. Poison drains health over time.'],
+ tip:'Watch the ground in deserts. Carry something to cure poison and keep your health topped up.'},
+{n:'Hyena',k:'Aggressive',conf:false,where:'Deserts and arid grasslands',drops:'Meat, fur',
+ mech:['Packs that harry you, darting in and out like wolves.','More likely to attack when you are hurt or alone.'],
+ tip:'Treat them like wolves: back to a wall, fight one at a time.'},
+{n:'Crocodile',k:'Aggressive',conf:true,where:'Styx rivers and swamps',drops:'Meat, leather',
+ mech:['Waits in shallow water and lunges at anything at the edge.','Very dangerous in the water, where you move slowly and can\'t dodge.','Slower on land.'],
+ tip:'Don\'t swim or wade in Styx rivers if you can avoid it. Draw it onto land and fight it there.'},
+{n:'Komodo Dragon',k:'Aggressive',conf:true,where:'Styx',drops:'Meat, scaly leather',
+ mech:['A big lizard that chases and bites.','Bites can leave you with an infection or poison-like damage over time.'],
+ tip:'Fight at range. Treat bites quickly.'},
+{n:'Kea',k:'Passive',conf:true,where:'Styx',drops:'Feathers',
+ mech:['A mischievous parrot. It doesn\'t fight, but it can be a nuisance around your camp.'],
+ tip:'Keep valuables in storage, not lying around.'},
+{n:'Cave Worm',k:'Aggressive',conf:false,where:'Caves',drops:'Worm parts, meat',
+ mech:['Bursts out of cave walls or the floor and attacks, then retreats.','Usually comes in groups around cave nests.'],
+ tip:'Bring light and a melee weapon into caves. Kill the worms before you mine, or they interrupt you.'},
+{n:'Sandworm',k:'Boss',conf:false,where:'Olympus desert (mission boss)',drops:'Exotic materials and mission rewards',
+ mech:['A giant worm that moves under the sand and surfaces to attack.','It tracks vibration: moving on sand draws it in.','Fights take place over a long time and wear down your gear.'],
+ tip:'Fight from rock outcrops it can\'t burrow under. Bring a lot of arrows or ammo, plus food, water and oxygen for a long fight.'},
+{n:'Raptor',k:'Tame',conf:true,where:'Elysium',drops:'Meat, hide',
+ mech:['A fast predator. Wild ones hunt in packs.','Can be tamed as a mount on Elysium.'],
+ tip:'Fight wild ones like wolves. A tamed raptor is one of the fastest ways around Elysium.'},
+{n:'Sandwyrm Queen',k:'Boss',conf:true,where:'Elysium (world boss)',drops:'Boss rewards',
+ mech:['The Elysium world boss, from the Dangerous Horizons expansion.','A late-game fight built for a prepared group.'],
+ tip:'Go in with your best tier weapons and armour, a full set of meds and a team.'}
+];
+
+const STATS=[
+['Health','Damage from creatures, falls, storms, fire and afflictions. Recover with food buffs, bandages and rest.'],
+['Stamina','Spent sprinting, swinging, jumping and dodging. Food and drink buffs raise it.'],
+['Oxygen','Icarus air isn\'t breathable. Your suit runs off Oxite. You can eat raw Oxite in a pinch; an Oxidizer turns Oxite into oxygen and refills you.'],
+['Water','Drain it with heat and activity. Fill a waterskin or canteen at lakes and rivers.'],
+['Food','Each food you eat gives a timed buff and only so many can be active at once. Pick foods for the stats you need.'],
+['Temperature','Arctic cold and desert heat push your body temperature. Wear the right armour, stay near a fire or in shelter.'],
+['Experience debt','Dying adds XP debt that you pay off before you level again. Repeated deaths early on can trap you, so play safe.']
+];
+
+const TIERS=[
+{t:1,n:'Tier 1: by hand',lvl:'Start',items:'Stone axe and pickaxe, knife, bow and arrows, spear, campfire, bedroll, lean-to, thatch building, waterskin, simple armour.',note:'No bench needed. Craft from your inventory.'},
+{t:2,n:'Tier 2: Crafting Bench',lvl:'Level 10',items:'Crafting Bench, Stone Furnace, Skinning Bench, Masonry Bench, Carpentry Bench, Herbalism Bench, Textiles Bench, wood building, metal tools, better armour.',note:'Wood buildings survive storms much better than thatch.'},
+{t:3,n:'Tier 3: Machining Bench',lvl:'Level 20',items:'Machining Bench (needs platinum), Glassworking Bench, Biofuel Composter, firearms, stone building and better gear.',note:'Steel and steel screws are the bottleneck here. Plan your metal supply.'},
+{t:4,n:'Tier 4: Fabricator',lvl:'Late game',items:'Fabricator, electric benches, advanced armour and weapons, Advanced Alteration Bench.',note:'Needs electricity and rare materials.'}
+];
+
+const MAPS=[
+{n:'Olympus',conf:true,d:'The first map. Forest, riverlands, desert, desert canyons, arctic and southern glacier biomes, with caves running through them. The best place to learn.'},
+{n:'Styx',conf:true,d:'Built around a braided river. Bigger and harder, with crocodiles, Komodo dragons and Kea parrots.'},
+{n:'Prometheus',conf:true,d:'From the New Frontiers expansion. Volcanic and swamp biomes. Difficulty swings a lot between biomes.'},
+{n:'Elysium',conf:true,d:'From the Dangerous Horizons expansion. No gentle starting forest: you land in desert or tundra. Tameable raptors and other mounts, and the Sandwyrm Queen world boss.'}
+];
+
+const GUIDES=[
+{id:'drop',title:'Your first drop',blurb:'The first hour on Olympus, step by step.',body:`
+<p>You come down in a dropship. Everything you need you'll make from rocks, sticks, fibre and wood. Keep it simple for the first hour.</p>
+<h3>Checklist</h3>
+<label class="chk"><input type="checkbox" data-k="d1"> Pick up sticks, stones and fibre. Craft a stone axe and stone pickaxe.</label>
+<label class="chk"><input type="checkbox" data-k="d2"> Chop trees. Early on it's the fastest way to level.</label>
+<label class="chk"><input type="checkbox" data-k="d3"> Find water first. Build near a lake or river.</label>
+<label class="chk"><input type="checkbox" data-k="d4"> Mine Oxite (white rock) for oxygen. Finish the whole node.</label>
+<label class="chk"><input type="checkbox" data-k="d5"> Craft a bow and arrows and hunt a deer for meat and leather.</label>
+<label class="chk"><input type="checkbox" data-k="d6"> Build a campfire, a bedroll and a lean-to. You can only sleep with a lit campfire nearby.</label>
+<label class="chk"><input type="checkbox" data-k="d7"> Spend tech points on what you need now. Don't spread them thin.</label>
+<label class="chk"><input type="checkbox" data-k="d8"> Note the dropship timer on the <a href="#timer">Prospect Timer</a> page.</label>`},
+{id:'storms',title:'Surviving storms',blurb:'Build so the weather doesn\'t knock you down.',body:`
+<p>Storms roll in with warnings. Thunderstorms, sandstorms and blizzards hit your buildings and you. Thatch gets torn apart; wood holds up better; stone better still.</p>
+<label class="chk"><input type="checkbox" data-k="w1"> Upgrade from thatch to wood as soon as Tier 2 allows.</label>
+<label class="chk"><input type="checkbox" data-k="w2"> Keep walls on all sides and a roof. Gaps let the storm in.</label>
+<label class="chk"><input type="checkbox" data-k="w3"> Shelter in a cave if you don't have a building yet.</label>
+<label class="chk"><input type="checkbox" data-k="w4"> Repair damaged pieces after every storm.</label>
+<label class="chk"><input type="checkbox" data-k="w5"> Don't stand out in the open in a thunderstorm.</label>`},
+{id:'caves',title:'Caves and ore',blurb:'Metal, Oxite and cave worms.',body:`
+<p>Caves hold the metal and Oxite you need, and they keep the weather off you. They also hold cave worms.</p>
+<label class="chk"><input type="checkbox" data-k="c1"> Bring torches, food, water and spare Oxite.</label>
+<label class="chk"><input type="checkbox" data-k="c2"> Clear the worms near the entrance before you mine.</label>
+<label class="chk"><input type="checkbox" data-k="c3"> Mine copper and iron early; you need them for Tier 2 tools.</label>
+<label class="chk"><input type="checkbox" data-k="c4"> Watch your weight. An overloaded character can't run.</label>
+<label class="chk"><input type="checkbox" data-k="c5"> Mark the cave on your map so you can come back.</label>`},
+{id:'prospects',title:'Prospects and the dropship',blurb:'Don\'t get left behind.',body:`
+<p>Prospects (missions) run on a timer. When it runs out you need to be back at your dropship and launch. If you aren't, your character is left behind and you lose what you carried down.</p>
+<ul><li>Check the timer before every long trip.</li><li>Fly back with spare time: storms and creatures slow you down.</li><li>What you buy in the orbital Workshop with Ren and Exotics stays with you between drops.</li><li>Open World sessions don't have a timer; your base stays where you left it.</li></ul>`},
+{id:'combat',title:'Hunting and fighting',blurb:'Read the animal before you draw the bow.',body:`
+<ul><li>Passive animals flee, defensive ones fight back when hit, aggressive ones come for you. See the <a href="#creatures">Creatures</a> page for each one's mechanics.</li>
+<li>Crouch to make less noise. Approach prey from downwind.</li>
+<li>Back against a wall for packs. Height for big animals.</li>
+<li>Carry bandages. Bleeding and poison keep hurting after the fight.</li>
+<li>Skin kills with a knife for leather, fur and bone.</li></ul>`}
+];
+
+const LOADOUT=[
+'Spare Oxite or a filled oxygen tank','Full waterskin or canteen','Two or three cooked foods for buffs','Bandages and any meds',
+'Bow and a stack of arrows, or a gun and ammo','Melee weapon or spear','Axe and pickaxe','Knife for skinning',
+'Torches for caves','Building pieces for an emergency shelter','Armour for the biome (cold or heat)','Room in your inventory for loot'
+];
+
+/* ================= STATE ================= */
+let S={checks:{},loadout:{},notes:'',timerEnd:0};
+try{const x=JSON.parse(localStorage.getItem('ica_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('ica_state',JSON.stringify(S));}catch(e){}};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const mark=c=>c?'<span class="conf" title="Wiki or published guides">●</span>':'<span class="unv" title="Player reports; check in-game">○</span>';
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Home'],['guides','Guides'],['survival','Survival Stats'],['creatures','Creatures'],['tech','Tech Tiers'],['maps','Maps'],['timer','Prospect Timer'],['loadout','Drop Checklist'],['notes','My Notes']];
+function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>ICARUS<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+
+const TILE={guides:'First drop, storms, caves, prospects, hunting',survival:'Health, oxygen, water, food and temperature',creatures:'Tap a creature for how it fights and how to beat it',tech:'What each tier unlocks',maps:'Olympus, Styx, Prometheus and Elysium',timer:'Count down to your dropship',loadout:'What to bring on every trip',notes:'Your own notes'};
+function pgHome(){return `<h2>Icarus Assistant</h2><p class="sub">A companion for <i>Icarus</i>. Your checklists, timer and notes are saved on this device.</p>
+<div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> come from the Icarus wiki or published guides. Facts marked <span class="unv">○</span> come from player reports. Icarus changes with weekly updates, so trust what you see in-game first.</div>`;}
+
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div>`;}
+  return `<h2>Guides</h2><p class="sub">Checkboxes are saved on this device.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
+}
+
+function pgSurvival(){return `<h2>Survival Stats</h2><p class="sub">What each bar means and how to keep it up.</p>
+<div class="card tbl"><table><tr><th>Stat</th><th>How it works</th></tr>${STATS.map(([n,d])=>`<tr><td><b>${esc(n)}</b></td><td>${esc(d)}</td></tr>`).join('')}</table></div>
+<div class="tip">Eat before you drink: food buffs last longer than the bar suggests, and some foods give water too.</div>`;}
+
+const KIND={Passive:'p',Defensive:'d',Aggressive:'a',Boss:'b',Tame:'t'};
+function pgCreatures(sub){
+  const c=sub&&CREATURES.find(x=>slug(x.n)===sub);
+  if(c)return `<p><a href="#creatures">&larr; All creatures</a></p>
+<h2>${mark(c.conf)} ${esc(c.n)}<span class="tag ${KIND[c.k]}">${c.k}</span></h2>
+<div class="stats"><div class="stat"><small>Behaviour</small>${esc(c.k)}</div><div class="stat"><small>Where</small>${esc(c.where)}</div><div class="stat"><small>Drops</small>${esc(c.drops)}</div></div>
+<div class="card"><h3 style="margin-top:0">Mechanics</h3><ul class="mech">${c.mech.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>
+<div class="tip"><b>How to handle it:</b> ${esc(c.tip)}</div>`;
+  return `<h2>Creatures</h2><p class="sub">Tap a creature's name to see how it behaves and how to beat it.</p>
+<div class="row"><input id="cq" type="text" style="width:260px" placeholder="Search (e.g. styx, poison, pack)"><select id="ck"><option value="">All kinds</option>${Object.keys(KIND).map(k=>`<option>${k}</option>`).join('')}</select><span class="dim" id="ccn"></span></div>
+<div class="card tbl"><table><thead><tr><th>Creature</th><th>Where</th><th>Drops</th></tr></thead><tbody id="cl"></tbody></table></div>`;
+}
+function creaturesRender(){
+  const q=$('cq').value.toLowerCase(),k=$('ck').value;
+  const r=CREATURES.filter(c=>(!k||c.k===k)&&(!q||[c.n,c.k,c.where,c.drops,c.tip,...c.mech].join(' ').toLowerCase().includes(q)));
+  $('ccn').textContent=r.length+' creature'+(r.length===1?'':'s');
+  $('cl').innerHTML=r.map(c=>`<tr><td>${mark(c.conf)} <a class="mob" href="#creatures/${slug(c.n)}">${esc(c.n)}</a><span class="tag ${KIND[c.k]}">${c.k}</span></td><td>${esc(c.where)}</td><td>${esc(c.drops)}</td></tr>`).join('')||'<tr><td colspan="3" class="dim">No creatures match.</td></tr>';
+}
+
+function pgTech(){return `<h2>Tech Tiers</h2><p class="sub">You unlock blueprints with tech points as you level. Each tier needs the bench from the tier before it.</p>
+${TIERS.map(t=>`<div class="card"><h3 style="margin-top:0">${esc(t.n)} <span class="tag">${esc(t.lvl)}</span></h3><div>${esc(t.items)}</div><div class="dim" style="margin-top:6px">${esc(t.note)}</div></div>`).join('')}
+<div class="note">Exact blueprints shift between updates. The bench order above is the stable part.</div>`;}
+
+function pgMaps(){return `<h2>Maps</h2><p class="sub">Four maps, each harder than the last.</p>
+<div class="grid">${MAPS.map(m=>`<div class="card" style="margin:0"><h3 style="margin-top:0">${mark(m.conf)} ${esc(m.n)}</h3><div>${esc(m.d)}</div></div>`).join('')}</div>`;}
+
+/* ---- prospect timer ---- */
+let tick=null;
+function pgTimer(){return `<h2>Prospect Timer</h2><p class="sub">Enter the time left on your prospect. The countdown keeps running if you close this page.</p>
+<div class="card"><div class="row">Days <input id="td" type="number" min="0" value="0" style="width:70px"> Hours <input id="th" type="number" min="0" value="2" style="width:70px"> Minutes <input id="tm" type="number" min="0" value="0" style="width:70px"> <button class="pri" onclick="timerStart()">Start</button> <button onclick="timerStop()">Clear</button></div>
+<div class="clock" id="tclk">--:--:--</div><div id="tmsg" class="dim">No timer running.</div></div>
+<div class="tip">Head for the dropship with at least 20 minutes to spare.</div>`;}
+function timerStart(){const ms=((+$('td').value||0)*1440+(+$('th').value||0)*60+(+$('tm').value||0))*60000;if(ms<=0)return;S.timerEnd=Date.now()+ms;save();timerShow();}
+function timerStop(){S.timerEnd=0;save();timerShow();}
+function timerShow(){
+  if(!$('tclk')){clearInterval(tick);tick=null;return;}
+  if(!S.timerEnd){$('tclk').textContent='--:--:--';$('tclk').className='clock';$('tmsg').textContent='No timer running.';return;}
+  const left=S.timerEnd-Date.now(),s=Math.max(0,Math.floor(left/1000));
+  const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),sec=s%60,p=n=>String(n).padStart(2,'0');
+  $('tclk').textContent=(d?d+'d ':'')+p(h)+':'+p(m)+':'+p(sec);
+  $('tclk').className='clock '+(s<=0?'bad':s<1200?'bad':s<3600?'unv':'ok');
+  $('tmsg').textContent=s<=0?'Time\'s up.':s<1200?'Get to the dropship now.':s<3600?'Under an hour left. Start heading back.':'Ends '+new Date(S.timerEnd).toLocaleString()+'.';
+}
+
+function pgLoadout(){const done=LOADOUT.filter((_,i)=>S.loadout[i]).length;return `<h2>Drop Checklist</h2><p class="sub">Run through it before each trip out.</p>
+<div class="dim" id="ldone">${done} of ${LOADOUT.length} packed</div><div class="bar"><i id="lbar" style="width:${done/LOADOUT.length*100}%"></i></div>
+<div class="card">${LOADOUT.map((t,i)=>`<label class="chk"><input type="checkbox" data-l="${i}"${S.loadout[i]?' checked':''}> ${esc(t)}</label>`).join('')}</div>
+<button onclick="S.loadout={};save();route()">Unpack all</button>`;}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Base location, cave spots, what to research next...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+function route(){
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=PAGES.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main');
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),survival:pgSurvival,creatures:()=>pgCreatures(sub),tech:pgTech,maps:pgMaps,timer:pgTimer,loadout:pgLoadout,notes:pgNotes})[page]();
+  m.scrollTop=0;
+  m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
+  m.querySelectorAll('input[type=checkbox][data-l]').forEach(cb=>{cb.onchange=()=>{S.loadout[cb.dataset.l]=cb.checked;save();const d=LOADOUT.filter((_,i)=>S.loadout[i]).length;$('ldone').textContent=d+' of '+LOADOUT.length+' packed';$('lbar').style.width=d/LOADOUT.length*100+'%';};});
+  if(page==='creatures'&&$('cq')){$('cq').oninput=creaturesRender;$('ck').onchange=creaturesRender;creaturesRender();}
+  if(page==='timer'){timerShow();if(!tick)tick=setInterval(timerShow,1000);}
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',route);
+route();
+</script>
+</body>
+</html>

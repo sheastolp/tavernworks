@@ -20,6 +20,7 @@
   const DEDICATED = [
     { re: /^stationeers/, href: '/assistants/stationeers/', icon: '🛰️' },
     { re: /^oddsparks/, href: '/assistants/oddsparks/', icon: '✨' },
+    { re: /^icarus/, href: '/assistants/icarus/', icon: '🪂' },
   ];
 
   // Steam tools and runtimes that show up as apps but aren't games.

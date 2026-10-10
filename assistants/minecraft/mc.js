@@ -339,6 +339,62 @@ const MOBS = [
 ['Wither','Boss','Wherever you build it','Nether star (beacons)','Build it underground or in the End. Smite works; it\'s undead.']
 ];
 
+/* Mob mechanics, shown when you tap a mob's name. hp: health points (2 = one heart),
+   atk: attack on Normal difficulty, xp: experience dropped, spawn: spawn rules,
+   mech: how it behaves, j/b: Java- or Bedrock-only notes. */
+const MOB_INFO = {
+'Zombie':{hp:'20',atk:'3 melee',xp:'5',spawn:'Light level 0 in the Overworld, in groups. Husks replace them in deserts.',
+ mech:['Burns in direct sunlight unless it wears a helmet, stands in water or is in shade.','Can pick up items and armor, and wears or holds what it finds.','On Hard difficulty it can break down wooden doors, and hitting one can call in more zombies.','Some spawn as baby zombies: faster, smaller and harder to hit.','Goes after players, villagers, wandering traders, iron golems and turtle eggs.','Turns into a drowned after staying underwater for about 30 seconds.','A villager killed by a zombie can become a zombie villager (always on Hard). Cure it with a splash of Weakness and a golden apple for cheap trades.'],
+ j:'Rare drops (iron ingot, carrot, potato) are about 2.5% each, boosted by Looting.'},
+'Skeleton':{hp:'20',atk:'About 3 to 4 per arrow',xp:'5',spawn:'Light level 0 in the Overworld. Strays replace most of them in snowy biomes.',
+ mech:['Shoots arrows from range and strafes sideways to dodge yours.','Burns in sunlight unless it wears a helmet or stays in shade or water.','Runs away from wolves.','A skeleton arrow that kills a creeper makes the creeper drop a music disc.','Arrows it shoots can\'t be picked up.'],
+ j:'A skeleton standing in powder snow turns into a stray after a few seconds.'},
+'Creeper':{hp:'20',atk:'Explosion, up to about 43 at point blank',xp:'5',spawn:'Light level 0 in the Overworld.',
+ mech:['Walks up silently, hisses and explodes after 1.5 seconds. Moving away a few blocks cancels the fuse.','The explosion breaks blocks unless mobGriefing is off.','Lightning turns it into a charged creeper with a much bigger blast. A charged creeper\'s blast makes mobs drop their heads.','Runs from cats and ocelots.','Flint and steel lights it on purpose.','Doesn\'t burn in daylight.']},
+'Spider':{hp:'16',atk:'2 melee',xp:'5',spawn:'Light level 0 in the Overworld. Cave spiders come from spawners in mineshafts.',
+ mech:['Climbs any wall, so walls alone don\'t stop it. Overhangs do.','Neutral in bright light: it won\'t attack unless you hit it first.','Only 1 block tall but 2 blocks wide, so it fits through 1-tall gaps but not 1-wide ones.','Cobwebs don\'t slow it and it\'s immune to Poison.','Rarely spawns with a skeleton riding it (a spider jockey).','Cave spiders are smaller and poison you on Normal and Hard.']},
+'Enderman':{hp:'40',atk:'7 melee',xp:'5',spawn:'Light level 0 in the Overworld, rarely. Common in the End and warped forests.',
+ mech:['Neutral. It turns hostile if you look at its upper body or hit it.','Teleports when hit, when in water or rain, and dodges arrows and other projectiles.','Water hurts it. Standing in water keeps you safe.','Can\'t follow you under a ceiling 2 blocks high, since it\'s 3 blocks tall.','Picks up and moves some blocks (grass, dirt, sand, flowers and more).','Wearing a carved pumpkin stops it noticing your stare.']},
+'Witch':{hp:'26',atk:'Splash potions: Harming (6), Poison, Slowness, Weakness',xp:'5',spawn:'Light level 0 in the Overworld, swamp huts, and during raids.',
+ mech:['Throws harmful splash potions from range.','Drinks potions to save itself: Healing when hurt, Fire Resistance when burning, Water Breathing underwater, Swiftness when you\'re far away.','Takes much less damage from magic, so your own Harming potions do little.','A villager struck by lightning becomes a witch.'],
+ j:'It only throws Poison while your health is above 8.'},
+'Slime':{hp:'16 large, 4 medium, 1 small',atk:'4 large, 2 medium, small ones do no damage',xp:'4, 2 or 1 by size',spawn:'Slime chunks below Y 40 in any light level, and swamps at night (more on a full moon).',
+ mech:['Splits into 2 to 4 smaller slimes when killed. Small ones die for good.','Only small slimes drop slimeballs.','Hops toward you and damages you by touch.','Iron golems attack slimes, which is handy in farms.']},
+'Phantom':{hp:'20',atk:'Bite on a swoop',xp:'5',spawn:'At night or in thunderstorms, near players who haven\'t slept for 3 or more in-game days and have open sky above.',
+ mech:['Circles high above you, then swoops down to bite.','The longer you go without sleep, the more phantoms come.','Burns in sunlight. Undead, so Smite works.','Runs from cats.','Drops phantom membranes only when a player kills it.','Sleeping in a bed resets your timer, which is the easiest way to stop them.']},
+'Drowned':{hp:'20',atk:'3 melee, 8 with a thrown trident',xp:'5',spawn:'Oceans, and rivers at light level 0. Also from zombies that drown.',
+ mech:['Swims and hunts underwater. Comes onto land at night.','Some spawn holding a trident and throw it from range. Only those can drop one.','Some carry a nautilus shell in their off-hand, which always drops.','Burns in sunlight on land, not underwater.','Goes after turtles, villagers and iron golems like zombies do.']},
+'Pillager':{hp:'24',atk:'Crossbow bolt, about 4',xp:'5',spawn:'Pillager outposts, patrols in the open, and raids.',
+ mech:['Shoots crossbow bolts from range and keeps its distance.','Patrols roam after a few in-game days. The leader carries a banner on its head.','The captain drops an Ominous Bottle. Drink it to get Bad Omen; entering a village with Bad Omen starts a raid.','A shield blocks its bolts completely.']},
+'Guardian':{hp:'30',atk:'6 laser, 2 spikes when you hit it',xp:'10',spawn:'Ocean monuments, in water. Three elder guardians live inside each one.',
+ mech:['Locks on with a laser that charges for a few seconds, then hits. Breaking line of sight stops it.','Spikes out when it moves, hurting anything that hits it in melee.','Flops around helplessly on land.','Elder guardians (80 health) give Mining Fatigue III to players nearby every so often.','Squids and axolotls are also targets; axolotls attack guardians in turn.']},
+'Blaze':{hp:'20',atk:'5 per fireball, 3 fireballs in a burst; 6 melee',xp:'10',spawn:'Nether fortresses, from spawners or at light level 11 or below.',
+ mech:['Floats up and down and fires bursts of three fireballs.','Immune to fire and lava.','Water and snowballs hurt it (snowballs do 3 damage).','Drops blaze rods only when a player kills it.','Fire Resistance makes its fireballs harmless.']},
+'Ghast':{hp:'10',atk:'Fireball explosion',xp:'5',spawn:'Nether wastes, soul sand valleys and basalt deltas.',
+ mech:['Floats far away and shoots explosive fireballs from long range.','Hit the fireball back with a sword, arrow or your fist: a returned fireball kills the ghast in one hit.','Its cry carries a long way, so you hear it before you see it.','Ghast tears fall where it dies, so kill it over solid ground, not lava.']},
+'Piglin':{hp:'16',atk:'Golden sword or crossbow',xp:'5',spawn:'Nether wastes and crimson forests, and bastion remnants.',
+ mech:['Neutral if you wear at least one piece of gold armor. Hostile otherwise.','Turns hostile if you open chests, barrels or shulker boxes, or mine gold blocks or gold ore near it.','Throw it a gold ingot to barter: it gives back a random item such as ender pearls, obsidian, string or a Fire Resistance potion.','Picks up gold items and admires them, ignoring you for a few seconds.','Afraid of soul fire, zombified piglins and zoglins.','In the Overworld or the End it turns into a zombified piglin after 15 seconds.']},
+'Hoglin':{hp:'40',atk:'3 to 8 melee, and throws you upward',xp:'5',spawn:'Crimson forests in the Nether.',
+ mech:['Charges and tosses you into the air, which can cause fall damage.','Afraid of warped fungus, Nether portals and respawn anchors.','Breed them with crimson fungus for a renewable food and leather farm.','Piglins hunt baby hoglins.','In the Overworld it turns into a zoglin after 15 seconds, which attacks everything.']},
+'Wither Skeleton':{hp:'20',atk:'8 melee plus Wither',xp:'5',spawn:'Nether fortresses at light level 11 or below.',
+ mech:['Its hits give you the Wither effect, which drains health and turns your hearts black.','Immune to fire and lava.','2.4 blocks tall, so it can\'t fit through 2-block-high gaps. Fight from behind one.','Wither skulls drop rarely (about 2.5%, better with Looting).','Three skulls on soul sand in a T shape summon the Wither.']},
+'Shulker':{hp:'30',atk:'4 per bullet plus Levitation',xp:'5',spawn:'End Cities, attached to blocks.',
+ mech:['Hides in its shell (heavily armored) and opens up to fire homing bullets.','Bullets give Levitation for 10 seconds; falling after it ends can kill you.','Teleports to another block when hurt badly.','A shulker hit by another shulker\'s bullet can duplicate itself.','Drops shulker shells for shulker boxes.']},
+'Breeze':{hp:'30',atk:'Wind charges: 1 damage and big knockback',xp:'10',spawn:'Only from trial spawners in Trial Chambers.',
+ mech:['Jumps high and fires wind charges that knock you back and flip levers and doors.','Deflects arrows and other projectiles, so bows don\'t work.','Fight it up close with melee or a mace.','Drops breeze rods, used for maces and wind charges.']},
+'Bogged':{hp:'16',atk:'Arrows plus Poison',xp:'5',spawn:'Swamps and mangrove swamps at light level 0, and trial spawners.',
+ mech:['A mossy skeleton that shoots Poison arrows.','Shoots more slowly than a normal skeleton.','Shear it for mushrooms.','Burns in sunlight like other skeletons.']},
+'Warden':{hp:'500',atk:'30 melee, 10 sonic boom through walls',xp:'5',spawn:'Summoned in the Deep Dark when a sculk shrieker triggers several times.',
+ mech:['Blind. It finds you by vibrations and by smell.','Footsteps, attacks, projectiles landing and blocks breaking all make vibrations. Sneaking doesn\'t.','Gives Darkness to nearby players, which pulses the screen black.','Its sonic boom goes through walls, armor and shields.','Throw snowballs or arrows to distract it with the noise.','Digs back into the ground after about a minute with nothing to chase.'],
+ j:'Wool blocks soak up vibrations, so sculk sensors don\'t hear what\'s behind them.'},
+'Ender Dragon':{hp:'200',atk:'Charges, breath and fireballs',xp:'12000 the first time, 500 after',spawn:'The End, once per world (respawned with four end crystals on the exit portal).',
+ mech:['Heals from end crystals on top of the obsidian pillars. Some are inside iron cages.','Perches on the portal in the middle; that\'s when you get melee hits in.','Dragon\'s breath lingers on the ground. Collect it in glass bottles for lingering potions.','Breaks almost any block it flies through.','Beds explode in the End, which some players use for big damage while it perches.'],
+ j:'It\'s immune to arrows while perched.'},
+'Wither':{hp:J ? '300' : '600',atk:'Wither skulls and explosions',xp:'50',spawn:'Built by the player: four soul sand or soul soil in a T and three wither skeleton skulls on top.',
+ mech:['Explodes when it spawns, then flies around firing skulls that give Wither.','Below half health it gets armor and becomes immune to arrows.','Breaks blocks it touches. Blue skulls can break even tough blocks.','Undead, so Smite works and Healing potions hurt it.','Drops a nether star, used to craft beacons.'],
+ b:'At half health it summons wither skeletons and charges at you.'}
+};
+
 /* Food: [name, hunger points, saturation, notes] */
 const FOODS = [
 ['Golden Carrot',6,14.4,'Best saturation. Carrot plus 8 gold nuggets.'],
@@ -898,15 +954,31 @@ function craftingWire() {
 }
 
 /* ---- mobs and food ---- */
-function pgMobs() {
-  return `<h2>Mobs</h2><p class="sub">Where they spawn, what they drop, and how to handle them. Hostile mobs spawn at light level 0 since 1.18, so light everything above 0 to keep them away.</p>
+const mobSlug = n => n.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+function pgMobs(sub) {
+  const m = sub && MOBS.find(x => mobSlug(x[0]) === sub);
+  if (m) return mobDetail(m);
+  return `<h2>Mobs</h2><p class="sub">Where they spawn, what they drop, and how to handle them. Tap a mob's name for its mechanics. Hostile mobs spawn at light level 0 since 1.18, so light everything above 0 to keep them away.</p>
 <div class="row"><input id="mq" type="text" style="width:260px" placeholder="Search (e.g. nether, gunpowder, boss)"><span class="dim" id="mcn"></span></div>
 <div class="card tbl"><table><thead><tr><th>Mob</th><th>Where</th><th>Drops</th><th>Tips</th></tr></thead><tbody id="ml"></tbody></table></div>`;
 }
+function mobDetail(m) {
+  const i = MOB_INFO[m[0]] || {}, ed = J ? i.j : i.b, other = J ? i.b : i.j;
+  const stat = (k, v) => v ? `<div class="stat"><small>${k}</small>${esc(v)}</div>` : '';
+  return `<p><a href="#mobs">&larr; All mobs</a></p>
+<h2>${esc(m[0])}<span class="tag">${esc(m[1])}</span></h2>
+<div class="stats">${stat('Health', i.hp && i.hp + ' (' + (+i.hp ? (+i.hp / 2) + ' hearts' : 'see sizes') + ')')}${stat('Attack (Normal)', i.atk)}${stat('XP', i.xp)}${stat('Drops', m[3])}</div>
+${i.spawn ? `<div class="card"><h3 style="margin-top:0">Spawning</h3><div>${esc(i.spawn)}</div><div class="dim" style="margin-top:4px">Found: ${esc(m[2])}</div></div>` : ''}
+${i.mech ? `<div class="card"><h3 style="margin-top:0">Mechanics</h3><ul class="mech">${i.mech.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
+${ed ? `<div class="tip"><b>${ED_NAME}:</b> ${esc(ed)}</div>` : ''}
+${other ? `<div class="note"><b>${J ? 'Bedrock Edition' : 'Java Edition'} only:</b> ${esc(other)}</div>` : ''}
+<div class="tip"><b>How to handle it:</b> ${esc(m[4])}</div>
+<p class="dim">Numbers are for ${ED_NAME} on Normal difficulty. Easy hits softer and Hard harder.</p>`;
+}
 function mobsRender() {
-  const q = $('mq').value.toLowerCase(), r = MOBS.filter(m => !q || m.join(' ').toLowerCase().includes(q));
+  const q = $('mq').value.toLowerCase(), r = MOBS.filter(m => !q || m.concat((MOB_INFO[m[0]] || {}).mech || []).join(' ').toLowerCase().includes(q));
   $('mcn').textContent = r.length + ' mobs';
-  $('ml').innerHTML = r.map(m => `<tr><td><b>${esc(m[0])}</b><div class="dim">${esc(m[1])}</div></td><td>${esc(m[2])}</td><td>${esc(m[3])}</td><td>${esc(m[4])}</td></tr>`).join('');
+  $('ml').innerHTML = r.map(m => `<tr><td><a class="mob" href="#mobs/${mobSlug(m[0])}">${esc(m[0])}</a><div class="dim">${esc(m[1])}</div></td><td>${esc(m[2])}</td><td>${esc(m[3])}</td><td>${esc(m[4])}</td></tr>`).join('');
 }
 function pgFood() {
   return `<h2>Food</h2><p class="sub">Hunger points fill the bar (20 is full, each drumstick is 2). Saturation is hidden: it decides how long you stay full before the bar drops. Sorted by saturation.</p>
@@ -1028,7 +1100,7 @@ function route() {
   const page = PAGES.some(p => p[0] === pg) ? pg : 'home';
   buildNav(page);
   const m = $('main');
-  m.innerHTML = ({home:pgHome, guides:() => pgGuides(sub), farms:() => pgFarms(sub), tutorials:() => pgTutorials(sub), crafting:() => pgCrafting(sub), mobs:pgMobs, food:pgFood, commands:pgCommands, realms:pgRealms, diff:pgDiff, brewing:pgBrewing, enchants:pgEnchants, ores:pgOres, calc:pgCalc, coords:pgCoords, notes:pgNotes})[page]();
+  m.innerHTML = ({home:pgHome, guides:() => pgGuides(sub), farms:() => pgFarms(sub), tutorials:() => pgTutorials(sub), crafting:() => pgCrafting(sub), mobs:() => pgMobs(sub), food:pgFood, commands:pgCommands, realms:pgRealms, diff:pgDiff, brewing:pgBrewing, enchants:pgEnchants, ores:pgOres, calc:pgCalc, coords:pgCoords, notes:pgNotes})[page]();
   m.scrollTop = 0;
   m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb => { cb.checked = !!S.checks[cb.dataset.k]; cb.onchange = () => { S.checks[cb.dataset.k] = cb.checked; save(); }; });
   if (page === 'commands') {
@@ -1039,7 +1111,7 @@ function route() {
   if (page === 'farms' && $('ft')) { $('ft').onchange = farmsRender; $('fc').onchange = farmsRender; farmsRender(); }
   if (page === 'tutorials') tutWire();
   if (page === 'crafting') craftingWire();
-  if (page === 'mobs') { $('mq').oninput = mobsRender; mobsRender(); }
+  if (page === 'mobs' && $('mq')) { $('mq').oninput = mobsRender; mobsRender(); }
   if (page === 'enchants') { $('eq').oninput = enchantsRender; $('et').onchange = enchantsRender; enchantsRender(); }
   if (page === 'calc') { m.querySelectorAll('input,select').forEach(e => e.oninput = calcAll); calcAll(); }
   if (page === 'coords') coordsWire();
