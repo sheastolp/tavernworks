@@ -59,11 +59,11 @@ th{color:var(--dim);font-weight:600}
 </style>
 <script src="/bot-sandbox/app/config.js"></script>
 <script src="/google-signin.js"></script>
-<script src="/assistants/sync.js"></script>
+<script src="/assistants/sync.js?v=2"></script>
 </head>
 <body>
 <div id="app"><nav id="nav"></nav><main id="main"></main></div>
-<script src="/assistants/launchers.js"></script>
+<script src="/assistants/launchers.js?v=2"></script>
 <script>
 const T = window.TavernLaunchers;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

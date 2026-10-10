@@ -8,6 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏔️</text></svg>">
 <style>
 :root{--bg:#0f1117;--panel:#161a24;--panel2:#1f2532;--line:#313a4d;--tx:#ebeef5;--dim:#9aa3b8;--acc:#ff8f4a;--acc-ink:#2b1000;--acc2:#8cc8ff;--ok:#7ad37f;--warn:#f2c14e;--err:#ff7a6b}
+*{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
 #app{display:flex;height:100vh}
 #nav{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
@@ -59,7 +60,7 @@ a.mob:hover{text-decoration:underline}
 </style>
 <script src="/bot-sandbox/app/config.js"></script>
 <script src="/google-signin.js"></script>
-<script src="/assistants/sync.js"></script>
+<script src="/assistants/sync.js?v=2" data-track="peak_state"></script>
 </head>
 <body>
 <div id="app"><nav id="nav"></nav><main id="main"></main></div>

@@ -13,7 +13,9 @@
 // script. Google's access tokens last an hour; after that, syncing waits for a
 // tap on the Sync button.
 //
-// Needs /bot-sandbox/app/config.js and /google-signin.js loaded first. The
+// Needs /bot-sandbox/app/config.js and /google-signin.js loaded first. Pages load
+// it as sync.js?v=N; bump N everywhere when this file changes so browsers don't
+// keep running an old copy. The
 // button goes in #tw-sync if the page has one, else at the bottom of #nav,
 // else before the page's <footer>.
 (function () {
@@ -22,8 +24,12 @@
   const API = "https://www.googleapis.com/drive/v3", UP = "https://www.googleapis.com/upload/drive/v3/files";
   const FILE = "assistants.json", FORMAT = "tavernworks-assistants-sync";
   const KEY = "tw.sync", TOKEN_KEY = "tw.sync.token";
-  // The assistants' saved data: library, companions, Stationeers, Oddsparks, Icarus, Minecraft.
-  const TRACK = /^(tw\.library|tw\.companion\..+|sa_state|osa_state|ica_state|htf_state|raft_state|peak_state|mca_[a-z]+)$/;
+  // The assistants' saved data: library, companions, Stationeers, Oddsparks, Icarus, How to Fish, Raft, PEAK, Minecraft.
+  const BUILT_IN = /^(tw\.library|tw\.companion\..+|sa_state|osa_state|ica_state|htf_state|raft_state|peak_state|mca_[a-z]+)$/;
+  // A page can name its own keys too (<script src=sync.js data-track="a_state b_state">), so a
+  // new assistant syncs even before this list learns about it.
+  const EXTRA = new Set(((document.currentScript && document.currentScript.dataset.track) || "").split(/[\s,]+/).filter(Boolean));
+  const TRACK = { test: (k) => BUILT_IN.test(k) || EXTRA.has(k) };
 
   let LS = null;
   try { LS = window.localStorage; } catch {}
