@@ -183,21 +183,37 @@ window.TAVERN_PROJECTS = {
       }
     },
     {
-      "key": "station",
-      "icon": "🛰️",
-      "name": "Stationeers Assistant",
-      "href": "/stationeers/",
-      "dir": "stationeers",
+      "key": "assistants",
+      "icon": "🧭",
+      "name": "Game Assistants",
+      "href": "/assistants/",
+      "dir": "assistants",
       "card": {
         "section": "workbench",
-        "title": "Stationeers Assistant",
-        "text": "A companion for <i>Stationeers</i>. Survival guides, an IC10 tutorial, a searchable coding reference, a linter and step-through emulator, and gas, power and hash calculators. Runs in your browser.",
-        "href": "/stationeers/",
-        "url": "tavernworks.dev/stationeers",
+        "title": "Game Assistants",
+        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i> and <i>Oddsparks: An Automation Adventure</i>.",
+        "href": "/assistants/",
+        "url": "tavernworks.dev/assistants",
         "pill": "BETA",
         "pillKind": "beta",
         "links": []
       }
+    },
+    {
+      "key": "station",
+      "icon": "🛰️",
+      "name": "Stationeers Assistant",
+      "href": "/assistants/stationeers/",
+      "dir": "assistants/stationeers",
+      "card": null
+    },
+    {
+      "key": "sparks",
+      "icon": "✨",
+      "name": "Oddsparks Assistant",
+      "href": "/assistants/oddsparks/",
+      "dir": "assistants/oddsparks",
+      "card": null
     },
     {
       "key": "tips",
@@ -355,10 +371,13 @@ window.TAVERN_PROJECTS = {
     ["guildscribe","2026-10-10","The Division 2 companion: builds, loot, missions and lookups","https://guildscribe.tavernworks.dev/"],
     ["guildscribe","2026-10-10","!rob @GuildScribeBot fines the robber into the swear jar","https://guildscribe.tavernworks.dev/"],
     ["burn","2026-10-10","Smarter AI: sharper commentary and roasts from what you said","https://burn.tavernworks.dev/"],
-    ["station","2026-10-10","Stationeers Assistant: guides, IC10 tutorial, linter and emulator","/stationeers/"],
+    ["station","2026-10-10","Stationeers Assistant: guides, IC10 tutorial, linter and emulator","/assistants/stationeers/"],
     ["home","2026-10-10","The Workshop: edit projects, the path and every project's files in the browser","/workshop/"],
-    ["station","2026-10-10","created web implemented version","https://tavernworks.dev/stationeers/"],
+    ["station","2026-10-10","created web implemented version","/assistants/stationeers/"],
     ["home","2026-10-10","The Guild: barkeep and guild list share one section","#guilds"],
-    ["tips","2026-10-10","Crypto addresses fold into tap-to-copy chips","#support"]
+    ["tips","2026-10-10","Crypto addresses fold into tap-to-copy chips","#support"],
+    ["station","2026-10-10","Moves into the Game Assistants folder","/assistants/stationeers/"],
+    ["sparks","2026-10-10","Oddsparks Assistant: Spark guide, logistics, quests, planner and calculators","/assistants/oddsparks/"],
+    ["assistants","2026-10-10","Game Assistants: one card for every game companion","/assistants/"]
   ]
 };

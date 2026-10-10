@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Game Assistants · Tavernworks</title>
+<meta name="description" content="Browser companions for the games we play: guides, references, planners and calculators. Everything runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(1200px 600px at 50% -10%,#2a1d13,var(--bg) 60%);min-height:100vh;
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 16px 60px}
+  a.back{color:var(--muted);text-decoration:none;font-size:14px}
+  a.back:hover{color:var(--gold2)}
+  h1{font-family:Cinzel,serif;font-weight:800;font-size:clamp(32px,6vw,52px);margin:18px 0 6px;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--muted);font-size:17px;margin-bottom:28px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+  .card{position:relative;background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;
+    padding:22px;display:flex;flex-direction:column;gap:10px;text-decoration:none;color:inherit;transition:.15s}
+  .card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .card .icon{font-size:28px;line-height:1}
+  .card h2{font-family:Cinzel,serif;font-size:19px;color:var(--gold2)}
+  .card p{color:var(--muted);font-size:14.5px;flex:1}
+  .meta{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted)}
+  .pill{font-size:11px;font-weight:600;letter-spacing:.08em;padding:3px 9px;border-radius:999px;border:1px solid #7a5a2a;color:var(--gold2)}
+  footer{margin-top:40px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">&larr; Tavernworks</a>
+  <h1>Game Assistants</h1>
+  <p class="sub">Companions for the games we play. Guides, references, planners and calculators, all running in your browser. Notes and checklists stay on your device.</p>
+  <div class="grid">
+    <a class="card" href="/assistants/stationeers/">
+      <div class="icon">🛰️</div>
+      <h2>Stationeers Assistant</h2>
+      <p>A companion for <i>Stationeers</i>. Survival guides, an IC10 tutorial, a searchable coding reference, a linter and step-through emulator, and gas, power and hash calculators.</p>
+      <div class="meta"><span>tavernworks.dev/assistants/stationeers</span><span class="pill">BETA</span></div>
+    </a>
+    <a class="card" href="/assistants/oddsparks/">
+      <div class="icon">✨</div>
+      <h2>Oddsparks Assistant</h2>
+      <p>A companion for <i>Oddsparks: An Automation Adventure</i>. A Spark field guide, path and logistics rules, a quest tracker, enemy notes, and throughput and ratio calculators.</p>
+      <div class="meta"><span>tavernworks.dev/assistants/oddsparks</span><span class="pill">BETA</span></div>
+    </a>
+  </div>
+  <footer>Fan-made tools. Not affiliated with the games' developers or publishers.</footer>
+</div>
+</body>
+</html>
