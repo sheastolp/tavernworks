@@ -388,6 +388,7 @@ window.TAVERN_PROJECTS = {
     ["sparks","2026-10-10","Oddsparks Assistant: Spark guide, logistics, quests, planner and calculators","/assistants/oddsparks/"],
     ["assistants","2026-10-10","Game Assistants: one card for every game companion","/assistants/"],
     ["assistants","2026-10-10","Link Steam, Epic Games and GOG: a companion app for every installed game","/assistants/library/"],
-    ["minecraft","2026-10-10","Minecraft Assistants: Bedrock Edition with Realms, and Java Edition","/assistants/minecraft/"]
+    ["minecraft","2026-10-10","Minecraft Assistants: Bedrock Edition with Realms, and Java Edition","/assistants/minecraft/"],
+    ["minecraft","2026-10-10","Minecraft Assistants: auto farm guides, a tutorial finder, mobs, food and six new guides","/assistants/minecraft/"]
   ]
 };

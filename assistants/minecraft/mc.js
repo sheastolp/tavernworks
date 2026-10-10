@@ -264,8 +264,196 @@ b:'Beds explode in the Nether. Good for mining ancient debris, deadly otherwise.
 <label class="chk"><input type="checkbox" data-k="r2"> Beat trial spawners to get trial keys; open vaults with them.</label>
 <label class="chk"><input type="checkbox" data-k="r3"> Fight breezes up close or block their wind charges with a shield.</label>
 <label class="chk"><input type="checkbox" data-k="r4"> Drink an Ominous Bottle (from raid captains) for ominous trials and ominous keys.</label>
-<label class="chk"><input type="checkbox" data-k="r5"> Craft a mace: a heavy core from an ominous vault plus a breeze rod.</label>`}
+<label class="chk"><input type="checkbox" data-k="r5"> Craft a mace: a heavy core from an ominous vault plus a breeze rod.</label>`},
+{id:'food',title:'Food and early farming',blurb:'Never go hungry: crops, animals, the best foods.',body:`
+<label class="chk"><input type="checkbox" data-k="f1"> Break tall grass for wheat seeds. Till dirt with a hoe within 4 blocks of water.</label>
+<label class="chk"><input type="checkbox" data-k="f2"> Plant wheat, carrots and potatoes (from villages, zombies or shipwrecks). Light the field so mobs don't trample it.</label>
+<label class="chk"><input type="checkbox" data-k="f3"> Use bone meal (from a composter or skeletons) to grow crops instantly.</label>
+<label class="chk"><input type="checkbox" data-k="f4"> Fence in two cows, pigs or sheep and breed them: wheat for cows and sheep, carrots for pigs, seeds for chickens.</label>
+<label class="chk"><input type="checkbox" data-k="f5"> Cook meat in a smoker: twice as fast as a furnace.</label>
+<label class="chk"><input type="checkbox" data-k="f6"> Work up to golden carrots: the best everyday food. Trade with farmer villagers or grow carrots plus gold nuggets.</label>
+<p class="dim">Hunger and saturation for every food are on the <a href="#food">Food</a> page. Ready to automate? See <a href="#farms">Auto farms</a>.</p>`},
+{id:'redstone',title:'Redstone basics',blurb:'Power, repeaters, observers and pistons.',body:`
+<label class="chk"><input type="checkbox" data-k="d1"> Power sources: levers and buttons (manual), pressure plates, daylight sensors, observers, redstone blocks and torches.</label>
+<label class="chk"><input type="checkbox" data-k="d2"> Dust carries a signal 15 blocks. A repeater boosts it back to 15 and adds a delay of 1 to 4 redstone ticks.</label>
+<label class="chk"><input type="checkbox" data-k="d3"> A redstone torch on a block inverts: it turns off when the block is powered. That is a NOT gate.</label>
+<label class="chk"><input type="checkbox" data-k="d4"> Observers fire a short pulse when the block in front of them changes. They are the heart of most crop farms.</label>
+<label class="chk"><input type="checkbox" data-k="d5"> Pistons push up to 12 blocks; sticky pistons pull one back. Obsidian, chests and some other blocks can't be moved.</label>
+<label class="chk"><input type="checkbox" data-k="d6"> Hoppers pull items from above and push them into the container they point at. Powering a hopper locks it.</label>
+<label class="chk"><input type="checkbox" data-k="d7"> Comparators read how full a container is, or compare and subtract signals. Use one to build an item sorter.</label>
+<p class="dim">Test new circuits in a creative copy of your world first.</p>`,
+j:'Java has quasi-connectivity: a piston or dropper also turns on if the block above it is powered. Many Java tutorials rely on it.',
+b:'Bedrock has no quasi-connectivity, but pistons can move chests, furnaces and other containers. Java circuits often need changes on Bedrock.'},
+{id:'raids',title:'Raids and the Bad Omen',blurb:'Pillagers, ravagers and the Hero of the Village.',body:`
+<label class="chk"><input type="checkbox" data-k="a1"> Kill a raid captain (pillager with a banner) to get an Ominous Bottle. Drinking it gives Bad Omen.</label>
+<label class="chk"><input type="checkbox" data-k="a2"> Walk into a village with Bad Omen to start a raid: waves of pillagers, vindicators, ravagers, witches and evokers.</label>
+<label class="chk"><input type="checkbox" data-k="a3"> Prepare a shield, a crossbow or bow, healing, and armor. Light the village and wall in the villagers first.</label>
+<label class="chk"><input type="checkbox" data-k="a4"> Evokers drop the Totem of Undying: hold it in your off-hand to survive death once.</label>
+<label class="chk"><input type="checkbox" data-k="a5"> Win the raid for Hero of the Village: big trading discounts and gifts from villagers.</label>
+<p class="dim">Drink a milk bucket to cancel Bad Omen if you're not ready.</p>`},
+{id:'monument',title:'Ocean monuments',blurb:'Guardians, sponges and prismarine.',body:`
+<label class="chk"><input type="checkbox" data-k="o1"> Bring Water Breathing and Night Vision potions, Respiration and Aqua Affinity helmet, Depth Strider boots.</label>
+<label class="chk"><input type="checkbox" data-k="o2"> Bring a milk bucket for every elder guardian you expect: they give Mining Fatigue III.</label>
+<label class="chk"><input type="checkbox" data-k="o3"> Kill the three elder guardians (one at the top, two in the wings) for wet sponges and the Mining Fatigue to stop.</label>
+<label class="chk"><input type="checkbox" data-k="o4"> Find the gold block treasure room in the core: 8 gold blocks.</label>
+<label class="chk"><input type="checkbox" data-k="o5"> Dry sponges in a furnace and use them to drain the monument for a guardian farm.</label>`},
+{id:'deep',title:'Ancient Cities and the Warden',blurb:'Sneak in, loot Swift Sneak, don\'t wake it.',body:`
+<label class="chk"><input type="checkbox" data-k="w1"> Find an Ancient City in the Deep Dark around Y -51. Sculk everywhere is your hint.</label>
+<label class="chk"><input type="checkbox" data-k="w2"> Sneak at all times. Sculk sensors hear walking, eating and breaking blocks; shriekers summon the Warden after 3 warnings.</label>
+<label class="chk"><input type="checkbox" data-k="w3"> Place wool on sensors to muffle them, or break shriekers (sneaking) first.</label>
+<label class="chk"><input type="checkbox" data-k="w4"> Throw snowballs or arrows to distract a sensor away from you.</label>
+<label class="chk"><input type="checkbox" data-k="w5"> Loot chests for Swift Sneak books, echo shards (recovery compass), enchanted golden apples and music discs.</label>
+<label class="chk"><input type="checkbox" data-k="w6"> If the Warden spawns, pillar up or leave. It has 500 health and hits through shields.</label>`},
+{id:'elytra',title:'Elytra and flying',blurb:'Rockets, repairs and safe landings.',body:`
+<label class="chk"><input type="checkbox" data-k="l1"> Get elytra from an End City ship (see <a href="#guides/end">The End</a>).</label>
+<label class="chk"><input type="checkbox" data-k="l2"> Craft firework rockets: paper + gunpowder (1 to 3 for longer boosts, no star).</label>
+<label class="chk"><input type="checkbox" data-k="l3"> Jump, then jump again in the air to glide. Use a rocket to climb.</label>
+<label class="chk"><input type="checkbox" data-k="l4"> Put Unbreaking III and Mending on the elytra. Repair broken elytra with phantom membranes at an anvil.</label>
+<label class="chk"><input type="checkbox" data-k="l5"> Land into water or dive steeply and pull up late. Crashing into walls hurts.</label>
+<label class="chk"><input type="checkbox" data-k="l6"> Build a creeper or gunpowder farm so rockets are free. See <a href="#farms">Auto farms</a>.</label>`}
 ];
+
+/* Mobs: [name, kind, where, drops, how to deal with it] */
+const MOBS = [
+['Zombie','Hostile','Overworld at night, in the dark','Rotten flesh, sometimes iron, carrots, potatoes','Burns in daylight. Husks (desert) don\'t burn and cause Hunger.'],
+['Skeleton','Hostile','Overworld at night, in the dark','Bones, arrows','Use a shield. Strays (snowy biomes) shoot Slowness arrows.'],
+['Creeper','Hostile','Overworld at night, in the dark','Gunpowder, a music disc if a skeleton kills it','Hit it and back off. Cats and ocelots scare them away.'],
+['Spider','Hostile, neutral by day','Overworld','String, spider eyes','Climbs walls. Cave spiders (mineshafts) poison you.'],
+['Enderman','Neutral','Everywhere, mostly the End','Ender pearls','Don\'t look at its face. Stand under a 2-block ceiling; it can\'t follow. A carved pumpkin on your head stops the stare.'],
+['Witch','Hostile','Swamp huts, raids, at night','Redstone, glowstone, sugar, sticks, bottles','Drinks healing potions. Kill fast with a bow or sword.'],
+['Slime','Hostile','Slime chunks below Y 40, swamps at night','Slimeballs','Splits when killed. Use the slime chunk finder on the Calculators page.'],
+['Phantom','Hostile','Sky, after 3 nights without sleep','Phantom membrane','Sleep to stop them. Membranes repair elytra and brew Slow Falling.'],
+['Drowned','Hostile','Rivers and oceans','Copper, rotten flesh, sometimes a trident or nautilus shell','Only drowned that spawn holding a trident drop one.'],
+['Pillager','Hostile','Outposts and raids','Arrows, crossbows; captains give an Ominous Bottle','Shield blocks crossbow bolts.'],
+['Guardian','Hostile','Ocean monuments','Prismarine shards, crystals, fish','Laser charges up; break line of sight.'],
+['Blaze','Hostile','Nether fortresses','Blaze rods','Fire Resistance, snowballs hurt them.'],
+['Ghast','Hostile','Nether','Ghast tears, gunpowder','Hit the fireball back. Kill it over solid ground to get the tear.'],
+['Piglin','Neutral','Nether','Gold, crossbows; barter for ender pearls and more','Wear gold armor. Don\'t open chests or mine gold near them.'],
+['Hoglin','Hostile','Crimson forests','Porkchops, leather','Afraid of warped fungus, portals and respawn anchors.'],
+['Wither Skeleton','Hostile','Nether fortresses','Coal, bones, wither skulls (rare)','Looting III helps skulls. Three skulls and soul sand build the Wither.'],
+['Shulker','Hostile','End Cities','Shulker shells','Levitation bullets: bring Slow Falling or a water bucket.'],
+['Breeze','Hostile','Trial Chambers','Breeze rods','Wind charges knock you back. Fight up close.'],
+['Bogged','Hostile','Swamps, Trial Chambers','Bones, arrows, poison arrows, mushrooms','A mossy skeleton that shoots Poison arrows.'],
+['Warden','Boss-strength','Ancient Cities','A sculk catalyst','Avoid it. It hits through shields and has 500 health.'],
+['Ender Dragon','Boss','The End','Lots of XP, dragon egg, dragon\'s breath','Destroy end crystals first. Beds blow up in the End and deal big damage.'],
+['Wither','Boss','Wherever you build it','Nether star (beacons)','Build it underground or in the End. Smite works; it\'s undead.']
+];
+
+/* Food: [name, hunger points, saturation, notes] */
+const FOODS = [
+['Golden Carrot',6,14.4,'Best saturation. Carrot plus 8 gold nuggets.'],
+['Cooked Porkchop',8,12.8,''],['Steak',8,12.8,''],
+['Cooked Mutton',6,9.6,''],['Cooked Salmon',6,9.6,''],
+['Golden Apple',4,9.6,'Absorption and Regeneration.'],
+['Enchanted Golden Apple',4,9.6,'Stronger effects. Chests only.'],
+['Rabbit Stew',10,12,'Doesn\'t stack.'],
+['Cooked Chicken',6,7.2,''],['Mushroom Stew',6,7.2,'Doesn\'t stack.'],['Beetroot Soup',6,7.2,'Doesn\'t stack.'],
+['Bread',5,6,'3 wheat.'],['Baked Potato',5,6,''],['Cooked Cod',5,6,''],['Cooked Rabbit',5,6,''],
+['Pumpkin Pie',8,4.8,''],
+['Honey Bottle',6,1.2,'Cures Poison.'],
+['Apple',4,2.4,''],['Carrot',3,3.6,''],
+['Melon Slice',2,1.2,''],['Sweet Berries',2,0.4,''],['Cookie',2,0.4,''],['Dried Kelp',1,0.6,'Fast to eat.'],
+['Cake (per slice)',2,0.4,'7 slices. Place it and eat it as a block.'],
+['Rotten Flesh',4,0.8,'80% chance of Hunger. Better traded to clerics.']
+];
+
+/* Auto farms. tier: 1 starter, 2 mid game, 3 advanced. q: tutorial search terms. j/b: edition notes. */
+const FARMS = [
+{id:'sugarcane',name:'Sugar cane',tier:1,cat:'Crops',makes:'Sugar cane for paper (books, rockets, trades) and sugar.',
+ mats:'Sugar cane, sand or dirt, water, 1 observer + 1 piston per cane, hoppers or a hopper minecart, a chest',
+ how:'Plant a row of cane next to water. Over each cane, an observer watches for the second block to grow and fires a piston that breaks it. The bottom block stays and keeps growing. Water or hoppers carry the cane to a chest.',
+ steps:['Lay a row of sand or dirt with water beside it, and plant cane on every block.','Put a piston behind each cane at the height of the second cane block, facing the cane.','Place one observer with its face (the side with the eyes) looking at the second block of one cane. Its red dot is the output.','Run redstone dust from the observer\'s output along the blocks behind the pistons, so one pulse fires the whole row.','Run hoppers, or a hopper minecart on rails under the row, to a chest. Or use a water stream that ends in a hopper.','Repeat along the row. Any length works.'],
+ j:'Use a hopper minecart under the soil row: on Java it picks items up through a full block.',b:'Hopper minecarts on Bedrock can\'t collect through blocks; use a water stream or hoppers in front of the cane.',q:'auto sugar cane farm observer'},
+{id:'bamboo',name:'Bamboo',tier:1,cat:'Crops',makes:'Bamboo: the best furnace fuel per item farm, scaffolding and sticks.',
+ mats:'Bamboo, dirt, observers, pistons, hoppers, a chest',
+ how:'The same idea as the sugar cane farm. Bamboo grows faster and taller, so a few observer-and-piston modules keep a furnace array running.',
+ steps:['Plant bamboo on dirt in a row.','Put a piston facing each bamboo at the second block. One observer watching one bamboo can fire the whole row through redstone dust.','Collect with hoppers or a water stream into a chest.','Feed the chest into furnaces as fuel, or smelt bamboo blocks.'],
+ q:'automatic bamboo farm'},
+{id:'kelp',name:'Kelp',tier:1,cat:'Crops',makes:'Dried kelp blocks: furnace fuel (20 items each) and quick food.',
+ mats:'Kelp, water, observers, pistons, hoppers, a furnace',
+ how:'Kelp grows up through water. An observer watches the block just above the planted kelp and fires a piston that cuts the plant there. Items float up or are pushed into hoppers, then a furnace dries them.',
+ steps:['Plant kelp on blocks in a water-filled row.','Add a piston facing each second kelp block, fired by an observer watching one of the kelp plants. Keep the redstone out of the water.','Let water or hoppers collect the kelp into a furnace that smelts it (fuel it with dried kelp blocks once running).','Craft 9 dried kelp into a block for fuel.'],
+ q:'automatic kelp farm'},
+{id:'pumpkin',name:'Pumpkins and melons',tier:1,cat:'Crops',makes:'Pumpkins (trades, pies, jack o\'lanterns) and melons.',
+ mats:'Seeds, farmland, water, observers, pistons, hoppers or a water stream',
+ how:'Stems grow fruit onto the dirt beside them. An observer watches that dirt spot and fires a piston that breaks the fruit when it appears.',
+ steps:['Plant stems in a row on farmland with water near.','Leave a dirt block beside each stem where the fruit will appear.','Put an observer looking at each fruit spot and a piston that its output fires to break the fruit.','Collect drops with a water stream into hoppers and a chest.'],
+ q:'automatic pumpkin melon farm'},
+{id:'cobble',name:'Cobblestone and stone generator',tier:1,cat:'Blocks',makes:'Endless cobblestone, stone or basalt.',
+ mats:'A lava bucket, a water bucket, a pickaxe (Efficiency helps)',
+ how:'Flowing lava touching water turns into cobblestone. Mine it and it reforms. Lava flowing onto water from above makes stone; lava over soul soil next to blue ice makes basalt.',
+ steps:['Dig a trench of 4 blocks, then place lava at one end and water at the other.','Make sure the water can flow towards the lava, not into it. Cobblestone appears where they meet.','Mine the block and wait a moment: it reforms.','Speed it up with several generators in a row, or use a piston line on a clock to push blocks into a mining spot.'],
+ q:'cobblestone generator'},
+{id:'chicken',name:'Auto chicken cooker',tier:1,cat:'Food',makes:'Cooked chicken and feathers, with no work.',
+ mats:'Chickens, hoppers, a dispenser, a comparator or clock, lava or a campfire/smoker setup, a chest',
+ how:'Adult chickens sit on hoppers and lay eggs into them. A dispenser throws the eggs to hatch chicks. Chicks grow up and get pushed or carried into a killing spot with lava or a campfire, which drops cooked chicken into a hopper.',
+ steps:['Pen a few chickens on top of hoppers (a 1-block-wide cell keeps them still).','Send the eggs into a dispenser that fires into a growing chamber.','Adult chickens are taller than chicks: use a slab ceiling or water to move only adults to the kill spot.','Cook them with lava above a hopper (fire cooks the drops) or campfires, then send the drops to a chest.'],
+ j:'Lava blades work well on Java because chicken drops land in the hopper below.',b:'On Bedrock many designs use campfires or magma blocks for the kill spot.',q:'auto chicken cooker farm'},
+{id:'villagercrop',name:'Villager crop farm',tier:2,cat:'Food',makes:'Wheat, carrots, potatoes and beetroot with no replanting.',
+ mats:'2+ villagers, a composter, a bed, farmland, water, hoppers or a hopper minecart, glass',
+ how:'A farmer villager harvests and replants crops by itself. When its inventory fills it throws food to other villagers. Put a second villager where the farmer can\'t reach it, with hoppers under where the items land.',
+ steps:['Build a fenced or glass room with a 9x9 or smaller field of farmland and water.','Bring in a villager and give it a composter: it becomes a farmer.','Put a second villager behind glass across a row of hoppers. The farmer throws food at it and the hoppers catch it.','Light the room and roof it so no mobs get in.','Collect from the chest. The farmer keeps a few crops to replant.'],
+ j:'A hopper minecart running under the farmland also picks up crops through the soil on Java.',q:'villager auto crop farm'},
+{id:'iron',name:'Iron golem farm',tier:2,cat:'Mobs',makes:'Iron ingots and poppies, around 300 or more iron an hour depending on design.',
+ mats:'3+ villagers, beds, a zombie (Java) or plenty of beds and villagers (Bedrock), lava, hoppers, a chest, glass',
+ how:'Villagers spawn iron golems when they feel threatened (Java) or when a village is big enough (Bedrock). Golems spawn on a platform, drop onto lava or a spot where they die, and the iron goes into hoppers.',
+ steps:['Pick a spot away from other villages and doors, so the farm counts as its own village.','Keep the villagers in cells with beds they can claim and work stations if your design needs them.','Build the golem spawn platform the way your design shows, with water pushing golems to the kill chamber.','Kill golems with lava under signs or slabs, or a drop, and collect with hoppers into chests.','Name-tag the zombie so it never despawns, and keep it out of sunlight (Java).'],
+ j:'Three villagers that have slept recently and can see a zombie panic and summon golems every 30 seconds or so. Put the zombie where it can\'t reach them.',
+ b:'Iron golems spawn in villages with at least 10 villagers and 20 beds. Mechanics changed over the years, so match a tutorial to your exact version.',q:'iron farm'},
+{id:'spawner',name:'Mob spawner XP farm',tier:2,cat:'XP',makes:'XP, bones, arrows, string or rotten flesh, depending on the spawner.',
+ mats:'A dungeon spawner (zombie, skeleton or spider), water buckets, signs or trapdoors, slabs, hoppers, a chest',
+ how:'Light up the dungeon, then rebuild it so water pushes every spawned mob to one hole. They drop down and come out at a hitting spot where you can kill them by hand for XP, with hoppers for loot.',
+ steps:['Find a dungeon (mossy cobblestone room with a spawner). Light it so nothing spawns while you build.','Dig the room out to 9x9 around the spawner with the spawner in the middle.','Put water at the back so it flows towards one edge and stops at signs or trapdoors.','Dig a 1x1 drop chute 20+ blocks down so mobs take fall damage and land one hit from death.','Make a killing window (a gap they can\'t walk through) with hoppers underneath into a chest.','Remove the torches when done. Mobs spawn when you\'re within 16 blocks.'],
+ j:'For spiders, the drop chute must be wider than 1 block or they climb out; use trapdoors or a separate kill method.',q:'mob spawner xp farm'},
+{id:'mob',name:'General mob farm (dark room)',tier:2,cat:'Mobs',makes:'Gunpowder, bones, arrows, string, rotten flesh and witch drops.',
+ mats:'Lots of building blocks, water, trapdoors or signs, slabs, hoppers, chests',
+ how:'A dark, enclosed platform high above the ground gives hostile mobs a place to spawn. Trapdoors trick them into walking into water, which carries them to a drop that kills them.',
+ steps:['Build high in the sky or over an ocean so the only dark places are inside the farm.','Build spawn floors in complete darkness (light level 0) with water channels to the middle.','Put open trapdoors at the edges of the channels: mobs think they\'re floor and walk off.','Drop them 23+ blocks to kill them, or leave them weak for you to finish for XP.','Collect with hoppers into chests. Stand at the right distance (see edition note).'],
+ j:'Mobs spawn 24 to 128 blocks from you. Stand about 128 blocks from the ground and the farm, or under it on a high AFK spot.',
+ b:'Mobs spawn about 24 to 44 blocks away in your simulation distance. Bedrock mob farms are smaller and you stand much closer.',q:'mob farm'},
+{id:'creeper',name:'Creeper farm',tier:3,cat:'Mobs',makes:'Gunpowder for rockets and TNT.',
+ mats:'Building blocks, trapdoors, water, cats (Java) or blocks that only creepers fit through, slabs, hoppers',
+ how:'Creepers are the only common hostile mob that fits under certain blocks, and they are scared of cats. Farms use this to filter out other mobs so the platform spawns more creepers.',
+ steps:['Build high up, like a general mob farm.','Use spawn spaces only 2 blocks tall to stop endermen.','Add a filter (cats in the middle, or a gap other mobs can\'t pass) that sends creepers to the kill drop.','Kill with a long drop or a magma block, and collect with hoppers.'],
+ j:'Java designs often put cats on a central platform; creepers flee them into water.',b:'Bedrock creeper farms usually rely on spawning rules and spawn-proof filters; check a Bedrock-specific video.',q:'creeper farm gunpowder'},
+{id:'slime',name:'Slime farm',tier:3,cat:'Mobs',makes:'Slimeballs for sticky pistons, slime blocks, leads and magma cream.',
+ mats:'A slime chunk location, lots of floors, water or iron golems as bait, magma blocks or a kill drop',
+ how:'Slimes spawn in slime chunks below Y 40 in any light. Dig out the chunk, build several spawn floors, and kill the slimes as they come. Small slimes drop the balls.',
+ steps:['Find a slime chunk with the slime chunk finder on the Calculators page.','Clear the whole 16x16 chunk below Y 40 and build spawn floors 3 blocks apart.','Light everything else nearby so other mobs don\'t spawn.','Push slimes off the floors with water or lure them with an iron golem into a magma block kill area.','Collect with hoppers. Stand 24 to 32 blocks away so they spawn.'],
+ j:'Java slime chunks depend on the seed.',b:'Bedrock slime chunks are the same in every world.',q:'slime farm'},
+{id:'guardian',name:'Guardian farm',tier:3,cat:'Mobs',makes:'Prismarine, sea lanterns, fish and lots of XP.',
+ mats:'Sponges, lots of blocks, water, soul sand or bubble columns, signs, hoppers',
+ how:'Guardians spawn in water inside ocean monuments. Drain parts of the monument, build water spawn tanks, and lift guardians up to a killing spot.',
+ steps:['Clear the monument: kill elder guardians (see the Ocean monuments guide).','Drain the monument with sponges, or carve spawn tanks in the existing water.','Build a stream system that moves guardians into a lift or drop.','Kill with a fall or by hand for XP, with hoppers collecting the loot.'],
+ q:'guardian farm'},
+{id:'gold',name:'Gold and XP farm (zombified piglins)',tier:3,cat:'XP',makes:'Gold nuggets, rotten flesh and the fastest XP.',
+ mats:'Lots of blocks (magma or nether bricks), turtle eggs (Java), slabs, hoppers, a weapon',
+ how:'Zombified piglins spawn in huge numbers on Nether surfaces. They are lured off spawn platforms towards a bait and fall into a kill chamber where you finish them for XP.',
+ steps:['Pick a big build space (Nether roof on Java, or a cleared Nether area).','Build several spawn floors that only zombified piglins can use.','Lure them off the edges into a drop that leaves them on one hit.','Kill them with a Looting sword for gold and XP. Hoppers collect the drops.'],
+ j:'Java gold farms usually go on the Nether roof and use turtle eggs as bait.',b:'Bedrock gold farms often use nether portals: zombified piglins spawn from portal blocks in the Overworld.',q:'gold farm xp farm'},
+{id:'wool',name:'Wool farm',tier:2,cat:'Blocks',makes:'Wool in any colour.',
+ mats:'Dyed sheep, grass blocks, dispensers, shears, observers, hoppers',
+ how:'Sheep regrow wool by eating grass. An observer watches the grass block turn to dirt and fires a dispenser of shears at the sheep.',
+ steps:['Put each dyed sheep in a 1x1 cell on top of a grass block.','Place a dispenser with shears facing the sheep, powered when an observer sees the grass become dirt.','Collect the wool with hoppers under the cell.','Refill shears or use a hopper to feed new pairs in.'],
+ q:'automatic wool farm'},
+{id:'honey',name:'Honey and honeycomb farm',tier:2,cat:'Food',makes:'Honey bottles and honeycomb.',
+ mats:'Bee nests or hives, flowers, dispensers with glass bottles or shears, comparators or observers, hoppers, a campfire',
+ how:'Bees fill hives with pollen. When the hive is full (level 5), a comparator signal fires a dispenser of glass bottles or shears at it. A campfire under the hive keeps bees calm.',
+ steps:['Place hives with flowers nearby and a campfire 1 to 5 blocks under them (the smoke calms bees).','Read the hive with a comparator; at full honey it outputs a strong signal.','Fire a dispenser with glass bottles (honey) or shears (honeycomb).','Collect bottles or combs with hoppers into a chest.'],
+ q:'automatic honey farm'}
+];
+const TIERS = {1:'Starter',2:'Mid game',3:'Advanced'};
+
+/* Tutorial sites. Each returns a URL for the full query string. */
+const TUT_SITES = [
+ ['YouTube','Video tutorials',q => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q)],
+ ['YouTube, newest first','Newest uploads, for the latest version',q => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q) + '&sp=CAI%253D'],
+ ['Minecraft Wiki','The community wiki: mechanics and exact numbers',q => 'https://minecraft.wiki/?search=' + encodeURIComponent(q)],
+ ['Reddit','Questions, builds and "does this still work?"',q => 'https://www.reddit.com/search/?q=' + encodeURIComponent(q)],
+ ['r/technicalminecraft','Farm and redstone experts',q => 'https://www.reddit.com/r/technicalminecraft/search/?q=' + encodeURIComponent(q) + '&restrict_sr=1'],
+ ['Google, past year','Recent guides from any site',q => 'https://www.google.com/search?tbs=qdr:y&q=' + encodeURIComponent(q)]
+];
+const TUT_QUICK = ['iron farm','xp farm','mob farm','sugar cane farm','villager trading hall','raid farm','gold farm','creeper farm','guardian farm','slime farm','item sorter','tree farm','wool farm','honey farm','piston door','starter house','storage system','mending villager'];
 
 /* Realms (Bedrock). Prices from minecraft.net at the time of writing. */
 const REALM_PLANS = [
@@ -279,7 +467,7 @@ const REALM_PLANS = [
 
 /* ================= STATE ================= */
 const KEY = 'mca_' + ED;
-let S = {checks:{}, notes:'', coords:[], members:[], backups:[]};
+let S = {checks:{}, notes:'', coords:[], members:[], backups:[], ver:'', searches:[]};
 try { const x = JSON.parse(localStorage.getItem(KEY) || 'null'); if (x) S = Object.assign(S, x); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -289,16 +477,20 @@ const nv = id => parseFloat($(id).value);
 const iv = id => { const v = parseInt($(id).value, 10); return Number.isFinite(v) ? v : 0; };
 
 /* ================= PAGES ================= */
-const PAGES = [['home','Home'],['guides','Guides'],['commands','Commands']]
+const PAGES = [['home','Home'],['guides','Guides'],['farms','Auto farms'],['tutorials','Find tutorials'],['commands','Commands']]
   .concat(B ? [['realms','Realms']] : [])
-  .concat([['diff','Java vs Bedrock'],['brewing','Brewing'],['enchants','Enchantments'],['ores','Ores'],['calc','Calculators'],['coords','Coordinates'],['notes','My Notes']]);
+  .concat([['diff','Java vs Bedrock'],['brewing','Brewing'],['enchants','Enchantments'],['mobs','Mobs'],['food','Food'],['ores','Ores'],['calc','Calculators'],['coords','Coordinates'],['notes','My Notes']]);
 const TILE = {
-  guides:'First night to the End, villagers, enchanting, Trial Chambers',
+  guides:'First night to the End, farming, redstone, raids, monuments, Ancient Cities, elytra',
+  farms:'Step-by-step auto farms for crops, iron, XP, mobs and more, in ' + ED_NAME + ' terms',
+  tutorials:'Search YouTube, the Minecraft Wiki and Reddit for ' + ED_NAME + ' tutorials',
   commands:'Every command in ' + ED_NAME + ' syntax, game rules, a command builder',
   realms:'Plans, setup, invites, roles, backups, a member list and backup log',
   diff:'What changes between the two editions',
   brewing:'Every potion and what to brew it from',
   enchants:'Max levels, items, conflicts, treasure enchants',
+  mobs:'Where mobs spawn, what they drop, how to beat them',
+  food:'Hunger and saturation for every food',
   ores:'Best Y level for every ore',
   calc:'Nether portals, XP, stacks, slime chunks',
   coords:'Save your bases and portals, with Nether coordinates',
@@ -448,6 +640,93 @@ function pgOres() {
 <div class="tip">${J ? 'Your Y level is on the F3 screen (the middle number of XYZ).' : 'Your Y level is the middle number under Show Coordinates.'}</div>`;
 }
 
+/* ---- auto farms ---- */
+const tutQ = t => `minecraft ${ED === 'java' ? 'java' : 'bedrock'} ${t}${S.ver ? ' ' + S.ver : ''} tutorial`;
+const tutLinks = t => `<div class="row">${TUT_SITES.slice(0, 4).map(([n, , u]) => `<a class="btn" href="${esc(u(tutQ(t)))}" target="_blank" rel="noopener">${n}</a>`).join('')}<a href="#tutorials/${encodeURIComponent(t)}">More search options</a></div>`;
+function pgFarms(sub) {
+  if (sub) {
+    const f = FARMS.find(x => x.id === sub);
+    if (f) return `<p><a href="#farms">&larr; All farms</a></p><h2>${esc(/farm|generator|cooker/i.test(f.name) ? f.name : f.name + ' farm')}</h2><p class="sub"><span class="tag">${TIERS[f.tier]}</span><span class="tag">${esc(f.cat)}</span></p>
+<div class="card"><p><b>Makes:</b> ${esc(f.makes)}</p><p><b>You need:</b> ${esc(f.mats)}</p><p><b>How it works:</b> ${esc(f.how)}</p></div>
+<div class="card"><h3 style="margin-top:0">Build it</h3>${f.steps.map((t, i) => `<label class="chk"><input type="checkbox" data-k="fm_${f.id}_${i}"> ${esc(t)}</label>`).join('')}
+<label class="chk"><input type="checkbox" data-k="fb_${f.id}"> <b>Built and working</b></label>
+${f[ED[0]] ? `<div class="tip">${esc(f[ED[0]])}</div>` : ''}${f[OTHER[0]] ? `<p class="dim">${J ? 'On Bedrock' : 'On Java'}: ${esc(f[OTHER[0]])}</p>` : ''}</div>
+<div class="card"><h3 style="margin-top:0">Watch a ${ED_NAME} tutorial</h3><p class="dim">Exact block positions vary between designs and updates. A video for your edition and version shows a tested layout. Searching: <code>${esc(tutQ(f.q))}</code></p>${tutLinks(f.q)}</div>`;
+  }
+  const cats = [...new Set(FARMS.map(f => f.cat))];
+  const built = FARMS.filter(f => S.checks['fb_' + f.id]).length;
+  return `<h2>Auto farms</h2><p class="sub">Farms that work while you play. ${built} of ${FARMS.length} built. Steps and checkboxes are saved on this device.</p>
+<div class="card"><h3 style="margin-top:0">Before you build any farm</h3><ul>
+<li><b>Chunks must be loaded.</b> Farms only run near a player. ${J ? 'Spawn chunks stay loaded (a small area since 1.20.5, set by the spawnChunkRadius game rule), and /forceload keeps chunks running.' : 'Bedrock has no spawn chunks: use /tickingarea (up to 10), or stay within your simulation distance.'}</li>
+<li><b>Hostile mob farms</b> need light level 0 on the spawn floors and everything else around lit or far away. ${J ? 'Mobs spawn 24 to 128 blocks from you.' : 'Mobs spawn about 24 to 44 blocks from you.'}</li>
+<li><b>Edition matters.</b> Redstone and spawning rules differ. Only copy ${ED_NAME} designs. See <a href="#diff">Java vs Bedrock</a>.</li>
+<li><b>Test first</b> in a creative copy of your world${B ? '. On a Realm, farms stop when everyone leaves' : ''}.</li></ul></div>
+<div class="row"><select id="ft"><option value="">All levels</option>${Object.entries(TIERS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select><select id="fc"><option value="">All kinds</option>${cats.map(c => `<option>${esc(c)}</option>`).join('')}</select></div>
+<div class="grid" id="fl"></div>
+<p class="dim">Looking for something else? <a href="#tutorials">Find a tutorial</a> for any farm or build.</p>`;
+}
+function farmsRender() {
+  const t = $('ft').value, c = $('fc').value;
+  $('fl').innerHTML = FARMS.filter(f => (!t || f.tier === +t) && (!c || f.cat === c)).map(f => `<div class="tile" onclick="location.hash='farms/${f.id}'"><b>${esc(f.name)}</b>${S.checks['fb_' + f.id] ? '<span class="tag b">built</span>' : ''}<span class="tag">${TIERS[f.tier]}</span><div class="dim">${esc(f.makes)}</div></div>`).join('');
+}
+
+/* ---- tutorial search ---- */
+function pgTutorials(sub) {
+  const pre = sub ? decodeURIComponent(sub) : '';
+  return `<h2>Find tutorials</h2><p class="sub">Search the big Minecraft sites for ${ED_NAME} guides. The edition and version are added to your search so you get designs that work in your game. Links open in a new tab.</p>
+<div class="card"><div class="row"><input id="tq" type="text" style="width:280px" placeholder="What do you want to build or learn?" value="${esc(pre)}">
+<label>Version <input id="tv" type="text" style="width:90px" placeholder="e.g. 1.21" value="${esc(S.ver)}"></label>
+<label class="chk" style="margin:0"><input type="checkbox" id="te" checked> Add &ldquo;${J ? 'java' : 'bedrock'}&rdquo;</label>
+<label class="chk" style="margin:0"><input type="checkbox" id="tt" checked> Add &ldquo;tutorial&rdquo;</label></div>
+<div class="res mono" id="tout"></div><div id="tl" class="grid" style="margin-top:10px"></div></div>
+<div class="card"><h3 style="margin-top:0">Popular searches</h3><div class="row">${TUT_QUICK.map(q => `<button data-tq="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+${S.searches.length ? `<h3>Your recent searches</h3><div class="row">${S.searches.map(q => `<button data-tq="${esc(q)}">${esc(q)}</button>`).join('')}<button id="tclr" class="dim">Clear</button></div>` : ''}</div>
+<div class="card"><h3 style="margin-top:0">Is this tutorial any good?</h3>
+<label class="chk"><input type="checkbox" data-k="tg1"> The title or description says <b>${J ? 'Java' : 'Bedrock'}</b>. Designs for the other edition often don't work.</label>
+<label class="chk"><input type="checkbox" data-k="tg2"> It names a version at or after your game version, or was uploaded after the last big update.</label>
+<label class="chk"><input type="checkbox" data-k="tg3"> The comments say it still works. Look for &ldquo;broken in 1.xx&rdquo; replies.</label>
+<label class="chk"><input type="checkbox" data-k="tg4"> It shows rates (items per hour) and a materials list, so you know it's worth the build.</label>
+<label class="chk"><input type="checkbox" data-k="tg5"> You built it in a creative copy of your world before spending survival resources.</label>
+<label class="chk"><input type="checkbox" data-k="tg6"> You checked the Minecraft Wiki for the mechanic (spawning, golems, growth) if the video doesn't explain it.</label></div>
+<div class="card"><h3 style="margin-top:0">Where to look</h3><ul>
+<li><b>Minecraft Wiki</b> (minecraft.wiki): exact mechanics, spawn rules, numbers. Pages mark Java-only and Bedrock-only behaviour.</li>
+<li><b>YouTube</b>: step-by-step builds. ${J ? 'Well-known Java farm and redstone channels include ilmango, Shulkercraft, Mumbo Jumbo and Gnembon.' : 'Well-known Bedrock farm channels include Silentwisperer and ibxtoycat.'} Add a channel name to your search to see their designs.</li>
+<li><b>Reddit</b>: r/technicalminecraft and r/redstone for farm help, r/Minecraft for everything else. Post your edition and version when you ask.</li>
+<li><b>Paste a design into your notes</b>: save the link and the materials list on the <a href="#notes">My Notes</a> page.</li></ul></div>`;
+}
+function tutRender() {
+  const raw = $('tq').value.trim();
+  S.ver = $('tv').value.trim(); save();
+  if (!raw) { $('tout').textContent = 'Type something to search for, or pick a popular search below.'; $('tl').innerHTML = ''; return; }
+  const q = ['minecraft', $('te').checked ? (J ? 'java' : 'bedrock') : '', raw, S.ver, $('tt').checked ? 'tutorial' : ''].filter(Boolean).join(' ').replace(/\s+/g, ' ');
+  $('tout').textContent = q;
+  $('tl').innerHTML = TUT_SITES.map(([n, d, u]) => `<a class="tile" href="${esc(u(q))}" target="_blank" rel="noopener" data-go="1"><b>${n} &#8599;</b><div class="dim">${d}</div></a>`).join('');
+  $('tl').querySelectorAll('[data-go]').forEach(a => a.onclick = () => { S.searches = [raw].concat(S.searches.filter(x => x !== raw)).slice(0, 10); save(); });
+}
+function tutWire() {
+  $('tq').oninput = tutRender; $('tv').oninput = tutRender; $('te').onchange = tutRender; $('tt').onchange = tutRender;
+  $('main').querySelectorAll('[data-tq]').forEach(b => b.onclick = () => { $('tq').value = b.dataset.tq; tutRender(); $('tq').focus(); });
+  if ($('tclr')) $('tclr').onclick = () => { S.searches = []; save(); route(); };
+  tutRender();
+}
+
+/* ---- mobs and food ---- */
+function pgMobs() {
+  return `<h2>Mobs</h2><p class="sub">Where they spawn, what they drop, and how to handle them. Hostile mobs spawn at light level 0 since 1.18, so light everything above 0 to keep them away.</p>
+<div class="row"><input id="mq" type="text" style="width:260px" placeholder="Search (e.g. nether, gunpowder, boss)"><span class="dim" id="mcn"></span></div>
+<div class="card tbl"><table><thead><tr><th>Mob</th><th>Where</th><th>Drops</th><th>Tips</th></tr></thead><tbody id="ml"></tbody></table></div>`;
+}
+function mobsRender() {
+  const q = $('mq').value.toLowerCase(), r = MOBS.filter(m => !q || m.join(' ').toLowerCase().includes(q));
+  $('mcn').textContent = r.length + ' mobs';
+  $('ml').innerHTML = r.map(m => `<tr><td><b>${esc(m[0])}</b><div class="dim">${esc(m[1])}</div></td><td>${esc(m[2])}</td><td>${esc(m[3])}</td><td>${esc(m[4])}</td></tr>`).join('');
+}
+function pgFood() {
+  return `<h2>Food</h2><p class="sub">Hunger points fill the bar (20 is full, each drumstick is 2). Saturation is hidden: it decides how long you stay full before the bar drops. Sorted by saturation.</p>
+<div class="card tbl"><table><tr><th>Food</th><th>Hunger</th><th>Saturation</th><th>Notes</th></tr>${FOODS.slice().sort((a, b) => b[2] - a[2]).map(f => `<tr><td><b>${esc(f[0])}</b></td><td>${f[1]}</td><td>${f[2]}</td><td class="dim">${esc(f[3])}</td></tr>`).join('')}</table></div>
+<div class="tip">Keep golden carrots for adventures and bread or baked potatoes for everyday. A <a href="#farms/villagercrop">villager crop farm</a> keeps you stocked.</div>`;
+}
+
 /* ---- calculators ---- */
 function pgCalc() {
   return `<h2>Calculators</h2><p class="sub">Quick maths for portals, levels, storage and slime farms.</p>
@@ -562,7 +841,7 @@ function route() {
   const page = PAGES.some(p => p[0] === pg) ? pg : 'home';
   buildNav(page);
   const m = $('main');
-  m.innerHTML = ({home:pgHome, guides:() => pgGuides(sub), commands:pgCommands, realms:pgRealms, diff:pgDiff, brewing:pgBrewing, enchants:pgEnchants, ores:pgOres, calc:pgCalc, coords:pgCoords, notes:pgNotes})[page]();
+  m.innerHTML = ({home:pgHome, guides:() => pgGuides(sub), farms:() => pgFarms(sub), tutorials:() => pgTutorials(sub), mobs:pgMobs, food:pgFood, commands:pgCommands, realms:pgRealms, diff:pgDiff, brewing:pgBrewing, enchants:pgEnchants, ores:pgOres, calc:pgCalc, coords:pgCoords, notes:pgNotes})[page]();
   m.scrollTop = 0;
   m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb => { cb.checked = !!S.checks[cb.dataset.k]; cb.onchange = () => { S.checks[cb.dataset.k] = cb.checked; save(); }; });
   if (page === 'commands') {
@@ -570,6 +849,9 @@ function route() {
     $('bk').onchange = builderFields; $('bp').oninput = builderOut; $('bcopy').onclick = () => copy($('bout').textContent, $('bmsg')); builderFields();
   }
   if (page === 'realms') realmsWire();
+  if (page === 'farms' && $('ft')) { $('ft').onchange = farmsRender; $('fc').onchange = farmsRender; farmsRender(); }
+  if (page === 'tutorials') tutWire();
+  if (page === 'mobs') { $('mq').oninput = mobsRender; mobsRender(); }
   if (page === 'enchants') { $('eq').oninput = enchantsRender; $('et').onchange = enchantsRender; enchantsRender(); }
   if (page === 'calc') { m.querySelectorAll('input,select').forEach(e => e.oninput = calcAll); calcAll(); }
   if (page === 'coords') coordsWire();
