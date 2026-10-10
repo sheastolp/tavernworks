@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How to Fish Assistant · Tavernworks</title>
+<meta name="description" content="How to Fish Assistant: island walkthrough, boss summons and fights, bait and rods by island, catch-and-sell tips, a money planner and a sales log. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎣</text></svg>">
+<style>
+:root{--bg:#0b1216;--panel:#111c22;--panel2:#18272f;--line:#26404b;--tx:#e3eef2;--dim:#8ea7b1;--acc:#3cc4e4;--acc-ink:#00232c;--acc2:#f2c14e;--ok:#7ad37f;--warn:#f2c14e;--err:#ff7a6b}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:8px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#071014;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.tag.p{color:#a6dd8c}.tag.d{color:#f2dc8b}.tag.a{color:#ffb3a6}.tag.b{color:#d7b4ff}.tag.t{color:#a9d6f5}
+.note{border-left:3px solid var(--warn);background:#221f14;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.res{background:#071014;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:8px}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.mech li{margin:4px 0}
+.clock{font:600 40px/1.1 Consolas,"Cascadia Mono",monospace;margin:6px 0}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   conf: true  = several published guides agree.
+   conf: false = one guide, or guides disagree; check in-game.
+   How to Fish launched on 20 August 2026 and is still being patched. */
+
+/* The five islands, in the order you unlock them. */
+const ISLANDS=[
+{id:'lighthouse',n:'Lighthouse Island',conf:true,rod:'Crab Fishing Rod',bait:'Ham and Hot Dogs',boss:['Spider Crab'],
+ d:'Where your boat runs aground. Learn the loop here: catch, haul it up the beach, finish it, sell it.',
+ steps:['Catch and sell the first creature the game points you to.','Buy the Crab Fishing Rod and a stack of Hot Dogs.','Talk to every quest-giver on the island before you use the boat radar.','Buy the Radar early. It shows you where creatures are.','Save up for the Knife ($45) before other upgrades.','Summon and beat the Spider Crab.']},
+{id:'forest',n:'Forest Island',conf:true,rod:'Fishing Rod',bait:'Beginner Lures',boss:['Sunfish','The Old Pike','Giant Piranha'],
+ d:'The first real fishing rod and the named lure tiers start here. The Lady by the lake trades for leeches.',
+ steps:['Buy the Fishing Rod and Beginner Lures.','Do the local quests and keep any boss trophies until they\'re handed in.','Collect leeches for the Lady by the lake. She gives you a Modified Leech.','Use the Modified Leech to summon the Giant Piranha.','Beat the Giant Piranha to open the way to the Desert.']},
+{id:'desert',n:'Desert Island',conf:true,rod:'Fishing Rod',bait:'Standard Lures',boss:['Blue Shark','Pufferfish'],
+ d:'Nearly every regular catch here takes a Standard Lure, so buy them in bulk.',
+ steps:['Stock up on Standard Lures.','Upgrade one weapon you trust rather than buying everything.','Summon the Blue Shark with a Standard Boss Lure.','Summon the Pufferfish with a Carrot.','Finish the island\'s quests before you sail on.']},
+{id:'rocks',n:'Rocks Island',conf:true,rod:'Fishing Rod',bait:'Professional Lures',boss:['Tuna','Albatross'],
+ d:'Professional Lures and the Albatross, which stands between you and the Volcano.',
+ steps:['Buy Professional Lures.','Catch the Tuna with a Professional Boss Lure.','Take on the Albatross. Beating it opens the Volcano to the north.','Top up health items before the Volcano.']},
+{id:'volcano',n:'Volcano Island',conf:true,rod:'Fishing Rod',bait:'Scientific Lures ($500)',boss:['Goblin Shark','Bowhead Whale','Mutated Bowhead Whale'],
+ d:'The last island, straight north of the Rocks. Scientific Lures are expensive, so make each cast count.',
+ steps:['Feed five native Volcano fish to the NPC in the hazmat suit to get the Fish Bucket.','Optional: summon the Goblin Shark with a Scientific Boss Lure.','Use the Fish Bucket to summon the Bowhead Whale.','Use the Bowhead Whale to summon the Mutated Bowhead Whale, the final boss.']}
+];
+
+/* Bosses. summon: what you cast to bring it up. */
+const BOSSES=[
+{n:'Spider Crab',isl:'lighthouse',conf:true,summon:'An Empty Beer Can on the Crab Fishing Rod',
+ mech:['The first boss, and practice for every boss after it.','Like all bosses it hits hard once it\'s ashore, so watch your health bar.'],
+ tip:'Fight it on open sand where you can back away. Knife or your first gun, and keep an eye on your health.'},
+{n:'Sunfish',isl:'forest',conf:false,summon:'A Beginner Boss Lure',
+ mech:['A heavy catch with a lot of health.'],
+ tip:'Reel in short bursts so the line doesn\'t snap, then drag it well up the bank before you finish it.'},
+{n:'The Old Pike',isl:'forest',conf:false,summon:'A Beginner Boss Lure',
+ mech:['Fights hard on the line and keeps thrashing once it\'s landed.'],
+ tip:'Get it inland before you attack so it can\'t flop back into the water.'},
+{n:'Giant Piranha',isl:'forest',conf:true,summon:'The Modified Leech from the Lady by the lake (trade her leeches)',
+ mech:['Leaps at you and hits hard.','Beating it opens the Desert.'],
+ tip:'Use rocks and trees to block its jumps. It can get stuck on terrain, which gives you free hits.'},
+{n:'Blue Shark',isl:'desert',conf:true,summon:'A Standard Boss Lure',
+ mech:['Strong on the line. Jumps toward you when it\'s landed.'],
+ tip:'Pistol over SMG if you can\'t control the SMG\'s recoil. Strafe sideways when it lunges.'},
+{n:'Pufferfish',isl:'desert',conf:true,summon:'A Carrot',
+ mech:['Yes, a Carrot. Keep your distance once it\'s on land.'],
+ tip:'Fight from range and don\'t stand where it lands.'},
+{n:'Tuna',isl:'rocks',conf:true,summon:'A Professional Boss Lure',
+ mech:['A long, heavy fight on the line.','Some guides use a dead Tuna to bring in the Albatross.'],
+ tip:'Keep the Tuna if your guide or quest needs it for the Albatross.'},
+{n:'Albatross',isl:'rocks',conf:false,summon:'Guides disagree: some say you can\'t hook it with a rod at all, others bait it with a dead Tuna',
+ mech:['Comes from the air, not the water.','Beating it opens the Volcano.'],
+ tip:'Bring your best gun and plenty of ammo. Stand under cover so it has to come down to you.'},
+{n:'Goblin Shark',isl:'volcano',conf:true,summon:'A Scientific Boss Lure',
+ mech:['An optional mini-boss.'],
+ tip:'Skip it if money is tight: Scientific lures aren\'t cheap. Come back for it once the main bosses are done.'},
+{n:'Bowhead Whale',isl:'volcano',conf:true,summon:'The Fish Bucket (feed five Volcano fish to the hazmat-suit NPC)',
+ mech:['Huge. The catch itself is what you use for the final boss.'],
+ tip:'Don\'t sell it. You need the Bowhead Whale to summon the Mutated Bowhead Whale.'},
+{n:'Mutated Bowhead Whale',isl:'volcano',conf:true,summon:'A Bowhead Whale',
+ mech:['The final boss. Hits hard and takes a long time to bring down.'],
+ tip:'Full health, best gun, every upgrade you can afford. In co-op, spread out so it can\'t hit everyone at once.'}
+];
+
+const TIPS=[
+['Haul it inland','A catch on the beach can flop back into the water. Drag it up the island before you start hitting it.'],
+['Reel in bursts','Short pulls are safer than holding the reel button. Holding it on a strong fish builds tension until the line snaps.'],
+['Knife first','Catches thrash and hurt you. The Knife ($45) finishes them safely and is worth buying before anything else.'],
+['One good gun','Put your upgrades into one weapon you can control. The pistol is easier to aim than the SMG early on.'],
+['Keep trophies','Boss drops are often quest items. Sell ordinary fish, but hold on to anything unusual until the island\'s quests are done.'],
+['Glowing catches','Blue, colour-shifted ("drip") variants go in the Casino prize machines for skins, not to the shop.'],
+['Use the terrain','Rocks and trees block a boss\'s jumps and can get it stuck. Fight next to cover.'],
+['Watch your health','Bosses leap at you for big damage. Back off and heal before you go below half.'],
+['Talk first','Speak to every quest-giver on a new island before you go fishing. Quests tell you what to catch.'],
+['Co-op','Up to four players. One person reels, the others get ready to finish the catch the moment it lands.']
+];
+
+/* ================= STATE ================= */
+let S={checks:{},sales:[],cash:0,goal:'',goalCost:0,avg:0,notes:''};
+try{const x=JSON.parse(localStorage.getItem('htf_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('htf_state',JSON.stringify(S));}catch(e){}};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const mark=c=>c?'<span class="conf" title="Several guides agree">●</span>':'<span class="unv" title="One guide, or guides disagree; check in-game">○</span>';
+const money=n=>'$'+(Math.round(n*100)/100).toLocaleString();
+const islandName=id=>(ISLANDS.find(i=>i.id===id)||{}).n||id;
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Home'],['islands','Walkthrough'],['bosses','Bosses'],['bait','Rods & Bait'],['tips','Tips'],['money','Money Planner'],['sales','Sales Log'],['notes','My Notes']];
+function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>HOW TO FISH<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+
+const TILE={islands:'All five islands in order, with a checklist for each',bosses:'What to cast to summon each boss, and how to beat it',bait:'Which rod and bait each island wants',tips:'Catch, kill, sell: the things the game doesn\'t tell you',money:'How many catches until you can buy it',sales:'Log what you sell and see what pays',notes:'Your own notes'};
+function pgHome(){const done=ISLANDS.reduce((t,i)=>t+i.steps.filter((_,k)=>S.checks[i.id+k]).length,0),all=ISLANDS.reduce((t,i)=>t+i.steps.length,0);
+return `<h2>How to Fish Assistant</h2><p class="sub">A companion for <i>How to Fish</i>: catch it, drag it ashore, finish it, sell it, and buy something bigger. Your checklists, sales and notes are saved on this device.</p>
+<div class="dim">${done} of ${all} walkthrough steps done</div><div class="bar"><i style="width:${all?done/all*100:0}%"></i></div>
+<div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> are agreed by several published guides. Facts marked <span class="unv">○</span> come from one guide or guides disagree. How to Fish is new and still being patched, so trust what you see in-game first.</div>`;}
+
+function pgIslands(sub){
+  const i=sub&&ISLANDS.find(x=>x.id===sub);
+  if(i){const n=ISLANDS.indexOf(i);return `<p><a href="#islands">&larr; All islands</a></p>
+<h2>${mark(i.conf)} ${n+1}. ${esc(i.n)}</h2><p class="sub">${esc(i.d)}</p>
+<div class="stats"><div class="stat"><small>Rod</small>${esc(i.rod)}</div><div class="stat"><small>Everyday bait</small>${esc(i.bait)}</div><div class="stat"><small>Bosses</small>${i.boss.map(b=>`<a class="mob" href="#bosses/${slug(b)}">${esc(b)}</a>`).join(', ')}</div></div>
+<div class="card"><h3 style="margin-top:0">Checklist</h3>${i.steps.map((s,k)=>`<label class="chk"><input type="checkbox" data-k="${i.id}${k}"> ${esc(s)}</label>`).join('')}</div>
+${ISLANDS[n+1]?`<p><a href="#islands/${ISLANDS[n+1].id}">Next: ${esc(ISLANDS[n+1].n)} &rarr;</a></p>`:'<div class="tip">That\'s the last island. Go back for any optional bosses and glowing variants you missed.</div>'}`;}
+  return `<h2>Walkthrough</h2><p class="sub">The islands in the order you unlock them. Tap one for its checklist.</p>
+<div class="grid">${ISLANDS.map((i,n)=>{const d=i.steps.filter((_,k)=>S.checks[i.id+k]).length;return `<div class="tile" onclick="location.hash='islands/${i.id}'"><b>${n+1}. ${esc(i.n)}</b><div class="dim">${esc(i.d)}</div><div class="bar" style="margin-bottom:0"><i style="width:${d/i.steps.length*100}%"></i></div><div class="dim" style="font-size:12px">${d} of ${i.steps.length} done</div></div>`;}).join('')}</div>
+<div class="note">Guides number the islands differently (some call the Forest island 1). The order is what matters: Lighthouse, Forest, Desert, Rocks, Volcano.</div>`;
+}
+
+function pgBosses(sub){
+  const b=sub&&BOSSES.find(x=>slug(x.n)===sub);
+  if(b)return `<p><a href="#bosses">&larr; All bosses</a></p>
+<h2>${mark(b.conf)} ${esc(b.n)}</h2>
+<div class="stats"><div class="stat"><small>Island</small><a href="#islands/${b.isl}">${esc(islandName(b.isl))}</a></div><div class="stat"><small>Summon with</small>${esc(b.summon)}</div></div>
+<div class="card"><h3 style="margin-top:0">What it does</h3><ul class="mech">${b.mech.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>
+<div class="tip"><b>How to beat it:</b> ${esc(b.tip)}</div>`;
+  return `<h2>Bosses</h2><p class="sub">Bosses don't bite on ordinary bait. Tap one for what to cast and how to fight it.</p>
+<div class="card tbl"><table><tr><th>Boss</th><th>Island</th><th>Summon with</th></tr>${BOSSES.map(b=>`<tr><td>${mark(b.conf)} <a class="mob" href="#bosses/${slug(b.n)}">${esc(b.n)}</a></td><td>${esc(islandName(b.isl))}</td><td>${esc(b.summon)}</td></tr>`).join('')}</table></div>`;
+}
+
+function pgBait(){return `<h2>Rods &amp; Bait</h2><p class="sub">Each island's regular catches want one kind of bait. Boss lures are sold alongside them.</p>
+<div class="card tbl"><table><tr><th>Island</th><th>Rod</th><th>Everyday bait</th><th>Boss bait</th></tr>${ISLANDS.map(i=>`<tr><td><a href="#islands/${i.id}">${esc(i.n)}</a></td><td>${esc(i.rod)}</td><td>${esc(i.bait)}</td><td>${BOSSES.filter(b=>b.isl===i.id).map(b=>esc(b.summon.split(' (')[0])).join('<br>')}</td></tr>`).join('')}</table></div>
+<div class="tip">The lure tiers run Beginner, Standard, Professional, Scientific. Older lures still work, but the new island's fish want the new tier.</div>
+<div class="note">Shops differ between guides: some put the pistol and shotgun in the second island's shop and the SMG in the third. Check the shop on each island.</div>`;}
+
+function pgTips(){return `<h2>Tips</h2><p class="sub">The loop is catch, finish, sell, upgrade. These make each part go smoother.</p>
+<div class="grid">${TIPS.map(([t,d])=>`<div class="card" style="margin:0"><h3 style="margin-top:0">${esc(t)}</h3><div>${esc(d)}</div></div>`).join('')}</div>`;}
+
+function pgMoney(){return `<h2>Money Planner</h2><p class="sub">How many more catches until you can afford the next thing.</p>
+<div class="card"><div class="row">Cash now $<input id="mc" type="number" min="0" value="${S.cash||0}"></div>
+<div class="row">Saving for <input id="mg" type="text" style="width:200px" placeholder="e.g. Knife, SMG upgrade" value="${esc(S.goal)}"> costing $<input id="mk" type="number" min="0" value="${S.goalCost||0}"></div>
+<div class="row">Average sale $<input id="ma" type="number" min="0" value="${S.avg||avgSale()||0}"> <span class="dim">${S.sales.length?'(your sales log averages '+money(avgSale())+')':''}</span></div>
+<div class="res" id="mres"></div></div>
+<div class="tip">A fish finished on land sells for more than a half-dead one that escaped back into the water. Bigger lures pay for themselves fast.</div>`;}
+function avgSale(){return S.sales.length?S.sales.reduce((t,s)=>t+s.v,0)/S.sales.length:0;}
+function moneyRender(){
+  S.cash=+$('mc').value||0;S.goal=$('mg').value;S.goalCost=+$('mk').value||0;S.avg=+$('ma').value||0;save();
+  const need=S.goalCost-S.cash;
+  $('mres').innerHTML=!S.goalCost?'<span class="dim">Enter what it costs.</span>':need<=0?`<span class="ok">You can buy ${esc(S.goal||'it')} now, with ${money(-need)} left over.</span>`:`You need <b>${money(need)}</b> more`+(S.avg?`: about <b>${Math.ceil(need/S.avg)}</b> more catch${Math.ceil(need/S.avg)===1?'':'es'} at ${money(S.avg)} each.`:'. Enter your average sale to see how many catches.');
+}
+
+function pgSales(){const tot=S.sales.reduce((t,s)=>t+s.v,0);
+const by={};S.sales.forEach(s=>{const k=s.f.trim()||'?';(by[k]=by[k]||{n:0,v:0}).n++;by[k].v+=s.v;});
+const best=Object.entries(by).sort((a,b)=>b[1].v/b[1].n-a[1].v/a[1].n).slice(0,5);
+return `<h2>Sales Log</h2><p class="sub">Log what you sell and what it fetched, to see which catches are worth your bait.</p>
+<div class="card"><form class="row" id="sf"><input id="sfn" type="text" style="width:200px" placeholder="What you sold" list="sfl"><datalist id="sfl">${Object.keys(by).map(k=>`<option value="${esc(k)}">`).join('')}</datalist> $<input id="sfv" type="number" min="0" step="any" style="width:100px"> <select id="sfi">${ISLANDS.map(i=>`<option value="${i.id}">${esc(i.n)}</option>`).join('')}</select> <button class="pri">Add</button></form></div>
+<div class="stats"><div class="stat"><small>Total earned</small>${money(tot)}</div><div class="stat"><small>Sales</small>${S.sales.length}</div><div class="stat"><small>Average sale</small>${money(avgSale())}</div></div>
+${best.length?`<div class="card"><h3 style="margin-top:0">Best earners (average sale)</h3>${best.map(([k,v])=>`<div>${esc(k)}: <b>${money(v.v/v.n)}</b> <span class="dim">× ${v.n}</span></div>`).join('')}</div>`:''}
+<div class="card tbl"><table><tr><th>Sold</th><th>Island</th><th>Price</th><th></th></tr>${S.sales.map((s,i)=>({s,i})).reverse().map(({s,i})=>`<tr><td>${esc(s.f)}</td><td>${esc(islandName(s.isl))}</td><td>${money(s.v)}</td><td><button data-del="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="4" class="dim">Nothing sold yet.</td></tr>'}</table></div>
+${S.sales.length?'<button onclick="if(confirm(\'Clear the whole sales log?\')){S.sales=[];save();route();}">Clear log</button>':''}`;}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Good fishing spots, quest items to keep, what to buy next...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+function route(){
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=PAGES.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main');
+  m.innerHTML=({home:pgHome,islands:()=>pgIslands(sub),bosses:()=>pgBosses(sub),bait:pgBait,tips:pgTips,money:pgMoney,sales:pgSales,notes:pgNotes})[page]();
+  m.scrollTop=0;
+  m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
+  if(page==='money'){['mc','mg','mk','ma'].forEach(id=>$(id).oninput=moneyRender);moneyRender();}
+  if(page==='sales'){
+    $('sfi').value=S.lastIsl||'lighthouse';
+    $('sf').onsubmit=e=>{e.preventDefault();const f=$('sfn').value.trim(),v=+$('sfv').value;if(!f||!(v>=0)||$('sfv').value==='')return;S.lastIsl=$('sfi').value;S.sales.push({f,v,isl:S.lastIsl,at:new Date().toISOString()});save();route();$('sfn').focus();};
+    m.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{S.sales.splice(+b.dataset.del,1);save();route();});
+  }
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',route);
+route();
+</script>
+</body>
+</html>

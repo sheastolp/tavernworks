@@ -76,7 +76,7 @@ const PAGES = [['overview', 'Overview'], ['goals', 'Goals'], ['notes', 'Notes'],
 const nav = document.getElementById('nav'), main = document.getElementById('main');
 
 function persist() {
-  if (game) data.game = { l: game.l, id: game.id, n: game.n, p: game.p || '', ns: game.ns || '', c: game.c || '' };
+  if (game) data.game = { l: game.l, id: game.id, n: game.n, p: game.p || '', ns: game.ns || '', c: game.c || '', sid: game.sid || '', pfn: game.pfn || '', t: game.t || '' };
   T.saveCompanion(key, data);
 }
 
@@ -102,7 +102,7 @@ const VIEWS = {
         <h2>${esc(game.n)}</h2>
         <p class="sub">${L.icon} ${esc(L.name)}${linked ? '' : ' · <span class="dim">no longer in your linked library</span>'}</p>
         ${game.p ? `<div class="row"><span class="dim">Installed at</span> <code>${esc(game.p)}</code> <button data-copy="${esc(game.p)}">Copy</button></div>` : ''}
-        <div class="row"><a class="btn pri" href="${esc(T.launchURI(game))}">▶ Play in ${esc(L.name)}</a>
+        <div class="row">${T.launchURI(game) ? `<a class="btn pri" href="${esc(T.launchURI(game))}">▶ ${game.l === 'xbox' ? 'Open in the Microsoft Store' : 'Play in ' + esc(L.name)}</a>` : ''}
           <button data-act="session">${data.running ? '■ Stop session' : '⏱ Start a session'}</button></div>
       </div></div>
       <div class="stats">
@@ -140,7 +140,7 @@ const VIEWS = {
       <div class="card">
         <div class="timer" id="timer">${data.running ? fmtClock(Date.now() - new Date(data.running)) : '0:00:00'}</div>
         <div class="row"><button class="pri" data-act="session">${data.running ? '■ Stop' : '▶ Start'}</button>
-          ${data.running ? '' : `<a class="btn" href="${esc(T.launchURI(game))}" data-act="play-start">Start and launch the game</a>`}</div>
+          ${data.running || !T.launchURI(game) ? '' : `<a class="btn" href="${esc(T.launchURI(game))}" data-act="play-start">Start and launch the game</a>`}</div>
       </div>
       <div class="stats">
         <div class="stat"><b>${fmtDur(playedMs())}</b><span>total</span></div>

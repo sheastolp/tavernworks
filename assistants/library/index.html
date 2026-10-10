@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Link Your Launchers · Tavernworks</title>
-<meta name="description" content="Link Steam, the Epic Games Launcher and GOG Galaxy. Tavernworks finds the games you have installed and builds a companion app for each one. Everything stays in your browser.">
+<meta name="description" content="Link Steam, the Epic Games Launcher, GOG Galaxy, the Xbox app and your Windows apps. Tavernworks finds what you have installed and builds a companion app for each one. Everything stays in your browser.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔗</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -71,21 +71,21 @@
 <div class="wrap">
   <a class="back" href="/assistants/">&larr; Game Assistants</a>
   <h1>Link Your Launchers</h1>
-  <p class="sub">Link Steam, the Epic Games Launcher or GOG Galaxy and we'll find the games you have installed, then build a companion app for each one: launch button, goals, notes, a play-session log and the best guides and wikis. Games with a hand-built assistant open that instead.</p>
+  <p class="sub">Link Steam, the Epic Games Launcher, GOG Galaxy, the Xbox app and Microsoft Store, or everything installed on Windows, and we'll find the games (and apps) you have installed, then build a companion app for each one: launch button, goals, notes, a play-session log and the best guides and wikis. Games with a hand-built assistant open that instead.</p>
   <p class="sub" style="font-size:14px">Your browser reads the launchers' install records on your own PC. The list stays in this browser and is never uploaded to us. Turn on <b>Sync with Google</b> at the bottom to keep it, and your companions' notes, the same in your other browsers.</p>
 
   <h2>One-step scan (Windows)</h2>
   <div class="panel">
     <ol>
       <li><button class="pri" id="copyScript">Copy the scan script</button> <span class="dim" id="copied"></span></li>
-      <li>Open <b>PowerShell</b> (Start menu, type <i>PowerShell</i>), paste the script and press Enter. It reads Steam, Epic and GOG at once and copies the result.</li>
+      <li>Open <b>PowerShell</b> (Start menu, type <i>PowerShell</i>), paste the script and press Enter. It reads Steam, Epic, GOG, the Xbox app and Microsoft Store, and your installed Windows programs at once, and copies the result.</li>
       <li>Paste the result here:
         <textarea id="scanIn" placeholder='{"tavernworks":1,"games":[...]}'></textarea>
         <button class="pri" id="scanGo">Link these games</button>
       </li>
     </ol>
     <details style="margin-top:12px"><summary>What the script does</summary><pre id="scriptView"></pre>
-      <p class="empty" style="font-size:13.5px">It only reads: Steam's <code>appmanifest_*.acf</code> files in every library, Epic's <code>.item</code> manifests in <code>ProgramData</code>, and GOG Galaxy's game list in the registry. It changes nothing and sends nothing anywhere; the result goes to your clipboard.</p>
+      <p class="empty" style="font-size:13.5px">It only reads: Steam's <code>appmanifest_*.acf</code> files in every library, Epic's <code>.item</code> manifests in <code>ProgramData</code>, GOG Galaxy's game list in the registry, your Microsoft Store and Xbox app packages (<code>Get-AppxPackage</code>), and the programs listed in <i>Add or remove programs</i> (the registry's Uninstall keys). Runtimes, drivers and updates are left out. It changes nothing and sends nothing anywhere; the result goes to your clipboard.</p>
     </details>
   </div>
 
@@ -96,10 +96,11 @@
   <h2 id="yours">Your companions</h2>
   <div class="row" style="margin-bottom:14px" id="tools" hidden>
     <input class="filter" id="filter" type="search" placeholder="Filter games">
+    <label class="dim" id="appsWrap" hidden><input type="checkbox" id="showApps"> Show apps too (<span id="appCount">0</span>)</label>
   </div>
   <div class="games" id="games"></div>
 
-  <footer>Fan-made tools. Not affiliated with Valve, Epic Games, GOG or the games' developers and publishers.</footer>
+  <footer>Fan-made tools. Not affiliated with Valve, Epic Games, GOG, Microsoft or the games' developers and publishers.</footer>
 </div>
 <input type="file" id="files" multiple hidden>
 <script src="/assistants/launchers.js"></script>
@@ -125,7 +126,20 @@ const WHERE = {
     folder: 'your GOG Games folder',
     accept: '.info',
   },
+  xbox: {
+    files: 'the <code>MicrosoftGame.config</code> file in each game\'s <code>Content</code> folder (default <code>C:\\XboxGames\\&lt;game&gt;\\Content</code>). The scan script above also finds Microsoft Store apps.',
+    folder: 'your XboxGames folder',
+    accept: '.config',
+  },
+  win: {
+    files: null,
+    note: 'Programs from <i>Add or remove programs</i>. Your browser can\'t read the Windows registry, so use the one-step scan above. Games are sorted from apps by where they\'re installed and who made them.',
+  },
 };
+
+const SHOW_APPS_KEY = 'tw.library.apps';
+let showApps = false;
+try { showApps = localStorage.getItem(SHOW_APPS_KEY) === '1'; } catch {}
 
 function say(text, kind) { const m = $('#msg'); m.textContent = text; m.className = kind || ''; }
 
@@ -149,10 +163,10 @@ function renderLaunchers() {
     return `<div class="panel launcher">
       <h3><span>${L.icon}</span>${esc(L.name)}</h3>
       <div class="status ${on ? 'on' : ''}">${on ? `Linked · ${count} game${count === 1 ? '' : 's'} · ${new Date(lib.linked[k]).toLocaleDateString()}` : 'Not linked'}</div>
-      <p>Pick ${WHERE[k].files}</p>
+      <p>${WHERE[k].files ? 'Pick ' + WHERE[k].files : WHERE[k].note}</p>
       <div class="row">
-        ${canPickFolder ? `<button class="pri" data-folder="${k}" title="Choose ${esc(WHERE[k].folder)}">Choose folder</button>` : ''}
-        <button class="${canPickFolder ? '' : 'pri'}" data-files="${k}">Choose files</button>
+        ${WHERE[k].files && canPickFolder ? `<button class="pri" data-folder="${k}" title="Choose ${esc(WHERE[k].folder)}">Choose folder</button>` : ''}
+        ${WHERE[k].files ? `<button class="${canPickFolder ? '' : 'pri'}" data-files="${k}">Choose files</button>` : '<button class="pri" data-goscan="1">Go to the scan</button>'}
         ${on ? `<button class="ghost" data-unlink="${k}">Unlink</button>` : ''}
       </div>
     </div>`;
@@ -162,23 +176,27 @@ function renderLaunchers() {
 function renderGames() {
   const lib = T.load();
   const q = ($('#filter').value || '').toLowerCase();
-  $('#tools').hidden = lib.games.length < 8;
+  const apps = lib.games.filter(g => !T.isGame(g)).length;
+  $('#tools').hidden = lib.games.length < 8 && !apps;
+  $('#appsWrap').hidden = !apps;
+  $('#appCount').textContent = apps;
+  $('#showApps').checked = showApps;
   if (!lib.games.length) {
     $('#games').innerHTML = '<p class="empty">No games linked yet. Run the scan or link a launcher above, and a companion app appears here for each installed game.</p>';
     return;
   }
-  const shown = lib.games.filter(g => !q || g.n.toLowerCase().includes(q));
+  const shown = lib.games.filter(g => (showApps || T.isGame(g)) && (!q || g.n.toLowerCase().includes(q)));
   $('#games').innerHTML = shown.map(g => {
-    const L = T.LAUNCHERS[g.l], ded = T.dedicated(g), art = T.art(g);
+    const L = T.LAUNCHERS[g.l], ded = T.dedicated(g), art = T.art(g), play = T.launchURI(g);
     return `<div class="game">
       <div class="art">${esc((ded && ded.icon) || g.n.trim()[0] || '?')}${art ? `<img src="${esc(art)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</div>
       <button class="x" data-remove="${esc(g.key)}" title="Remove this game">✕</button>
       <div class="body">
         <b>${esc(g.n)}</b>
-        <div class="meta"><span>${L.icon} ${esc(L.name)}</span>${ded ? '<span class="pill ded">ASSISTANT</span>' : '<span class="pill">COMPANION</span>'}</div>
+        <div class="meta"><span>${L.icon} ${esc(L.name)}</span>${ded ? '<span class="pill ded">ASSISTANT</span>' : T.isGame(g) ? '<span class="pill">COMPANION</span>' : '<span class="pill">APP</span>'}</div>
         <div class="row">
           <a class="btn pri" href="${esc(T.companionHref(g))}">Open</a>
-          <a class="btn" href="${esc(T.launchURI(g))}">▶ Play</a>
+          ${play ? `<a class="btn" href="${esc(play)}">${g.l === 'xbox' ? '▶ Open in Store' : '▶ Play'}</a>` : ''}
         </div>
       </div>
     </div>`;
@@ -199,7 +217,7 @@ $('#scanGo').onclick = () => {
   try { games = T.fromScan(text); } catch { return say("That doesn't look like the scan result. Run the script again and paste what it copies.", 'err'); }
   const res = T.merge(games, { replace: Object.keys(T.LAUNCHERS) });
   $('#scanIn').value = '';
-  report('Steam, Epic Games and GOG', res);
+  report('Steam, Epic Games, GOG, Xbox and Windows', res);
 };
 
 let pickFor = null;
@@ -215,7 +233,9 @@ $('#files').onchange = async e => {
 $('#launchers').onclick = async e => {
   const b = e.target.closest('button');
   if (!b) return;
-  if (b.dataset.files) {
+  if (b.dataset.goscan) {
+    $('#copyScript').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else if (b.dataset.files) {
     pickFor = b.dataset.files;
     $('#files').accept = WHERE[pickFor].accept;
     $('#files').click();
@@ -251,6 +271,11 @@ $('#games').onclick = e => {
   renderGames(); renderLaunchers();
 };
 $('#filter').oninput = renderGames;
+$('#showApps').onchange = e => {
+  showApps = e.target.checked;
+  try { localStorage.setItem(SHOW_APPS_KEY, showApps ? '1' : ''); } catch {}
+  renderGames();
+};
 
 render();
 </script>

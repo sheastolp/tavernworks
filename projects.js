@@ -191,7 +191,7 @@ window.TAVERN_PROJECTS = {
       "card": {
         "section": "workbench",
         "title": "Game Assistants",
-        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i>, <i>Icarus</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games or GOG.",
+        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i>, <i>Icarus</i>, <i>How to Fish</i>, <i>Raft</i>, <i>PEAK</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games, GOG, the Xbox app or Windows.",
         "href": "/assistants/",
         "url": "tavernworks.dev/assistants",
         "pill": "BETA",
@@ -221,6 +221,30 @@ window.TAVERN_PROJECTS = {
       "name": "Icarus Assistant",
       "href": "/assistants/icarus/",
       "dir": "assistants/icarus",
+      "card": null
+    },
+    {
+      "key": "fish",
+      "icon": "🎣",
+      "name": "How to Fish Assistant",
+      "href": "/assistants/how-to-fish/",
+      "dir": "assistants/how-to-fish",
+      "card": null
+    },
+    {
+      "key": "raft",
+      "icon": "🛶",
+      "name": "Raft Assistant",
+      "href": "/assistants/raft/",
+      "dir": "assistants/raft",
+      "card": null
+    },
+    {
+      "key": "peak",
+      "icon": "🏔️",
+      "name": "PEAK Assistant",
+      "href": "/assistants/peak/",
+      "dir": "assistants/peak",
       "card": null
     },
     {
@@ -400,6 +424,10 @@ window.TAVERN_PROJECTS = {
     ["minecraft","2026-10-10","Minecraft Assistants: auto farm guides, a tutorial finder, mobs, food and six new guides","/assistants/minecraft/"],
     ["minecraft","2026-10-10","Minecraft Assistants: crafting guide with recipe grids and a materials planner","/assistants/minecraft/java/#crafting"],
     ["icarus","2026-10-10","Icarus Assistant: survival guides, creature mechanics, tech tiers, maps and a prospect timer","/assistants/icarus/"],
-    ["minecraft","2026-10-10","Minecraft Assistants: tap a mob for its health, attack, spawning and mechanics","/assistants/minecraft/java/#mobs"]
+    ["minecraft","2026-10-10","Minecraft Assistants: tap a mob for its health, attack, spawning and mechanics","/assistants/minecraft/java/#mobs"],
+    ["fish","2026-10-10","How to Fish Assistant: island walkthrough, boss summons, bait, a money planner and a sales log","/assistants/how-to-fish/"],
+    ["raft","2026-10-10","Raft Assistant: story islands, shark defence, creature mechanics and fishing","/assistants/raft/"],
+    ["peak","2026-10-10","PEAK Assistant: biomes, afflictions, items, Ascents and a run log","/assistants/peak/"],
+    ["assistants","2026-10-10","Link the Xbox app, Microsoft Store and installed Windows apps and games","/assistants/library/"]
   ]
 };

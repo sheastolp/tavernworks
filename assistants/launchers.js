@@ -1,11 +1,14 @@
-// Tavernworks launcher links: reads what Steam, the Epic Games Launcher and
-// GOG Galaxy have installed, and keeps the list in this browser so every
-// installed game gets a companion app. Nothing here talks to a server.
+// Tavernworks launcher links: reads what Steam, the Epic Games Launcher,
+// GOG Galaxy, the Xbox app / Microsoft Store and Windows itself have
+// installed, and keeps the list in this browser so every installed game (and
+// app) gets a companion. Nothing here talks to a server.
 //
 // Sources, all read locally:
-//   Steam  steamapps/appmanifest_<appid>.acf (+ libraryfolders.vdf for other libraries)
-//   Epic   ProgramData/Epic/EpicGamesLauncher/Data/Manifests/*.item
-//   GOG    <game folder>/goggame-<id>.info, or the registry via the scan script
+//   Steam    steamapps/appmanifest_<appid>.acf (+ libraryfolders.vdf for other libraries)
+//   Epic     ProgramData/Epic/EpicGamesLauncher/Data/Manifests/*.item
+//   GOG      <game folder>/goggame-<id>.info, or the registry via the scan script
+//   Xbox     XboxGames/<game>/Content/MicrosoftGame.config, or Get-AppxPackage via the scan script
+//   Windows  the registry's Uninstall keys, via the scan script only
 (function () {
   const LIB_KEY = 'tw.library';
   const COMP_KEY = 'tw.companion.';
@@ -14,6 +17,8 @@
     steam: { name: 'Steam', icon: '🚂' },
     epic: { name: 'Epic Games', icon: '🛡️' },
     gog: { name: 'GOG Galaxy', icon: '🌌' },
+    xbox: { name: 'Xbox & Microsoft Store', icon: '🎮' },
+    win: { name: 'Windows apps', icon: '🪟' },
   };
 
   // Games with a hand-built assistant; everything else gets the generated one.
@@ -21,13 +26,28 @@
     { re: /^stationeers/, href: '/assistants/stationeers/', icon: '🛰️' },
     { re: /^oddsparks/, href: '/assistants/oddsparks/', icon: '✨' },
     { re: /^icarus/, href: '/assistants/icarus/', icon: '🪂' },
+    { re: /^raft$/, href: '/assistants/raft/', icon: '🛶' },
+    { re: /^peak$/, href: '/assistants/peak/', icon: '🏔️' },
+    { re: /^howtofish/, href: '/assistants/how-to-fish/', icon: '🎣' },
+    { re: /^minecraft(launcher|forwindows|uwp|javaedition|bedrock(edition)?)?$/, href: '/assistants/minecraft/', icon: '⛏️' },
   ];
 
   // Steam tools and runtimes that show up as apps but aren't games.
   const STEAM_SKIP_IDS = new Set(['228980', '1070560', '1391110', '1628350', '1493710', '2180100', '250820', '1826330']);
   const STEAM_SKIP_NAME = /^(Proton\b|Steam Linux Runtime|Steamworks Common|SteamVR\b)/i;
 
+  // Windows Uninstall entries that are plumbing rather than something you'd open.
+  const WIN_SKIP_NAME = /redistributable|runtime|\bsdk\b|driver|update for|hotfix|\(kb\d+\)|vcredist|directx|\.net (framework|desktop|host|core)|webview2|visual c\+\+|edge update|bonjour|physx|vulkan|easy ?anti-?cheat|battleye|service pack|language pack|prerequisite|^microsoft (update|xna)|windows (software development|driver|assessment)/i;
+  // Uninstall keys the launchers create for their own games: covered by those launchers.
+  const WIN_SKIP_ID = /^(Steam App \d+|\d+_is1|\{?[0-9a-f-]+\}?_is1_GOG)$/i;
+  // Hints that a Windows program is a game rather than an app.
+  const GAME_PATH = /[\\/](xboxgames|games|riot games|rockstar games|battle\.net|blizzard|ea games|origin games|itch[\\/]apps|amazon games|ubisoft game launcher[\\/]games)([\\/]|$)/i;
+  const GAME_PUB = /^(riot games|blizzard|ubisoft|electronic arts|rockstar|mojang|bethesda|square enix|bandai namco|sega\b|capcom|cd projekt|paradox|devolver|activision|epic games, inc\. ?\(fortnite\)|valve|landfall|aggro crab|redbeet|dazed games|rocketwerkz|surgent)/i;
+
   const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  // "Microsoft.MinecraftUWP" -> "Minecraft UWP"; for packages without a readable display name.
+  const prettyPkg = s => String(s || '').replace(/^[^.]+\./, '').replace(/([a-z])([A-Z0-9])/g, '$1 $2').replace(/[._]+/g, ' ').trim();
 
   /* ---------- parsers ---------- */
 
@@ -89,20 +109,55 @@
     return { l: 'gog', id: String(j.gameId), n: j.name, p: folder || '' };
   }
 
+  // MicrosoftGame.config from an Xbox app (Game Pass / Microsoft Store) game folder.
+  function fromGameConfig(text, folder) {
+    const attr = (tag, a) => { const m = new RegExp('<' + tag + '\\b[^>]*\\b' + a + '="([^"]*)"', 'i').exec(text); return m ? m[1] : ''; };
+    const id = attr('Identity', 'Name');
+    if (!id) return null;
+    const sid = (/<StoreId>\s*([^<\s]+)\s*<\/StoreId>/i.exec(text) || [])[1] || '';
+    let n = attr('ShellVisuals', 'DefaultDisplayName');
+    if (!n || /^ms-resource:/i.test(n)) n = folder || prettyPkg(id);
+    return { l: 'xbox', id, n, p: '', sid, t: 'game' };
+  }
+
+  function winKind(g) {
+    return GAME_PATH.test(g.p || '') || GAME_PATH.test(g.ex || '') || GAME_PUB.test(g.pub || '') || dedicated(g) ? 'game' : 'app';
+  }
+
   // Output of the Windows scan script: {"tavernworks":1,"games":[{l,id,n,p,...}]}
   function fromScan(text) {
     const j = JSON.parse(text.trim().replace(/^\uFEFF/, ''));
     const list = Array.isArray(j) ? j : (j.games || []);
-    const out = [];
+    const out = [], wins = [];
     for (const g of [].concat(list)) {
-      if (!g || !LAUNCHERS[g.l] || !g.id || !g.n) continue;
-      const game = { l: g.l, id: String(g.id), n: String(g.n), p: g.p || '' };
+      if (!g || !LAUNCHERS[g.l] || !g.id) continue;
+      if (g.l === 'xbox' && (!g.n || /^ms-resource:/i.test(g.n))) g.n = prettyPkg(g.pk || g.id);
+      if (!g.n) continue;
+      const game = { l: g.l, id: String(g.id), n: String(g.n).trim(), p: g.p || '' };
       if (g.l === 'steam' && (STEAM_SKIP_IDS.has(game.id) || STEAM_SKIP_NAME.test(game.n))) continue;
       if (g.l === 'epic') {
         if (g.cat && !String(g.cat).split(',').includes('games')) continue;
         game.ns = g.ns || ''; game.c = g.c || '';
       }
+      if (g.l === 'xbox') {
+        game.sid = g.sid || ''; game.pfn = g.pfn || '';
+        game.t = g.t === 'game' || dedicated(game) ? 'game' : 'app';
+      }
+      if (g.l === 'win') {
+        if (WIN_SKIP_ID.test(game.id) || WIN_SKIP_NAME.test(game.n)) continue;
+        game.t = winKind({ n: game.n, p: game.p, ex: g.ex, pub: g.pub });
+        if (g.pub) game.pub = String(g.pub);
+        wins.push(game);
+        continue;
+      }
       out.push(game);
+    }
+    // Windows lists most launcher games again under Uninstall; keep the launcher's copy.
+    const seen = new Set(out.map(g => norm(g.n)));
+    for (const g of wins) {
+      if (seen.has(norm(g.n))) continue;
+      seen.add(norm(g.n));
+      out.push(g);
     }
     return out;
   }
@@ -119,6 +174,7 @@
       if (/^appmanifest_\d+\.acf$/.test(name)) g = fromACF(text);
       else if (name.endsWith('.item')) g = fromEpicItem(text);
       else if (/^goggame-\d+\.info$/.test(name)) g = fromGogInfo(text);
+      else if (name === 'microsoftgame.config') g = fromGameConfig(text);
       else if (name === 'libraryfolders.vdf') libraries.push(...steamLibraries(text));
       if (g) games.push(g);
     }
@@ -159,6 +215,17 @@
       await scan(dir, dir.name);
       if (!games.length) {
         for await (const [name, h] of dir.entries()) if (h.kind === 'directory') await scan(h, name);
+      }
+    } else if (launcher === 'xbox') {
+      // XboxGames, one game's folder, or its Content folder.
+      const config = async (d, folder) => {
+        const c = (await child(d, 'Content')) || d;
+        const fh = await child(c, 'MicrosoftGame.config', 'file');
+        if (fh) { const g = fromGameConfig(await readText(fh), folder); if (g) games.push(g); }
+      };
+      await config(dir, dir.name === 'Content' ? '' : dir.name);
+      if (!games.length) {
+        for await (const [name, h] of dir.entries()) if (h.kind === 'directory') await config(h, name);
       }
     }
     return { games, libraries };
@@ -216,6 +283,9 @@
 
   function find(key) { return load().games.find(g => g.key === key) || null; }
 
+  // Everything from the game launchers is a game; Xbox and Windows entries carry t.
+  const isGame = g => (g.t || 'game') === 'game';
+
   /* ---------- per-game links ---------- */
 
   function dedicated(g) {
@@ -235,6 +305,13 @@
       return 'com.epicgames.launcher://apps/' + app + '?action=launch&silent=true';
     }
     if (g.l === 'gog') return 'goggalaxy://openGameView/' + g.id;
+    // The Store page of an installed title has its Play / Open button.
+    if (g.l === 'xbox') {
+      if (g.sid) return 'ms-windows-store://pdp/?productid=' + encodeURIComponent(g.sid);
+      if (g.pfn) return 'ms-windows-store://pdp/?PFN=' + encodeURIComponent(g.pfn);
+      return 'ms-windows-store://search/?query=' + encodeURIComponent(g.n);
+    }
+    // Browsers can't start a Windows program, so these have no launch link.
     return '';
   }
 
@@ -256,6 +333,13 @@
     } else {
       if (g.l === 'epic') out.push(['Epic Games Store', 'https://store.epicgames.com/en-US/browse?q=' + q]);
       if (g.l === 'gog') out.push(['GOG store', 'https://www.gog.com/en/games?query=' + q]);
+      if (g.l === 'xbox') out.push(['Microsoft Store', g.sid ? 'https://apps.microsoft.com/detail/' + encodeURIComponent(g.sid) : 'https://apps.microsoft.com/search?query=' + q]);
+      if (!isGame(g)) {
+        out.push(['How-to videos', 'https://www.youtube.com/results?search_query=' + encodeURIComponent(g.n + ' tutorial')]);
+        out.push(['Tips on Reddit', 'https://www.reddit.com/search/?q=' + q]);
+        out.push(['Alternatives', 'https://alternativeto.net/browse/search/?q=' + q]);
+        return out;
+      }
       out.push(['PCGamingWiki', 'https://www.pcgamingwiki.com/w/index.php?search=' + q]);
     }
     out.push(['Fan wikis', 'https://community.fandom.com/wiki/Special:Search?scope=cross-wiki&query=' + q]);
@@ -305,15 +389,33 @@ Get-ChildItem 'HKLM:\SOFTWARE\WOW6432Node\GOG.com\Games' -ErrorAction SilentlyCo
   $p = Get-ItemProperty $_.PSPath
   if ($p.gameName -and -not $p.dependsOn) { $g += [pscustomobject]@{ l = 'gog'; id = $p.gameID; n = $p.gameName; p = $p.path } }
 }
+# Xbox app and Microsoft Store (games carry a MicrosoftGame.config)
+Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object { -not $_.IsFramework -and -not $_.IsResourcePackage -and $_.SignatureKind -eq 'Store' -and $_.InstallLocation } | ForEach-Object {
+  $m = $null; try { $m = Get-AppxPackageManifest $_ -ErrorAction Stop } catch {}
+  if ($m -and -not $m.Package.Applications) { return }
+  $n = if ($m) { [string]$m.Package.Properties.DisplayName } else { '' }
+  $sid = ''; $t = 'app'
+  $cfg = Join-Path $_.InstallLocation 'MicrosoftGame.config'
+  if (Test-Path $cfg) {
+    $t = 'game'
+    try { [xml]$x = Get-Content $cfg -Raw; $sid = [string]$x.Game.StoreId; $dn = [string]$x.Game.ShellVisuals.DefaultDisplayName; if ($dn -and $dn -notlike 'ms-resource:*') { $n = $dn } } catch {}
+  }
+  $g += [pscustomobject]@{ l = 'xbox'; id = $_.Name; n = $n; pk = $_.Name; pfn = $_.PackageFamilyName; sid = $sid; t = $t; p = $_.InstallLocation }
+}
+# Everything else installed on Windows (Add or remove programs)
+Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
+  Where-Object { $_.DisplayName -and -not $_.SystemComponent -and -not $_.ParentKeyName -and $_.ReleaseType -notmatch 'Update|Hotfix' } | ForEach-Object {
+  $g += [pscustomobject]@{ l = 'win'; id = $_.PSChildName; n = $_.DisplayName; p = $_.InstallLocation; pub = $_.Publisher; ex = (([string]$_.DisplayIcon) -replace ',-?\d+$', '').Trim('"') }
+}
 $out = @{ tavernworks = 1; games = @($g) } | ConvertTo-Json -Compress -Depth 4
 Set-Clipboard -Value $out
-"Copied $($g.Count) installed games. Paste them into the Tavernworks page."`;
+"Copied $($g.Count) installed games and apps. Paste them into the Tavernworks page."`;
 
   window.TavernLaunchers = {
     LAUNCHERS, SCAN_SCRIPT,
-    parseVDF, fromACF, fromEpicItem, fromGogInfo, fromScan, steamLibraries,
+    parseVDF, fromACF, fromEpicItem, fromGogInfo, fromGameConfig, fromScan, steamLibraries,
     readFiles, readFolder,
-    load, merge, unlink, remove, find,
+    load, merge, unlink, remove, find, isGame,
     dedicated, companionHref, launchURI, art, links,
     companion, saveCompanion,
   };

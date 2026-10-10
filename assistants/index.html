@@ -69,6 +69,24 @@
       <p>A companion for <i>Icarus</i>. Survival guides, a creature field guide with each animal's mechanics, tech tiers, maps, a prospect timer, a drop checklist and notes.</p>
       <div class="meta"><span>tavernworks.dev/assistants/icarus</span><span class="pill">BETA</span></div>
     </a>
+    <a class="card" href="/assistants/how-to-fish/">
+      <div class="icon">🎣</div>
+      <h2>How to Fish Assistant</h2>
+      <p>A companion for <i>How to Fish</i>. An island-by-island walkthrough, what to cast to summon every boss and how to beat it, rods and bait, a money planner and a sales log.</p>
+      <div class="meta"><span>tavernworks.dev/assistants/how-to-fish</span><span class="pill">NEW</span></div>
+    </a>
+    <a class="card" href="/assistants/raft/">
+      <div class="icon">🛶</div>
+      <h2>Raft Assistant</h2>
+      <p>A companion for <i>Raft</i>. First-day and shark guides, the story islands in order with checklists, creatures and their mechanics, fishing, a trip checklist and a day counter.</p>
+      <div class="meta"><span>tavernworks.dev/assistants/raft</span><span class="pill">NEW</span></div>
+    </a>
+    <a class="card" href="/assistants/peak/">
+      <div class="icon">🏔️</div>
+      <h2>PEAK Assistant</h2>
+      <p>A companion for <i>PEAK</i>. Every biome and its hazards, afflictions and their cures, items, Ascent modifiers, team guides, a pre-climb checklist and a run log.</p>
+      <div class="meta"><span>tavernworks.dev/assistants/peak</span><span class="pill">NEW</span></div>
+    </a>
     <a class="card" href="/assistants/minecraft/">
       <div class="icon">⛏️</div>
       <h2>Minecraft Assistants</h2>
@@ -77,12 +95,12 @@
     </a>
   </div>
   <h2 class="sec">Your games</h2>
-  <p class="sec-sub">Link Steam, the Epic Games Launcher or GOG Galaxy and every game you have installed gets its own companion app.</p>
+  <p class="sec-sub">Link Steam, the Epic Games Launcher, GOG Galaxy, the Xbox app or everything installed on Windows, and every game you have installed gets its own companion app.</p>
   <div class="grid" id="yours">
     <a class="card link" href="/assistants/library/">
       <div class="icon">🔗</div>
       <h2>Link your launchers</h2>
-      <p>Find the games installed through Steam, Epic Games and GOG Galaxy and build a companion for each: launch button, goals, notes, a play-session log and guides. The list stays in your browser.</p>
+      <p>Find the games installed through Steam, Epic Games, GOG Galaxy, the Xbox app and Windows and build a companion for each: launch button, goals, notes, a play-session log and guides. The list stays in your browser.</p>
       <div class="meta"><span>tavernworks.dev/assistants/library</span><span class="pill">NEW</span></div>
     </a>
   </div>
@@ -93,7 +111,7 @@
 (function () {
   const T = window.TavernLaunchers;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const games = T.load().games;
+  const games = T.load().games.filter(T.isGame);
   if (!games.length) return;
   const box = document.getElementById('yours');
   const link = box.querySelector('.card.link');

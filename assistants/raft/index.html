@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Raft Assistant · Tavernworks</title>
+<meta name="description" content="Raft Assistant: first-day guide, shark defence, the story islands in order, creatures with their mechanics, fishing, research and a supply checklist. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛶</text></svg>">
+<style>
+:root{--bg:#0d1312;--panel:#131d1b;--panel2:#1b2a27;--line:#2b423d;--tx:#e6efe9;--dim:#94aaa2;--acc:#e9b45a;--acc-ink:#2a1a00;--acc2:#6fd0c0;--ok:#7ad37f;--warn:#f2c14e;--err:#ff7a6b}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:8px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#080e0d;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.tag.p{color:#a6dd8c}.tag.d{color:#f2dc8b}.tag.a{color:#ffb3a6}.tag.b{color:#d7b4ff}.tag.t{color:#a9d6f5}
+.note{border-left:3px solid var(--warn);background:#2a2519;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.res{background:#080e0d;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:8px}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.mech li{margin:4px 0}
+.clock{font:600 40px/1.1 Consolas,"Cascadia Mono",monospace;margin:6px 0}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   conf: true  = from the Raft wiki or widely published guides.
+   conf: false = player reports or general experience; check in-game. */
+
+/* Creatures. k: Passive | Hostile | Boss | Tame. */
+const CREATURES=[
+{n:'Shark',k:'Hostile',conf:true,where:'The open sea around your raft, always',drops:'Shark meat, shark head',
+ mech:['Circles the raft and bites the outer foundations. A bitten foundation breaks if you don\'t repair it in time.','Goes for you instead if you\'re in the water.','Comes back a few minutes after you kill it.','Takes about 30 hits with a wooden spear, 15 with a metal spear, or 10 stone arrows.'],
+ tip:'Keep a hammer handy and repair the edge as soon as it bites. Shark Bait keeps it busy while you dive, and Foundation Armor stops it biting at all.'},
+{n:'Pufferfish',k:'Hostile',conf:true,where:'Underwater around islands',drops:'Pufferfish head',
+ mech:['Swims at you and bursts into a cloud of poison.','Poison drains your health until it wears off.'],
+ tip:'Back away when one inflates, or hit it at range with a spear before it reaches you.'},
+{n:'Screecher',k:'Hostile',conf:true,where:'Above large islands',drops:'Feathers',
+ mech:['A big bird that flies over large islands and drops stones on you.','Hard to hit while it\'s circling high up.'],
+ tip:'Watch for its shadow and keep moving. Hit it with arrows when it dives low.'},
+{n:'Seagull',k:'Passive',conf:true,where:'Your raft',drops:'Feathers',
+ mech:['Lands on your crop plots and eats the crops.'],
+ tip:'A Scarecrow keeps them away from nearby plots. Otherwise, chase them off with a spear.'},
+{n:'Warthog',k:'Hostile',conf:true,where:'Large islands',drops:'Leather, warthog head, raw meat',
+ mech:['Charges at you on sight.','Gets disoriented near water.'],
+ tip:'Lure it to the shoreline and hit it while it stumbles. Leather is needed for a lot of gear.'},
+{n:'Mudhog',k:'Hostile',conf:true,where:'Caravan Town and desert islands',drops:'Leather, raw meat',
+ mech:['Charges like a Warthog.','Doesn\'t respawn once it\'s dead.'],
+ tip:'Fight it the same way as a Warthog: step aside and hit it on the turn.'},
+{n:'Bear',k:'Hostile',conf:false,where:'Large islands',drops:'Raw meat, fur',
+ mech:['Lots of health and heavy swipes.','Stands up before a big hit.'],
+ tip:'Fight from somewhere it can\'t climb, or bring a metal spear and food to heal.'},
+{n:'Mama Bear',k:'Boss',conf:true,where:'Balboa Island',drops:'Raw meat',
+ mech:['The boss of Balboa Island.','Hits much harder than a normal bear.'],
+ tip:'Go in with a metal spear or a good bow, full health and plenty of cooked food.'},
+{n:'Lurker',k:'Hostile',conf:true,where:'Underwater at Vasagatan, Tangaroa and Varuna Point',drops:'—',
+ mech:['Hides underwater and ambushes divers.'],
+ tip:'Keep your oxygen up and your spear ready when you dive at story islands.'},
+{n:'Butler Bot',k:'Hostile',conf:true,where:'Tangaroa',drops:'—',
+ mech:['A security robot that patrols the city.'],
+ tip:'Fight one at a time and keep your health topped up.'},
+{n:'Rhino Shark',k:'Boss',conf:false,where:'Some story islands',drops:'—',
+ mech:['A huge armoured shark that rams anything in the water.'],
+ tip:'Stay out of the water as much as you can. Shoot it from a raised spot.'},
+{n:'Polar Bear',k:'Hostile',conf:false,where:'Temperance',drops:'Raw meat, fur',
+ mech:['A tougher bear for the cold.','Cold drains you while you fight.'],
+ tip:'Wear warm clothes and fight close to a fire or shelter.'},
+{n:'Llama',k:'Tame',conf:true,where:'Large islands',drops:'Wool (when tamed)',
+ mech:['Can be captured and kept on the raft.'],
+ tip:'Wool goes into warm clothes, which you need later.'},
+{n:'Goat',k:'Tame',conf:true,where:'Large islands',drops:'Milk (when tamed)',
+ mech:['Can be captured and kept on the raft.'],
+ tip:'Milk is a steady drink and a cooking ingredient.'},
+{n:'Clucker',k:'Tame',conf:true,where:'Large islands',drops:'Eggs (when tamed)',
+ mech:['A chicken. Can be captured and kept on the raft.'],
+ tip:'Eggs for cooking. Cheap to keep.'}
+];
+
+/* Story islands, in order. */
+const STORY=[
+{id:'radio',n:'Radio Tower',ch:1,conf:true,d:'Find it with the Receiver and three Antennas. It points you at the next location.',
+ steps:['Build a Receiver and three Antennas on your raft. The Receiver needs a battery.','Follow the signal on the Receiver to the tower.','Anchor up and climb the tower.','Read the notes and get the next frequency.']},
+{id:'vasagatan',n:'Vasagatan',ch:1,conf:true,d:'A wrecked ship. A lot of the island is underwater, so bring oxygen and a spear.',
+ steps:['Bring a spear, food and water for a long dive.','Look out for Lurkers underwater.','Collect the notes and blueprints.','Get the coordinates for the next island.']},
+{id:'balboa',n:'Balboa Island',ch:1,conf:true,d:'A big jungle island with a research station. The Mama Bear lives here.',
+ steps:['Explore the island and its research station.','Beat the Mama Bear.','Pick up the blueprints and notes.','Get the coordinates for Caravan Town.']},
+{id:'caravan',n:'Caravan Town',ch:2,conf:true,d:'A town on stilts above the sea. Mudhogs and lots of loot.',
+ steps:['Bring a Zipline Tool. The town is linked by ziplines.','Watch out for Mudhogs on the lower levels.','Find the story items and notes.','Get the coordinates for Tangaroa.']},
+{id:'tangaroa',n:'Tangaroa',ch:2,conf:true,d:'A floating city with Butler Bots and an underwater section.',
+ steps:['Fight Butler Bots one at a time.','Dive for the underwater part. Lurkers live here too.','Collect the story items.','Get the coordinates for Varuna Point.']},
+{id:'varuna',n:'Varuna Point',ch:3,conf:true,d:'The start of the final chapter. Lots of diving.',
+ steps:['Go with full oxygen and a spear.','Find the story items.','Get the coordinates for Temperance.']},
+{id:'temperance',n:'Temperance',ch:3,conf:true,d:'A frozen island. You need warm clothes or the cold will drain you.',
+ steps:['Craft warm clothes before you go.','Bring fuel for fires and plenty of food.','Watch for polar bears.','Get the code that leads to Utopia.']},
+{id:'utopia',n:'Utopia',ch:3,conf:true,d:'The last story island and the end of the story.',
+ steps:['Bring your best weapon, armour and lots of healing food.','Work through the island to the end of the story.','Celebrate.']}
+];
+
+const GUIDES=[
+{id:'day1',title:'Your first day',blurb:'From a 2×2 raft to a working base.',body:`
+<p>You start on a tiny raft with a Plastic Hook. Everything floats past you: planks, plastic, palm leaves, scrap and barrels.</p>
+<label class="chk"><input type="checkbox" data-k="a1"> Throw the hook at floating debris. Barrels are worth going for.</label>
+<label class="chk"><input type="checkbox" data-k="a2"> Make a Building Hammer and add foundations so you have room to work.</label>
+<label class="chk"><input type="checkbox" data-k="a3"> Build a Simple Purifier and a cup. Thirst gets you before hunger.</label>
+<label class="chk"><input type="checkbox" data-k="a4"> Build a Simple Grill for food.</label>
+<label class="chk"><input type="checkbox" data-k="a5"> Make a wooden spear for the shark.</label>
+<label class="chk"><input type="checkbox" data-k="a6"> Put down Collection Nets on the front edge so debris collects itself.</label>
+<label class="chk"><input type="checkbox" data-k="a7"> Build a Research Table and research everything you pick up.</label>
+<label class="chk"><input type="checkbox" data-k="a8"> Build a bed so you respawn on your raft.</label>`},
+{id:'shark',title:'Keeping the shark off',blurb:'Bruce bites your foundations. Here\'s how to stop him.',body:`
+<p>The shark circles your raft and bites the outer foundations. See the <a href="#creatures/shark">Shark</a> page for the numbers.</p>
+<label class="chk"><input type="checkbox" data-k="s1"> Listen for the bite. Repair the foundation with the hammer straight away.</label>
+<label class="chk"><input type="checkbox" data-k="s2"> Keep valuable items away from the edge: the shark destroys whatever is on the foundation it breaks.</label>
+<label class="chk"><input type="checkbox" data-k="s3"> Throw Shark Bait before you dive. It distracts the shark for a while.</label>
+<label class="chk"><input type="checkbox" data-k="s4"> Research Foundation Armor and put it on your outer foundations.</label>
+<label class="chk"><input type="checkbox" data-k="s5"> Kill it for meat and a head. It comes back a few minutes later.</label>`},
+{id:'islands',title:'Large islands',blurb:'Where to find metal, copper and seeds.',body:`
+<p>Drop anchor next to an island to stop drifting. Big islands have Screechers, Warthogs and bears; small ones are usually safe.</p>
+<ul><li>Bring a Metal Detector and a shovel once you have them. Buried treasure has good loot.</li><li>Mine metal and copper ore on the sea floor around islands. Watch your oxygen.</li><li>Pick up every seed, fruit and plant you find. Many are research items.</li><li>Pull up your anchor and head out when you're done: the raft drifts on and the next island comes along.</li></ul>`},
+{id:'story',title:'Following the story',blurb:'Receiver, antennas, engines and the eight story islands.',body:`
+<ul><li>Build the Receiver and three Antennas and put a battery in the Receiver. It shows the direction to the next story location.</li>
+<li>Story islands are far apart. A Sail and a Steering Wheel help; Engines get you there much faster.</li>
+<li>Each island gives you the frequency or coordinates for the next one. See <a href="#story">Story Islands</a> for the order and a checklist each.</li>
+<li>Bring the right gear: a Zipline Tool for Caravan Town, warm clothes for Temperance, oxygen and a spear for every dive.</li></ul>`},
+{id:'fishing',title:'Fishing',blurb:'Cast, wait for the dip, reel.',body:`
+<p>Fishing is a steady food source. It's slow, but you can do it from anywhere on the raft while your nets fill.</p>
+<label class="chk"><input type="checkbox" data-k="f1"> Craft a Fishing Rod. Cast it over the edge of your raft.</label>
+<label class="chk"><input type="checkbox" data-k="f2"> Wait for the bobber to dip under, then reel in. Reel too early and you lose the fish.</label>
+<label class="chk"><input type="checkbox" data-k="f3"> Cook everything on the grill. Raw fish isn't worth eating.</label>
+<label class="chk"><input type="checkbox" data-k="f4"> Upgrade to the Metal Fishing Rod. It catches faster and lasts longer.</label>
+<label class="chk"><input type="checkbox" data-k="f5"> Fish while you wait: anchored at an island, or while your nets fill.</label>
+<div class="tip">Bigger fish (Catfish, Salmon, Tilapia) fill you up more than small ones (Pomfret, Herring, Mackerel). Cook them in cooking pots later for better meals.</div>`}
+];
+
+const SUPPLIES=['Full water cups or canteens','Two or three cooked meals','A spear (metal if you have it)','Bow and arrows',
+'Shark Bait for dives','Oxygen bottle or full air','Hammer and spare planks for repairs','Building materials for a quick ladder',
+'Metal Detector and shovel','Zipline Tool for story islands','Warm clothes for cold islands','Empty inventory space for loot'];
+
+/* ================= STATE ================= */
+let S={checks:{},supplies:{},day:1,notes:''};
+try{const x=JSON.parse(localStorage.getItem('raft_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('raft_state',JSON.stringify(S));}catch(e){}};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const mark=c=>c?'<span class="conf" title="Wiki or published guides">●</span>':'<span class="unv" title="Player reports; check in-game">○</span>';
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Home'],['guides','Guides'],['story','Story Islands'],['creatures','Creatures'],['supplies','Trip Checklist'],['notes','My Notes']];
+function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>RAFT<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+
+const TILE={guides:'First day, the shark, islands, the story and fishing',story:'The eight story islands in order, with a checklist each',creatures:'Tap a creature for how it fights and how to handle it',supplies:'What to pack before you leave the raft',notes:'Your own notes'};
+function pgHome(){const done=STORY.filter(s=>s.steps.every((_,k)=>S.checks[s.id+k])).length;
+return `<h2>Raft Assistant</h2><p class="sub">A companion for <i>Raft</i>. Your checklists and notes are saved on this device.</p>
+<div class="card"><div class="row"><b>Day</b> <button onclick="S.day=Math.max(1,S.day-1);save();route()">−</button> <span style="font-size:20px;font-weight:600;min-width:40px;text-align:center">${S.day}</span> <button onclick="S.day++;save();route()">+</button> <span class="dim">· ${done} of ${STORY.length} story islands done</span></div></div>
+<div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> come from the Raft wiki or published guides. Facts marked <span class="unv">○</span> come from player reports. Check the game if something doesn't match.</div>`;}
+
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div>`;}
+  return `<h2>Guides</h2><p class="sub">Checkboxes are saved on this device.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
+}
+
+function pgStory(sub){
+  const s=sub&&STORY.find(x=>x.id===sub);
+  if(s){const n=STORY.indexOf(s);return `<p><a href="#story">&larr; All story islands</a></p>
+<h2>${mark(s.conf)} ${n+1}. ${esc(s.n)} <span class="tag">Chapter ${s.ch}</span></h2><p class="sub">${esc(s.d)}</p>
+<div class="card"><h3 style="margin-top:0">Checklist</h3>${s.steps.map((t,k)=>`<label class="chk"><input type="checkbox" data-k="${s.id}${k}"> ${esc(t)}</label>`).join('')}</div>
+${STORY[n+1]?`<p><a href="#story/${STORY[n+1].id}">Next: ${esc(STORY[n+1].n)} &rarr;</a></p>`:''}`;}
+  return `<h2>Story Islands</h2><p class="sub">In story order. Tap one for its checklist.</p>
+<div class="grid">${STORY.map((s,n)=>{const d=s.steps.filter((_,k)=>S.checks[s.id+k]).length;return `<div class="tile" onclick="location.hash='story/${s.id}'"><b>${n+1}. ${esc(s.n)}</b> <span class="tag">Ch. ${s.ch}</span><div class="dim">${esc(s.d)}</div><div class="bar" style="margin-bottom:0"><i style="width:${d/s.steps.length*100}%"></i></div></div>`;}).join('')}</div>`;
+}
+
+const KIND={Passive:'p',Hostile:'a',Boss:'b',Tame:'t'};
+function pgCreatures(sub){
+  const c=sub&&CREATURES.find(x=>slug(x.n)===sub);
+  if(c)return `<p><a href="#creatures">&larr; All creatures</a></p>
+<h2>${mark(c.conf)} ${esc(c.n)}<span class="tag ${KIND[c.k]}">${c.k}</span></h2>
+<div class="stats"><div class="stat"><small>Where</small>${esc(c.where)}</div><div class="stat"><small>Drops</small>${esc(c.drops)}</div></div>
+<div class="card"><h3 style="margin-top:0">Mechanics</h3><ul class="mech">${c.mech.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>
+<div class="tip"><b>How to handle it:</b> ${esc(c.tip)}</div>`;
+  return `<h2>Creatures</h2><p class="sub">Tap a creature's name to see how it behaves and how to deal with it.</p>
+<div class="row"><input id="cq" type="text" style="width:260px" placeholder="Search (e.g. island, poison, wool)"><select id="ck"><option value="">All kinds</option>${Object.keys(KIND).map(k=>`<option>${k}</option>`).join('')}</select><span class="dim" id="ccn"></span></div>
+<div class="card tbl"><table><thead><tr><th>Creature</th><th>Where</th><th>Drops</th></tr></thead><tbody id="cl"></tbody></table></div>`;
+}
+function creaturesRender(){
+  const q=$('cq').value.toLowerCase(),k=$('ck').value;
+  const r=CREATURES.filter(c=>(!k||c.k===k)&&(!q||[c.n,c.k,c.where,c.drops,c.tip,...c.mech].join(' ').toLowerCase().includes(q)));
+  $('ccn').textContent=r.length+' creature'+(r.length===1?'':'s');
+  $('cl').innerHTML=r.map(c=>`<tr><td>${mark(c.conf)} <a class="mob" href="#creatures/${slug(c.n)}">${esc(c.n)}</a><span class="tag ${KIND[c.k]}">${c.k}</span></td><td>${esc(c.where)}</td><td>${esc(c.drops)}</td></tr>`).join('')||'<tr><td colspan="3" class="dim">No creatures match.</td></tr>';
+}
+
+function pgSupplies(){const done=SUPPLIES.filter((_,i)=>S.supplies[i]).length;return `<h2>Trip Checklist</h2><p class="sub">Run through it before you leave the raft.</p>
+<div class="dim" id="ldone">${done} of ${SUPPLIES.length} packed</div><div class="bar"><i id="lbar" style="width:${done/SUPPLIES.length*100}%"></i></div>
+<div class="card">${SUPPLIES.map((t,i)=>`<label class="chk"><input type="checkbox" data-l="${i}"${S.supplies[i]?' checked':''}> ${esc(t)}</label>`).join('')}</div>
+<button onclick="S.supplies={};save();route()">Unpack all</button>`;}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Frequencies, coordinates, what to research next...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+function route(){
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=PAGES.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main');
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),story:()=>pgStory(sub),creatures:()=>pgCreatures(sub),supplies:pgSupplies,notes:pgNotes})[page]();
+  m.scrollTop=0;
+  m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
+  m.querySelectorAll('input[type=checkbox][data-l]').forEach(cb=>{cb.onchange=()=>{S.supplies[cb.dataset.l]=cb.checked;save();const d=SUPPLIES.filter((_,i)=>S.supplies[i]).length;$('ldone').textContent=d+' of '+SUPPLIES.length+' packed';$('lbar').style.width=d/SUPPLIES.length*100+'%';};});
+  if(page==='creatures'&&$('cq')){$('cq').oninput=creaturesRender;$('ck').onchange=creaturesRender;creaturesRender();}
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',route);
+route();
+</script>
+</body>
+</html>

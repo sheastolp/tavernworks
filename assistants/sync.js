@@ -23,7 +23,7 @@
   const FILE = "assistants.json", FORMAT = "tavernworks-assistants-sync";
   const KEY = "tw.sync", TOKEN_KEY = "tw.sync.token";
   // The assistants' saved data: library, companions, Stationeers, Oddsparks, Icarus, Minecraft.
-  const TRACK = /^(tw\.library|tw\.companion\..+|sa_state|osa_state|ica_state|mca_[a-z]+)$/;
+  const TRACK = /^(tw\.library|tw\.companion\..+|sa_state|osa_state|ica_state|htf_state|raft_state|peak_state|mca_[a-z]+)$/;
 
   let LS = null;
   try { LS = window.localStorage; } catch {}

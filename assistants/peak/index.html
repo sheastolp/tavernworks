@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PEAK Assistant · Tavernworks</title>
+<meta name="description" content="PEAK Assistant: every biome and its hazards, afflictions and how to cure them, items, Ascent difficulty modifiers, team roles, a run log and a pre-climb checklist. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏔️</text></svg>">
+<style>
+:root{--bg:#0f1117;--panel:#161a24;--panel2:#1f2532;--line:#313a4d;--tx:#ebeef5;--dim:#9aa3b8;--acc:#ff8f4a;--acc-ink:#2b1000;--acc2:#8cc8ff;--ok:#7ad37f;--warn:#f2c14e;--err:#ff7a6b}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:8px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#0a0c11;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.tag.p{color:#a6dd8c}.tag.d{color:#f2dc8b}.tag.a{color:#ffb3a6}.tag.b{color:#d7b4ff}.tag.t{color:#a9d6f5}
+.note{border-left:3px solid var(--warn);background:#2a2519;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.res{background:#0a0c11;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:8px}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.mech li{margin:4px 0}
+.clock{font:600 40px/1.1 Consolas,"Cascadia Mono",monospace;margin:6px 0}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   conf: true  = from the PEAK wiki or widely published guides.
+   conf: false = player reports or a single source; check in-game.
+   The mountain is generated fresh each day, so routes change but biomes don't. */
+
+/* The climb, bottom to top. Levels with two entries swap between runs. */
+const BIOMES=[
+{lvl:1,n:'The Shore',conf:true,haz:['Poison'],d:'Always the first level. A beach and cliffs where you find your feet.',
+ dangers:['Jellyfish and Sea Urchins poison you if you get too close.','Tide pools and wet rock.'],
+ tips:['Grab food from crashed luggage before you start up.','Practise jumping and grabbing before the climbs get long.','Light the campfire at the top before moving on.']},
+{lvl:2,n:'Tropics',conf:true,haz:['Poison','Injury'],d:'Jungle and vines. Swaps with Roots between runs.',
+ dangers:['Poisonous plants and mushrooms.','Thorny plants injure you.','Long falls between ledges.'],
+ tips:['Don\'t eat every mushroom you see: some are poisonous.','Vines are easy climbing; use them.']},
+{lvl:2,n:'Roots',conf:true,haz:['Poison','Spores'],d:'A tangle of giant roots. Swaps with Tropics between runs.',
+ dangers:['Spores build up and squeeze your stamina.','Dark spaces where it\'s easy to lose the team.'],
+ tips:['Stick together and bring light.','Cure-All and First-Aid Kits clear spores.']},
+{lvl:3,n:'Alpine',conf:true,haz:['Cold','Injury'],d:'Snow and ice. Swaps with Mesa between runs.',
+ dangers:['Blizzards roll in and pile on Cold fast.','Icy slopes are slippery.'],
+ tips:['When a blizzard hits, huddle by a fire or keep moving to shelter.','Hot food and drinks help.','Play the Bugle for a capybara for a badge.']},
+{lvl:3,n:'Mesa',conf:true,haz:['Heat','Injury','Poison'],d:'Desert canyon. Swaps with Alpine between runs.',
+ dangers:['The daytime sun piles on Heat.','Dust devils throw you around.','Cacti and sand pits.'],
+ tips:['Sunscreen protects you from the sun\'s heat.','Climb in shade where you can, and push hard at night.']},
+{lvl:4,n:'Caldera',conf:true,haz:['Heat'],d:'A volcanic crater. Swaps with Gloom on some maps.',
+ dangers:['Lava rises and burns you with Heat.','Geysers and unstable ground.'],
+ tips:['Don\'t hang around low down. Keep climbing ahead of the lava.']},
+{lvl:4,n:'Gloom',conf:true,haz:['Drowsy'],d:'A foggy alternative to the Caldera, added in the final major update.',
+ dangers:['The fog makes you Drowsy, which shrinks your stamina.'],
+ tips:['Energy drinks and Cure-All help with Drowsy.','Keep moving out of the thickest fog.']},
+{lvl:5,n:'The Kiln',conf:true,haz:['Heat','Hunger'],d:'The last, vertical climb up the inside of the volcano. Swaps with the Citadel on some maps.',
+ dangers:['A long vertical climb.','No food grows here.'],
+ tips:['Carry spare food up from below. You won\'t find any here.','Bring ropes, pitons and anything else that helps on sheer walls.']},
+{lvl:5,n:'The Citadel',conf:true,haz:['Hunger'],d:'An alternative to the Kiln, added in the final major update.',
+ dangers:['A different last climb, built for the end of the run.'],
+ tips:['Arrive with food and climbing items to spare.']},
+{lvl:6,n:'The Peak',conf:true,haz:[],d:'The summit. Light the flare to call the rescue helicopter, and get everyone on board.',
+ dangers:['Stragglers get left behind when the helicopter goes.'],
+ tips:['Fire the flare, then make sure the whole team is there before it lands.']}
+];
+
+/* Afflictions fill part of your stamina bar. The more you carry, the less you can climb. */
+const AFFLICTIONS=[
+{n:'Hunger',conf:true,cause:'Builds slowly over time. Faster on Ascent 2 and up.',cure:'Eat. Marshmallows roasted at a campfire and full meals clear the most.'},
+{n:'Injury',conf:true,cause:'Falls, thorns, cacti, animals.',cure:'Bandages, First-Aid Kit, Cure-All, Red Clusterberries.'},
+{n:'Poison',conf:true,cause:'Poisonous mushrooms and berries, jellyfish, sea urchins, some plants.',cure:'Antidote, First-Aid Kit, Cure-All. It also wears off with time.'},
+{n:'Cold',conf:true,cause:'Alpine blizzards, and the night on Ascent 5 and up.',cure:'Fire, hot drinks, Cure-All. Get out of the wind.'},
+{n:'Heat',conf:true,cause:'The Mesa sun, Caldera lava, the Kiln.',cure:'Sunscreen to prevent it, shade and Cure-All to clear it.'},
+{n:'Drowsy',conf:true,cause:'The Gloom\'s fog and some foods.',cure:'Energy drinks and Cure-All.'},
+{n:'Spores',conf:true,cause:'Fungi in the Roots and elsewhere.',cure:'First-Aid Kit or Cure-All.'},
+{n:'Curse',conf:true,cause:'Cursed items such as the Cursed Skull.',cure:'Very little clears it. Cure-All takes a small amount off.'}
+];
+
+/* Items. c: Climbing | Food | Medical | Tool | Mystic */
+const ITEMS=[
+{n:'Rope Spool',c:'Climbing',conf:true,d:'Lay a rope down a wall for the team to climb.'},
+{n:'Rope Cannon',c:'Climbing',conf:true,d:'Fires a rope up to a ledge above you.'},
+{n:'Chain Launcher',c:'Climbing',conf:true,d:'Shoots a chain between two points that you can climb along.'},
+{n:'Piton',c:'Climbing',conf:true,d:'Hammer it into a wall to rest your stamina mid-climb.'},
+{n:'Magic Bean',c:'Climbing',conf:true,d:'Grows a vine you can climb.'},
+{n:'Balloon',c:'Climbing',conf:false,d:'Makes you lighter, so falls hurt less and jumps go further.'},
+{n:'Bandages',c:'Medical',conf:true,d:'Heals some Injury.'},
+{n:'First-Aid Kit',c:'Medical',conf:true,d:'Removes 100 Injury, Poison and Spores.'},
+{n:'Antidote',c:'Medical',conf:true,d:'Removes 35 Poison.'},
+{n:'Cure-All',c:'Medical',conf:true,d:'Removes 35 each of Poison, Injury, Drowsy, Cold and Heat, 20 Hunger and 5 Curse.'},
+{n:'Sunscreen',c:'Medical',conf:true,d:'Protects you from the Mesa sun\'s heat.'},
+{n:'Energy Drink',c:'Food',conf:false,d:'A burst of stamina for a hard section.'},
+{n:'Marshmallow',c:'Food',conf:true,d:'Roast at a campfire. A big hunger refill.'},
+{n:'Red Clusterberry',c:'Food',conf:true,d:'Heals 20 Injury.'},
+{n:'Bugle Shroom',c:'Food',conf:true,d:'Poisonous: about 20 Poison over a few seconds after a delay. Don\'t eat it.'},
+{n:'Granola Bar',c:'Food',conf:false,d:'Light, filling and safe.'},
+{n:'Lantern',c:'Tool',conf:true,d:'Light for dark climbs. Keeps you warm too.'},
+{n:'Flare',c:'Tool',conf:true,d:'Fire it at the Peak to call the helicopter. There are none at the top from Ascent 4 on, so carry one up.'},
+{n:'Compass',c:'Tool',conf:true,d:'Points up the mountain.'},
+{n:'Binoculars',c:'Tool',conf:false,d:'Scout the route ahead.'},
+{n:'Bugle',c:'Tool',conf:true,d:'Make noise. Play it for a capybara in the Alpine for a badge.'},
+{n:'Portable Stove',c:'Tool',conf:false,d:'A small fire you can carry for warmth and cooking.'},
+{n:'Backpack',c:'Tool',conf:true,d:'Extra slots. Teammates can take things out of your backpack.'},
+{n:'Scout Effigy',c:'Mystic',conf:true,d:'Brings a dead teammate back.'},
+{n:'Cursed Skull',c:'Mystic',conf:false,d:'Powerful, but it Curses you.'},
+{n:'Bing Bong',c:'Mystic',conf:true,d:'The mascot. Carry him to the top.'}
+];
+
+/* Ascents. Each one keeps every modifier below it. */
+const ASCENTS=[
+['Tenderfoot','Climbing uses 30% less stamina, hunger grows 30% slower, no time limit. Open from the start.'],
+['Peak (normal)','The standard climb.'],
+['Ascent 1','Fall damage is doubled.'],
+['Ascent 2','Hunger grows 60% faster.'],
+['Ascent 3','Every item except backpacks weighs 2.5 more.'],
+['Ascent 4','No flares at the Peak. Carry one up.'],
+['Ascent 5','The night is Cold.'],
+['Ascent 6','Climbing costs 40% more stamina.'],
+['Ascent 7','Harder again. The final update changed how death works here; check the in-game description.'],
+['Ascent 8','Added in the final major update. Check the in-game description.']
+];
+
+const GUIDES=[
+{id:'basics',title:'How climbing works',blurb:'Stamina, afflictions and grabbing.',body:`
+<ul><li>Your stamina bar runs out while you climb, sprint and jump. Stand on solid ground and it refills.</li>
+<li>Afflictions (hunger, injury, poison and the rest) take up part of the bar, so you have less to climb with. Keep them cleared. See <a href="#afflictions">Afflictions</a>.</li>
+<li>Each item has weight. A heavy pack drains stamina faster.</li>
+<li>Grab a teammate's hand to pull them up a ledge. Teammates can also be a step to stand on.</li>
+<li>Fall too far and you take Injury. Long falls knock you out.</li></ul>`},
+{id:'team',title:'Climbing as a team',blurb:'Four scouts, one helicopter.',body:`
+<label class="chk"><input type="checkbox" data-k="t1"> Agree on a route before anyone starts up a wall.</label>
+<label class="chk"><input type="checkbox" data-k="t2"> Send the best climber first with a Rope Spool or Rope Cannon.</label>
+<label class="chk"><input type="checkbox" data-k="t3"> Spread the medicine around so anyone can heal anyone.</label>
+<label class="chk"><input type="checkbox" data-k="t4"> Wait at the top of each section for the slowest scout.</label>
+<label class="chk"><input type="checkbox" data-k="t5"> Light every campfire together and roast marshmallows.</label>
+<label class="chk"><input type="checkbox" data-k="t6"> Pick up a passed-out teammate and carry them to safety; a Scout Effigy brings back one who has died.</label>`},
+{id:'campfires',title:'Campfires',blurb:'The checkpoint at the top of every biome.',body:`
+<p>To move on from a biome, climb to its top and light the campfire. It's your checkpoint and the safe spot to sort out your team.</p>
+<ul><li>Eat, heal and trade items here before the next climb.</li><li>Roast marshmallows: they refill a lot of hunger.</li><li>Count heads. Don't leave until everyone's at the fire.</li></ul>`},
+{id:'items',title:'What to carry',blurb:'Four hands, one backpack, a lot of choices.',body:`
+<ul><li>At least one climbing item per scout: rope, pitons, a Magic Bean or the Chain Launcher.</li>
+<li>One medical item each, and a Cure-All for the team.</li><li>Food for the next biome, plus extra for the Kiln, which has none.</li>
+<li>From Ascent 4, a Flare for the Peak.</li><li>Leave the junk. Weight costs stamina.</li></ul>`}
+];
+
+const PREP=['Everyone knows the route to the first wall','One climbing item per scout','One medical item per scout','A Cure-All for the team',
+'Food for this biome and the next','Sunscreen for the Mesa, warm gear for the Alpine','A Flare (Ascent 4 and up)','A Scout Effigy, if you found one','Spare food for the Kiln'];
+
+/* ================= STATE ================= */
+let S={checks:{},prep:{},runs:[],notes:''};
+try{const x=JSON.parse(localStorage.getItem('peak_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('peak_state',JSON.stringify(S));}catch(e){}};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const mark=c=>c?'<span class="conf" title="Wiki or published guides">●</span>':'<span class="unv" title="Player reports; check in-game">○</span>';
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Home'],['guides','Guides'],['biomes','Biomes'],['afflictions','Afflictions'],['items','Items'],['ascents','Ascents'],['prep','Pre-climb Checklist'],['runs','Run Log'],['notes','My Notes']];
+function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>PEAK<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+
+const TILE={guides:'Climbing, teamwork, campfires and what to carry',biomes:'Every level from the Shore to the Peak, with hazards',afflictions:'What eats your stamina, and what cures it',items:'Climbing gear, food, medicine and mystic items',ascents:'What each difficulty adds',prep:'Run through it at the plane crash',runs:'Log your attempts and your best climb',notes:'Your own notes'};
+function pgHome(){const wins=S.runs.filter(r=>r.top===6).length;
+return `<h2>PEAK Assistant</h2><p class="sub">A companion for <i>PEAK</i>, the co-op climbing game. Your checklists, runs and notes are saved on this device.</p>
+<div class="stats"><div class="stat"><small>Runs logged</small>${S.runs.length}</div><div class="stat"><small>Summits</small>${wins}</div><div class="stat"><small>Highest Ascent summited</small>${bestAscent()}</div></div>
+<div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> come from the PEAK wiki or published guides. Facts marked <span class="unv">○</span> come from player reports or a single source. Item numbers vary between patches, so trust what you see in-game first.</div>`;}
+function bestAscent(){const w=S.runs.filter(r=>r.top===6).map(r=>ASCENTS.findIndex(a=>a[0]===r.asc));return w.length?esc(ASCENTS[Math.max(...w)][0]):'—';}
+
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div>`;}
+  return `<h2>Guides</h2><p class="sub">Checkboxes are saved on this device.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
+}
+
+function pgBiomes(sub){
+  const b=sub&&BIOMES.find(x=>slug(x.n)===sub);
+  if(b)return `<p><a href="#biomes">&larr; All biomes</a></p>
+<h2>${mark(b.conf)} ${esc(b.n)} <span class="tag">Level ${b.lvl}</span></h2><p class="sub">${esc(b.d)}</p>
+${b.haz.length?`<div class="stats"><div class="stat"><small>Afflictions here</small>${b.haz.map(h=>`<a class="mob" href="#afflictions">${esc(h)}</a>`).join(', ')}</div></div>`:''}
+<div class="card"><h3 style="margin-top:0">Dangers</h3><ul class="mech">${b.dangers.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>
+<div class="tip"><b>Tips:</b><ul class="mech" style="margin:4px 0 0">${b.tips.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>`;
+  const lv=[...new Set(BIOMES.map(b=>b.lvl))];
+  return `<h2>Biomes</h2><p class="sub">Bottom to top. Where a level has two biomes, the mountain picks one per run. Tap a biome for its dangers.</p>
+${lv.map(l=>`<h3>Level ${l}</h3><div class="grid">${BIOMES.filter(b=>b.lvl===l).map(b=>`<div class="tile" onclick="location.hash='biomes/${slug(b.n)}'"><b>${esc(b.n)}</b>${b.haz.map(h=>`<span class="tag">${esc(h)}</span>`).join('')}<div class="dim">${esc(b.d)}</div></div>`).join('')}</div>`).join('')}`;
+}
+
+function pgAfflictions(){return `<h2>Afflictions</h2><p class="sub">Each one takes a slice of your stamina bar until it's cleared.</p>
+<div class="card tbl"><table><tr><th>Affliction</th><th>Caused by</th><th>Cleared by</th></tr>${AFFLICTIONS.map(a=>`<tr><td>${mark(a.conf)} <b>${esc(a.n)}</b></td><td>${esc(a.cause)}</td><td>${esc(a.cure)}</td></tr>`).join('')}</table></div>
+<div class="tip">A Cure-All is the best all-rounder. Give one to whoever climbs first.</div>`;}
+
+const CAT=['Climbing','Medical','Food','Tool','Mystic'];
+function pgItems(){return `<h2>Items</h2><p class="sub">Found in luggage on the way up. Search or filter by kind.</p>
+<div class="row"><input id="iq" type="text" style="width:260px" placeholder="Search (e.g. poison, rope)"><select id="ic"><option value="">All kinds</option>${CAT.map(c=>`<option>${c}</option>`).join('')}</select><span class="dim" id="icn"></span></div>
+<div class="card tbl"><table><thead><tr><th>Item</th><th>Kind</th><th>What it does</th></tr></thead><tbody id="il"></tbody></table></div>
+<div class="note">There are well over a hundred items. This list covers the ones that matter most on a run.</div>`;}
+function itemsRender(){
+  const q=$('iq').value.toLowerCase(),c=$('ic').value;
+  const r=ITEMS.filter(i=>(!c||i.c===c)&&(!q||[i.n,i.c,i.d].join(' ').toLowerCase().includes(q)));
+  $('icn').textContent=r.length+' item'+(r.length===1?'':'s');
+  $('il').innerHTML=r.map(i=>`<tr><td>${mark(i.conf)} <b>${esc(i.n)}</b></td><td><span class="tag" style="margin:0">${i.c}</span></td><td>${esc(i.d)}</td></tr>`).join('')||'<tr><td colspan="3" class="dim">No items match.</td></tr>';
+}
+
+function pgAscents(){return `<h2>Ascents</h2><p class="sub">Summit a difficulty to unlock the next one. Each Ascent keeps every modifier below it.</p>
+<div class="card tbl"><table><tr><th>Difficulty</th><th>Adds</th></tr>${ASCENTS.map(([n,d],i)=>`<tr><td><b>${esc(n)}</b></td><td>${esc(d)}${i>2?` <span class="dim">(plus everything above)</span>`:''}</td></tr>`).join('')}</table></div>
+<div class="tip">Summiting an Ascent earns its sash, a cosmetic badge for your scout.</div>`;}
+
+function pgPrep(){const done=PREP.filter((_,i)=>S.prep[i]).length;return `<h2>Pre-climb Checklist</h2><p class="sub">Run through it at the crash site and again at each campfire.</p>
+<div class="dim" id="ldone">${done} of ${PREP.length} ready</div><div class="bar"><i id="lbar" style="width:${done/PREP.length*100}%"></i></div>
+<div class="card">${PREP.map((t,i)=>`<label class="chk"><input type="checkbox" data-l="${i}"${S.prep[i]?' checked':''}> ${esc(t)}</label>`).join('')}</div>
+<button onclick="S.prep={};save();route()">Reset</button>`;}
+
+const LEVELS=['The Shore','Level 2','Level 3','Level 4','Level 5','The Peak (summit)'];
+function pgRuns(){return `<h2>Run Log</h2><p class="sub">Log each attempt: how high you got and what stopped you.</p>
+<div class="card"><form class="row" id="rf"><select id="ra">${ASCENTS.map(a=>`<option>${esc(a[0])}</option>`).join('')}</select>
+<select id="rt">${LEVELS.map((l,i)=>`<option value="${i+1}">${l}</option>`).join('')}</select>
+<input id="rn" type="text" style="width:240px" placeholder="What happened?"> <button class="pri">Log run</button></form></div>
+<div class="card tbl"><table><tr><th>When</th><th>Difficulty</th><th>Reached</th><th>Note</th><th></th></tr>${S.runs.map((r,i)=>({r,i})).reverse().map(({r,i})=>`<tr><td>${new Date(r.at).toLocaleDateString()}</td><td>${esc(r.asc)}</td><td>${r.top===6?'<span class="ok">Summit</span>':esc(LEVELS[r.top-1])}</td><td>${esc(r.note)}</td><td><button data-del="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="5" class="dim">No runs yet.</td></tr>'}</table></div>`;}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Routes that worked, who carries what, today's mountain...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+function route(){
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=PAGES.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main');
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),biomes:()=>pgBiomes(sub),afflictions:pgAfflictions,items:pgItems,ascents:pgAscents,prep:pgPrep,runs:pgRuns,notes:pgNotes})[page]();
+  m.scrollTop=0;
+  m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
+  m.querySelectorAll('input[type=checkbox][data-l]').forEach(cb=>{cb.onchange=()=>{S.prep[cb.dataset.l]=cb.checked;save();const d=PREP.filter((_,i)=>S.prep[i]).length;$('ldone').textContent=d+' of '+PREP.length+' ready';$('lbar').style.width=d/PREP.length*100+'%';};});
+  if(page==='items'){$('iq').oninput=itemsRender;$('ic').onchange=itemsRender;itemsRender();}
+  if(page==='runs'){
+    if(S.lastAsc)$('ra').value=S.lastAsc;
+    $('rf').onsubmit=e=>{e.preventDefault();S.lastAsc=$('ra').value;S.runs.push({asc:S.lastAsc,top:+$('rt').value,note:$('rn').value.trim(),at:new Date().toISOString()});save();route();};
+    m.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{S.runs.splice(+b.dataset.del,1);save();route();});
+  }
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',route);
+route();
+</script>
+</body>
+</html>
