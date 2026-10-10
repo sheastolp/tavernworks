@@ -428,6 +428,11 @@ window.TAVERN_PROJECTS = {
     ["fish","2026-10-10","How to Fish Assistant: island walkthrough, boss summons, bait, a money planner and a sales log","/assistants/how-to-fish/"],
     ["raft","2026-10-10","Raft Assistant: story islands, shark defence, creature mechanics and fishing","/assistants/raft/"],
     ["peak","2026-10-10","PEAK Assistant: biomes, afflictions, items, Ascents and a run log","/assistants/peak/"],
-    ["assistants","2026-10-10","Link the Xbox app, Microsoft Store and installed Windows apps and games","/assistants/library/"]
+    ["assistants","2026-10-10","Link the Xbox app, Microsoft Store and installed Windows apps and games","/assistants/library/"],
+    ["minecraft","2026-10-10","Minecraft Assistants: kill chamber guide with drop heights per mob","/assistants/minecraft/java/#guides/killchamber"],
+    ["assistants","2026-10-10","Game Assistants sync between browsers with Google","/assistants/"],
+    ["assistants","2026-10-10","Maps, diagrams and key art on every Game Assistant","/assistants/"],
+    ["sparks","2026-10-10","Oddsparks Assistant: recipes, buildings, suggested layouts and clearer guides","/assistants/oddsparks/"],
+    ["peak","2026-10-10","PEAK Assistant: Today's Mountain biome tracker","/assistants/peak/"]
   ]
 };
