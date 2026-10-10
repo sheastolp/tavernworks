@@ -15,6 +15,7 @@
     --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
   }
   *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none!important}
   body{background:radial-gradient(1200px 600px at 50% -10%,#2a1d13,var(--bg) 60%);min-height:100vh;
     font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6}
   .wrap{max-width:1000px;margin:0 auto;padding:40px 16px 60px}
@@ -93,7 +94,7 @@
       <p>A companion for <i>PEAK</i>. Every biome and its hazards, afflictions and their cures, items, Ascent modifiers, team guides, a pre-climb checklist and a run log.</p>
       <div class="meta"><span>tavernworks.dev/assistants/peak</span><span class="pill">NEW</span></div>
     </a>
-    <a class="card" href="/assistants/conan-exiles/">
+    <a class="card" href="/assistants/conan-exiles/" data-when-linked hidden>
       <div class="art">Conan Exiles<img src="https://cdn.cloudflare.steamstatic.com/steam/apps/440900/header.jpg" alt="" loading="lazy" onerror="this.remove()"></div>
       <div class="icon">⚔️</div>
       <h2>Conan Exiles Assistant</h2>
@@ -125,6 +126,9 @@
   const T = window.TavernLaunchers;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const games = T.load().games.filter(T.isGame);
+  // Some assistants only show once their game is linked from a launcher.
+  const linked = new Set(games.map(g => (T.dedicated(g) || {}).href).filter(Boolean));
+  document.querySelectorAll('.card[data-when-linked]').forEach(c => { c.hidden = !linked.has(c.getAttribute('href')); });
   if (!games.length) return;
   const box = document.getElementById('yours');
   const link = box.querySelector('.card.link');
