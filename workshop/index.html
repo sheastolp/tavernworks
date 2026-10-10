@@ -1,0 +1,1089 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Workshop · Tavernworks</title>
+<meta name="description" content="Edit the Tavernworks projects, their cards, The Path So Far and their files, and commit straight to GitHub.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069; --red:#e2725b; --blue:#a5adff;
+    --mono:ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none!important}
+  body{font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.5;background:var(--bg);min-height:100vh}
+  a{color:var(--gold2)}
+  button,input,select,textarea{font:inherit;color:inherit}
+  code{font-family:var(--mono);font-size:.92em;color:var(--gold2)}
+
+  .top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--bg2)}
+  .top .back{color:var(--muted);text-decoration:none;font-size:14px}
+  .top .back:hover{color:var(--gold2)}
+  .top h1{font-family:Cinzel,serif;font-size:20px;color:var(--gold2);font-weight:800;flex:1}
+  .conn{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+  .conn b{color:var(--text);font-family:var(--mono);font-weight:500}
+
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:14px;font-weight:600;text-decoration:none;color:var(--text);white-space:nowrap}
+  .btn:hover{border-color:var(--gold)}
+  .btn:disabled{opacity:.5;cursor:default;border-color:var(--line)}
+  .btn.gold{background:var(--gold);border-color:var(--gold);color:#1a120b}
+  .btn.gold:hover{background:var(--gold2)}
+  .btn.danger:hover{border-color:var(--red);color:var(--red)}
+  .btn.sm{padding:4px 10px;font-size:13px;border-radius:8px}
+  .btn.icon{padding:4px 8px}
+
+  .setup{max-width:560px;margin:48px auto;padding:0 20px}
+  .panel{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:24px}
+  .panel h2{font-family:Cinzel,serif;color:var(--gold2);font-size:20px;margin-bottom:8px}
+  .panel p{color:var(--muted);font-size:14px;margin-bottom:14px}
+  .panel ol{color:var(--muted);font-size:14px;margin:0 0 16px 20px}
+
+  label.f{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);font-weight:600;letter-spacing:.02em}
+  label.f.row{flex-direction:row;align-items:center;gap:8px;font-weight:500}
+  input[type=text],input[type=password],input[type=date],input[type=number],select,textarea{background:#0f0b08;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:14px;width:100%;min-width:0}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold)}
+  textarea{resize:vertical;font-family:var(--mono);font-size:13px}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+  .stack{display:flex;flex-direction:column;gap:12px}
+  .hint{font-size:12.5px;color:var(--muted)}
+  .err{color:var(--red);font-size:13.5px}
+  .ok{color:var(--green);font-size:13.5px}
+
+  .app{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:calc(100vh - 60px)}
+  .side{border-right:1px solid var(--line);background:var(--bg2);padding:14px 10px;display:flex;flex-direction:column;gap:4px}
+  .side h4{font-family:Cinzel,serif;font-size:12px;letter-spacing:.12em;color:var(--gold);margin:14px 8px 6px}
+  .side ul{list-style:none;display:flex;flex-direction:column;gap:2px}
+  .nav{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border-radius:8px;border:1px solid transparent;background:none;cursor:pointer;text-align:left;font-size:14px}
+  .nav:hover{background:var(--card)}
+  .nav.on{background:var(--card);border-color:var(--line);color:var(--gold2)}
+  .nav .ic{width:22px;text-align:center}
+  .nav .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nav .ct{font-size:11.5px;color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0}
+  .side .new{margin:8px 4px 0}
+
+  .main{padding:22px 26px 120px;min-width:0}
+  .head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+  .head .big{font-size:34px;line-height:1}
+  .head h2{font-family:Cinzel,serif;color:var(--gold2);font-size:24px}
+  .head .sub{color:var(--muted);font-size:13px;font-family:var(--mono)}
+  .head .sp{flex:1}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+  .tab{padding:8px 14px;border:1px solid transparent;border-bottom:none;border-radius:10px 10px 0 0;background:none;cursor:pointer;font-weight:600;font-size:14px;color:var(--muted);margin-bottom:-1px}
+  .tab.on{background:var(--bg);border-color:var(--line);color:var(--gold2)}
+  .sec{font-family:Cinzel,serif;font-size:13px;letter-spacing:.1em;color:var(--gold);margin:22px 0 10px}
+
+  .split{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+  .preview{position:sticky;top:16px}
+  .preview .lbl{font-size:12px;color:var(--muted);margin-bottom:8px}
+  /* Same look as the home page cards. */
+  .card{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:10px}
+  .card .icon{font-size:28px;line-height:1}
+  .card h3{font-family:Cinzel,serif;font-size:19px;color:var(--gold2)}
+  .card p{color:var(--muted);font-size:14.5px}
+  .card .links{display:flex;flex-wrap:wrap;gap:8px}
+  .meta{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--muted);gap:8px}
+  .url{font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pill{font-size:11px;font-weight:600;letter-spacing:.05em;padding:3px 9px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+  .live{background:rgba(127,176,105,.15);color:var(--green)}
+  .soon{background:rgba(224,168,74,.12);color:var(--gold)}
+  .beta{background:rgba(88,101,242,.18);color:var(--blue)}
+
+  .rows{display:flex;flex-direction:column;gap:6px}
+  .crow{display:grid;grid-template-columns:150px 140px minmax(0,2fr) minmax(0,1.2fr) auto;gap:6px;align-items:center}
+  .crow.nolane{grid-template-columns:140px minmax(0,2fr) minmax(0,1.2fr) auto}
+  .crow .acts{display:flex;gap:4px}
+  .crow.hdr{font-size:12px;color:var(--muted);font-weight:600}
+  .lrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) auto;gap:6px}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .toolbar .sp{flex:1}
+  .toolbar input[type=text]{max-width:260px}
+
+  .files{display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;align-items:start}
+  .tree{border:1px solid var(--line);border-radius:12px;background:var(--bg2);padding:8px;font-size:13.5px;max-height:75vh;overflow:auto}
+  .tree ul{list-style:none;padding-left:14px}
+  .tree > ul{padding-left:0}
+  .tree .it{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;cursor:pointer;white-space:nowrap}
+  .tree .it:hover{background:var(--card)}
+  .tree .it.on{background:var(--card);color:var(--gold2)}
+  .tree .it .n{overflow:hidden;text-overflow:ellipsis}
+  .tree .st{font-size:10.5px;font-weight:700;margin-left:auto;padding-left:6px}
+  .st.M{color:var(--gold)} .st.A{color:var(--green)} .st.D{color:var(--red)}
+  .tree .it.del .n{text-decoration:line-through;color:var(--muted)}
+  .ed{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0f0b08;min-width:0}
+  .ed .bar{display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--bg2);flex-wrap:wrap}
+  .ed .bar .path{font-family:var(--mono);font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ed .empty{padding:40px 20px;color:var(--muted);text-align:center}
+  .ed .img{padding:20px;text-align:center}
+  .ed .img img{max-width:100%;max-height:60vh;background:repeating-conic-gradient(#222 0 25%,#2c2c2c 0 50%) 0 0/16px 16px}
+  .ed textarea.plain{border:0;border-radius:0;height:70vh;width:100%;font-size:13px;line-height:1.5;padding:10px;tab-size:2}
+  .CodeMirror{height:70vh;font-family:var(--mono);font-size:13px;background:#0f0b08;color:var(--text)}
+  .CodeMirror-gutters{background:#140e0a;border-right:1px solid var(--line)}
+  .CodeMirror-linenumber{color:#6c5945}
+  .CodeMirror-cursor{border-left-color:var(--gold2)}
+  .CodeMirror-selected,.CodeMirror-focused .CodeMirror-selected{background:rgba(224,168,74,.22)}
+  .cm-tag{color:#e2725b} .cm-attribute{color:#e0a84a} .cm-string{color:#9fc98a} .cm-keyword{color:#c48bdc}
+  .cm-comment{color:#7d6a55;font-style:italic} .cm-number,.cm-atom{color:#5fa8d3} .cm-def,.cm-property{color:#f5c873}
+  .cm-variable-2,.cm-variable-3{color:#d9c6a8} .cm-header{color:#f5c873;font-weight:600} .cm-link{color:#5fa8d3}
+  .cm-qualifier,.cm-builtin{color:#e0a84a} .cm-bracket{color:#b9a68f} .cm-meta{color:#9b7bd8}
+
+  .bar-bottom{position:fixed;left:0;right:0;bottom:0;background:var(--bg2);border-top:1px solid var(--gold);padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;z-index:5;box-shadow:0 -10px 30px rgba(0,0,0,.4)}
+  .bar-bottom .count{font-weight:600;color:var(--gold2)}
+  .bar-bottom input{flex:1;min-width:200px}
+
+  dialog{margin:auto;background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:22px;width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 40px)}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  dialog h3{font-family:Cinzel,serif;color:var(--gold2);margin-bottom:12px}
+  dialog .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;flex-wrap:wrap}
+  .diff{font-family:var(--mono);font-size:12.5px;background:#0f0b08;border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:50vh;white-space:pre;padding:6px 0}
+  .diff div{padding:0 10px}
+  .diff .a{background:rgba(127,176,105,.14);color:#b9dca8}
+  .diff .d{background:rgba(226,114,91,.14);color:#f0b2a3}
+  .diff .h{color:var(--blue)}
+  details summary{display:flex;gap:10px;align-items:center;cursor:pointer;padding:4px 0;margin-bottom:6px}
+  details summary::before{content:"▸";color:var(--muted)}
+  details[open] summary::before{content:"▾"}
+  details summary code{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--gold);border-radius:10px;padding:10px 16px;z-index:20;font-size:14px;max-width:calc(100vw - 32px)}
+  .toast.bad{border-color:var(--red)}
+
+  @media (max-width:900px){
+    .app{grid-template-columns:1fr}
+    .side{border-right:0;border-bottom:1px solid var(--line)}
+    .side ul{flex-direction:row;flex-wrap:wrap}
+    .side .nav{width:auto}
+    .split,.files{grid-template-columns:1fr}
+    .preview{position:static}
+    .main{padding:18px 16px 140px}
+    .crow,.crow.nolane{grid-template-columns:1fr 1fr;padding:8px;border:1px solid var(--line);border-radius:10px}
+    .crow .wide{grid-column:1/-1}
+    .crow.hdr{display:none}
+    .tree{max-height:40vh}
+  }
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="/">← Tavernworks</a>
+  <h1>🛠️ The Workshop</h1>
+  <div class="conn" id="conn" hidden></div>
+</div>
+
+<div class="setup" id="setup" hidden>
+  <div class="panel stack">
+    <h2>Open the workshop</h2>
+    <p>The workshop edits the site's projects, The Path So Far and every project's files, then commits the changes straight to GitHub. GitHub Pages publishes them a minute later.</p>
+    <ol>
+      <li>Make a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a> on GitHub.</li>
+      <li>Under <b>Repository access</b>, pick only the site's repo.</li>
+      <li>Under <b>Permissions → Contents</b>, choose <b>Read and write</b>.</li>
+      <li>Paste it below.</li>
+    </ol>
+    <div class="grid2">
+      <label class="f">Repository<input type="text" id="s-repo" placeholder="owner/name" autocomplete="off" spellcheck="false"></label>
+      <label class="f">Branch<input type="text" id="s-branch" placeholder="main" autocomplete="off" spellcheck="false"></label>
+    </div>
+    <label class="f">GitHub token<input type="password" id="s-token" placeholder="github_pat_…" autocomplete="off"></label>
+    <label class="f row"><input type="checkbox" id="s-remember"> Remember the token on this device</label>
+    <p class="hint">The token stays in this browser and only goes to api.github.com. Without "remember", it's forgotten when you close the tab. Without a token you can browse a public repo but not commit.</p>
+    <div class="err" id="s-err" hidden></div>
+    <div><button class="btn gold" id="s-go">Open the workshop</button></div>
+  </div>
+</div>
+
+<div class="app" id="app" hidden>
+  <aside class="side">
+    <button class="nav" data-go="#path"><span class="ic">🛤️</span><span class="nm">The Path So Far</span><span class="ct" id="path-ct"></span></button>
+    <h4>PROJECTS</h4>
+    <ul id="plist"></ul>
+    <button class="btn sm new" id="new-project">＋ New project</button>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<div class="bar-bottom" id="bar" hidden>
+  <span class="count" id="bar-count"></span>
+  <button class="btn sm" id="bar-review">Review</button>
+  <input type="text" id="bar-msg" placeholder="What changed? (commit message)">
+  <button class="btn sm danger" id="bar-discard">Discard all</button>
+  <button class="btn sm gold" id="bar-commit">Commit</button>
+</div>
+
+<dialog id="dlg"></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/shell/shell.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/yaml/yaml.min.js"></script>
+<script src="/workshop/projects-format.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+  const DATA_PATH = "projects.js";
+  const CFG_KEY = "tw-workshop", TOKEN_KEY = "tw-workshop-token";
+  const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+  const BINARY = /\.(png|jpe?g|gif|webp|ico|bmp|avif|mp3|wav|ogg|m4a|flac|mp4|webm|mov|woff2?|ttf|otf|eot|pdf|zip|gz|7z|exe|msi|dll|bin)$/i;
+  const IMAGE = /\.(png|jpe?g|gif|webp|ico|bmp|avif|svg)$/i;
+  const store = {
+    get(k, s = localStorage) { try { return s.getItem(k); } catch { return null; } },
+    set(k, v, s = localStorage) { try { v == null ? s.removeItem(k) : s.setItem(k, v); return true; } catch { return false; } },
+  };
+
+  // ---------- state ----------
+  let cfg = { repo: "sheastolp/tavernworks", branch: "main", token: "" };
+  let base = null;             // { commit, tree: Map(path -> {sha, size}) }
+  const orig = new Map();      // path -> text, or { b64 } for binary
+  const pending = new Map();   // path -> { text } | { b64 } | { del: true }
+  let data = null;             // parsed projects.js (working copy)
+  let dataError = "";          // set while a raw edit of projects.js doesn't parse
+  let editor = null;           // open file editor { path, get() }
+
+  // ---------- GitHub ----------
+  async function gh(path, opts = {}) {
+    const headers = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
+    if (cfg.token) headers.Authorization = "Bearer " + cfg.token;
+    if (opts.body) headers["Content-Type"] = "application/json";
+    const r = await fetch("https://api.github.com/repos/" + cfg.repo + path, { ...opts, headers, body: opts.body && JSON.stringify(opts.body) });
+    const j = r.status === 204 ? null : await r.json().catch(() => null);
+    if (!r.ok) {
+      const msg = (j && j.message) || r.statusText;
+      if (r.status === 401) throw new Error("GitHub didn't accept the token (" + msg + ").");
+      if (r.status === 403 && /rate limit/i.test(msg)) throw new Error("GitHub's rate limit for visitors without a token is used up. Add a token.");
+      if (r.status === 404) throw new Error("Not found on GitHub: " + cfg.repo + (path.includes("/git/ref") ? " (branch " + cfg.branch + ")" : "") + ". A private repo needs a token that can read it.");
+      throw new Error(msg);
+    }
+    return j;
+  }
+  const b64ToBytes = (b64) => Uint8Array.from(atob(b64.replace(/\s/g, "")), (c) => c.charCodeAt(0));
+  const bytesToB64 = (bytes) => { let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); };
+  const isBinary = (path) => BINARY.test(path);
+
+  async function loadBase() {
+    const ref = await gh("/git/ref/heads/" + encodeURIComponent(cfg.branch));
+    const commit = ref.object.sha;
+    const c = await gh("/git/commits/" + commit);
+    const t = await gh("/git/trees/" + c.tree.sha + "?recursive=1");
+    if (t.truncated) toast("This repo is too big to list every file; some folders may look empty.", true);
+    const tree = new Map();
+    t.tree.filter((e) => e.type === "blob").forEach((e) => tree.set(e.path, { sha: e.sha, size: e.size, mode: e.mode }));
+    return { commit, tree };
+  }
+
+  async function readOrig(path) {
+    if (orig.has(path)) return orig.get(path);
+    const e = base.tree.get(path);
+    if (!e) return null;
+    const blob = await gh("/git/blobs/" + e.sha);
+    let v;
+    if (isBinary(path)) v = { b64: blob.content.replace(/\s/g, "") };
+    else {
+      try { v = new TextDecoder("utf-8", { fatal: true }).decode(b64ToBytes(blob.content)); }
+      catch { v = { b64: blob.content.replace(/\s/g, "") }; }
+    }
+    orig.set(path, v);
+    return v;
+  }
+  // What a file holds right now, with unsaved changes. null if it doesn't exist.
+  async function current(path) {
+    const p = pending.get(path);
+    if (p) return p.del ? null : (p.text !== undefined ? p.text : { b64: p.b64 });
+    return readOrig(path);
+  }
+  const exists = (path) => { const p = pending.get(path); return p ? !p.del : base.tree.has(path); };
+  const status = (path) => {
+    const p = pending.get(path);
+    if (!p) return "";
+    if (p.del) return "D";
+    return base.tree.has(path) ? "M" : "A";
+  };
+
+  // ---------- pending changes ----------
+  function setText(path, text) {
+    const o = orig.get(path);
+    if (base.tree.has(path) && typeof o === "string" && o === text) pending.delete(path);
+    else pending.set(path, { text });
+    changed();
+  }
+  function setBinary(path, b64) { pending.set(path, { b64 }); changed(); }
+  function remove(path) {
+    if (base.tree.has(path)) pending.set(path, { del: true });
+    else pending.delete(path);
+    changed();
+  }
+  function revert(path) {
+    pending.delete(path);
+    if (path === DATA_PATH) { data = ProjectsFormat.load(orig.get(DATA_PATH)); dataError = ""; }
+    changed();
+  }
+  // The project data changed through the forms: rewrite projects.js.
+  function dataChanged() {
+    dataError = "";
+    setText(DATA_PATH, ProjectsFormat.serialize(data));
+  }
+
+  const draftKey = () => "tw-workshop-draft:" + cfg.repo + "@" + cfg.branch;
+  function changed() {
+    const n = pending.size;
+    $("bar").hidden = !n;
+    $("bar-count").textContent = n + " unsaved " + (n === 1 ? "file" : "files");
+    // Keep unsaved work through a reload (best effort; large uploads may not fit).
+    if (n) store.set(draftKey(), JSON.stringify({ commit: base.commit, at: Date.now(), files: [...pending] }));
+    else store.set(draftKey(), null);
+    renderSide();
+  }
+  window.addEventListener("beforeunload", (e) => { if (pending.size) { e.preventDefault(); e.returnValue = ""; } });
+
+  // ---------- commit ----------
+  async function commit() {
+    const msg = $("bar-msg").value.trim();
+    if (!msg) { $("bar-msg").focus(); toast("Say what changed first; it becomes the commit message.", true); return; }
+    if (dataError) { toast("projects.js doesn't parse: " + dataError, true); return; }
+    if (!cfg.token) { toast("Committing needs a GitHub token. Use Settings.", true); return; }
+    const btn = $("bar-commit");
+    btn.disabled = true; btn.textContent = "Committing…";
+    try {
+      const ref = await gh("/git/ref/heads/" + encodeURIComponent(cfg.branch));
+      const head = ref.object.sha;
+      if (head !== base.commit) {
+        // Someone pushed since this page loaded. Fine unless they touched the same files.
+        const cmp = await gh("/compare/" + base.commit + "..." + head);
+        const touched = new Set((cmp.files || []).flatMap((f) => [f.filename, f.previous_filename]).filter(Boolean));
+        const clash = [...pending.keys()].filter((p) => touched.has(p));
+        if (clash.length) throw new Error("These files changed on GitHub since you opened the workshop: " + clash.join(", ") + ". Copy your edits somewhere, press Discard all, reload and redo them.");
+      }
+      const headCommit = await gh("/git/commits/" + head);
+      const tree = [];
+      for (const [path, p] of pending) {
+        const mode = (base.tree.get(path) || {}).mode || "100644";
+        if (p.del) tree.push({ path, mode, type: "blob", sha: null });
+        else if (p.text !== undefined) tree.push({ path, mode, type: "blob", content: p.text });
+        else {
+          const blob = await gh("/git/blobs", { method: "POST", body: { content: p.b64, encoding: "base64" } });
+          tree.push({ path, mode, type: "blob", sha: blob.sha });
+        }
+      }
+      const newTree = await gh("/git/trees", { method: "POST", body: { base_tree: headCommit.tree.sha, tree } });
+      const c = await gh("/git/commits", { method: "POST", body: { message: msg, tree: newTree.sha, parents: [head] } });
+      await gh("/git/refs/heads/" + encodeURIComponent(cfg.branch), { method: "PATCH", body: { sha: c.sha } });
+      pending.clear(); orig.clear();
+      $("bar-msg").value = "";
+      base = await loadBase();
+      await loadData();
+      changed();
+      route();
+      toast(`Committed <a href="https://github.com/${esc(cfg.repo)}/commit/${c.sha}" target="_blank" rel="noopener">${c.sha.slice(0, 7)}</a>. The site updates in a minute or so.`);
+    } catch (e) {
+      toast(esc(e.message), true);
+    } finally {
+      btn.disabled = false; btn.textContent = "Commit";
+    }
+  }
+
+  // ---------- diff ----------
+  function diffLines(a, b) {
+    const A = a.split("\n"), B = b.split("\n");
+    let s = 0; while (s < A.length && s < B.length && A[s] === B[s]) s++;
+    let e = 0; while (e < A.length - s && e < B.length - s && A[A.length - 1 - e] === B[B.length - 1 - e]) e++;
+    const a2 = A.slice(s, A.length - e), b2 = B.slice(s, B.length - e);
+    if (a2.length * b2.length > 4e6) return null;
+    const n = a2.length, m = b2.length, L = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = a2[i] === b2[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+    const ops = [];
+    for (let i = 0; i < s; i++) ops.push([" ", A[i], i + 1]);
+    let i = 0, j = 0;
+    while (i < n || j < m) {
+      if (i < n && j < m && a2[i] === b2[j]) { ops.push([" ", a2[i], s + i + 1]); i++; j++; }
+      else if (j < m && (i === n || L[i][j + 1] >= L[i + 1][j])) { ops.push(["+", b2[j], s + j + 1]); j++; }
+      else { ops.push(["-", a2[i], s + i + 1]); i++; }
+    }
+    for (let k = A.length - e; k < A.length; k++) ops.push([" ", A[k], k + 1]);
+    // Keep three lines of context around each change.
+    const keep = ops.map(() => false);
+    ops.forEach((o, k) => { if (o[0] !== " ") for (let d = -3; d <= 3; d++) if (ops[k + d]) keep[k + d] = true; });
+    const out = []; let gap = false;
+    ops.forEach((o, k) => {
+      if (!keep[k]) { gap = true; return; }
+      if (gap || !out.length) out.push(`<div class="h">@@ line ${o[2]} @@</div>`);
+      gap = false;
+      out.push(`<div class="${o[0] === "+" ? "a" : o[0] === "-" ? "d" : ""}">${o[0]} ${esc(o[1])}</div>`);
+    });
+    return out.join("");
+  }
+
+  async function review() {
+    const items = [];
+    for (const path of [...pending.keys()].sort()) {
+      const st = status(path), p = pending.get(path);
+      let body = "";
+      if (p.text !== undefined) {
+        const o = orig.get(path);
+        const d = diffLines(typeof o === "string" ? o : "", p.text);
+        body = d === null ? '<p class="hint">Too big to show the difference.</p>' : `<div class="diff">${d || '<div class="h">No changes</div>'}</div>`;
+      } else if (p.b64) body = `<p class="hint">Binary file, ${Math.round(p.b64.length * 0.75 / 1024)} KB.</p>`;
+      items.push(`<details ${pending.size < 4 ? "open" : ""}><summary><span class="st ${st}">${st}</span> <code>${esc(path)}</code> <button class="btn sm" data-revert="${esc(path)}">Undo</button></summary>${body}</details>`);
+    }
+    openDialog(`<h3>Unsaved changes</h3><div class="stack">${items.join("") || '<p class="hint">Nothing to commit.</p>'}</div><div class="acts"><button class="btn" data-close>Close</button></div>`, (dlg) => {
+      dlg.querySelectorAll("[data-revert]").forEach((b) => b.addEventListener("click", (e) => {
+        e.preventDefault();
+        revert(b.dataset.revert);
+        if (editor && editor.path === b.dataset.revert) editor = null;
+        dlg.close(); route(); if (pending.size) review();
+      }));
+    });
+  }
+
+  // ---------- UI helpers ----------
+  let toastTimer;
+  function toast(html, bad) {
+    document.querySelectorAll(".toast").forEach((t) => t.remove());
+    const t = document.createElement("div");
+    t.className = "toast" + (bad ? " bad" : "");
+    t.innerHTML = html;
+    document.body.appendChild(t);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.remove(), bad ? 9000 : 6000);
+  }
+  function openDialog(html, wire) {
+    const dlg = $("dlg");
+    dlg.innerHTML = html;
+    dlg.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => dlg.close()));
+    if (wire) wire(dlg);
+    if (!dlg.open) dlg.showModal();
+    return dlg;
+  }
+  const confirmBox = (title, text, yes = "Delete") => new Promise((res) => {
+    let ok = false;
+    const dlg = openDialog(`<h3>${title}</h3><p>${text}</p><div class="acts"><button class="btn" data-close>Cancel</button><button class="btn gold" id="cf-yes">${yes}</button></div>`,
+      (d) => d.querySelector("#cf-yes").addEventListener("click", () => { ok = true; d.close(); }));
+    dlg.addEventListener("close", () => res(ok), { once: true });
+  });
+  const projectOf = (key) => data && data.projects.find((p) => p.key === key);
+  const changesOf = (key) => data.changes.filter((c) => c.lane === key);
+  const slug = (t) => t.toLowerCase().replace(/['’]/g, "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const folderPrefix = (dir) => (dir === "." ? "" : dir.replace(/^\/|\/$/g, "") + "/");
+  const filesIn = (dir) => {
+    const pre = folderPrefix(dir);
+    const all = new Set([...base.tree.keys(), ...pending.keys()]);
+    return [...all].filter((p) => p.startsWith(pre)).sort();
+  };
+  const siteUrl = (path) => {
+    const owner = cfg.repo.split("/")[0];
+    const host = cfg.repo === "sheastolp/tavernworks" ? "https://tavernworks.dev/" : `https://${owner}.github.io/${cfg.repo.split("/")[1]}/`;
+    return host + path.replace(/(^|\/)index\.html$/, "$1");
+  };
+
+  // ---------- sidebar ----------
+  function renderSide() {
+    if (!data) return;
+    const h = location.hash;
+    $("path-ct").textContent = data.changes.length;
+    document.querySelector('[data-go="#path"]').classList.toggle("on", h === "#path" || h === "");
+    const dirty = (p) => p.dir && [...pending.keys()].some((f) => f !== DATA_PATH && f.startsWith(folderPrefix(p.dir)));
+    $("plist").innerHTML = data.projects.map((p) =>
+      `<li><button class="nav${h.startsWith("#p=" + encodeURIComponent(p.key) + "&") || h === "#p=" + encodeURIComponent(p.key) ? " on" : ""}" data-go="#p=${esc(encodeURIComponent(p.key))}">` +
+      `<span class="ic">${esc(p.icon)}</span><span class="nm">${esc(p.name)}</span>${dirty(p) ? '<span class="dot" title="Unsaved file changes"></span>' : ""}<span class="ct">${changesOf(p.key).length}</span></button></li>`
+    ).join("");
+  }
+  document.addEventListener("click", (e) => {
+    const go = e.target.closest("[data-go]");
+    if (go) { e.preventDefault(); location.hash = go.dataset.go; }
+  });
+
+  // ---------- routing ----------
+  const params = () => Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  function route() {
+    if (!data) return;
+    renderSide();
+    const q = params();
+    if (dataError && q.f !== DATA_PATH) {
+      $("main").innerHTML = `<div class="panel"><h2>projects.js doesn't parse</h2><p class="err">${esc(dataError)}</p><p>Fix it in the file, or undo the change.</p><div class="toolbar"><button class="btn" data-go="#p=home&t=files&f=${DATA_PATH}">Open projects.js</button><button class="btn danger" id="undo-data">Undo projects.js changes</button></div></div>`;
+      $("undo-data").onclick = () => { revert(DATA_PATH); route(); };
+      return;
+    }
+    if (q.p) {
+      const p = projectOf(q.p);
+      if (!p) { location.hash = "#path"; return; }
+      viewProject(p, q.t || "details", q.f);
+    } else viewPath();
+  }
+  window.addEventListener("hashchange", route);
+
+  // ---------- The Path So Far ----------
+  let pathFilter = "";
+  function viewPath() {
+    editor = null;
+    const laneOpts = (sel) => data.projects.map((p) => `<option value="${esc(p.key)}"${p.key === sel ? " selected" : ""}>${esc(p.icon + " " + p.name)}</option>`).join("");
+    const recent = [...new Set(data.changes.map((c) => c.lane).reverse())].slice(0, data.shown);
+    $("main").innerHTML = `
+      <div class="head"><span class="big">🛤️</span><div><h2>The Path So Far</h2><div class="sub">${data.changes.length} changes · ${data.projects.length} projects</div></div></div>
+      <div class="grid2" style="max-width:640px">
+        <label class="f">Lanes on the home page<input type="number" min="1" max="${data.projects.length}" id="shown" value="${data.shown}"></label>
+        <div class="hint" style="align-self:end">Showing now: ${recent.map((k) => esc((projectOf(k) || { icon: "?" }).icon)).join(" ")}<br>The projects with the most recent changes get a lane.</div>
+      </div>
+      <div class="sec">EVERY CHANGE, NEWEST FIRST</div>
+      <div class="toolbar">
+        <input type="text" id="pfilter" placeholder="Filter…" value="${esc(pathFilter)}">
+        <span class="sp"></span>
+        <button class="btn sm" id="sort-date" title="Put the changes in date order, keeping the order within a day">Sort by date</button>
+        <button class="btn sm gold" id="add-change">＋ Add a change</button>
+      </div>
+      <div class="rows" id="rows"></div>`;
+    $("shown").onchange = (e) => { const n = Math.max(1, Math.min(data.projects.length, parseInt(e.target.value, 10) || 1)); data.shown = n; dataChanged(); viewPath(); };
+    $("pfilter").oninput = (e) => { pathFilter = e.target.value; drawRows(); };
+    $("sort-date").onclick = () => { data.changes = data.changes.map((c, i) => [c, i]).sort((a, b) => a[0].date.localeCompare(b[0].date) || a[1] - b[1]).map((x) => x[0]); dataChanged(); drawRows(); };
+    $("add-change").onclick = () => {
+      const last = data.changes[data.changes.length - 1];
+      const lane = (last && last.lane) || data.projects[0].key;
+      data.changes.push({ lane, date: today(), title: "", href: projectOf(lane).href });
+      dataChanged(); pathFilter = ""; $("pfilter").value = ""; drawRows();
+      document.querySelector("#rows .crow:not(.hdr) input[data-k=title]").focus();
+    };
+    function drawRows() {
+      const f = pathFilter.toLowerCase();
+      const list = data.changes.map((c, i) => ({ c, i })).reverse()
+        .filter(({ c }) => !f || (c.title + " " + c.href + " " + c.date + " " + ((projectOf(c.lane) || {}).name || c.lane)).toLowerCase().includes(f));
+      $("rows").innerHTML = `<div class="crow hdr"><span>Project</span><span>Date</span><span>What changed</span><span>Where it lives</span><span></span></div>` +
+        list.map(({ c, i }) => changeRow(c, i, laneOpts(c.lane))).join("") +
+        (list.length ? "" : '<p class="hint">No changes match.</p>');
+    }
+    wireRows($("rows"), drawRows, true);
+    drawRows();
+  }
+
+  function changeRow(c, i, laneOptions) {
+    return `<div class="crow${laneOptions ? "" : " nolane"}" data-i="${i}">` +
+      (laneOptions ? `<select data-k="lane" aria-label="Project">${laneOptions}</select>` : "") +
+      `<input type="date" data-k="date" value="${esc(c.date)}" aria-label="Date">` +
+      `<input type="text" class="wide" data-k="title" value="${esc(c.title)}" placeholder="What changed" aria-label="What changed">` +
+      `<input type="text" class="wide" data-k="href" value="${esc(c.href)}" placeholder="/page/ or https://…" aria-label="Where it lives" spellcheck="false">` +
+      `<span class="acts"><button class="btn icon sm" data-act="up" title="Move newer">↑</button><button class="btn icon sm" data-act="down" title="Move older">↓</button><button class="btn icon sm danger" data-act="del" title="Delete">✕</button></span></div>`;
+  }
+  // Edits to change rows. Up and down swap with the next row shown (newer/older).
+  function wireRows(root, redraw, global) {
+    root.addEventListener("change", (e) => {
+      const row = e.target.closest(".crow[data-i]"); if (!row || !e.target.dataset.k) return;
+      const c = data.changes[+row.dataset.i];
+      c[e.target.dataset.k] = e.target.value.trim();
+      if (e.target.dataset.k === "lane" && global) { const p = projectOf(c.lane); if (p && !c.href) c.href = p.href; }
+      dataChanged();
+    });
+    root.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-act]"), row = b && b.closest(".crow[data-i]"); if (!row) return;
+      const i = +row.dataset.i, rows = [...root.querySelectorAll(".crow[data-i]")], at = rows.indexOf(row);
+      if (b.dataset.act === "del") { data.changes.splice(i, 1); dataChanged(); redraw(); return; }
+      const other = rows[b.dataset.act === "up" ? at - 1 : at + 1]; if (!other) return;
+      const j = +other.dataset.i;
+      [data.changes[i], data.changes[j]] = [data.changes[j], data.changes[i]];
+      dataChanged(); redraw();
+      const moved = root.querySelector(`.crow[data-i="${j}"] [data-act="${b.dataset.act}"]`); if (moved) moved.focus();
+    });
+  }
+
+  // ---------- a project ----------
+  function viewProject(p, tab, file) {
+    if (tab !== "files") editor = null;
+    const enc = encodeURIComponent(p.key);
+    const hasFiles = p.dir !== "";
+    $("main").innerHTML = `
+      <div class="head"><span class="big">${esc(p.icon)}</span>
+        <div><h2>${esc(p.name)}</h2><div class="sub">${esc(p.key)}${p.dir ? " · /" + esc(p.dir === "." ? "" : p.dir) : ""}</div></div>
+        <span class="sp"></span>
+        <a class="btn sm" href="${esc(/^https?:/.test(p.href) ? p.href : siteUrl(p.href.replace(/^\//, "")))}" target="_blank" rel="noopener">Open ↗</a>
+        <button class="btn sm" id="p-up" title="Earlier in the card order">↑</button>
+        <button class="btn sm" id="p-down" title="Later in the card order">↓</button>
+        <button class="btn sm danger" id="p-del">Delete</button>
+      </div>
+      <div class="tabs">
+        <button class="tab${tab === "details" ? " on" : ""}" data-go="#p=${enc}&t=details">Details &amp; card</button>
+        <button class="tab${tab === "changes" ? " on" : ""}" data-go="#p=${enc}&t=changes">Changes (${changesOf(p.key).length})</button>
+        <button class="tab${tab === "files" ? " on" : ""}" data-go="#p=${enc}&t=files">Files${hasFiles ? ` (${filesIn(p.dir).filter(exists).length})` : ""}</button>
+      </div>
+      <div id="tab"></div>`;
+    const move = (d) => {
+      const i = data.projects.indexOf(p), j = i + d;
+      if (j < 0 || j >= data.projects.length) return;
+      [data.projects[i], data.projects[j]] = [data.projects[j], data.projects[i]];
+      dataChanged(); renderSide();
+    };
+    $("p-up").onclick = () => move(-1);
+    $("p-down").onclick = () => move(1);
+    $("p-del").onclick = () => deleteProject(p);
+    if (tab === "changes") tabChanges(p);
+    else if (tab === "files") tabFiles(p, file);
+    else tabDetails(p);
+  }
+
+  function cardHtml(p) {
+    const c = p.card;
+    const pill = c.pill ? `<span class="pill ${esc(c.pillKind || "live")}">${esc(c.pill)}</span>` : "";
+    const links = (c.links || []).filter((l) => l.label || l.href);
+    return `<div class="card"><div class="icon">${esc(p.icon)}</div><h3>${esc(c.title || p.name)}</h3><p>${c.text}</p>` +
+      (links.length ? `<div class="links">${links.map((l) => `<span class="btn sm">${esc(l.label)}</span>`).join("")}</div>` : "") +
+      `<div class="meta"><span class="url">${esc(c.url)}${links.length ? " ▾" : ""}</span>${pill}</div></div>`;
+  }
+
+  const removedCards = new WeakMap(); // so ticking "Show a card" again brings it back
+  function tabDetails(p) {
+    const old = $("tab"), fresh = old.cloneNode(false);
+    old.replaceWith(fresh);
+    const c = p.card;
+    const field = (k, label, v, ph = "", hint = "") => `<label class="f">${label}<input type="text" data-p="${k}" value="${esc(v)}" placeholder="${esc(ph)}" spellcheck="false">${hint ? `<span class="hint">${hint}</span>` : ""}</label>`;
+    const cf = (k, label, v, ph = "") => `<label class="f">${label}<input type="text" data-c="${k}" value="${esc(v)}" placeholder="${esc(ph)}"></label>`;
+    $("tab").innerHTML = `<div class="split"><div class="stack">
+      <div class="grid2">
+        ${field("name", "Name", p.name)}
+        ${field("icon", "Icon (emoji)", p.icon)}
+        ${field("key", "Key", p.key, "", "Short id the path uses for this project.")}
+        ${field("href", "Link", p.href, "/page/ or https://…", "Where the lane's name and new changes point.")}
+        ${field("dir", "Folder in the repo", p.dir, "e.g. hushwave", 'Its files, for the Files tab. "." is the whole repo; empty if it lives elsewhere.')}
+      </div>
+      <div class="sec">CARD ON THE HOME PAGE</div>
+      <label class="f row"><input type="checkbox" id="has-card"${c ? " checked" : ""}> Show a card</label>
+      ${c ? `
+      <div class="grid2">
+        <label class="f">Section<select data-c="section"><option value="bots"${c.section === "bots" ? " selected" : ""}>The Bots</option><option value="workbench"${c.section === "workbench" ? " selected" : ""}>The Workbench</option></select></label>
+        ${cf("title", "Title", c.title, p.name)}
+        ${cf("url", "Line under the text", c.url, "tavernworks.dev/…")}
+        ${cf("href", "Card link", c.href, p.href)}
+        ${cf("pill", "Badge", c.pill, "LIVE, BETA, V1.0…")}
+        <label class="f">Badge colour<select data-c="pillKind">${["live", "beta", "soon"].map((k) => `<option value="${k}"${c.pillKind === k ? " selected" : ""}>${{ live: "Green (live)", beta: "Blue (beta)", soon: "Gold (soon)" }[k]}</option>`).join("")}</select></label>
+      </div>
+      <label class="f">Text<textarea data-c="text" rows="4">${esc(c.text)}</textarea><span class="hint">HTML is fine: &lt;i&gt;, &lt;code&gt;, &amp;amp;.</span></label>
+      <div class="sec">BUTTONS INSIDE THE CARD</div>
+      <p class="hint" style="margin-top:-4px">With buttons, the card opens to show them instead of being a link itself.</p>
+      <div class="rows" id="links">${(c.links || []).map((l, i) => `<div class="lrow" data-i="${i}"><input type="text" data-l="label" value="${esc(l.label)}" placeholder="🏠 Homepage"><input type="text" data-l="href" value="${esc(l.href)}" placeholder="https://…" spellcheck="false"><button class="btn icon sm danger" data-ldel title="Remove">✕</button></div>`).join("")}</div>
+      <div><button class="btn sm" id="add-link">＋ Add a button</button></div>` : '<p class="hint">No card. The project still gets a lane on the path.</p>'}
+    </div>
+    <div class="preview">${c ? `<div class="lbl">Preview</div><div id="card-prev">${cardHtml(p)}</div>` : ""}</div></div>`;
+
+    const tab = $("tab");
+    const refresh = () => { const prev = $("card-prev"); if (prev && p.card) prev.innerHTML = cardHtml(p); };
+    tab.addEventListener("input", (e) => {
+      const t = e.target;
+      if (t.dataset.c) { p.card[t.dataset.c] = t.value; refresh(); dataChanged(); }
+      else if (t.dataset.l) { p.card.links[+t.closest("[data-i]").dataset.i][t.dataset.l] = t.value; refresh(); dataChanged(); }
+      else if (t.dataset.p === "name" || t.dataset.p === "icon") { p[t.dataset.p] = t.value; refresh(); dataChanged(); }
+    });
+    tab.addEventListener("change", (e) => {
+      const t = e.target, k = t.dataset.p;
+      if (k === "key") {
+        const v = slug(t.value);
+        if (!v || (v !== p.key && projectOf(v))) { toast(v ? "Another project already uses that key." : "The key can't be empty.", true); t.value = p.key; return; }
+        data.changes.forEach((c) => { if (c.lane === p.key) c.lane = v; });
+        p.key = v; dataChanged(); location.hash = "#p=" + encodeURIComponent(v) + "&t=details";
+      } else if (k === "href" || k === "dir") {
+        const v = t.value.trim();
+        p[k] = k === "dir" ? (v === "." || v === "/" ? "." : v.replace(/^\/+|\/+$/g, "")) : v;
+        dataChanged(); viewProject(p, "details");
+      }
+    });
+    const hc = $("has-card");
+    hc.onchange = () => {
+      if (hc.checked) p.card = removedCards.get(p) || { section: "workbench", title: p.name, text: "", href: "", url: p.href.replace(/^https?:\/\//, "").replace(/^\//, "tavernworks.dev/").replace(/\/$/, ""), pill: "BETA", pillKind: "beta", links: [] };
+      else { removedCards.set(p, p.card); p.card = null; }
+      dataChanged(); tabDetails(p);
+    };
+    const al = $("add-link");
+    if (al) al.onclick = () => { p.card.links = p.card.links || []; p.card.links.push({ label: "", href: "" }); dataChanged(); tabDetails(p); tab.querySelector("#links .lrow:last-child input").focus(); };
+    tab.querySelectorAll("[data-ldel]").forEach((b) => b.onclick = () => { p.card.links.splice(+b.closest("[data-i]").dataset.i, 1); dataChanged(); tabDetails(p); });
+  }
+
+  function tabChanges(p) {
+    const draw = () => {
+      const list = data.changes.map((c, i) => ({ c, i })).filter(({ c }) => c.lane === p.key).reverse();
+      $("crows").innerHTML = `<div class="crow nolane hdr"><span>Date</span><span>What changed</span><span>Where it lives</span><span></span></div>` +
+        list.map(({ c, i }) => changeRow(c, i, "")).join("") + (list.length ? "" : '<p class="hint">No changes yet.</p>');
+    };
+    $("tab").innerHTML = `<div class="toolbar"><span class="hint">Newest first. New changes go at the end of the path, today.</span><span class="sp"></span><button class="btn sm gold" id="add-change">＋ Add a change</button></div><div class="rows" id="crows"></div>`;
+    $("add-change").onclick = () => {
+      data.changes.push({ lane: p.key, date: today(), title: "", href: p.href });
+      dataChanged(); draw(); renderSide();
+      $("crows").querySelector(".crow[data-i] input[data-k=title]").focus();
+    };
+    wireRows($("crows"), () => { draw(); renderSide(); }, false);
+    draw();
+  }
+
+  // ---------- files ----------
+  const openFolders = new Set();
+  function tabFiles(p, file) {
+    if (p.dir === "") {
+      $("tab").innerHTML = `<div class="panel"><p>This project lives outside this repo${/^https?:/.test(p.href) ? ` (<a href="${esc(p.href)}" target="_blank" rel="noopener">${esc(p.href)}</a>)` : ""}.</p><p class="hint">To keep files for it here, set its folder on the Details tab.</p></div>`;
+      return;
+    }
+    const pre = folderPrefix(p.dir);
+    $("tab").innerHTML = `<div class="files">
+      <div class="stack">
+        <div class="toolbar" style="margin:0"><button class="btn sm" id="f-new">＋ New file</button><button class="btn sm" id="f-up">⇪ Upload</button><input type="file" id="f-in" multiple hidden></div>
+        <div class="tree" id="tree"></div>
+      </div>
+      <div class="ed" id="ed"><div class="empty">Pick a file to edit.</div></div></div>`;
+    const go = (path) => { location.hash = `#p=${encodeURIComponent(p.key)}&t=files&f=${encodeURIComponent(path)}`; };
+
+    // Tree
+    const paths = filesIn(p.dir);
+    const root = {};
+    paths.forEach((path) => {
+      const parts = path.slice(pre.length).split("/");
+      let n = root;
+      parts.forEach((part, k) => { if (k === parts.length - 1) (n["\0files"] = n["\0files"] || []).push(path); else n = n[part] = n[part] || {}; });
+    });
+    if (file) { let acc = ""; file.slice(pre.length).split("/").slice(0, -1).forEach((part) => { acc += part + "/"; openFolders.add(pre + acc); }); }
+    const icon = (path) => IMAGE.test(path) ? "🖼️" : isBinary(path) ? "📦" : /\.html?$/.test(path) ? "📄" : /\.(m?js|ts)$/.test(path) ? "📜" : /\.md$/.test(path) ? "📝" : "📃";
+    const draw = (n, at) => {
+      const dirs = Object.keys(n).filter((k) => k !== "\0files").sort();
+      return "<ul>" + dirs.map((d) => {
+        const key = at + d + "/", open = openFolders.has(key) || (paths.length < 25 && !openFolders.has("!" + key));
+        return `<li><div class="it" data-dir="${esc(key)}"><span>${open ? "📂" : "📁"}</span><span class="n">${esc(d)}</span></div>${open ? draw(n[d], key) : ""}</li>`;
+      }).join("") + (n["\0files"] || []).map((path) => {
+        const st = status(path);
+        return `<li><div class="it${path === file ? " on" : ""}${st === "D" ? " del" : ""}" data-file="${esc(path)}"><span>${icon(path)}</span><span class="n">${esc(path.split("/").pop())}</span>${st ? `<span class="st ${st}">${st}</span>` : ""}</div></li>`;
+      }).join("") + "</ul>";
+    };
+    $("tree").innerHTML = paths.length ? draw(root, pre) : '<p class="hint" style="padding:8px">No files yet.</p>';
+    $("tree").onclick = (e) => {
+      const it = e.target.closest(".it"); if (!it) return;
+      if (it.dataset.file) go(it.dataset.file);
+      else {
+        const k = it.dataset.dir, isOpen = it.textContent.startsWith("📂");
+        if (isOpen) { openFolders.delete(k); openFolders.add("!" + k); } else { openFolders.add(k); openFolders.delete("!" + k); }
+        tabFiles(p, file);
+      }
+    };
+
+    $("f-new").onclick = () => {
+      openDialog(`<h3>New file</h3><label class="f">Path<input type="text" id="nf" value="${esc(pre)}" spellcheck="false"></label><p class="hint">Folders are made as needed, e.g. <code>${esc(pre)}guide/index.html</code>.</p><div class="acts"><button class="btn" data-close>Cancel</button><button class="btn gold" id="nf-go">Create</button></div>`, (d) => {
+        const inp = d.querySelector("#nf"); inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length);
+        const make = () => {
+          const path = inp.value.trim().replace(/^\/+/, "");
+          if (!path || path.endsWith("/")) { toast("Give the file a name.", true); return; }
+          if (exists(path)) { toast("That file already exists.", true); return; }
+          if (base.tree.has(path)) pending.delete(path);
+          setText(path, ""); d.close(); go(path);
+        };
+        d.querySelector("#nf-go").onclick = make;
+        inp.onkeydown = (e) => { if (e.key === "Enter") make(); };
+      });
+    };
+    $("f-up").onclick = () => $("f-in").click();
+    $("f-in").onchange = async (e) => {
+      const files = [...e.target.files];
+      const folder = file ? file.slice(0, file.lastIndexOf("/") + 1) : pre;
+      for (const f of files) {
+        const path = (folder.startsWith(pre) ? folder : pre) + f.name;
+        const buf = new Uint8Array(await f.arrayBuffer());
+        let text = null;
+        if (!isBinary(path)) { try { text = new TextDecoder("utf-8", { fatal: true }).decode(buf); } catch {} }
+        if (base.tree.has(path)) await readOrig(path);
+        if (text !== null) setText(path, text); else setBinary(path, bytesToB64(buf));
+      }
+      toast(`Added ${files.length} ${files.length === 1 ? "file" : "files"}. Commit to save them.`);
+      if (files.length === 1) go((folder.startsWith(pre) ? folder : pre) + files[0].name); else tabFiles(p, file);
+    };
+
+    if (file) openFile(p, file);
+  }
+
+  async function openFile(p, path) {
+    const ed = $("ed");
+    editor = null;
+    ed.innerHTML = '<div class="empty">Loading…</div>';
+    let v;
+    try { v = await current(path); } catch (e) { ed.innerHTML = `<div class="empty err">${esc(e.message)}</div>`; return; }
+    if ($("ed") !== ed) return;
+    const st = status(path);
+    const live = siteUrl(path);
+    ed.innerHTML = `<div class="bar"><span class="path" title="${esc(path)}">${esc(path)}</span>
+      ${st ? `<span class="st ${st}">${{ M: "edited", A: "new", D: "deleted" }[st]}</span>` : ""}
+      ${st && st !== "A" ? '<button class="btn sm" id="e-undo">Undo changes</button>' : ""}
+      ${base.tree.has(path) ? `<a class="btn sm" href="${esc(live)}" target="_blank" rel="noopener">Live ↗</a>` : ""}
+      ${/\.html?$/.test(path) && v !== null ? '<button class="btn sm" id="e-prev">Preview</button>' : ""}
+      <button class="btn sm" id="e-ren">Rename</button>
+      ${st === "D" ? "" : '<button class="btn sm danger" id="e-del">Delete</button>'}</div><div id="e-body"></div>`;
+    const body = $("e-body");
+    const und = $("e-undo"); if (und) und.onclick = () => { revert(path); tabFiles(p, path); };
+    const del = $("e-del"); if (del) del.onclick = async () => { if (await confirmBox("Delete file?", `<code>${esc(path)}</code> will be deleted when you commit.`)) { remove(path); tabFiles(p, path); } };
+    $("e-ren").onclick = () => renameFile(p, path);
+    const pr = $("e-prev"); if (pr) pr.onclick = () => previewHtml(path, editor ? editor.get() : v);
+
+    if (v === null) { body.innerHTML = '<div class="empty">This file will be deleted when you commit.</div>'; return; }
+    if (typeof v !== "string") {
+      const mime = /\.svg$/i.test(path) ? "image/svg+xml" : /\.ico$/i.test(path) ? "image/x-icon" : "image/" + (path.split(".").pop().toLowerCase().replace("jpg", "jpeg"));
+      body.innerHTML = IMAGE.test(path)
+        ? `<div class="img"><img alt="${esc(path)}" src="data:${mime};base64,${v.b64}"></div>`
+        : `<div class="empty">Binary file, ${Math.round(v.b64.length * 0.75 / 1024)} KB. Upload a file with the same name to replace it.</div>`;
+      return;
+    }
+    if (path === DATA_PATH) body.insertAdjacentHTML("beforebegin", '<div class="bar hint">This is the data behind the other tabs. Edits here show up there once the file parses.</div>');
+    const onEdit = (text) => {
+      setText(path, text);
+      const it = document.querySelector(`#tree .it[data-file="${CSS.escape(path)}"]`), st = status(path);
+      if (it) { const b = it.querySelector(".st"); if (b) b.remove(); if (st) it.insertAdjacentHTML("beforeend", `<span class="st ${st}">${st}</span>`); }
+      if (path === DATA_PATH) {
+        try { data = ProjectsFormat.load(text); dataError = ""; } catch (e) { dataError = e.message; }
+      }
+    };
+    editor = makeEditor(body, path, v, onEdit);
+  }
+
+  function makeEditor(el, path, text, onEdit) {
+    const ext = path.split(".").pop().toLowerCase();
+    const mode = { html: "htmlmixed", htm: "htmlmixed", js: "javascript", mjs: "javascript", json: { name: "javascript", json: true }, ts: "text/typescript", css: "css", md: "markdown", sh: "shell", yml: "yaml", yaml: "yaml", svg: "xml", xml: "xml" }[ext] || null;
+    let timer;
+    const later = (get) => { clearTimeout(timer); timer = setTimeout(() => onEdit(get()), 250); };
+    if (window.CodeMirror) {
+      const cm = CodeMirror(el, { value: text, mode, lineNumbers: true, lineWrapping: true, indentUnit: 2, tabSize: 2, extraKeys: { Tab: (c) => c.somethingSelected() ? c.indentSelection("add") : c.replaceSelection("  ") } });
+      cm.on("change", () => later(() => cm.getValue()));
+      return { path, get: () => cm.getValue(), flush: () => { clearTimeout(timer); onEdit(cm.getValue()); } };
+    }
+    const ta = document.createElement("textarea");
+    ta.className = "plain"; ta.spellcheck = false; ta.value = text;
+    el.appendChild(ta);
+    ta.addEventListener("input", () => later(() => ta.value));
+    return { path, get: () => ta.value, flush: () => { clearTimeout(timer); onEdit(ta.value); } };
+  }
+
+  function previewHtml(path, text) {
+    // Relative links resolve against the live site, so styles and images still load.
+    const html = text.replace(/<head([^>]*)>/i, `<head$1><base href="${esc(siteUrl(path).replace(/[^/]*$/, ""))}">`);
+    openDialog(`<h3>Preview: <code>${esc(path)}</code></h3><iframe id="pv" sandbox="allow-scripts" style="width:100%;height:65vh;border:1px solid var(--line);border-radius:10px;background:#fff"></iframe><p class="hint">Scripts run, but nothing here is published until you commit.</p><div class="acts"><button class="btn" data-close>Close</button></div>`, (d) => { d.querySelector("#pv").srcdoc = html; });
+  }
+
+  async function renameFile(p, path) {
+    openDialog(`<h3>Rename or move</h3><label class="f">New path<input type="text" id="rn" value="${esc(path)}" spellcheck="false"></label><div class="acts"><button class="btn" data-close>Cancel</button><button class="btn gold" id="rn-go">Rename</button></div>`, (d) => {
+      d.querySelector("#rn-go").onclick = async () => {
+        const to = d.querySelector("#rn").value.trim().replace(/^\/+/, "");
+        if (!to || to === path) { d.close(); return; }
+        if (exists(to)) { toast("A file already has that name.", true); return; }
+        if (editor && editor.path === path) editor.flush();
+        const v = await current(path);
+        if (base.tree.has(to)) await readOrig(to);
+        if (typeof v === "string") setText(to, v); else setBinary(to, v.b64);
+        remove(path);
+        d.close();
+        location.hash = `#p=${encodeURIComponent(p.key)}&t=files&f=${encodeURIComponent(to)}`;
+      };
+    });
+  }
+
+  // ---------- new / delete project ----------
+  function pageTemplate(name, icon, section) {
+    return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(name)} · Tavernworks</title>
+<meta name="description" content="${esc(name)}, a Tavernworks project.">
+<meta property="og:title" content="${esc(name)} · Tavernworks">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${icon}</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+    background:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,168,74,.16), transparent 70%), var(--bg);
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  nav{padding:22px 0 0}
+  .back{font-size:14px;color:var(--muted)}
+  .back:hover{color:var(--gold2)}
+  header{padding:48px 0 32px;text-align:center}
+  .orb{font-size:64px;line-height:1}
+  .sign{display:inline-block;font-family:Cinzel,serif;font-size:13px;letter-spacing:.3em;color:var(--gold);border:1px solid var(--line);padding:6px 16px;border-radius:999px;background:rgba(0,0,0,.25);margin:20px 0 18px}
+  h1{font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,8.5vw,72px);line-height:1.05;background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tag{margin:16px auto 0;color:var(--muted);font-size:18px;max-width:600px}
+  .divider{display:flex;align-items:center;gap:14px;margin:52px 0 22px;font-family:Cinzel,serif;color:var(--gold);letter-spacing:.15em;font-size:15px}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  .scroll{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px}
+  .scroll p{color:var(--muted)}
+  .scroll p + p{margin-top:12px}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
+  footer span{color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav><a class="back" href="/">← Back to the tavern</a></nav>
+
+  <header>
+    <div class="orb">${icon}</div>
+    <div class="sign">${section}</div>
+    <h1>${esc(name)}</h1>
+    <p class="tag">One line about what ${esc(name)} is.</p>
+  </header>
+
+  <div class="divider">THE IDEA</div>
+  <div class="scroll">
+    <p>What it does, who it's for, and why it exists.</p>
+  </div>
+
+  <footer>Tavernworks · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus<br><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
+</div>
+</body>
+</html>
+`;
+  }
+
+  function newProject() {
+    openDialog(`<h3>New project</h3><div class="stack">
+      <div class="grid2">
+        <label class="f">Name<input type="text" id="np-name" placeholder="Dragon's Hoard"></label>
+        <label class="f">Icon (emoji)<input type="text" id="np-icon" value="✨"></label>
+        <label class="f">Key<input type="text" id="np-key" placeholder="dragons-hoard" spellcheck="false"></label>
+        <label class="f">Card<select id="np-sec"><option value="workbench">The Workbench</option><option value="bots">The Bots</option><option value="">No card</option></select></label>
+      </div>
+      <label class="f row"><input type="checkbox" id="np-page" checked> Start a page at <code id="np-path">/key/</code></label>
+      <label class="f row"><input type="checkbox" id="np-change" checked> Add it to The Path So Far, dated today</label>
+    </div><div class="acts"><button class="btn" data-close>Cancel</button><button class="btn gold" id="np-go">Create</button></div>`, (d) => {
+      const name = d.querySelector("#np-name"), key = d.querySelector("#np-key");
+      let keyEdited = false;
+      const sync = () => { if (!keyEdited) key.value = slug(name.value); d.querySelector("#np-path").textContent = "/" + (slug(key.value) || "key") + "/"; };
+      name.oninput = sync; key.oninput = () => { keyEdited = true; sync(); };
+      name.focus();
+      d.querySelector("#np-go").onclick = () => {
+        const nm = name.value.trim(), k = slug(key.value), icon = d.querySelector("#np-icon").value.trim() || "✨", sec = d.querySelector("#np-sec").value;
+        const page = d.querySelector("#np-page").checked;
+        if (!nm) { toast("Give it a name.", true); return; }
+        if (!k || projectOf(k)) { toast(k ? "Another project already uses that key." : "Give it a key.", true); return; }
+        if (page && filesIn(k).some(exists)) { toast(`The repo already has a ${k}/ folder. Untick "Start a page" or pick another key.`, true); return; }
+        const href = page ? "/" + k + "/" : "";
+        data.projects.push({
+          key: k, icon, name: nm, href, dir: page ? k : "",
+          card: sec ? { section: sec, title: nm, text: "", href: "", url: page ? "tavernworks.dev/" + k : "", pill: "BETA", pillKind: "beta", links: [] } : null,
+        });
+        if (d.querySelector("#np-change").checked) data.changes.push({ lane: k, date: today(), title: nm + " project page", href });
+        dataChanged();
+        if (page) setText(k + "/index.html", pageTemplate(nm, icon, sec === "bots" ? "THE BOTS" : "THE WORKBENCH"));
+        d.close();
+        location.hash = "#p=" + encodeURIComponent(k) + "&t=details";
+      };
+    });
+  }
+  $("new-project").onclick = newProject;
+
+  async function deleteProject(p) {
+    const n = changesOf(p.key).length;
+    const files = p.dir && p.dir !== "." ? filesIn(p.dir).filter(exists) : [];
+    let ok = false;
+    const dlg = openDialog(`<h3>Delete ${esc(p.icon + " " + p.name)}?</h3><div class="stack">
+      <p class="hint">Takes it off the home page and the path. Nothing changes on GitHub until you commit.</p>
+      ${n ? `<label class="f row"><input type="checkbox" id="dp-ch" checked> Also delete its ${n} ${n === 1 ? "change" : "changes"} on the path</label>` : ""}
+      ${files.length ? `<label class="f row"><input type="checkbox" id="dp-f"> Also delete its folder <code>${esc(p.dir)}/</code> (${files.length} files)</label>` : ""}
+    </div><div class="acts"><button class="btn" data-close>Cancel</button><button class="btn gold" id="dp-go">Delete</button></div>`, (d) => {
+      d.querySelector("#dp-go").onclick = () => {
+        const ch = d.querySelector("#dp-ch"), f = d.querySelector("#dp-f");
+        if (!ch || ch.checked) data.changes = data.changes.filter((c) => c.lane !== p.key);
+        if (f && f.checked) files.forEach(remove);
+        data.projects = data.projects.filter((x) => x !== p);
+        ok = true; dataChanged(); d.close();
+      };
+    });
+    dlg.addEventListener("close", () => { if (ok) location.hash = "#path"; }, { once: true });
+  }
+
+  // ---------- connect ----------
+  async function loadData() {
+    const text = await readOrig(DATA_PATH);
+    if (typeof text !== "string") throw new Error(`${cfg.repo} has no ${DATA_PATH} on ${cfg.branch}.`);
+    const p = pending.get(DATA_PATH);
+    try { data = ProjectsFormat.load(p && p.text !== undefined ? p.text : text); dataError = ""; }
+    catch (e) { data = ProjectsFormat.load(text); dataError = e.message; }
+  }
+
+  async function connect() {
+    $("s-err").hidden = true;
+    $("s-go").disabled = true; $("s-go").textContent = "Opening…";
+    try {
+      pending.clear(); orig.clear();
+      base = await loadBase();
+      // Bring back unsaved work from last time, if it was made on this commit
+      // or the files it touches haven't changed since.
+      try {
+        const d = JSON.parse(store.get(draftKey()) || "null");
+        if (d && d.files && d.files.length) {
+          let ok = d.commit === base.commit;
+          if (!ok) {
+            const cmp = await gh("/compare/" + d.commit + "..." + base.commit).catch(() => null);
+            ok = !!cmp && !(cmp.files || []).some((f) => d.files.some(([path]) => path === f.filename || path === f.previous_filename));
+          }
+          if (ok) {
+            for (const [path] of d.files) if (base.tree.has(path)) await readOrig(path);
+            d.files.forEach(([path, v]) => pending.set(path, v));
+            toast(`Brought back ${d.files.length} unsaved ${d.files.length === 1 ? "file" : "files"} from last time.`);
+          } else toast("Unsaved work from last time was dropped: those files changed on GitHub since.", true);
+        }
+      } catch {}
+      await loadData();
+      $("setup").hidden = true; $("app").hidden = false;
+      $("conn").hidden = false;
+      $("conn").innerHTML = `<span><b>${esc(cfg.repo)}</b> · <b>${esc(cfg.branch)}</b> @ <a href="https://github.com/${esc(cfg.repo)}/commit/${base.commit}" target="_blank" rel="noopener">${base.commit.slice(0, 7)}</a>${cfg.token ? "" : " · read only"}</span><button class="btn sm" id="c-set">Settings</button>`;
+      $("c-set").onclick = showSetup;
+      changed();
+      if (!location.hash) location.hash = "#path"; else route();
+    } catch (e) {
+      showSetup();
+      $("s-err").textContent = e.message; $("s-err").hidden = false;
+    } finally {
+      $("s-go").disabled = false; $("s-go").textContent = "Open the workshop";
+    }
+  }
+  function showSetup() {
+    if (pending.size && !$("app").hidden && !confirm("Unsaved changes stay in this browser for next time, but leave the editor now?")) return;
+    $("app").hidden = true; $("bar").hidden = true; $("conn").hidden = true; $("setup").hidden = false;
+    $("s-repo").value = cfg.repo; $("s-branch").value = cfg.branch; $("s-token").value = cfg.token;
+    $("s-remember").checked = !!store.get(TOKEN_KEY);
+  }
+  $("s-go").onclick = () => {
+    cfg = { repo: $("s-repo").value.trim().replace(/^https:\/\/github\.com\//, "").replace(/\/$/, "") || "sheastolp/tavernworks", branch: $("s-branch").value.trim() || "main", token: $("s-token").value.trim() };
+    store.set(CFG_KEY, JSON.stringify({ repo: cfg.repo, branch: cfg.branch }));
+    store.set(TOKEN_KEY, $("s-remember").checked && cfg.token ? cfg.token : null);
+    store.set(TOKEN_KEY, cfg.token || null, sessionStorage);
+    connect();
+  };
+  $("s-token").addEventListener("keydown", (e) => { if (e.key === "Enter") $("s-go").click(); });
+
+  $("bar-review").onclick = review;
+  $("bar-commit").onclick = () => { if (editor) editor.flush(); commit(); };
+  $("bar-msg").addEventListener("keydown", (e) => { if (e.key === "Enter") $("bar-commit").click(); });
+  $("bar-discard").onclick = async () => {
+    if (!(await confirmBox("Discard all changes?", `All ${pending.size} unsaved ${pending.size === 1 ? "file goes" : "files go"} back to what's on GitHub.`, "Discard"))) return;
+    pending.clear(); editor = null;
+    data = ProjectsFormat.load(orig.get(DATA_PATH)); dataError = "";
+    changed(); route();
+  };
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); if (editor) editor.flush(); if (pending.size) $("bar-msg").focus(); }
+  });
+
+  // Start: reuse the saved repo and token if there are any.
+  try { Object.assign(cfg, JSON.parse(store.get(CFG_KEY) || "{}")); } catch {}
+  cfg.token = store.get(TOKEN_KEY, sessionStorage) || store.get(TOKEN_KEY) || "";
+  if (cfg.token) connect(); else showSetup();
+})();
+</script>
+</body>
+</html>

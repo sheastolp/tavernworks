@@ -236,46 +236,7 @@
   </div>
 
   <div class="divider">THE BOTS</div>
-  <div class="grid">
-    <div class="card expand" role="button" tabindex="0" aria-expanded="false" aria-controls="guildscribe-links">
-      <div class="icon">📜</div>
-      <h3>GuildScribe</h3>
-      <p>The D&amp;D chat bot behind the stream. Dice rolls, saves and skill checks, spell and monster lookups, and full character sheets with HP tracking.</p>
-      <div class="links" id="guildscribe-links" hidden>
-        <a class="btn sm" href="https://guildscribe.tavernworks.dev/" target="_blank" rel="noopener">🏠 Homepage</a>
-        <a class="btn sm" href="https://guildscribe.tavernworks.dev/guide" target="_blank" rel="noopener">📖 Guide</a>
-      </div>
-      <div class="meta"><span class="url">guildscribe.tavernworks.dev <span class="chev" aria-hidden="true">▾</span></span><span class="pill live">LIVE</span></div>
-    </div>
-    <a class="card" href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">
-      <div class="icon">🎲</div>
-      <h3>GuildScribe for Discord</h3>
-      <p>GuildScribe in your Discord server. Dice rolls, saves and skill checks, spell and monster lookups, and full character sheets with HP tracking, all as slash commands.</p>
-      <div class="meta"><span class="url">Try it on Discord →</span><span class="pill beta">BETA</span></div>
-    </a>
-    <a class="card" href="/soundbytes/">
-      <div class="icon">🔊</div>
-      <h3>Sound Bytes</h3>
-      <p>Tavern sound effects fired from Twitch chat with GuildScribe's <code>!sound</code>. Nat 20 fanfares, sad trombones and dragon roars, played on stream by an OBS browser source.</p>
-      <div class="meta"><span class="url">tavernworks.dev/soundbytes</span><span class="pill beta">BETA</span></div>
-    </a>
-    <a class="card" href="/wandering-clerk/">
-      <div class="icon">🗝️</div>
-      <h3>The Wandering Clerk</h3>
-      <p>Guild receptionist for <i>GuildBreak: Hunt &amp; Hoard</i>, a hunt-and-loot RPG that runs right in Twitch chat. Enlist a character, hunt monsters, claim bounties and spend your gold at the merchant's stall.</p>
-      <div class="meta"><span class="url">tavernworks.dev/wandering-clerk</span><span class="pill live">LIVE</span></div>
-    </a>
-    <div class="card expand" role="button" tabindex="0" aria-expanded="false" aria-controls="burn-links">
-      <div class="icon">🥸</div>
-      <h3>UndercoverBurn</h3>
-      <p>Slips into your Twitch chat undercover, then blows its cover with a playful roast, a quote from your StreamElements <code>!quote</code> list, or a one-liner riffing on what chat is saying. Also calls out ad breaks and welcomes chat back. Only talks while you're live.</p>
-      <div class="links" id="burn-links" hidden>
-        <a class="btn sm" href="https://burn.tavernworks.dev/" target="_blank" rel="noopener">🚪 Onboarding</a>
-        <a class="btn sm" href="https://burn.tavernworks.dev/dashboard" target="_blank" rel="noopener">📊 Dashboard</a>
-      </div>
-      <div class="meta"><span class="url">burn.tavernworks.dev <span class="chev" aria-hidden="true">▾</span></span><span class="pill live">LIVE</span></div>
-    </div>
-  </div>
+  <div class="grid" id="cards-bots"></div>
 
   <div class="divider" id="journal">THE JOURNAL</div>
   <div class="journal">
@@ -305,32 +266,7 @@
   </div>
 
   <div class="divider">THE WORKBENCH</div>
-  <div class="grid">
-    <a class="card" href="/hushwave/">
-      <div class="icon">🌧️</div>
-      <h3>Hushwave</h3>
-      <p>An ambient sound player for Windows. Rain, fire and tavern noise to focus or chill to.</p>
-      <div class="meta"><span class="url">tavernworks.dev/hushwave</span><span class="pill live">V1.0.13</span></div>
-    </a>
-    <a class="card" href="/local-ai/">
-      <div class="icon">🔮</div>
-      <h3>Local AI</h3>
-      <p>A self-hosted LLM on an old laptop. Ollama and Open WebUI on headless Ubuntu, CPU only, no cloud.</p>
-      <div class="meta"><span class="url">tavernworks.dev/local-ai</span><span class="pill live">RUNNING</span></div>
-    </a>
-    <a class="card" href="/bot-sandbox/">
-      <div class="icon">🧪</div>
-      <h3>TwitchBotSandbox</h3>
-      <p>Write and test Twitch chat bot commands against a simulated chat, without going live. On Windows, or right in your browser.</p>
-      <div class="meta"><span class="url">tavernworks.dev/bot-sandbox</span><span class="pill live">V1.9.3</span></div>
-    </a>
-    <a class="card" href="/stationeers/">
-      <div class="icon">🛰️</div>
-      <h3>Stationeers Assistant</h3>
-      <p>A companion for <i>Stationeers</i>. Survival guides, an IC10 tutorial, a searchable coding reference, a linter and step-through emulator, and gas, power and hash calculators. Runs in your browser.</p>
-      <div class="meta"><span class="url">tavernworks.dev/stationeers</span><span class="pill beta">BETA</span></div>
-    </a>
-  </div>
+  <div class="grid" id="cards-workbench"></div>
 
   <div class="divider" id="support">THE TIP JAR</div>
   <div class="jar">
@@ -388,177 +324,20 @@
 
   <footer>Tavernworks · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus<br><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
 </div>
+<script src="/projects.js"></script>
 <script>
 // The path so far: every change on tavernworks.dev, one lane per project,
 // oldest on the left, ending at today. One line joins every change in
 // order, turning at an angle when it moves to another project. Only the
-// SHOWN projects with the most recent changes get a lane. Add a point to
-// POINTS when something ships (lane key, date, what changed, and where it lives).
+// SHOWN projects with the most recent changes get a lane. The projects and
+// changes live in /projects.js; add a change there (or at /workshop/) when
+// something ships.
 (function () {
-  const LANES = {
-    home:    { icon: "🍺", name: "The Tavern",       href: "/" },
-    localai: { icon: "🔮", name: "Local AI",         href: "/local-ai/" },
-    sandbox: { icon: "🧪", name: "TwitchBotSandbox", href: "/bot-sandbox/" },
-    tips:    { icon: "🪙", name: "Tip jar & Company", href: "#support" },
-    hush:    { icon: "🌧️", name: "Hushwave",         href: "/hushwave/" },
-    burn:    { icon: "🥸", name: "UndercoverBurn",   href: "https://burn.tavernworks.dev/" },
-    clerk:   { icon: "🗝️", name: "Wandering Clerk",  href: "/wandering-clerk/" },
-    guildscribe: { icon: "📜", name: "GuildScribe",    href: "https://guildscribe.tavernworks.dev/" },
-    discord: { icon: "🎲", name: "GuildScribe Discord", href: "https://discord.gg/BmdDXCrAzK" },
-    journal: { icon: "📖", name: "Journal",          href: "/journal/" },
-    sound:   { icon: "🔊", name: "Sound Bytes",      href: "/soundbytes/" },
-    station: { icon: "🛰️", name: "Stationeers Assistant", href: "/stationeers/" },
-  };
-  const SHOWN = 7;
-  const ALL = [
-    ["home",    "2026-10-05", "The tavern opens: GuildScribe live, Hushwave on GitHub", "/"],
-    ["guildscribe", "2026-10-06", "Moves in at guildscribe.tavernworks.dev", "https://guildscribe.tavernworks.dev/"],
-    ["localai", "2026-10-06", "Local AI gets its own page", "/local-ai/"],
-    ["localai", "2026-10-06", "Local AI page describes the real setup", "/local-ai/"],
-    ["sandbox", "2026-10-06", "TwitchBotSandbox page and Workbench card", "/bot-sandbox/"],
-    ["tips",    "2026-10-06", "Tip jar and Discord", "#support"],
-    ["guildscribe", "2026-10-06", "Public channel list, with opt-out", "https://guildscribe.tavernworks.dev/"],
-    ["tips",    "2026-10-06", "The Company: live list of GuildScribe channels", "#guilds"],
-    ["tips",    "2026-10-06", "Company list hides GuildScribeBot", "#guilds"],
-    ["home",    "2026-10-06", "Example GuildScribe chat under the header", "#chatfeed"],
-    ["home",    "2026-10-06", "Header chat: duels, autohunt, fading messages", "#chatfeed"],
-    ["home",    "2026-10-06", "Header chat covers every GuildScribe feature", "#chatfeed"],
-    ["localai", "2026-10-06", "Browser chat over Tailscale", "/local-ai/chat/"],
-    ["localai", "2026-10-06", "Setup steps, troubleshooting, clearer chat errors", "/local-ai/"],
-    ["localai", "2026-10-06", "Chat never leaves a reply blank", "/local-ai/chat/"],
-    ["localai", "2026-10-06", "Chat gets Stop and Resend", "/local-ai/chat/"],
-    ["localai", "2026-10-06", "Optional Claude Code models via a private bridge", "/local-ai/chat/"],
-    ["localai", "2026-10-06", "Move chat settings between devices by link or QR", "/local-ai/chat/"],
-    ["hush",    "2026-10-06", "Hushwave page with a suggestion box", "/hushwave/"],
-    ["hush",    "2026-10-06", "Suggestions stored on the laptop, one admin login", "/hushwave/"],
-    ["hush",    "2026-10-06", "Suggestion box points at the laptop's Funnel address", "/hushwave/"],
-    ["hush",    "2026-10-06", "Suggestion box defaults to port 8790", "/hushwave/"],
-    ["hush",    "2026-10-06", "Friendly message when the server is away", "/hushwave/"],
-    ["hush",    "2026-10-06", "Inbox link to the suggestions", "/hushwave/"],
-    ["tips",    "2026-10-06", "Twitch subs, Bits and more tip platforms", "#support"],
-    ["tips",    "2026-10-06", "Locked /tips/ page to set the tip links", "/tips/"],
-    ["tips",    "2026-10-06", "Edit links button", "#support"],
-    ["tips",    "2026-10-06", "Working Cash App links from a cashtag", "#support"],
-    ["burn",    "2026-10-06", "UndercoverBurn card", "https://burn.tavernworks.dev/"],
-    ["burn",    "2026-10-06", "Card links to the invite page", "https://burn.tavernworks.dev/"],
-    ["burn",    "2026-10-06", "Moves in at burn.tavernworks.dev", "https://burn.tavernworks.dev/"],
-    ["burn",    "2026-10-06", "Cloudflare Worker for burn.tavernworks.dev", "https://burn.tavernworks.dev/"],
-    ["clerk",   "2026-10-06", "The Wandering Clerk project page", "/wandering-clerk/"],
-    ["guildscribe", "2026-10-06", "Auto-ban catches two spam bots at once", "https://guildscribe.tavernworks.dev/"],
-    ["clerk",   "2026-10-06", "Command groups as folders", "/wandering-clerk/"],
-    ["clerk",   "2026-10-06", "Dashboard and Back Room links", "/wandering-clerk/"],
-    ["clerk",   "2026-10-06", "The val served at hunt.tavernworks.dev", "/wandering-clerk/"],
-    ["clerk",   "2026-10-06", "Dashboard opens the feature toggles", "/wandering-clerk/"],
-    ["clerk",   "2026-10-06", "Back Room opens the ledger", "/wandering-clerk/"],
-    ["clerk",   "2026-10-06", "Quieter side-by-side links", "/wandering-clerk/"],
-    ["clerk",   "2026-10-06", "Onboarding replaces the Back Room link", "/wandering-clerk/"],
-    ["clerk",   "2026-10-06", "Onboarding page at hunt.tavernworks.dev/onboard", "https://hunt.tavernworks.dev/onboard"],
-    ["clerk",   "2026-10-06", "hunt Worker deployed from GitHub Actions", "/wandering-clerk/"],
-    ["discord", "2026-10-06", "GuildScribe for Discord joins The Bots (beta)", "https://discord.gg/BmdDXCrAzK"],
-    ["clerk",   "2026-10-06", "Dashboard links straight to the val", "/wandering-clerk/"],
-    ["journal", "2026-10-06", "Adventurer's Journal: notes, attachments, ComfyUI art", "/journal/"],
-    ["sound",   "2026-10-06", "Sound Bytes: chat-fired sound effects", "/soundbytes/"],
-    ["home",    "2026-10-06", "The Path So Far", "#path"],
-    ["sound",   "2026-10-06", "Suggests !kaboom instead of !fireball", "/soundbytes/"],
-    ["guildscribe", "2026-10-06", "Sound Bytes: !sound and a stream overlay", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-06", "Sound Bytes built into all three scenes", "https://guildscribe.tavernworks.dev/"],
-    ["sound",   "2026-10-06", "\"fireball\" anywhere in chat plays the sound", "/soundbytes/"],
-    ["guildscribe", "2026-10-06", "Sound Bytes pop up in the Dungeon Gate", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-06", "Overlays page starts every overlay minimized", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-06", "Saving Throws tally in the brb and chat scenes", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-06", "Now playing moves under the Battle Tracker", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-06", "Starting soon and Ending soon scenes", "https://guildscribe.tavernworks.dev/"],
-    ["sound",   "2026-10-06", "Matches GuildScribe's built-in !sound", "/soundbytes/"],
-    ["clerk",   "2026-10-06", "The Wandering Clerk goes live", "/wandering-clerk/"],
-    ["guildscribe", "2026-10-06", "Public Gear page", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-06", "!gear list links the Gear page from chat", "https://guildscribe.tavernworks.dev/"],
-    ["burn",    "2026-10-07", "burn Worker deployed from GitHub Actions", "https://burn.tavernworks.dev/"],
-    ["burn",    "2026-10-07", "Deploy moves to the UndercoverBurn repo", "https://burn.tavernworks.dev/"],
-    ["clerk",   "2026-10-07", "hunt Worker deploy retired", "/wandering-clerk/"],
-    ["guildscribe", "2026-10-07", "Connection health on the dashboard", "https://guildscribe.tavernworks.dev/"],
-    ["burn",    "2026-10-07", "Admin dashboard: feature toggles and data purge", "https://burn.tavernworks.dev/"],
-    ["burn",    "2026-10-07", "Removed channels stop being recorded", "https://burn.tavernworks.dev/"],
-    ["burn",    "2026-10-07", "Onboarding and Dashboard links", "https://burn.tavernworks.dev/"],
-    ["burn",    "2026-10-07", "Dashboard signs in with Twitch", "https://burn.tavernworks.dev/"],
-    ["burn",    "2026-10-07", "Card expands to show its links", "https://burn.tavernworks.dev/"],
-    ["guildscribe", "2026-10-07", "!save: a d20 saving throw against the bot", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-07", "!save @user calls for another chatter's save", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-07", "No gold earned while the stream is offline", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-07", "Dashboard starts collapsed, Quick setup folds up", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-07", "Ad alerts catch more ad breaks", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-07", "Ad alerts say when the break ends", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-07", "Two replies per person per minute", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-07", "Classic duels skip the reply limit", "https://guildscribe.tavernworks.dev/"],
-    ["localai", "2026-10-07", "Attach images and files in chat", "/local-ai/chat/"],
-    ["localai", "2026-10-07", "Attach zips, tarballs and folders", "/local-ai/chat/"],
-    ["sandbox", "2026-10-07", "Live in-browser sandbox", "/bot-sandbox/app/"],
-    ["sandbox", "2026-10-07", "Sign in to keep projects, with backups", "/bot-sandbox/app/"],
-    ["sandbox", "2026-10-07", "Sign in with Google, one account each", "/bot-sandbox/app/"],
-    ["sandbox", "2026-10-07", "Google sign-in switched on", "/bot-sandbox/app/"],
-    ["home",    "2026-10-07", "Privacy policy and terms", "/privacy/"],
-    ["sandbox", "2026-10-07", "Deno mode runs in the browser", "/bot-sandbox/app/"],
-    ["sandbox", "2026-10-07", "Env vars save on older servers too", "/bot-sandbox/app/"],
-    ["home",    "2026-10-07", "The path becomes one lane per project", "#path"],
-    ["sandbox", "2026-10-07", "Resizable log under the editor", "/bot-sandbox/app/"],
-    ["home",    "2026-10-07", "The path turns between projects", "#path"],
-    ["sandbox", "2026-10-07", "Deno mode: node:async_hooks, clearer load errors", "/bot-sandbox/app/"],
-    ["sandbox", "2026-10-07", "Deno mode names the import that failed", "/bot-sandbox/app/"],
-    ["sandbox", "2026-10-07", "Val Town's std/openai works in Deno mode", "/bot-sandbox/app/"],
-    ["sandbox", "2026-10-07", "Saved env vars reach running code", "/bot-sandbox/app/"],
-    ["tips",    "2026-10-07", "Sign in with Google to edit the tip links", "/tips/"],
-    ["hush",    "2026-10-07", "Sign in with Google to open the suggestion box", "/hushwave/suggestions/"],
-    ["home",    "2026-10-07", "Privacy policy and terms cover Google sign-in", "/privacy/"],
-    ["guildscribe", "2026-10-07", "Reconnect advice only when it would help", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-07", "Keeps EventSub subscriptions after a revocation", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-07", "Card expands to Homepage and Guide links", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-07", "Reply limit lifted, command cooldown stays", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-07", "!raid becomes !rally", "https://guildscribe.tavernworks.dev/"],
-    ["journal", "2026-10-08", "Syncs across devices with Google Drive", "/journal/"],
-    ["journal", "2026-10-08", "Character sheet: portrait, stats, gold and inventory", "/journal/"],
-    ["journal", "2026-10-08", "Dice roller, with or without modifiers", "/journal/"],
-    ["guildscribe", "2026-10-08", "Ability saves move to !save <ability>", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-08", "Plain !save rolls count on the saves tally", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-08", "!spell lookups suggest the matching !save", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-08", "!save <stat> rolls against the raid boss", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-08", "Gear page sorts by Carried by", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-08", "Pokéball advisor for PokemonCommunityGame spawns", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-08", "Pokéball advisor: per-channel ball list and mod page", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-08", "Pokéball advisor answers to !ball", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-08", "Pokéball advisor switch on the dashboard", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-08", "Balls list their catch chance, one shared ball list", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-08", "Heavy Ball and Quick Ball bonuses scale", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-08", "Runs on the Yoga laptop instead of Val Town", "https://guildscribe.tavernworks.dev/"],
-    ["burn",    "2026-10-08", "Runs on the Yoga laptop instead of Val Town", "https://burn.tavernworks.dev/"],
-    ["home",    "2026-10-08", "Bot host kit: the Twitch bots on our own laptop", "https://github.com/sheastolp/tavernworks/tree/main/bot-host"],
-    ["home",    "2026-10-08", "Privacy policy says where each bot runs", "/privacy/"],
-    ["burn",    "2026-10-09", "Friendlier AI commentary that sticks to what chat said", "https://burn.tavernworks.dev/"],
-    ["guildscribe", "2026-10-09", "Battle math uses each character's own modifiers", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-09", "Class abilities and racial traits in every fight", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-09", "!abilities shows a character's combat kit", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-09", "Autohunt reports list every bout of the trip", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-09", "Duel d20 rolls count toward !rollcall", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-09", "Attacking or robbing the peddler always fails", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-09", "!bribe: it never works, and it costs you", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-09", "Answers Twitch right away, even in a burst of commands", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-09", "Reply pages keep each viewer's last 15 replies", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-09", "EventSub admin page moves every channel to the laptop", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-09", "The peddler's timed visits work again on the laptop", "https://guildscribe.tavernworks.dev/"],
-    ["hush",    "2026-10-09", "Friendlier player: seek bar, shortcuts, media keys (v1.0.11)", "/hushwave/"],
-    ["hush",    "2026-10-09", "Prompt studio layers up to five sounds in seamless loops (v1.0.12)", "/hushwave/"],
-    ["hush",    "2026-10-09", "No more silent playback from a missing device (v1.0.13)", "/hushwave/"],
-    ["hush",    "2026-10-09", "Setup guide in the README", "https://github.com/sheastolp/Hushwave#setup-guide"],
-    ["hush",    "2026-10-09", "Hushwave page catches up to v1.0.13", "/hushwave/"],
-    ["hush",    "2026-10-09", "Step-by-step guide to getting the installer", "/hushwave/#install"],
-    ["hush",    "2026-10-09", "Install guide: fork the repo and build your own installer", "/hushwave/#install"],
-    ["hush",    "2026-10-09", "More realistic fire and water sounds", "/hushwave/"],
-    ["burn",    "2026-10-10", "!status is VALORANT-only, with a default Riot ID", "https://burn.tavernworks.dev/"],
-    ["guildscribe", "2026-10-10", "Autohunt reports: one message per channel with every hunter's W/L", "https://guildscribe.tavernworks.dev/"],
-    ["burn",    "2026-10-10", "Ad-start notice posts even after an early warning", "https://burn.tavernworks.dev/"],
-    ["guildscribe", "2026-10-10", "The Division 2 companion: builds, loot, missions and lookups", "https://guildscribe.tavernworks.dev/"],
-    ["guildscribe", "2026-10-10", "!rob @GuildScribeBot fines the robber into the swear jar", "https://guildscribe.tavernworks.dev/"],
-    ["burn",    "2026-10-10", "Smarter AI: sharper commentary and roasts from what you said", "https://burn.tavernworks.dev/"],
-    ["station", "2026-10-10", "Stationeers Assistant: guides, IC10 tutorial, linter and emulator", "/stationeers/"],
-  ].map(([lane, date, title, href]) => ({ lane, date, title, href }));
+  const DATA = window.TAVERN_PROJECTS;
+  if (!DATA) return;
+  const LANES = Object.fromEntries(DATA.projects.map((p) => [p.key, p]));
+  const SHOWN = DATA.shown;
+  const ALL = DATA.changes.map(([lane, date, title, href]) => ({ lane, date, title, href })).filter((p) => LANES[p.lane]);
   const recent = [...new Set(ALL.map((p) => p.lane).reverse())].slice(0, SHOWN);
   const POINTS = ALL.filter((p) => recent.includes(p.lane)).map((p, i) => ({ ...p, i }));
 
@@ -861,7 +640,32 @@ document.querySelectorAll('.copy').forEach((b) => b.addEventListener('click', as
 }));
 </script>
 <script>
-  // Expandable bot cards: click (or Enter/Space) to show their links.
+  // Cards for The Bots and The Workbench, from /projects.js. A card with
+  // links expands (click, Enter or Space) to show them; the rest are links.
+  (function () {
+    const DATA = window.TAVERN_PROJECTS;
+    if (!DATA) return;
+    const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+    const ext = (h) => (/^https?:/.test(h) ? ' target="_blank" rel="noopener"' : "");
+    const card = (p) => {
+      const c = p.card, links = c.links || [];
+      const pill = c.pill ? `<span class="pill ${esc(c.pillKind || "live")}">${esc(c.pill)}</span>` : "";
+      const head = `<div class="icon">${esc(p.icon)}</div><h3>${esc(c.title || p.name)}</h3><p>${c.text}</p>`;
+      if (links.length) {
+        const id = esc(p.key) + "-links";
+        return `<div class="card expand" role="button" tabindex="0" aria-expanded="false" aria-controls="${id}">${head}` +
+          `<div class="links" id="${id}" hidden>${links.map((l) => `<a class="btn sm" href="${esc(l.href)}"${ext(l.href)}>${esc(l.label)}</a>`).join("")}</div>` +
+          `<div class="meta"><span class="url">${esc(c.url)} <span class="chev" aria-hidden="true">▾</span></span>${pill}</div></div>`;
+      }
+      const href = c.href || p.href;
+      return `<a class="card" href="${esc(href)}"${ext(href)}>${head}<div class="meta"><span class="url">${esc(c.url)}</span>${pill}</div></a>`;
+    };
+    document.querySelectorAll('[id^="cards-"]').forEach((grid) => {
+      const section = grid.id.slice(6);
+      grid.innerHTML = DATA.projects.filter((p) => p.card && p.card.section === section).map(card).join("");
+    });
+  })();
+
   document.querySelectorAll(".card.expand").forEach((card) => {
     const links = document.getElementById(card.getAttribute("aria-controls"));
     const toggle = () => {
