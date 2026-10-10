@@ -191,7 +191,7 @@ window.TAVERN_PROJECTS = {
       "card": {
         "section": "workbench",
         "title": "Game Assistants",
-        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i>, <i>Icarus</i>, <i>How to Fish</i>, <i>Raft</i>, <i>PEAK</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games, GOG, the Xbox app or Windows.",
+        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i>, <i>Icarus</i>, <i>How to Fish</i>, <i>Raft</i>, <i>PEAK</i>, <i>Conan Exiles</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games, GOG, the Xbox app or Windows.",
         "href": "/assistants/",
         "url": "tavernworks.dev/assistants",
         "pill": "BETA",
@@ -245,6 +245,14 @@ window.TAVERN_PROJECTS = {
       "name": "PEAK Assistant",
       "href": "/assistants/peak/",
       "dir": "assistants/peak",
+      "card": null
+    },
+    {
+      "key": "conan",
+      "icon": "⚔️",
+      "name": "Conan Exiles Assistant",
+      "href": "/assistants/conan-exiles/",
+      "dir": "assistants/conan-exiles",
       "card": null
     },
     {
@@ -433,6 +441,7 @@ window.TAVERN_PROJECTS = {
     ["assistants","2026-10-10","Game Assistants sync between browsers with Google","/assistants/"],
     ["assistants","2026-10-10","Maps, diagrams and key art on every Game Assistant","/assistants/"],
     ["sparks","2026-10-10","Oddsparks Assistant: recipes, buildings, suggested layouts and clearer guides","/assistants/oddsparks/"],
-    ["peak","2026-10-10","PEAK Assistant: Today's Mountain biome tracker","/assistants/peak/"]
+    ["peak","2026-10-10","PEAK Assistant: Today's Mountain biome tracker","/assistants/peak/"],
+    ["conan","2026-10-10","Conan Exiles Assistant: guides, regions, dungeons, thralls with Wheel of Pain timers and an attribute planner","/assistants/conan-exiles/"]
   ]
 };

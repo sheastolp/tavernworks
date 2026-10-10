@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Conan Exiles Assistant · Tavernworks</title>
+<meta name="description" content="Conan Exiles Assistant: first-day survival, building and the Purge, thralls and the Wheel of Pain with live break timers, an attribute planner, religions, regions of the Exiled Lands, dungeons, a progression checklist, a thrall roster and notes. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+<style>
+:root{--bg:#120e0b;--panel:#1c1611;--panel2:#271e17;--line:#3e3024;--tx:#f0e6d8;--dim:#ab9a86;--acc:#d9a441;--acc-ink:#2a1700;--acc2:#e7a07a;--ok:#8fcf7a;--warn:#f2c14e;--err:#ff7a6b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:8px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#0b0806;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.note{border-left:3px solid var(--warn);background:#2a2419;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.mech li{margin:4px 0}
+.attr{display:grid;grid-template-columns:120px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.attr:last-child{border-bottom:0}
+.attr .pips{display:flex;gap:2px;flex-wrap:wrap}
+.attr .pips i{width:12px;height:14px;border-radius:2px;background:var(--panel2);border:1px solid var(--line)}
+.attr .pips i.f{background:var(--acc);border-color:var(--acc)}
+.attr .pips i.m{margin-right:6px}
+.attr .ctl{display:flex;gap:4px;align-items:center}
+.attr .ctl b{min-width:22px;text-align:center}
+@media(max-width:560px){.attr{grid-template-columns:1fr;gap:4px}}
+.wheel{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.wheel .t{font:600 22px/1.1 Consolas,"Cascadia Mono",monospace}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js?v=2" data-track="ce_state"></script>
+<script src="/assistants/art.js"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   conf: true  = from the Conan Exiles wiki, Funcom's notes or several agreeing guides.
+   conf: false = player reports, a single source, or numbers that move between patches
+                 and server settings; check in-game.
+   Written against the current game (Conan Exiles Enhanced, the Unreal Engine 5 upgrade
+   from May 2026, which kept the 3.0+ attribute system). Legacy behaves the same here. */
+
+/* Regions of the Exiled Lands, roughly in the order you'll visit them.
+   x,y,w,h place each zone on the schematic map (600x420, north up). */
+const REGIONS=[
+{id:'desert',n:'The Southern Desert',lv:'1–20',conf:true,box:[150,300,320,100],col:'#c9a35b',
+ d:'Where you wake up, crucified and then cut down, in the far south. Follow the river north: it is the only reliable water.',
+ fac:['Dogs of the Desert','Darfari Cannibals','Relic Hunters'],
+ poi:['The river that runs north from the spawn','The Den, a Darfari camp','Sepermeru, city of the Relic Hunters','Sandstorms that roll across the open desert'],
+ tips:['Build your first base on the river. Water, stone, wood and fibre are all close.','Sandstorms do heavy damage: wear a mask, or get indoors and wait it out.','The Darfari and Dogs of the Desert camps are where you knock out your first thralls.']},
+{id:'city',n:'The Unnamed City',lv:'30–45',conf:true,box:[360,220,150,80],col:'#a88a5e',
+ d:'A vast ruined city in the north-east of the desert, home to undead and worse, and the last stop of the main story.',
+ fac:['Relic Hunters','Undead'],poi:['Ruins packed with lore stones and chests','The final step of the bracelet questline'],
+ tips:['Come with good armour and a fighting thrall. The streets are crowded.','Explore it in daylight. It is easy to get lost.']},
+{id:'high',n:'The Highlands and Savanna',lv:'20–40',conf:true,box:[150,190,210,110],col:'#9d9a58',
+ d:'Grassland and rocky hills north of the desert. Iron, more animals and the first serious camps.',
+ fac:['Forgotten Clan','Lemurians','Black Hand'],poi:['Mounds of the Dead','The Black Galleon, the Black Hand pirates\' ship','Iron nodes in the hills'],
+ tips:['Iron starts showing up here. Move to a second base when you need it in bulk.','The Mounds of the Dead and the Black Galleon are known for named thralls.']},
+{id:'jungle',n:'The Jungle',lv:'35–50',conf:true,box:[360,110,190,110],col:'#4f8a4c',
+ d:'Dense, wet jungle in the east, full of ruins, beasts and the remnants of old empires.',
+ fac:['Lemurians','Serpent-men','Beasts'],poi:['The Forgotten City of Xel-ha','The Black Keep','The Midnight Grove'],
+ tips:['Visibility is short. Fight near the edges of clearings, not in the thick of it.','Bring antidotes: many things here poison.']},
+{id:'north',n:'The Frozen North',lv:'40–60',conf:true,box:[270,20,280,90],col:'#cfe0ea',fg:'#14202a',
+ d:'Snow, ice and the Nordheimer. Cold enough to kill you without the right armour.',
+ fac:['Heirs of the North','Ymir\'s Children','Cimmerians','Frost Giants'],poi:['New Asagarth','The Temple of Frost','Black Ice, needed for top-tier crafting'],
+ tips:['Wear cold-resistant armour and carry warm food. Your temperature bar is the real enemy.','Black Ice and the north\'s camps are where the best gear comes from.']},
+{id:'volcano',n:'The Volcano',lv:'50–60',conf:true,box:[60,20,210,170],col:'#8a3423',
+ d:'The burning north-west. The hardest open-world zone, with the top-tier ores and the hardest dungeons.',
+ fac:['Fire creatures','Undead','Sorcerers'],poi:['Warmaker\'s Sanctuary','The Well of Skelos','Brimstone and Dragonpowder ingredients'],
+ tips:['Heat builds fast. Wear heat-resistant armour and carry water.','Don\'t come here before level 50 with a T4 fighter and gear to match.']},
+{id:'siptah',n:'The Isle of Siptah',lv:'All levels',conf:true,box:[500,300,80,100],col:'#3c6a7a',
+ d:'The expansion island. In Enhanced (UE5) owners can sail between it and the Exiled Lands on one server; in Legacy it is its own map.',
+ fac:['The Faithful','Zath\'s cult','Storm-born creatures'],poi:['The Maelstrom and its surges','Vaults and the Tower','Zath, the spider god'],
+ tips:['Surges drop powerful loot but bring monsters. Go as a group.','Siptah thralls are not knocked out: you capture them during surges and Vaults.']}
+];
+
+/* Dungeons. Tier: 1 easiest .. 4 hardest, from a widely shared community ranking. */
+const DUNGEONS=[
+{n:'The Dregs',tier:1,where:'The Southern Desert',conf:true,d:'A sewer full of undead and a giant boss at the end. The first real dungeon most players see.',why:'Good early loot and a taste of dungeon fights.'},
+{n:'Barrow King',tier:1,where:'The Highlands',conf:false,d:'A tomb with the undead Barrow King at the bottom.',why:'Short and good for early armour drops.'},
+{n:'Palace of the Witch Queen',tier:1,where:'The Highlands',conf:false,d:'A haunted palace with a puzzle-like layout and a mechanics-heavy final fight.',why:'Unique cosmetics and recipes. Read the room before swinging.'},
+{n:'The Well of Skelos',tier:2,where:'The Volcano',conf:false,d:'A deep shaft of sorcery and monsters.',why:'Sorcery-themed loot and lore.'},
+{n:'The Temple of Frost',tier:2,where:'The Frozen North',conf:true,d:'The frost giants\' temple. Cold, crowded and long.',why:'Cold-weather gear and Ymir items.'},
+{n:'The Black Keep',tier:2,where:'The Jungle',conf:true,d:'A dark fortress and a clear step up in difficulty. One of the bosses on the main story chain.',why:'Main story boss, good weapons.'},
+{n:'The Midnight Grove',tier:3,where:'The Jungle',conf:true,d:'A sacred grove of beasts. Rankings disagree on how hard it is.',why:'Where you learn the religion of Jhebbal Sag.'},
+{n:'The Sunken City',tier:3,where:'The Jungle coast',conf:false,d:'Underwater ruins. Air and visibility are as much a threat as the monsters.',why:'Endgame side dungeon with good loot.'},
+{n:'The Wine Cellar',tier:4,where:'Sepermeru',conf:true,d:'Beneath the Relic Hunter city. One of the two hardest dungeons, with a main story boss.',why:'Main story boss and some of the best early-endgame drops.'},
+{n:'Warmaker\'s Sanctuary',tier:4,where:'The Volcano',conf:true,d:'The other of the two hardest dungeons. A gauntlet up to the Warmaker.',why:'Main story boss and top-tier weapons.'}
+];
+const DTIER=['','Easy','Hard','Very hard','Extremely hard'];
+
+/* Thrall tiers. base = break time in minutes on a default server (15 minutes per tier). */
+const TIERS=[
+{t:1,base:15,d:'Common camp NPCs. Weak, but they craft faster than you and fill out a base.'},
+{t:2,base:30,d:'A step up in stats. A T2 crafter adds a few bonus recipes.'},
+{t:3,base:45,d:'Strong fighters and skilled crafters with more recipes.'},
+{t:4,base:60,d:'Named thralls: the best stats, unique recipes, and the only ones worth levelling as fighters for endgame.'}
+];
+/* Taskmaster speed bonus on the wheel, by the taskmaster's own tier. */
+const TASKMASTER=[['None',0],['Tier 1 taskmaster',25],['Tier 2 taskmaster',50],['Tier 3 taskmaster',75],['Named (T4) taskmaster',150]];
+const WHEELS=[['Lesser Wheel of Pain',1],['Wheel of Pain',4],['Greater Wheel of Pain',8]];
+
+/* Professions. kind: Combat | Crafting | Specialty */
+const PROFS=[
+{n:'Fighter',k:'Combat',conf:true,d:'Melee follower. Uses any melee weapon you give them. Best all-round companion.'},
+{n:'Archer',k:'Combat',conf:true,d:'Ranged follower. Give them a bow and arrows. Fragile up close.'},
+{n:'Bearer',k:'Combat',conf:true,d:'Carries a lot and fights poorly. A walking chest for long trips.'},
+{n:'Smelter',k:'Crafting',conf:true,d:'Furnace. Speeds up smelting and can save fuel.'},
+{n:'Blacksmith',k:'Crafting',conf:true,d:'Blacksmith\'s Bench. Better weapons and weapon recipes.'},
+{n:'Armorer',k:'Crafting',conf:true,d:'Armorer\'s Bench. Better armour and armour recipes.'},
+{n:'Carpenter',k:'Crafting',conf:true,d:'Carpenter\'s Bench. Building materials, faster.'},
+{n:'Tanner',k:'Crafting',conf:true,d:'Tannery. Leather, faster and from less hide.'},
+{n:'Cook',k:'Crafting',conf:true,d:'Stove and Campfire. Better food and buffs.'},
+{n:'Alchemist',k:'Crafting',conf:true,d:'Alchemist\'s Bench. Potions, explosives and the rarest recipes.'},
+{n:'Taskmaster',k:'Crafting',conf:true,d:'Placed at a Wheel of Pain. Breaks thralls faster.'},
+{n:'Priest',k:'Specialty',conf:true,d:'Placed in an altar. Unlocks that god\'s higher recipes; named priests add more.'},
+{n:'Entertainer',k:'Specialty',conf:true,d:'Dancers and performers. Buff nearby players, help remove corruption, and are needed for some sorcery.'}
+];
+
+/* Named thralls players often look for. Spawns move between patches. */
+const NAMED=[
+{n:'Dalinsia Snowhunter',k:'Fighter',where:'The Frozen North',conf:false,d:'Often called the best fighter: very high health and damage.'},
+{n:'Relic Hunter Treasure Seeker',k:'Fighter',where:'Sepermeru and Relic Hunter camps',conf:false,d:'Outscales most fighters at high level.'},
+{n:'Cimmerian Berserker',k:'Fighter',where:'Cimmerian camps in the north',conf:false,d:'Hard-hitting melee fighter.'},
+{n:'Daicas the Sand-strewn',k:'Fighter',where:'The desert',conf:false,d:'A named fighter you can get early.'},
+{n:'Named taskmasters',k:'Taskmaster',where:'Sepermeru, the Black Galleon, the Mounds of the Dead',conf:false,d:'Worth hunting early: a named taskmaster more than doubles wheel speed.'}
+];
+
+/* Attributes (3.0+). Perks at 5, 10, 15 and 20; at 10 and 20 you choose one of two. */
+const ATTRS=[
+{k:'str',n:'Strength',conf:true,d:'Damage with Strength weapons: swords, axes, maces, two-handers.',p:['A melee damage perk','Choose one of two melee perks','A further melee perk','Choose one of two capstone melee perks']},
+{k:'agi',n:'Agility',conf:true,d:'Damage with Agility weapons: daggers, spears, bows, javelins. Also some armour.',p:['Quickfooted: movement costs less stamina','Choose: Backstab (+15% damage from behind) or Deadshot (more damage at range)','A further agility perk','Choose one of two capstone perks for ranged or light weapons']},
+{k:'vit',n:'Vitality',conf:true,d:'Maximum health and how well you heal.',p:['A survival perk','Choose between perks such as Fast Healer (+50% healing) and Fierce Vitality (health regeneration)','A further survival perk, such as Robust (+100 maximum health)','Choose one of two capstone survival perks']},
+{k:'grit',n:'Grit',conf:true,d:'Stamina, armour and concussive damage (knocking people out for thralls).',p:['A stamina or armour perk','Choose one of two perks','A further grit perk','Choose one of two capstone perks for tanking']},
+{k:'auth',n:'Authority',conf:true,d:'Your followers: their damage, health and how many you can command.',p:['A follower perk','Choose one of two follower perks','A further follower perk','Choose: War Party (+1 follower, but your stats stop boosting them) or a single, stronger follower']},
+{k:'exp',n:'Expertise',conf:true,d:'Carry weight, harvesting yield, durability and building. Player only.',p:['A gathering perk','Choose between harvesting perks such as Efficient Harvest','A further perk for carrying or durability','Choose one of two capstone perks for gathering or building']}
+];
+const ATTR_MAX=20;
+
+/* Religions. tool = the sacrificial or harvesting tool that gathers its special resource. */
+const GODS=[
+{n:'Mitra',conf:true,theme:'Order, light and mercy.',tool:'Mitraen Ankh (Lingering Essence)',perk:'The only god that won\'t take human sacrifices. Good healing items.'},
+{n:'Set',conf:true,theme:'The serpent; poison and sacrifice.',tool:'Setite Ritual Knife (Human Hearts)',perk:'Poison weapons and Setite armour.'},
+{n:'Yog',conf:true,theme:'Cannibalism and flesh.',tool:'Yog Cleaver (Unblemished Human Meat)',perk:'Lets you eat human flesh safely, plus fire-themed items.'},
+{n:'Ymir',conf:true,theme:'Frost and war.',tool:'Hoar-Frost Hatchet (Ice Shards)',perk:'Frost weapons and cold protection. Natural for northern bases.'},
+{n:'Derketo',conf:true,theme:'Death and desire.',tool:'Derketo\'s Kiss (Sliver of the Unfulfilled)',perk:'Life-steal and healing items.'},
+{n:'Jhebbal Sag',conf:true,theme:'Lord of beasts.',tool:'Blood Letter (Sacred Blood)',perk:'Can\'t be picked at character creation: learn it in the Midnight Grove. Beast-themed gear and stronger pets.'},
+{n:'Zath',conf:true,theme:'The spider god of Siptah.',tool:'Blessed Zathite Ritual Dagger',perk:'Spider-themed items. Comes with the Isle of Siptah content.'},
+{n:'Crom',conf:true,theme:'The Cimmerian god, who doesn\'t answer prayers.',tool:'None',perk:'Pick him for flavour. There is no altar, no recipes and no avatar.'}
+];
+
+/* Main progression milestones, roughly in order. */
+const PROG=[
+['Survival','Find water and eat insects or berries'],['Survival','Craft a stone hatchet, stone pickaxe and a waterskin'],
+['Survival','Build a bedroll and a campfire'],['Survival','Spend your first feat points on the Survival and Building feats'],
+['Base','Build a sandstone foundation base with a door'],['Base','Place a Furnace and smelt iron'],
+['Base','Build a Blacksmith\'s and Armorer\'s Bench'],['Thralls','Craft a truncheon and bindings'],
+['Thralls','Build a Lesser Wheel of Pain and break your first thrall'],['Thralls','Put a crafter at each bench'],
+['Thralls','Find a named taskmaster'],['Religion','Build an altar and slot a priest'],
+['Gear','Craft iron, then steel, weapons and armour'],['Gear','Upgrade to Tier 2 building (insulated wood or brick)'],
+['Exploring','Clear the Dregs'],['Exploring','Visit Sepermeru'],['Exploring','Pick up the map rooms and obelisks you pass'],
+['Thralls','Get a T4 fighter and start levelling them'],['Exploring','Reach the Frozen North with cold gear'],
+['Endgame','Mine Black Ice and craft top-tier gear'],['Endgame','Upgrade to Tier 3 building'],
+['Endgame','Beat the Wine Cellar boss'],['Endgame','Beat the Black Keep boss'],['Endgame','Beat the Warmaker\'s Sanctuary boss'],
+['Endgame','Finish the bracelet questline at the Unnamed City'],['Endgame','Summon your god\'s avatar']
+];
+
+const GUIDES=[
+{id:'firstday',title:'Your first day',blurb:'Water, tools, a bedroll and a roof.',body:`
+<p>You wake up crucified in the southern desert. Conan cuts you down. From here everything is about the river to the north.</p>
+<label class="chk"><input type="checkbox" data-k="f1"> Pick up stones, branches and plant fibre on the way north. Press the gather key to grab them by hand.</label>
+<label class="chk"><input type="checkbox" data-k="f2"> Reach the river and drink. Eat bugs from bushes and berries until you can cook meat.</label>
+<label class="chk"><input type="checkbox" data-k="f3"> Open the Journey (it\'s in the inventory screen). Its steps hand out XP and tell you what to do next.</label>
+<label class="chk"><input type="checkbox" data-k="f4"> Craft a stone hatchet and stone pickaxe, then a waterskin.</label>
+<label class="chk"><input type="checkbox" data-k="f5"> Spend feat points on the Survival and Building feats first.</label>
+<label class="chk"><input type="checkbox" data-k="f6"> Build a bedroll: it\'s your respawn point.</label>
+<label class="chk"><input type="checkbox" data-k="f7"> Craft hide or fibre armour. Naked, the desert sun and the first enemies will kill you.</label>
+<label class="chk"><input type="checkbox" data-k="f8"> Put up a small sandstone hut with a door before night.</label>
+<div class="tip">When you die you drop everything. Run back to your body to pick it up before it vanishes, and keep spare tools in a chest at home.</div>`},
+{id:'combat',title:'How combat works',blurb:'Light and heavy combos, stamina, dodging.',body:`
+<ul class="mech"><li>Each weapon type has its own combo of light and heavy attacks. Mix them: the last hit of a combo is usually the strongest.</li>
+<li>Attacking, dodging, sprinting and blocking all use stamina. Never empty the bar mid-fight: you can\'t dodge without it.</li>
+<li>Dodge rolls have a little invulnerability. Roll through big swings, not away from them.</li>
+<li>Your encumbrance decides how you roll. Heavy armour plus a full pack means a slow, short roll.</li>
+<li>Weapons can cause <b>bleed</b>, <b>poison</b>, <b>sunder</b> (lowers armour) and <b>concussive</b> damage (knocks people out).</li>
+<li>Strength weapons: swords, axes, maces, greatswords. Agility weapons: daggers, spears, bows, javelins.</li>
+<li>Shields block arrows and soften melee hits but slow you down.</li></ul>
+<div class="tip">Fight one enemy at a time. Pull a single NPC away from its camp with an arrow, then deal with the rest.</div>`},
+{id:'building',title:'Building a base',blurb:'Foundations, stability, tiers and decay.',body:`
+<ul class="mech"><li>Start on foundations. They level out rough ground and carry the rest of the building.</li>
+<li>Every piece has <b>stability</b>. The further a piece is from a foundation or pillar, the less stable it is. Build pillars to go higher or wider.</li>
+<li>Building tiers: <b>Tier 1</b> sandstone, <b>Tier 2</b> insulated wood or brick, <b>Tier 3</b> hardened brick and reinforced wood. Higher tiers resist more damage.</li>
+<li>Buildings decay if you stay away too long. Logging in near your base resets the timer.</li>
+<li>Your buildings claim the land around them, which stops other players building there and also stops many resources respawning there.</li>
+<li>Rivers, mountain shelves and narrow valleys make the strongest base spots.</li></ul>
+<div class="tip">Put workbenches where you can walk between them without stairs. You\'ll make that trip thousands of times.</div>`},
+{id:'thralls',title:'Taking thralls',blurb:'Knock out, bind, drag, break.',body:`
+<ol class="mech"><li>Craft a <b>truncheon</b> (concussive damage) and <b>bindings</b>.</li>
+<li>Pull one NPC away from its camp. Hit it with the truncheon until it falls unconscious. Normal weapons kill instead.</li>
+<li>Use the bindings on the body and drag it home. Running uses stamina, so watch your bar.</li>
+<li>Put the thrall on a <b>Wheel of Pain</b> with food in the wheel. Gruel is the usual choice.</li>
+<li>Wait. A taskmaster on the wheel speeds it up. Track wheels on the <a href="#wheel">Wheel of Pain</a> page.</li>
+<li>Take the thrall out of the wheel\'s inventory and place it at a bench, an altar, or have it follow you.</li></ol>
+<div class="note">A thrall unconscious too long wakes up. Hit it again with the truncheon on the way home if you need to.</div>
+<div class="tip">The Lesser Wheel takes one thrall, the Wheel of Pain four and the Greater Wheel eight. Build a bigger wheel as soon as you can.</div>`},
+{id:'followers',title:'Followers and pets',blurb:'Levelling your fighter.',body:`
+<ul class="mech"><li>Fighter and archer thralls level up by fighting. Their stats grow each level, and their perks depend on how they were raised.</li>
+<li>Feed them to heal them out of combat. Some foods give them better growth.</li>
+<li>Give them the best armour and weapon you can spare. Their gear doesn\'t wear down as fast as yours.</li>
+<li>Pets come from animal pens: tame babies with food. They also level up by fighting.</li>
+<li>Your Authority boosts followers, unless you take War Party for a second follower.</li>
+<li>Set their stance: attack what attacks you, attack anything, or stay passive while you travel.</li></ul>`},
+{id:'purge',title:'The Purge',blurb:'NPC raids on your base.',body:`
+<p>On servers with the Purge turned on, a meter fills while you play, build and craft. When it is full, an army attacks one of your bases.</p>
+<ul class="mech"><li>The size and type of army depend on how big your base is and where it is.</li>
+<li>Beat the Purge and you get loot, and sometimes a named thrall from the purge leader.</li>
+<li>Build walls, archers on high ground and a choke point. Fighter thralls on guard do much of the work.</li>
+<li>Check your server settings: many PvE servers have the Purge turned off.</li></ul>`},
+{id:'temp',title:'Heat, cold and thirst',blurb:'Surviving the climate.',body:`
+<ul class="mech"><li>Your temperature bar shifts with the region, the weather and time of day.</li>
+<li>Each armour piece has heat and cold isolation. Swap to light, heat-resistant armour in the desert and Volcano, and furs in the north.</li>
+<li>Being too hot dries you out; being too cold drains health. Shade, shelter, fire and the right food fix both.</li>
+<li>Carry a waterskin everywhere. A full one saves you on long trips away from the river.</li>
+<li>Sandstorms in the desert do heavy damage. A mask or indoor shelter keeps you alive.</li></ul>`},
+{id:'sorcery',title:'Sorcery and corruption',blurb:'Power at a price.',body:`
+<ul class="mech"><li>Since Age of Sorcery (3.0), you can learn sorcery: summonings, curses and rituals that need sorcerous materials and corruption.</li>
+<li><b>Corruption</b> eats into the top of your health or stamina bar. Sorcery and some places and foods add it.</li>
+<li>Corrupted attribute points (Strength, Vitality, Authority) unlock dark perks while you carry corruption.</li>
+<li>Corruption fades slowly, and entertainer thralls and some items clear it faster.</li></ul>
+<div class="note">Sorcery details have changed in most updates since 3.0. Check recipe descriptions in-game.</div>`},
+{id:'endgame',title:'Endgame',blurb:'Bosses, obelisks and the bracelet.',body:`
+<ul class="mech"><li>The main story asks you to remove your bracelet and escape. The chain runs through the bosses of the Wine Cellar, the Black Keep and Warmaker\'s Sanctuary, and ends at the Unnamed City.</li>
+<li>Activate obelisks and map rooms as you explore: they become fast-travel points.</li>
+<li>Black Ice, Star Metal and Dragonbone go into the best weapons and armour.</li>
+<li>Build your god\'s top-tier altar and summon the avatar for raids or just to watch.</li>
+<li>Legendary chests in the hardest areas hold legendary weapons and armour.</li></ul>
+<div class="tip">Ticking off the <a href="#progress">Progression</a> page keeps track of where you are on the road.</div>`}
+];
+
+/* ================= STATE ================= */
+let S={checks:{},prog:{},attrs:{},attrPool:50,wheels:[],roster:[],notes:'',wheelMult:1};
+try{const x=JSON.parse(localStorage.getItem('ce_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('ce_state',JSON.stringify(S));}catch(e){}};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const mark=c=>c?'<span class="conf" title="Wiki or several agreeing guides">●</span>':'<span class="unv" title="Player reports or a single source; check in-game">○</span>';
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Home'],['guides','Guides'],['regions','Regions'],['dungeons','Dungeons'],['thralls','Thralls'],['wheel','Wheel of Pain'],['attributes','Attribute Planner'],['religions','Religions'],['progress','Progression'],['roster','My Thralls'],['notes','My Notes']];
+function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>CONAN EXILES<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+
+const TILE={guides:'First day, combat, building, thralls, the Purge, climate, sorcery and endgame',regions:'The Exiled Lands zone by zone, with a map',dungeons:'Every major dungeon, ranked by difficulty',thralls:'Tiers, professions and named thralls',wheel:'Live timers for the thralls you\'re breaking',attributes:'Plan your points and see which perks you reach',religions:'Every god, their tool and what they give you',progress:'From the river to the avatar',roster:'Keep track of who you\'ve broken and where they work',notes:'Your own notes'};
+function pgHome(){
+  const done=PROG.filter((_,i)=>S.prog[i]).length,run=S.wheels.filter(w=>w.end>Date.now()).length,ready=S.wheels.filter(w=>w.end<=Date.now()).length;
+  return `${TWArt.hero(440900,'Conan Exiles')}<h2>Conan Exiles Assistant</h2><p class="sub">A companion for <i>Conan Exiles</i> in the Exiled Lands and on the Isle of Siptah. Your checklists, wheels, thralls and notes are saved on this device.</p>
+<div class="stats"><div class="stat"><small>Progression</small><a class="mob" href="#progress">${done} of ${PROG.length}</a></div><div class="stat"><small>Wheels running</small><a class="mob" href="#wheel">${run}</a></div><div class="stat"><small>Thralls ready</small><a class="mob" href="#wheel">${ready}</a></div><div class="stat"><small>Thralls owned</small><a class="mob" href="#roster">${S.roster.length}</a></div></div>
+<div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> come from the Conan Exiles wiki or several guides that agree. Facts marked <span class="unv">○</span> come from player reports or a single source. Server settings change many numbers (harvest rates, wheel speed, the Purge), so trust what you see in-game first.</div>`;}
+
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div>`;}
+  return `<h2>Guides</h2><p class="sub">Checkboxes are saved on this device.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
+}
+
+/* Schematic of the Exiled Lands: zones as blocks, north up. */
+function regionMap(){
+  const z=REGIONS.map(r=>{const [x,y,w,h]=r.box;return `<a href="#regions/${r.id}" aria-label="${esc(r.n)}"><title>${esc(r.n)} (level ${r.lv})</title>
+<rect class="hit" x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${r.col}" stroke="#120e0b" stroke-width="2"/>
+<text class="lbl" x="${x+w/2}" y="${y+h/2}" text-anchor="middle" font-size="12" font-weight="700" fill="${r.fg||'#fff'}" style="stroke:${r.fg?'#ffffffaa':'#120e0b'}">${esc(r.n.replace(/^The /,''))}</text>
+<text class="lbl" x="${x+w/2}" y="${y+h/2+15}" text-anchor="middle" font-size="11" fill="${r.fg||'#fff'}" style="stroke:${r.fg?'#ffffffaa':'#120e0b'}">${/^\d/.test(r.lv)?'Lv ':''}${r.lv}</text></a>`;}).join('');
+  return `<svg class="tw-map" viewBox="0 0 600 420" style="max-width:640px" role="img" aria-label="Rough layout of the Exiled Lands">
+<rect width="600" height="420" fill="#1b3644"/><path d="M40 410 L40 12 L560 12 L560 300 L490 300 L490 410 Z" fill="#2a2016"/>${z}
+<path d="M300 405 C290 360 320 330 300 300" stroke="#5aa3c7" stroke-width="4" fill="none" stroke-linecap="round"/>
+<text x="310" y="398" font-size="11" fill="#cfe7f2">You start here, follow the river north</text>
+<text x="575" y="30" font-size="14" fill="#e6d8c4" text-anchor="middle">N</text><path d="M575 34 L575 56" stroke="#e6d8c4" stroke-width="2" marker-start="url(#ar)"/>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#e6d8c4"/></marker></defs></svg>`;
+}
+function pgRegions(sub){
+  const r=sub&&REGIONS.find(x=>x.id===sub);
+  if(r){const ds=DUNGEONS.filter(d=>d.where===r.n||d.where.includes(r.n.replace(/^The /,'')));
+  return `<p><a href="#regions">&larr; All regions</a></p>
+<h2>${mark(r.conf)} ${esc(r.n)} <span class="tag">${/^\d/.test(r.lv)?'Level ':''}${esc(r.lv)}</span></h2><p class="sub">${esc(r.d)}</p>
+<div class="stats"><div class="stat"><small>Who lives here</small>${r.fac.map(esc).join(', ')}</div>${ds.length?`<div class="stat"><small>Dungeons</small>${ds.map(d=>`<a class="mob" href="#dungeons">${esc(d.n)}</a>`).join(', ')}</div>`:''}</div>
+<div class="card"><h3 style="margin-top:0">Places to know</h3><ul class="mech">${r.poi.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>
+<div class="tip"><b>Tips:</b><ul class="mech" style="margin:4px 0 0">${r.tips.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>`;}
+  return `<h2>Regions</h2><p class="sub">The Exiled Lands from the southern desert to the Volcano, plus the Isle of Siptah. Tap a zone for who lives there and what to watch for.</p>
+${regionMap()}<p class="tw-cap">Rough layout, not to scale. Level ranges are a guide; camps inside a zone vary.</p>
+<div class="grid">${REGIONS.map(r=>`<div class="tile" onclick="location.hash='regions/${r.id}'"><b>${esc(r.n)}</b><span class="tag">${/^\d/.test(r.lv)?'Lv ':''}${esc(r.lv)}</span><div class="dim">${esc(r.d)}</div></div>`).join('')}</div>`;
+}
+
+function pgDungeons(){return `<h2>Dungeons</h2><p class="sub">Easiest first. The ranking comes from the community, and players disagree about a few (the Midnight Grove most of all).</p>
+<div class="card tbl"><table><tr><th>Dungeon</th><th>Difficulty</th><th>Where</th><th>What it is</th><th>Why go</th></tr>${DUNGEONS.map(d=>`<tr><td>${mark(d.conf)} <b>${esc(d.n)}</b></td><td>${DTIER[d.tier]}</td><td>${esc(d.where)}</td><td>${esc(d.d)}</td><td>${esc(d.why)}</td></tr>`).join('')}</table></div>
+<div class="tip">Bring a fighter thrall, healing, a spare weapon and torches. Most dungeons have no way out halfway through.</div>
+<div class="note">The Wine Cellar, the Black Keep and Warmaker's Sanctuary are on the main story. The rest are optional and can be done in any order.</div>`;}
+
+function pgThralls(){return `<h2>Thralls</h2><p class="sub">NPCs you knock out, drag home and break on a Wheel of Pain. How to do it is in the <a href="#guides/thralls">thralls guide</a>.</p>
+<h3>Tiers</h3><div class="card tbl"><table><tr><th>Tier</th><th>Break time (default server)</th><th>What they're like</th></tr>${TIERS.map(t=>`<tr><td><b>Tier ${t.t}</b>${t.t===4?' <span class="tag">Named</span>':''}</td><td>${t.base} min</td><td>${esc(t.d)}</td></tr>`).join('')}</table></div>
+<div class="note">Break times are 15 minutes per tier on default settings, and servers often change them. Several guides list much longer times from older versions.</div>
+<h3>Professions</h3><div class="card tbl"><table><tr><th>Profession</th><th>Kind</th><th>Where it works and what it does</th></tr>${PROFS.map(p=>`<tr><td>${mark(p.conf)} <b>${esc(p.n)}</b></td><td><span class="tag" style="margin:0">${p.k}</span></td><td>${esc(p.d)}</td></tr>`).join('')}</table></div>
+<h3>Named thralls worth hunting</h3><div class="card tbl"><table><tr><th>Thrall</th><th>Role</th><th>Found</th><th>Why</th></tr>${NAMED.map(n=>`<tr><td>${mark(n.conf)} <b>${esc(n.n)}</b></td><td>${esc(n.k)}</td><td>${esc(n.where)}</td><td>${esc(n.d)}</td></tr>`).join('')}</table></div>`;}
+
+/* ================= WHEEL OF PAIN ================= */
+function breakMins(tier,tmBonus,mult){return TIERS[tier-1].base*mult/(1+tmBonus/100);}
+function dur(ms){const s=Math.max(0,Math.round(ms/1e3)),h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+'h ':'')+String(m).padStart(h?2:1,'0')+'m '+String(x).padStart(2,'0')+'s';}
+function pgWheel(){const now=Date.now();
+  return `<h2>Wheel of Pain</h2><p class="sub">Work out how long a thrall takes to break, and start a timer for each one on your wheels. Timers keep running when you close the page.</p>
+<div class="card"><form id="wf">
+<div class="row"><label>Thrall <input id="wn" type="text" style="width:200px" placeholder="e.g. Relic Hunter Archer"></label>
+<label>Tier <select id="wt">${TIERS.map(t=>`<option value="${t.t}">Tier ${t.t}</option>`).join('')}</select></label>
+<label>Taskmaster <select id="wm">${TASKMASTER.map(([n,b])=>`<option value="${b}">${n}${b?` (+${b}%)`:''}</option>`).join('')}</select></label></div>
+<div class="row"><label>Wheel <select id="ww">${WHEELS.map(([n,c])=>`<option>${n}</option>`).join('')}</select></label>
+<label>Server multiplier <input id="wx" type="number" min="0.05" step="0.05" value="${S.wheelMult}" style="width:80px" title="1 is default; 0.5 is twice as fast"></label>
+<label>Already done <input id="wd" type="number" min="0" max="99" value="0" style="width:64px"> %</label>
+<button class="pri">Start timer</button></div>
+<div class="dim" id="wcalc"></div></form></div>
+<h3>On the wheels</h3>
+<div id="wl">${S.wheels.length?S.wheels.map((w,i)=>{const left=w.end-now;return `<div class="card wheel"><div><b>${esc(w.n||'Thrall')}</b> <span class="tag">Tier ${w.t}</span> <span class="tag">${esc(w.w)}</span><div class="dim">Started ${new Date(w.start).toLocaleTimeString([], {timeStyle:'short'})} · done at ${new Date(w.end).toLocaleTimeString([], {timeStyle:'short'})}</div><div class="bar" style="width:220px"><i data-wb="${i}" style="width:${Math.min(100,(now-w.start)/(w.end-w.start)*100)}%"></i></div></div>
+<div class="row"><span class="t ${left<=0?'ok':''}" data-wt="${i}">${left<=0?'Ready':dur(left)}</span>${left<=0?`<button data-wr="${i}" class="pri">Add to My Thralls</button>`:''}<button data-wdel="${i}" title="Remove">✕</button></div></div>`;}).join(''):'<div class="dim">No thralls on the wheel. Start a timer above.</div>'}</div>
+<div class="tip">Wheels need food to keep turning: gruel, or any food the wheel accepts. If a wheel runs out, the timer here keeps going but the thrall doesn't.</div>
+<div class="note">Taskmaster bonuses and the 15-minutes-per-tier base come from the wiki. Your server's "thrall conversion" multiplier changes everything, so set it above. Set "Already done" from the wheel's progress bar to sync a timer with a thrall already on the wheel.</div>`;}
+let wheelTimer=0;
+function wheelWire(){
+  const calc=()=>{const t=+$('wt').value,b=+$('wm').value,x=+$('wx').value||1,d=Math.min(99,Math.max(0,+$('wd').value||0));
+    const m=breakMins(t,b,x);$('wcalc').innerHTML=`Breaks in <b>${dur(m*6e4)}</b> from scratch${d?`, <b>${dur(m*6e4*(1-d/100))}</b> from ${d}%`:''}.`;};
+  ['wt','wm','wx','wd'].forEach(id=>$(id).oninput=calc);calc();
+  $('wf').onsubmit=e=>{e.preventDefault();const t=+$('wt').value,b=+$('wm').value,x=+$('wx').value||1,d=Math.min(99,Math.max(0,+$('wd').value||0));
+    const total=breakMins(t,b,x)*6e4,now=Date.now();S.wheelMult=x;
+    S.wheels.push({n:$('wn').value.trim(),t,w:$('ww').value,start:now-total*d/100,end:now+total*(1-d/100)});save();route();};
+  document.querySelectorAll('[data-wdel]').forEach(b=>b.onclick=()=>{S.wheels.splice(+b.dataset.wdel,1);save();route();});
+  document.querySelectorAll('[data-wr]').forEach(b=>b.onclick=()=>{const w=S.wheels.splice(+b.dataset.wr,1)[0];
+    S.roster.push({n:w.n||'Thrall',t:w.t,job:'',where:'',at:Date.now()});save();location.hash='roster';});
+  clearInterval(wheelTimer);wheelTimer=setInterval(()=>{
+    if(!$('wl')){clearInterval(wheelTimer);return;}
+    const now=Date.now();let redraw=false;
+    S.wheels.forEach((w,i)=>{const el=document.querySelector(`[data-wt="${i}"]`),bar=document.querySelector(`[data-wb="${i}"]`);if(!el)return;
+      if(w.end<=now&&el.textContent!=='Ready'){redraw=true;return;}
+      if(w.end>now)el.textContent=dur(w.end-now);if(bar)bar.style.width=Math.min(100,(now-w.start)/(w.end-w.start)*100)+'%';});
+    if(redraw)route();},1000);
+}
+
+/* ================= ATTRIBUTES ================= */
+const spent=()=>ATTRS.reduce((s,a)=>s+(S.attrs[a.k]||0),0);
+function pgAttributes(){const used=spent(),left=S.attrPool-used;
+  return `<h2>Attribute Planner</h2><p class="sub">Plan where your points go. Perks unlock at 5, 10, 15 and 20 in an attribute; at 10 and 20 you pick one of two. Each attribute caps at ${ATTR_MAX} from levelling.</p>
+<div class="row"><label>Points to spend <input id="ap" type="number" min="0" max="120" value="${S.attrPool}" style="width:80px"></label><span class="${left<0?'bad':'dim'}">${used} spent · ${left} left</span><button id="areset">Reset</button></div>
+<div class="card">${ATTRS.map(a=>{const v=S.attrs[a.k]||0;return `<div class="attr"><div>${mark(a.conf)} <b>${a.n}</b></div>
+<div><div class="pips">${Array.from({length:ATTR_MAX},(_,i)=>`<i class="${i<v?'f':''} ${(i+1)%5===0&&i<ATTR_MAX-1?'m':''}"></i>`).join('')}</div><div class="dim" style="font-size:12px">${esc(a.d)}</div></div>
+<div class="ctl"><button data-am="${a.k}" aria-label="Less ${a.n}">−</button><b>${v}</b><button data-ap="${a.k}" aria-label="More ${a.n}">+</button></div></div>`;}).join('')}</div>
+<h3>Perks you reach</h3><p class="dim" style="margin-top:0"><span class="unv">○</span> The named perks come from guides and the wiki; which step each one sits on can differ in your version.</p><div class="card">${ATTRS.filter(a=>(S.attrs[a.k]||0)>=5).map(a=>{const v=S.attrs[a.k];return `<p style="margin:4px 0"><b>${a.n} ${v}</b></p><ul class="mech" style="margin:0 0 8px">${a.p.slice(0,Math.floor(v/5)).map((p,i)=>`<li><span class="tag" style="margin:0 6px 0 0">${(i+1)*5}</span>${esc(p)}</li>`).join('')}</ul>`;}).join('')||'<div class="dim">Put 5 points in an attribute to see its first perk.</div>'}</div>
+<h3>Common builds</h3><div class="grid">
+<div class="tile" data-build="str:20,vit:20,grit:10"><b>Melee bruiser</b><div class="dim">Strength 20, Vitality 20, Grit 10</div></div>
+<div class="tile" data-build="agi:20,vit:20,grit:10"><b>Archer / skirmisher</b><div class="dim">Agility 20, Vitality 20, Grit 10</div></div>
+<div class="tile" data-build="auth:20,vit:20,grit:10"><b>Thrall master</b><div class="dim">Authority 20, Vitality 20, Grit 10</div></div>
+<div class="tile" data-build="exp:20,vit:15,grit:15"><b>Gatherer and builder</b><div class="dim">Expertise 20, Vitality 15, Grit 15</div></div></div>
+<div class="note">Perk names and exact numbers have shifted since Age of Sorcery (3.0). The perks above describe what each step gives; read the in-game tooltip before you commit. Points can be reset with a Potion of Bestial Memory.</div>`;}
+function attrWire(){
+  document.querySelectorAll('[data-ap]').forEach(b=>b.onclick=()=>{const k=b.dataset.ap;if((S.attrs[k]||0)<ATTR_MAX){S.attrs[k]=(S.attrs[k]||0)+1;save();route(true);}});
+  document.querySelectorAll('[data-am]').forEach(b=>b.onclick=()=>{const k=b.dataset.am;if((S.attrs[k]||0)>0){S.attrs[k]--;save();route(true);}});
+  $('ap').onchange=e=>{S.attrPool=Math.max(0,+e.target.value||0);save();route(true);};
+  $('areset').onclick=()=>{S.attrs={};save();route(true);};
+  document.querySelectorAll('[data-build]').forEach(t=>t.onclick=()=>{S.attrs={};t.dataset.build.split(',').forEach(p=>{const [k,v]=p.split(':');S.attrs[k]=+v;});save();route(true);});
+}
+
+function pgReligions(){return `<h2>Religions</h2><p class="sub">Pick one at character creation (except Jhebbal Sag), or learn more from priests later. Build the god's altar, put a priest in it, and upgrade it with the god's special resource.</p>
+<div class="card tbl"><table><tr><th>God</th><th>Theme</th><th>Sacrifice / harvest tool</th><th>Good to know</th></tr>${GODS.map(g=>`<tr><td>${mark(g.conf)} <b>${esc(g.n)}</b></td><td>${esc(g.theme)}</td><td>${esc(g.tool)}</td><td>${esc(g.perk)}</td></tr>`).join('')}</table></div>
+<h3>Altar tiers</h3><div class="card"><ul class="mech"><li><b>Shrine:</b> the starting altar. Learn the god's basic items.</li><li><b>Temple:</b> upgrade with the god's special resource. A priest thrall unlocks more recipes.</li><li><b>Greater Temple / Sanctum:</b> the top tier. Religion weapons and armour, and the avatar.</li></ul></div>
+<div class="note">Summoning an avatar destroys the altar and everything in it, including the priest. Build a second altar if you want to keep crafting.</div>`;}
+
+function pgProgress(){const done=PROG.filter((_,i)=>S.prog[i]).length,groups=[...new Set(PROG.map(p=>p[0]))];
+  return `<h2>Progression</h2><p class="sub">A rough road from the river to the avatar. Tick things off as you go.</p>
+<div class="dim" id="pdone">${done} of ${PROG.length} done</div><div class="bar"><i id="pbar" style="width:${done/PROG.length*100}%"></i></div>
+${groups.map(g=>`<h3>${g}</h3><div class="card">${PROG.map((p,i)=>p[0]===g?`<label class="chk"><input type="checkbox" data-p="${i}"${S.prog[i]?' checked':''}> ${esc(p[1])}</label>`:'').join('')}</div>`).join('')}
+<button onclick="if(confirm('Clear all progression ticks?')){S.prog={};save();route()}">Reset</button>`;}
+
+const JOBS=['','Fighter','Archer','Bearer','Smelter','Blacksmith','Armorer','Carpenter','Tanner','Cook','Alchemist','Taskmaster','Priest','Entertainer'];
+function pgRoster(){return `<h2>My Thralls</h2><p class="sub">Everyone you've broken and where they work. Thralls finished on the <a href="#wheel">Wheel of Pain</a> land here.</p>
+<div class="card"><form class="row" id="tf"><input id="tn" type="text" style="width:200px" placeholder="Name"><select id="tt">${TIERS.map(t=>`<option value="${t.t}">Tier ${t.t}</option>`).join('')}</select>
+<select id="tj">${JOBS.map(j=>`<option value="${j}">${j||'Job…'}</option>`).join('')}</select><input id="tw" type="text" style="width:180px" placeholder="Where (e.g. River base furnace)"><button class="pri">Add</button></form></div>
+<div class="card tbl"><table><tr><th>Name</th><th>Tier</th><th>Job</th><th>Where</th><th>Level</th><th></th></tr>${S.roster.map((r,i)=>`<tr><td><b>${esc(r.n)}</b></td><td>${r.t}</td>
+<td><select data-rj="${i}">${JOBS.map(j=>`<option value="${j}"${r.job===j?' selected':''}>${j||'—'}</option>`).join('')}</select></td>
+<td><input type="text" data-rw="${i}" value="${esc(r.where||'')}" style="width:170px"></td>
+<td><input type="number" data-rl="${i}" value="${r.lvl||''}" min="0" max="99" style="width:64px"></td><td><button data-rdel="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="6" class="dim">No thralls yet.</td></tr>'}</table></div>`;}
+function rosterWire(){
+  $('tf').onsubmit=e=>{e.preventDefault();const n=$('tn').value.trim();if(!n)return;S.roster.push({n,t:+$('tt').value,job:$('tj').value,where:$('tw').value.trim(),at:Date.now()});save();route();};
+  document.querySelectorAll('[data-rj]').forEach(s=>s.onchange=()=>{S.roster[+s.dataset.rj].job=s.value;save();});
+  document.querySelectorAll('[data-rw]').forEach(s=>s.oninput=()=>{S.roster[+s.dataset.rw].where=s.value;save();});
+  document.querySelectorAll('[data-rl]').forEach(s=>s.oninput=()=>{S.roster[+s.dataset.rl].lvl=+s.value||0;save();});
+  document.querySelectorAll('[data-rdel]').forEach(b=>b.onclick=()=>{if(confirm('Remove '+S.roster[+b.dataset.rdel].n+'?')){S.roster.splice(+b.dataset.rdel,1);save();route();}});
+}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Base coordinates, server settings, where that named taskmaster spawns...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+function route(keepScroll){
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=PAGES.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main'),top=m.scrollTop;
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),regions:()=>pgRegions(sub),dungeons:pgDungeons,thralls:pgThralls,wheel:pgWheel,attributes:pgAttributes,religions:pgReligions,progress:pgProgress,roster:pgRoster,notes:pgNotes})[page]();
+  m.scrollTop=keepScroll===true?top:0;
+  m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
+  m.querySelectorAll('input[type=checkbox][data-p]').forEach(cb=>{cb.onchange=()=>{S.prog[cb.dataset.p]=cb.checked;save();const d=PROG.filter((_,i)=>S.prog[i]).length;$('pdone').textContent=d+' of '+PROG.length+' done';$('pbar').style.width=d/PROG.length*100+'%';};});
+  if(page==='wheel')wheelWire();
+  if(page==='attributes')attrWire();
+  if(page==='roster')rosterWire();
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',()=>route());
+route();
+</script>
+</body>
+</html>

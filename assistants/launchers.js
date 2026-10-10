@@ -29,6 +29,7 @@
     { re: /^raft$/, href: '/assistants/raft/', icon: '🛶' },
     { re: /^peak$/, href: '/assistants/peak/', icon: '🏔️' },
     { re: /^howtofish/, href: '/assistants/how-to-fish/', icon: '🎣' },
+    { re: /^conanexiles/, href: '/assistants/conan-exiles/', icon: '⚔️' },
     { re: /^minecraft(launcher|forwindows|uwp|javaedition|bedrock(edition)?)?$/, href: '/assistants/minecraft/', icon: '⛏️' },
   ];
 
@@ -42,7 +43,7 @@
   const WIN_SKIP_ID = /^(Steam App \d+|\d+_is1|\{?[0-9a-f-]+\}?_is1_GOG)$/i;
   // Hints that a Windows program is a game rather than an app.
   const GAME_PATH = /[\\/](xboxgames|games|riot games|rockstar games|battle\.net|blizzard|ea games|origin games|itch[\\/]apps|amazon games|ubisoft game launcher[\\/]games)([\\/]|$)/i;
-  const GAME_PUB = /^(riot games|blizzard|ubisoft|electronic arts|rockstar|mojang|bethesda|square enix|bandai namco|sega\b|capcom|cd projekt|paradox|devolver|activision|epic games, inc\. ?\(fortnite\)|valve|landfall|aggro crab|redbeet|dazed games|rocketwerkz|surgent)/i;
+  const GAME_PUB = /^(riot games|blizzard|ubisoft|electronic arts|rockstar|mojang|bethesda|square enix|bandai namco|sega\b|capcom|cd projekt|paradox|devolver|activision|epic games, inc\. ?\(fortnite\)|valve|landfall|aggro crab|redbeet|dazed games|rocketwerkz|surgent|funcom)/i;
 
   const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
