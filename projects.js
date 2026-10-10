@@ -89,11 +89,11 @@ window.TAVERN_PROJECTS = {
       "card": {
         "section": "bots",
         "title": "The Wandering Clerk",
-        "text": "Guild receptionist for <i>GuildBreak: Hunt &amp; Hoard</i>, a hunt-and-loot RPG that runs right in Twitch chat. Enlist a character, hunt monsters, claim bounties and spend your gold at the merchant's stall.",
+        "text": "<b>Killing this off. The features are all a part of guildscribe and that is being maintained.</b> Guild receptionist for <i>GuildBreak: Hunt &amp; Hoard</i>, a hunt-and-loot RPG that runs right in Twitch chat. Enlist a character, hunt monsters, claim bounties and spend your gold at the merchant's stall.",
         "href": "/wandering-clerk/",
         "url": "tavernworks.dev/wandering-clerk",
-        "pill": "LIVE",
-        "pillKind": "live",
+        "pill": "DEPRECATED",
+        "pillKind": "beta",
         "links": []
       }
     },
