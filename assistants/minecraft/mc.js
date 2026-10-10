@@ -845,8 +845,27 @@ function enchantsRender() {
   const roman = n => ['','I','II','III','IV','V'][n];
   $('el').innerHTML = r.map(e => `<tr><td><b>${esc(e[0])}</b>${e[5] ? '<span class="tag t">treasure</span>' : ''}</td><td>${roman(e[1])}</td><td>${esc(e[2])}</td><td>${esc(e[3])}</td></tr>`).join('');
 }
+/* Height chart of the Overworld ores: a bar for where each spawns, a dot at its best Y. */
+function oreChart() {
+  const ow = ORES.filter(o => !/Nether/.test(o[2]));
+  const col = {Diamond:'#5fe0d8', Iron:'#d8af93', Gold:'#f2d34e', Redstone:'#e0453a', 'Lapis Lazuli':'#3d63d6', Copper:'#d9824b', Coal:'#555', Emerald:'#3fcf6e'};
+  const top = 20, bot = 340, yOf = y => top + (320 - y) / 384 * (bot - top), w = 60, x0 = 70;
+  const grid = [320, 256, 192, 128, 64, 0, -64].map(y => `<line x1="${x0 - 6}" x2="${x0 + ow.length * w}" y1="${yOf(y)}" y2="${yOf(y)}" stroke="#333" stroke-dasharray="${y === 64 ? '0' : '3 4'}"/><text x="${x0 - 10}" y="${yOf(y) + 4}" text-anchor="end" font-size="11" fill="#999">Y ${y}</text>`).join('');
+  const bars = ow.map((o, i) => {
+    const [lo, hi] = o[2].split(' to ').map(Number), x = x0 + i * w + w / 2, c = col[o[0]] || '#aaa';
+    const best = o[1].split(' and ').map(Number).filter(Number.isFinite);
+    return `<g><title>${esc(o[0])}: Y ${esc(o[2])}, best ${esc(o[1])}</title><rect x="${x - 9}" y="${yOf(hi)}" width="18" height="${yOf(lo) - yOf(hi)}" rx="4" fill="${c}" opacity=".45"/>
+${best.map(b => `<circle cx="${x}" cy="${yOf(b)}" r="7" fill="${c}" stroke="#fff" stroke-width="2"/>`).join('')}
+<text x="${x}" y="${bot + 18}" text-anchor="middle" font-size="11" fill="#ddd">${esc(o[0].replace(' Lazuli', ''))}</text></g>`;
+  }).join('');
+  return `<svg class="tw-map" viewBox="0 0 ${x0 + ow.length * w + 10} ${bot + 30}" style="max-width:640px" role="img" aria-label="Chart of where each Overworld ore spawns">
+<rect width="100%" height="100%" fill="#14161a"/><rect x="${x0 - 6}" y="${yOf(64)}" width="${ow.length * w + 6}" height="${bot - yOf(64)}" fill="#24221f"/>
+<text x="${x0 + ow.length * w}" y="${yOf(64) - 5}" text-anchor="end" font-size="10" fill="#7fb6e6">sea level (Y 63)</text>${grid}${bars}</svg>
+<p class="tw-cap">Bars show where each ore can spawn; dots mark the best height. Nether ores are in the table.</p>`;
+}
 function pgOres() {
   return `<h2>Ores</h2><p class="sub">Ore heights since Caves &amp; Cliffs (1.18). The same on both editions. The world runs from Y -64 to Y 320.</p>
+${oreChart()}
 <div class="card tbl"><table><tr><th>Ore</th><th>Best Y</th><th>Found</th><th>Notes</th></tr>${ORES.map(o => `<tr><td><b>${esc(o[0])}</b></td><td>${esc(o[1])}</td><td>${esc(o[2])}</td><td>${esc(o[3])}</td></tr>`).join('')}</table></div>
 <div class="tip">${J ? 'Your Y level is on the F3 screen (the middle number of XYZ).' : 'Your Y level is the middle number under Show Coordinates.'}</div>`;
 }
@@ -1104,8 +1123,31 @@ function slimeRender() {
 
 /* ---- coordinates ---- */
 const DIMS = {o:'Overworld', n:'Nether', e:'The End'};
+/* Top-down map of saved places. Nether places are drawn at their Overworld position (x8). */
+function coordsMap() {
+  const pts = S.coords.map((c, i) => ({c, i, x: c.d === 'n' ? c.x * 8 : c.x, z: c.d === 'n' ? c.z * 8 : c.z})).filter(p => p.c.d !== 'e');
+  if (!pts.length) return '';
+  const W = 640, H = 360, pad = 40;
+  let minX = Math.min(0, ...pts.map(p => p.x)), maxX = Math.max(0, ...pts.map(p => p.x)), minZ = Math.min(0, ...pts.map(p => p.z)), maxZ = Math.max(0, ...pts.map(p => p.z));
+  const span = Math.max(maxX - minX, (maxZ - minZ) * (W - 2 * pad) / (H - 2 * pad), 64), cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
+  const k = (W - 2 * pad) / span, px = x => W / 2 + (x - cx) * k, pz = z => H / 2 + (z - cz) * k;
+  const step = [16, 64, 128, 256, 512, 1000, 2000, 5000, 10000, 50000].find(s => s * k >= 60) || 100000;
+  let grid = '';
+  for (let x = Math.ceil((cx - W / 2 / k) / step) * step; x <= cx + W / 2 / k; x += step) grid += `<line x1="${px(x)}" x2="${px(x)}" y1="0" y2="${H}" stroke="#2a2d33"/><text x="${px(x) + 3}" y="${H - 6}" font-size="10" fill="#777">X ${x}</text>`;
+  for (let z = Math.ceil((cz - H / 2 / k) / step) * step; z <= cz + H / 2 / k; z += step) grid += `<line y1="${pz(z)}" y2="${pz(z)}" x1="0" x2="${W}" stroke="#2a2d33"/><text x="4" y="${pz(z) - 3}" font-size="10" fill="#777">Z ${z}</text>`;
+  return `<svg class="tw-map" viewBox="0 0 ${W} ${H}" role="img" aria-label="Map of your saved places">
+<rect width="${W}" height="${H}" fill="#16191d"/>${grid}
+<g transform="translate(${W - 30},28)"><path d="M0 -14L4 0L0 14L-4 0Z" fill="#999"/><text y="-18" text-anchor="middle" font-size="10" fill="#999">N (−Z)</text></g>
+<path d="M${px(0) - 5} ${pz(0)}h10M${px(0)} ${pz(0) - 5}v10" stroke="#888" stroke-width="2"/><text x="${px(0) + 7}" y="${pz(0) + 14}" font-size="10" fill="#888">0, 0</text>
+${pts.map(p => `<g><title>${esc(p.c.n)} (${p.c.d === 'n' ? 'Nether ' + p.c.x + ', ' + p.c.z : p.c.x + ', ' + p.c.z})</title>${p.c.d === 'n'
+    ? `<rect x="${px(p.x) - 6}" y="${pz(p.z) - 6}" width="12" height="12" transform="rotate(45 ${px(p.x)} ${pz(p.z)})" fill="#b04ad8" stroke="#fff"/>`
+    : `<circle cx="${px(p.x)}" cy="${pz(p.z)}" r="6" fill="#5cc85c" stroke="#fff" stroke-width="1.5"/>`}
+<text x="${px(p.x) + 10}" y="${pz(p.z) + 4}" font-size="12" fill="#eee" paint-order="stroke" stroke="#16191d" stroke-width="3">${esc(p.c.n)}</text></g>`).join('')}
+</svg><p class="tw-cap">Seen from above, north at the top. <span style="color:#5cc85c">●</span> Overworld places. <span style="color:#b04ad8">◆</span> Nether places, drawn where they land in the Overworld (×8). End places aren't shown.</p>`;
+}
 function pgCoords() {
   return `<h2>Coordinates</h2><p class="sub">Bases, portals, villages and anything else you want to find again. Overworld and Nether places show both sets of coordinates.</p>
+${coordsMap()}
 <div class="card tbl"><table><tr><th>Name</th><th>Where</th><th>X, Y, Z</th><th>Other side</th><th></th></tr>
 ${S.coords.map((c, i) => {
   const other = c.d === 'o' ? `Nether ${Math.floor(c.x / 8)}, ${Math.floor(c.z / 8)}` : c.d === 'n' ? `Overworld ${c.x * 8}, ${c.z * 8}` : '';

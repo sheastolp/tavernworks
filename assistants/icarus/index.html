@@ -61,6 +61,7 @@ a.mob:hover{text-decoration:underline}
 <script src="/bot-sandbox/app/config.js"></script>
 <script src="/google-signin.js"></script>
 <script src="/assistants/sync.js?v=2"></script>
+<script src="/assistants/art.js"></script>
 </head>
 <body>
 <div id="app"><nav id="nav"></nav><main id="main"></main></div>
@@ -143,10 +144,10 @@ const TIERS=[
 ];
 
 const MAPS=[
-{n:'Olympus',conf:true,d:'The first map. Forest, riverlands, desert, desert canyons, arctic and southern glacier biomes, with caves running through them. The best place to learn.'},
-{n:'Styx',conf:true,d:'Built around a braided river. Bigger and harder, with crocodiles, Komodo dragons and Kea parrots.'},
-{n:'Prometheus',conf:true,d:'From the New Frontiers expansion. Volcanic and swamp biomes. Difficulty swings a lot between biomes.'},
-{n:'Elysium',conf:true,d:'From the Dangerous Horizons expansion. No gentle starting forest: you land in desert or tundra. Tameable raptors and other mounts, and the Sandwyrm Queen world boss.'}
+{n:'Olympus',conf:true,bio:['Forest','Riverlands','Desert','Canyons','Arctic','Glacier'],d:'The first map. Forest, riverlands, desert, desert canyons, arctic and southern glacier biomes, with caves running through them. The best place to learn.'},
+{n:'Styx',conf:true,bio:['Braided river'],d:'Built around a braided river. Bigger and harder, with crocodiles, Komodo dragons and Kea parrots.'},
+{n:'Prometheus',conf:true,bio:['Volcanic','Swamp'],d:'From the New Frontiers expansion. Volcanic and swamp biomes. Difficulty swings a lot between biomes.'},
+{n:'Elysium',conf:true,bio:['Desert','Tundra'],d:'From the Dangerous Horizons expansion. No gentle starting forest: you land in desert or tundra. Tameable raptors and other mounts, and the Sandwyrm Queen world boss.'}
 ];
 
 const GUIDES=[
@@ -206,7 +207,7 @@ const PAGES=[['home','Home'],['guides','Guides'],['survival','Survival Stats'],[
 function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>ICARUS<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
 
 const TILE={guides:'First drop, storms, caves, prospects, hunting',survival:'Health, oxygen, water, food and temperature',creatures:'Tap a creature for how it fights and how to beat it',tech:'What each tier unlocks',maps:'Olympus, Styx, Prometheus and Elysium',timer:'Count down to your dropship',loadout:'What to bring on every trip',notes:'Your own notes'};
-function pgHome(){return `<h2>Icarus Assistant</h2><p class="sub">A companion for <i>Icarus</i>. Your checklists, timer and notes are saved on this device.</p>
+function pgHome(){return `${TWArt.hero(1149460,'Icarus')}<h2>Icarus Assistant</h2><p class="sub">A companion for <i>Icarus</i>. Your checklists, timer and notes are saved on this device.</p>
 <div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
 <div class="note">Facts marked <span class="conf">●</span> come from the Icarus wiki or published guides. Facts marked <span class="unv">○</span> come from player reports. Icarus changes with weekly updates, so trust what you see in-game first.</div>`;}
 
@@ -242,8 +243,16 @@ function pgTech(){return `<h2>Tech Tiers</h2><p class="sub">You unlock blueprint
 ${TIERS.map(t=>`<div class="card"><h3 style="margin-top:0">${esc(t.n)} <span class="tag">${esc(t.lvl)}</span></h3><div>${esc(t.items)}</div><div class="dim" style="margin-top:6px">${esc(t.note)}</div></div>`).join('')}
 <div class="note">Exact blueprints shift between updates. The bench order above is the stable part.</div>`;}
 
-function pgMaps(){return `<h2>Maps</h2><p class="sub">Four maps, each harder than the last.</p>
-<div class="grid">${MAPS.map(m=>`<div class="card" style="margin:0"><h3 style="margin-top:0">${mark(m.conf)} ${esc(m.n)}</h3><div>${esc(m.d)}</div></div>`).join('')}</div>`;}
+/* Landscape strip for each map, one band per biome it's known for. */
+const BIO_COL={'Braided river':'#3d7fa6',Forest:'#3f7d45',Riverlands:'#3d7fa6',Desert:'#d2a85a',Canyons:'#b9683e',Arctic:'#dfeef5',Glacier:'#a9d6f5',Swamp:'#55704a',Volcanic:'#8a2f22',Tundra:'#b8c4c0'};
+function mapStrip(m){
+  const w=300/m.bio.length;
+  return `<svg viewBox="0 0 300 90" style="width:100%;display:block;border-radius:8px;margin:0 0 10px" role="img" aria-label="${esc(m.n)} biomes: ${esc(m.bio.join(', '))}">
+<rect width="300" height="90" fill="#16222b"/>${m.bio.map((b,i)=>{const x=i*w,peak=20+((i*37+m.n.length*11)%30);
+return `<path d="M${x} 90V${peak+20}Q${x+w/2} ${peak-10} ${x+w} ${peak+20}V90Z" fill="${BIO_COL[b]||'#555'}"/><text x="${x+w/2}" y="82" text-anchor="middle" font-size="10" fill="${['Arctic','Glacier','Tundra','Desert'].includes(b)?'#14202a':'#fff'}">${esc(b)}</text>`;}).join('')}</svg>`;
+}
+function pgMaps(){return `<h2>Maps</h2><p class="sub">Four maps, each harder than the last. The strips show which biomes each map is known for, not where they sit.</p>
+<div class="grid">${MAPS.map(m=>`<div class="card" style="margin:0">${mapStrip(m)}<h3 style="margin-top:0">${mark(m.conf)} ${esc(m.n)}</h3><div>${esc(m.d)}</div></div>`).join('')}</div>`;}
 
 /* ---- prospect timer ---- */
 let tick=null;

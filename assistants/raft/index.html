@@ -61,6 +61,7 @@ a.mob:hover{text-decoration:underline}
 <script src="/bot-sandbox/app/config.js"></script>
 <script src="/google-signin.js"></script>
 <script src="/assistants/sync.js?v=2" data-track="raft_state"></script>
+<script src="/assistants/art.js"></script>
 </head>
 <body>
 <div id="app"><nav id="nav"></nav><main id="main"></main></div>
@@ -193,7 +194,7 @@ function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Taver
 
 const TILE={guides:'First day, the shark, islands, the story and fishing',story:'The eight story islands in order, with a checklist each',creatures:'Tap a creature for how it fights and how to handle it',supplies:'What to pack before you leave the raft',notes:'Your own notes'};
 function pgHome(){const done=STORY.filter(s=>s.steps.every((_,k)=>S.checks[s.id+k])).length;
-return `<h2>Raft Assistant</h2><p class="sub">A companion for <i>Raft</i>. Your checklists and notes are saved on this device.</p>
+return `${TWArt.hero(648800,'Raft')}<h2>Raft Assistant</h2><p class="sub">A companion for <i>Raft</i>. Your checklists and notes are saved on this device.</p>
 <div class="card"><div class="row"><b>Day</b> <button onclick="S.day=Math.max(1,S.day-1);save();route()">−</button> <span style="font-size:20px;font-weight:600;min-width:40px;text-align:center">${S.day}</span> <button onclick="S.day++;save();route()">+</button> <span class="dim">· ${done} of ${STORY.length} story islands done</span></div></div>
 <div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
 <div class="note">Facts marked <span class="conf">●</span> come from the Raft wiki or published guides. Facts marked <span class="unv">○</span> come from player reports. Check the game if something doesn't match.</div>`;}
@@ -209,8 +210,29 @@ function pgStory(sub){
 <h2>${mark(s.conf)} ${n+1}. ${esc(s.n)} <span class="tag">Chapter ${s.ch}</span></h2><p class="sub">${esc(s.d)}</p>
 <div class="card"><h3 style="margin-top:0">Checklist</h3>${s.steps.map((t,k)=>`<label class="chk"><input type="checkbox" data-k="${s.id}${k}"> ${esc(t)}</label>`).join('')}</div>
 ${STORY[n+1]?`<p><a href="#story/${STORY[n+1].id}">Next: ${esc(STORY[n+1].n)} &rarr;</a></p>`:''}`;}
-  return `<h2>Story Islands</h2><p class="sub">In story order. Tap one for its checklist.</p>
+  return `<h2>Story Islands</h2><p class="sub">In story order. Tap one on the chart or below for its checklist.</p>
+${storyMap()}<p class="tw-cap">Route chart in story order, not to scale. Finished islands are ticked; chapters are coloured.</p>
 <div class="grid">${STORY.map((s,n)=>{const d=s.steps.filter((_,k)=>S.checks[s.id+k]).length;return `<div class="tile" onclick="location.hash='story/${s.id}'"><b>${n+1}. ${esc(s.n)}</b> <span class="tag">Ch. ${s.ch}</span><div class="dim">${esc(s.d)}</div><div class="bar" style="margin-bottom:0"><i style="width:${d/s.steps.length*100}%"></i></div></div>`;}).join('')}</div>`;
+}
+
+/* Sea chart of the story route. Positions are a schematic layout, not real distances. */
+const STORY_XY=[[70,200],[175,120],[285,190],[395,95],[500,175],[600,85],[690,170],[760,70]];
+const CH_COL={1:'#6fd0c0',2:'#e9b45a',3:'#d7b4ff'};
+function storyMap(){
+  const pts=STORY_XY.map(p=>p.join(',')).join(' ');
+  let waves='';for(let i=0;i<26;i++){const x=(i*137)%800,y=20+(i*71)%240;waves+=`<path d="M${x} ${y}q6 -5 12 0t12 0" fill="none" stroke="#2b423d" stroke-width="1.5"/>`;}
+  return `<svg class="tw-map" viewBox="0 0 820 270" role="img" aria-label="Chart of the eight story islands in order">
+<rect width="820" height="270" fill="#0f1c22"/>${waves}
+<polyline points="${pts}" fill="none" stroke="#94aaa2" stroke-width="2" stroke-dasharray="6 6"/>
+<g transform="translate(30,40)"><circle r="16" fill="none" stroke="#2b423d"/><path d="M0 -14L4 0L0 14L-4 0Z" fill="#94aaa2"/><text y="-20" text-anchor="middle" font-size="11" fill="#94aaa2">N</text></g>
+<text x="40" y="250" font-size="12" fill="#94aaa2">🛶 your raft</text>
+${STORY.map((s,n)=>{const [x,y]=STORY_XY[n],done=s.steps.every((_,k)=>S.checks[s.id+k]),c=CH_COL[s.ch];
+return `<a href="#story/${s.id}" aria-label="${esc(s.n)}"><title>${n+1}. ${esc(s.n)} (chapter ${s.ch})</title>
+<ellipse cx="${x}" cy="${y}" rx="30" ry="17" fill="#c9b07a" opacity=".25"/><ellipse class="hit" cx="${x}" cy="${y}" rx="22" ry="12" fill="${done?c:'#1b2a27'}" stroke="${c}" stroke-width="2"/>
+<text x="${x}" y="${y+4}" text-anchor="middle" font-size="12" font-weight="700" fill="${done?'#0d1312':c}">${done?'✓':n+1}</text>
+<text class="lbl" x="${x}" y="${y+32}" text-anchor="middle" font-size="12" fill="#e6efe9">${esc(s.n)}</text></a>`;}).join('')}
+${[1,2,3].map((c,i)=>`<g transform="translate(${560+i*82},250)"><circle r="6" fill="${CH_COL[c]}"/><text x="10" y="4" font-size="12" fill="#94aaa2">Ch. ${c}</text></g>`).join('')}
+</svg>`;
 }
 
 const KIND={Passive:'p',Hostile:'a',Boss:'b',Tame:'t'};

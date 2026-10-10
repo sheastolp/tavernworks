@@ -61,6 +61,7 @@ a.mob:hover{text-decoration:underline}
 <script src="/bot-sandbox/app/config.js"></script>
 <script src="/google-signin.js"></script>
 <script src="/assistants/sync.js?v=2" data-track="peak_state"></script>
+<script src="/assistants/art.js"></script>
 </head>
 <body>
 <div id="app"><nav id="nav"></nav><main id="main"></main></div>
@@ -201,7 +202,7 @@ function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Taver
 
 const TILE={guides:'Climbing, teamwork, campfires and what to carry',biomes:'Every level from the Shore to the Peak, with hazards',afflictions:'What eats your stamina, and what cures it',items:'Climbing gear, food, medicine and mystic items',ascents:'What each difficulty adds',prep:'Run through it at the plane crash',runs:'Log your attempts and your best climb',notes:'Your own notes'};
 function pgHome(){const wins=S.runs.filter(r=>r.top===6).length;
-return `<h2>PEAK Assistant</h2><p class="sub">A companion for <i>PEAK</i>, the co-op climbing game. Your checklists, runs and notes are saved on this device.</p>
+return `${TWArt.hero(3527290,'PEAK')}<h2>PEAK Assistant</h2><p class="sub">A companion for <i>PEAK</i>, the co-op climbing game. Your checklists, runs and notes are saved on this device.</p>
 <div class="stats"><div class="stat"><small>Runs logged</small>${S.runs.length}</div><div class="stat"><small>Summits</small>${wins}</div><div class="stat"><small>Highest Ascent summited</small>${bestAscent()}</div></div>
 <div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
 <div class="note">Facts marked <span class="conf">●</span> come from the PEAK wiki or published guides. Facts marked <span class="unv">○</span> come from player reports or a single source. Item numbers vary between patches, so trust what you see in-game first.</div>`;}
@@ -212,6 +213,24 @@ function pgGuides(sub){
   return `<h2>Guides</h2><p class="sub">Checkboxes are saved on this device.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
 }
 
+/* Mountain cross-section: one band per level, split where the level has two biomes. */
+const BIOME_COL={'The Shore':['#d8c48a','#2a1a00'],'Tropics':['#4f9a4a','#fff'],'Roots':['#6b5a3a','#fff'],'Alpine':['#cfe3ee','#14202a'],'Mesa':['#c9763f','#fff'],
+'Caldera':['#a8402c','#fff'],'Gloom':['#55557a','#fff'],'The Kiln':['#6e2416','#fff'],'The Citadel':['#8a8f99','#111'],'The Peak':['#ffffff','#111']};
+function mountainMap(){
+  const lv=[...new Set(BIOMES.map(b=>b.lvl))].sort((a,b)=>a-b),top=30,base=400,h=(base-top)/lv.length;
+  let bands='',labels='';
+  lv.forEach((l,i)=>{const y=base-(i+1)*h,bs=BIOMES.filter(b=>b.lvl===l),w=520/bs.length;
+    bs.forEach((b,j)=>{const [bg,fg]=BIOME_COL[b.n]||['#1b2a27','#e6efe9'],x=40+j*w,hw=260*(y+h/2-top)/(base-top),cx=bs.length>1?300+(j?1:-1)*Math.max(hw/2,26):300;
+      bands+=`<a href="#biomes/${slug(b.n)}" aria-label="${esc(b.n)}"><title>Level ${l}: ${esc(b.n)}</title><rect class="hit" x="${x}" y="${y}" width="${w}" height="${h}" fill="${bg}" stroke="#0d1312" stroke-width="1.5"/>
+<text x="${cx}" y="${y+h/2+4}" text-anchor="middle" font-size="${bs.length>1&&i>=lv.length-2?11:13}" font-weight="600" fill="${fg}">${esc(b.n.replace(/^The /,''))}</text></a>`;});
+    labels+=`<text x="${300+260*(y+h/2-top)/(base-top)+12}" y="${y+h/2+4}" font-size="12" fill="#94aaa2">Level ${l}</text>`;});
+  return `<svg class="tw-map" viewBox="0 0 600 420" style="max-width:640px" role="img" aria-label="The mountain from the Shore to the Peak">
+<defs><clipPath id="mtn"><polygon points="40,${base} 300,${top} 560,${base}"/></clipPath></defs>
+<rect width="600" height="420" fill="#101a24"/><rect y="${base}" width="600" height="20" fill="#24506b"/>
+<g clip-path="url(#mtn)">${bands}</g>${labels}
+<polygon points="40,${base} 300,${top} 560,${base}" fill="none" stroke="#e6efe9" stroke-opacity=".4" stroke-width="2"/>
+<text x="300" y="${top-8}" text-anchor="middle" font-size="16">🚩</text></svg>`;
+}
 function pgBiomes(sub){
   const b=sub&&BIOMES.find(x=>slug(x.n)===sub);
   if(b)return `<p><a href="#biomes">&larr; All biomes</a></p>
@@ -220,7 +239,8 @@ ${b.haz.length?`<div class="stats"><div class="stat"><small>Afflictions here</sm
 <div class="card"><h3 style="margin-top:0">Dangers</h3><ul class="mech">${b.dangers.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>
 <div class="tip"><b>Tips:</b><ul class="mech" style="margin:4px 0 0">${b.tips.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>`;
   const lv=[...new Set(BIOMES.map(b=>b.lvl))];
-  return `<h2>Biomes</h2><p class="sub">Bottom to top. Where a level has two biomes, the mountain picks one per run. Tap a biome for its dangers.</p>
+  return `<h2>Biomes</h2><p class="sub">Bottom to top. Where a level has two biomes, the mountain picks one per run. Tap a biome on the mountain or below for its dangers.</p>
+${mountainMap()}<p class="tw-cap">Cross-section of the climb, not to scale. Split bands are either/or: each run gets one side.</p>
 ${lv.map(l=>`<h3>Level ${l}</h3><div class="grid">${BIOMES.filter(b=>b.lvl===l).map(b=>`<div class="tile" onclick="location.hash='biomes/${slug(b.n)}'"><b>${esc(b.n)}</b>${b.haz.map(h=>`<span class="tag">${esc(h)}</span>`).join('')}<div class="dim">${esc(b.d)}</div></div>`).join('')}</div>`).join('')}`;
 }
 

@@ -68,6 +68,7 @@ label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
 <script src="/bot-sandbox/app/config.js"></script>
 <script src="/google-signin.js"></script>
 <script src="/assistants/sync.js?v=2"></script>
+<script src="/assistants/art.js"></script>
 </head>
 <body>
 <div id="app"><nav id="nav"></nav><main id="main"></main></div>
@@ -453,7 +454,7 @@ const $=id=>document.getElementById(id);
 const PAGES=[['home','Home'],['guides','Guides'],['tutorial','IC10 Tutorial'],['kb','Knowledge Base'],['snippets','Snippets'],['editor','Editor & Emulator'],['calc','Calculators'],['notes','My Notes']];
 function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>STATIONEERS<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
 
-function pgHome(){return `<h2>Stationeers Assistant</h2><p class="sub">Guides, an IC10 tutorial, a coding knowledge base, a linter/emulator and calculators. Everything runs offline.</p>
+function pgHome(){return `${TWArt.hero(544550,'Stationeers')}<h2>Stationeers Assistant</h2><p class="sub">Guides, an IC10 tutorial, a coding knowledge base, a linter/emulator and calculators. Everything runs offline.</p>
 <div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${({guides:'Survival, power, atmospherics, checklists',tutorial:'7 lessons you can load and run',kb:'Searchable instruction and logic-type reference',snippets:'Ready-made IC10 programs and generators',editor:'Write IC10 with live linting, step it in an emulator',calc:'Gas law, power, hash, temperature',notes:'Your own notes and saved snippets'})[id]}</div></div>`).join('')}</div>
 <div class="note">Reference data (instruction set, logic types) is from memory of the IC10 language and may lag your game version. Stationpedia in-game is the final authority.</div>`;}
 
@@ -462,8 +463,23 @@ function pgGuides(sub){
   return `<h2>Guides</h2><p class="sub">Checkboxes are saved on this computer.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
 }
 
+/* Diagram for lesson 3: the IC Housing's six device pins, wired as in the thermostat example. */
+function housingFig(){
+  const pins=['d0','d1','d2','d3','d4','d5'];
+  return `<svg class="tw-map" viewBox="0 0 560 230" style="max-width:600px" role="img" aria-label="IC Housing with a Gas Sensor on d0 and a Wall Heater on d1">
+<rect width="560" height="230" fill="#0f141a"/>
+<rect x="190" y="40" width="180" height="120" rx="10" fill="#2a313a" stroke="#6b7785" stroke-width="2"/>
+<text x="280" y="68" text-anchor="middle" font-size="14" font-weight="700" fill="#e6efe9">IC Housing</text>
+<rect x="245" y="80" width="70" height="40" rx="4" fill="#1d6b4a" stroke="#7ad37f"/><text x="280" y="105" text-anchor="middle" font-size="12" fill="#e6efe9">IC10 chip</text>
+<text x="280" y="137" text-anchor="middle" font-size="11" fill="#94aaa2">db = the housing itself</text>
+${pins.map((p,i)=>{const x=205+i*30;return `<rect x="${x-9}" y="160" width="18" height="14" fill="${i<2?'#e9b45a':'#4a5560'}"/><text x="${x}" y="155" text-anchor="middle" font-size="11" fill="${i<2?'#e9b45a':'#94aaa2'}">${p}</text>`;}).join('')}
+<path d="M205 174V205H90V150" fill="none" stroke="#e9b45a" stroke-width="2"/><path d="M235 174V215H470V150" fill="none" stroke="#e9b45a" stroke-width="2"/>
+<rect x="40" y="100" width="100" height="50" rx="6" fill="#1b2430" stroke="#6fd0c0"/><text x="90" y="122" text-anchor="middle" font-size="12" fill="#e6efe9">Gas Sensor</text><text x="90" y="139" text-anchor="middle" font-size="11" fill="#94aaa2">alias sensor d0</text>
+<rect x="420" y="100" width="100" height="50" rx="6" fill="#1b2430" stroke="#ff7a6b"/><text x="470" y="122" text-anchor="middle" font-size="12" fill="#e6efe9">Wall Heater</text><text x="470" y="139" text-anchor="middle" font-size="11" fill="#94aaa2">alias heater d1</text>
+</svg><p class="tw-cap">Each pin points at one device on the housing's data network. Pins d2 to d5 are free here.</p>`;
+}
 function pgTutorial(){return `<h2>IC10 Tutorial</h2><p class="sub">IC10 is the assembly-like language of the Integrated Circuit chip. Each lesson loads straight into the emulator.</p>`+
- LESSONS.map((l,i)=>`<div class="card"><h3 style="margin-top:0">${l.t}</h3><p>${l.txt}</p><pre><code>${esc(l.code)}</code></pre><button class="pri" onclick="loadCode(${i},'lesson')">Open in editor</button></div>`).join('');}
+ LESSONS.map((l,i)=>`<div class="card"><h3 style="margin-top:0">${l.t}</h3><p>${l.txt}</p>${i===2?housingFig():''}<pre><code>${esc(l.code)}</code></pre><button class="pri" onclick="loadCode(${i},'lesson')">Open in editor</button></div>`).join('');}
 
 function kbItems(){
   const a=[];

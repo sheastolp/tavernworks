@@ -61,6 +61,7 @@ a.mob:hover{text-decoration:underline}
 <script src="/bot-sandbox/app/config.js"></script>
 <script src="/google-signin.js"></script>
 <script src="/assistants/sync.js?v=2" data-track="htf_state"></script>
+<script src="/assistants/art.js"></script>
 </head>
 <body>
 <div id="app"><nav id="nav"></nav><main id="main"></main></div>
@@ -156,11 +157,33 @@ function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Taver
 
 const TILE={islands:'All five islands in order, with a checklist for each',bosses:'What to cast to summon each boss, and how to beat it',bait:'Which rod and bait each island wants',tips:'Catch, kill, sell: the things the game doesn\'t tell you',money:'How many catches until you can buy it',sales:'Log what you sell and see what pays',notes:'Your own notes'};
 function pgHome(){const done=ISLANDS.reduce((t,i)=>t+i.steps.filter((_,k)=>S.checks[i.id+k]).length,0),all=ISLANDS.reduce((t,i)=>t+i.steps.length,0);
-return `<h2>How to Fish Assistant</h2><p class="sub">A companion for <i>How to Fish</i>: catch it, drag it ashore, finish it, sell it, and buy something bigger. Your checklists, sales and notes are saved on this device.</p>
+return `${TWArt.hero(4001890,'How to Fish')}<h2>How to Fish Assistant</h2><p class="sub">A companion for <i>How to Fish</i>: catch it, drag it ashore, finish it, sell it, and buy something bigger. Your checklists, sales and notes are saved on this device.</p>
 <div class="dim">${done} of ${all} walkthrough steps done</div><div class="bar"><i style="width:${all?done/all*100:0}%"></i></div>
 <div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
 <div class="note">Facts marked <span class="conf">●</span> are agreed by several published guides. Facts marked <span class="unv">○</span> come from one guide or guides disagree. How to Fish is new and still being patched, so trust what you see in-game first.</div>`;}
 
+/* Sea chart of the five islands. Schematic: only the Volcano-north-of-Rocks placement is from the game. */
+const ISL_XY={lighthouse:[110,235],forest:[260,170],desert:[420,235],rocks:[570,190],volcano:[570,70]};
+const ISL_ART={
+ lighthouse:(x,y)=>`<rect x="${x-4}" y="${y-30}" width="8" height="24" fill="#f1ede4"/><rect x="${x-4}" y="${y-24}" width="8" height="5" fill="#d9534f"/><rect x="${x-4}" y="${y-14}" width="8" height="5" fill="#d9534f"/><path d="M${x-6} ${y-30}h12l-6 -7z" fill="#e9b45a"/>`,
+ forest:(x,y)=>[-14,0,14].map(d=>`<path d="M${x+d} ${y-30}l9 20h-18z" fill="#3f8a46"/>`).join(''),
+ desert:(x,y)=>`<path d="M${x} ${y-8}v-22M${x} ${y-20}h-7v-6M${x} ${y-16}h7v-7" stroke="#5aa35a" stroke-width="5" stroke-linecap="round" fill="none"/>`,
+ rocks:(x,y)=>`<path d="M${x-20} ${y-6}l8 -16l10 4l6 -10l12 22z" fill="#8a8f99"/>`,
+ volcano:(x,y)=>`<path d="M${x-26} ${y-4}l18 -28h16l18 28z" fill="#6e4a3a"/><path d="M${x-8} ${y-32}h16l-3 6h-10z" fill="#ff6a3d"/><circle cx="${x+4}" cy="${y-42}" r="5" fill="#94aaa2" opacity=".6"/>`};
+const ISL_SAND={lighthouse:'#c9b07a',forest:'#6f8f4a',desert:'#dcbf7c',rocks:'#7c7a70',volcano:'#4a3a33'};
+function islandMap(){
+  const pts=ISLANDS.map(i=>ISL_XY[i.id].join(',')).join(' ');
+  return `<svg class="tw-map" viewBox="0 0 700 300" role="img" aria-label="Chart of the five islands in unlock order">
+<rect width="700" height="300" fill="#0f2430"/>
+<polyline points="${pts}" fill="none" stroke="#94aaa2" stroke-width="2" stroke-dasharray="6 6"/>
+<g transform="translate(40,44)"><circle r="16" fill="none" stroke="#2b423d"/><path d="M0 -14L4 0L0 14L-4 0Z" fill="#94aaa2"/><text y="-20" text-anchor="middle" font-size="11" fill="#94aaa2">N</text></g>
+${ISLANDS.map((i,n)=>{const [x,y]=ISL_XY[i.id],d=i.steps.filter((_,k)=>S.checks[i.id+k]).length;
+return `<a href="#islands/${i.id}" aria-label="${esc(i.n)}"><title>${n+1}. ${esc(i.n)}</title>
+<ellipse class="hit" cx="${x}" cy="${y}" rx="44" ry="16" fill="${ISL_SAND[i.id]}" stroke="#0f2430" stroke-width="2"/>${ISL_ART[i.id](x,y)}
+<text class="lbl" x="${x}" y="${y+32}" text-anchor="middle" font-size="12" font-weight="600" fill="#e6efe9">${n+1}. ${esc(i.n)}</text>
+<text class="lbl" x="${x}" y="${y+46}" text-anchor="middle" font-size="11" fill="${d===i.steps.length?'#7ad37f':'#94aaa2'}">${d===i.steps.length?'✓ done':d+' of '+i.steps.length+' steps'}</text></a>`;}).join('')}
+</svg>`;
+}
 function pgIslands(sub){
   const i=sub&&ISLANDS.find(x=>x.id===sub);
   if(i){const n=ISLANDS.indexOf(i);return `<p><a href="#islands">&larr; All islands</a></p>
@@ -168,7 +191,8 @@ function pgIslands(sub){
 <div class="stats"><div class="stat"><small>Rod</small>${esc(i.rod)}</div><div class="stat"><small>Everyday bait</small>${esc(i.bait)}</div><div class="stat"><small>Bosses</small>${i.boss.map(b=>`<a class="mob" href="#bosses/${slug(b)}">${esc(b)}</a>`).join(', ')}</div></div>
 <div class="card"><h3 style="margin-top:0">Checklist</h3>${i.steps.map((s,k)=>`<label class="chk"><input type="checkbox" data-k="${i.id}${k}"> ${esc(s)}</label>`).join('')}</div>
 ${ISLANDS[n+1]?`<p><a href="#islands/${ISLANDS[n+1].id}">Next: ${esc(ISLANDS[n+1].n)} &rarr;</a></p>`:'<div class="tip">That\'s the last island. Go back for any optional bosses and glowing variants you missed.</div>'}`;}
-  return `<h2>Walkthrough</h2><p class="sub">The islands in the order you unlock them. Tap one for its checklist.</p>
+  return `<h2>Walkthrough</h2><p class="sub">The islands in the order you unlock them. Tap one on the chart or below for its checklist.</p>
+${islandMap()}<p class="tw-cap">Route chart in unlock order, not to scale. The Volcano lies north of the Rocks.</p>
 <div class="grid">${ISLANDS.map((i,n)=>{const d=i.steps.filter((_,k)=>S.checks[i.id+k]).length;return `<div class="tile" onclick="location.hash='islands/${i.id}'"><b>${n+1}. ${esc(i.n)}</b><div class="dim">${esc(i.d)}</div><div class="bar" style="margin-bottom:0"><i style="width:${d/i.steps.length*100}%"></i></div><div class="dim" style="font-size:12px">${d} of ${i.steps.length} done</div></div>`;}).join('')}</div>
 <div class="note">Guides number the islands differently (some call the Forest island 1). The order is what matters: Lighthouse, Forest, Desert, Rocks, Volcano.</div>`;
 }
