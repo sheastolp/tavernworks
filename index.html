@@ -604,18 +604,15 @@
         `<text class="day${n ? " again" : ""}" x="${(n ? x(d.from + n * 12) - STEP / 2 : x0) + 8}" y="20">${esc(shortDate(d.date))}</text>`).join("");
   }).join("");
 
-  // Every change joined in order: straight along a lane, at an angle when
-  // the next change is in another project. Then a faint trail along each
-  // lane from the left edge to its first change, and from its last change on
-  // to today.
+  // A faint dotted trail along every lane, before, between and after its
+  // changes, out to today. Then every change joined in order on top:
+  // straight along a lane, at an angle when the next change is in another
+  // project.
   const nowX = x(POINTS.length) - STEP / 2 + 6;
-  svg += `<path class="lane-line" d="${POINTS.map((p, n) => `${n ? "L" : "M"}${x(p.i)} ${y(p.lane)}`).join(" ")}"/>`;
   order.forEach((k) => {
-    const pts = POINTS.filter((p) => p.lane === k);
-    const yy = y(k);
-    if (pts[0].i) svg += `<line class="hop" x1="0" y1="${yy}" x2="${x(pts[0].i) - R}" y2="${yy}"/>`;
-    svg += `<line class="hop" x1="${x(pts[pts.length - 1].i) + R}" y1="${yy}" x2="${nowX}" y2="${yy}"/>`;
+    svg += `<line class="hop" x1="0" y1="${y(k)}" x2="${nowX}" y2="${y(k)}"/>`;
   });
+  svg += `<path class="lane-line" d="${POINTS.map((p, n) => `${n ? "L" : "M"}${x(p.i)} ${y(p.lane)}`).join(" ")}"/>`;
   svg += `<line class="now" x1="${nowX}" y1="${TOP - 6}" x2="${nowX}" y2="${height}"/>` +
     `<text class="day" x="${nowX}" y="20" text-anchor="middle">🏮 Today</text>`;
 
