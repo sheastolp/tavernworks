@@ -2064,7 +2064,7 @@
       if (!confirm("Stop syncing this browser?\n\nYour journal stays here, and its copy stays in your Google Drive for your other devices.")) return;
       const wipe = hasToken() && confirm("Also delete the journal's copy from your Google Drive?\n\nOK deletes it (other devices keep their own copies but stop syncing). Cancel keeps it.");
       try {
-        if (wipe) { show("Deleting the copy in Google Drive…"); await pool(await listDrive(), (f) => remove(f.id)); }
+        if (wipe) { show("Deleting the copy in Google Drive…"); await pool((await listDrive()).filter((f) => f.name === MANIFEST || f.name.startsWith("blob-")), (f) => remove(f.id)); }
         if (hasToken() && window.google && google.accounts.oauth2) google.accounts.oauth2.revoke(token.value, () => {});
       } catch (err) { toast("Couldn't delete the Drive copy: " + (err && err.message || err)); }
       const s = state();
