@@ -51,43 +51,44 @@
   <a class="back" href="/">&larr; Tavernworks</a>
   <h1>Game Assistants</h1>
   <p class="sub">Companions for the games we play. Guides, references, planners and calculators, all running in your browser. Notes and checklists stay on your device, or sync between your browsers through your own Google Drive if you turn it on.</p>
+  <p class="sec-sub" id="none" hidden>Assistants appear here for the games you link. <a href="/assistants/library/" style="color:var(--gold2)">Link your launchers</a> to see yours.</p>
   <div class="grid">
-    <a class="card" href="/assistants/stationeers/">
+    <a class="card" href="/assistants/stationeers/" data-when-linked hidden>
       <div class="art">Stationeers<img src="https://cdn.cloudflare.steamstatic.com/steam/apps/544550/header.jpg" alt="" loading="lazy" onerror="this.remove()"></div>
       <div class="icon">🛰️</div>
       <h2>Stationeers Assistant</h2>
       <p>A companion for <i>Stationeers</i>. Survival guides, an IC10 tutorial, a searchable coding reference, a linter and step-through emulator, and gas, power and hash calculators.</p>
       <div class="meta"><span>tavernworks.dev/assistants/stationeers</span><span class="pill">BETA</span></div>
     </a>
-    <a class="card" href="/assistants/oddsparks/">
+    <a class="card" href="/assistants/oddsparks/" data-when-linked hidden>
       <div class="art">Oddsparks<img src="https://cdn.cloudflare.steamstatic.com/steam/apps/1817800/header.jpg" alt="" loading="lazy" onerror="this.remove()"></div>
       <div class="icon">✨</div>
       <h2>Oddsparks Assistant</h2>
       <p>A companion for <i>Oddsparks: An Automation Adventure</i>. A Spark field guide, path and logistics rules, a quest tracker, enemy notes, and throughput and ratio calculators.</p>
       <div class="meta"><span>tavernworks.dev/assistants/oddsparks</span><span class="pill">BETA</span></div>
     </a>
-    <a class="card" href="/assistants/icarus/">
+    <a class="card" href="/assistants/icarus/" data-when-linked hidden>
       <div class="art">Icarus<img src="https://cdn.cloudflare.steamstatic.com/steam/apps/1149460/header.jpg" alt="" loading="lazy" onerror="this.remove()"></div>
       <div class="icon">🪂</div>
       <h2>Icarus Assistant</h2>
       <p>A companion for <i>Icarus</i>. Survival guides, a creature field guide with each animal's mechanics, tech tiers, maps, a prospect timer, a drop checklist and notes.</p>
       <div class="meta"><span>tavernworks.dev/assistants/icarus</span><span class="pill">BETA</span></div>
     </a>
-    <a class="card" href="/assistants/how-to-fish/">
+    <a class="card" href="/assistants/how-to-fish/" data-when-linked hidden>
       <div class="art">How to Fish<img src="https://cdn.cloudflare.steamstatic.com/steam/apps/4001890/header.jpg" alt="" loading="lazy" onerror="this.remove()"></div>
       <div class="icon">🎣</div>
       <h2>How to Fish Assistant</h2>
       <p>A companion for <i>How to Fish</i>. An island-by-island walkthrough, what to cast to summon every boss and how to beat it, rods and bait, a money planner and a sales log.</p>
       <div class="meta"><span>tavernworks.dev/assistants/how-to-fish</span><span class="pill">NEW</span></div>
     </a>
-    <a class="card" href="/assistants/raft/">
+    <a class="card" href="/assistants/raft/" data-when-linked hidden>
       <div class="art">Raft<img src="https://cdn.cloudflare.steamstatic.com/steam/apps/648800/header.jpg" alt="" loading="lazy" onerror="this.remove()"></div>
       <div class="icon">🛶</div>
       <h2>Raft Assistant</h2>
       <p>A companion for <i>Raft</i>. First-day and shark guides, the story islands in order with checklists, creatures and their mechanics, fishing, a trip checklist and a day counter.</p>
       <div class="meta"><span>tavernworks.dev/assistants/raft</span><span class="pill">NEW</span></div>
     </a>
-    <a class="card" href="/assistants/peak/">
+    <a class="card" href="/assistants/peak/" data-when-linked hidden>
       <div class="art">PEAK<img src="https://cdn.cloudflare.steamstatic.com/steam/apps/3527290/header.jpg" alt="" loading="lazy" onerror="this.remove()"></div>
       <div class="icon">🏔️</div>
       <h2>PEAK Assistant</h2>
@@ -101,7 +102,7 @@
       <p>A companion for <i>Conan Exiles</i>. Survival, combat and building guides, a map of the Exiled Lands, dungeons, thralls with live Wheel of Pain timers, an attribute planner, religions, a progression checklist and a thrall roster.</p>
       <div class="meta"><span>tavernworks.dev/assistants/conan-exiles</span><span class="pill">NEW</span></div>
     </a>
-    <a class="card" href="/assistants/minecraft/">
+    <a class="card" href="/assistants/minecraft/" data-when-linked hidden>
       <div class="icon">⛏️</div>
       <h2>Minecraft Assistants</h2>
       <p>Two companions for <i>Minecraft</i>: Bedrock Edition &amp; Realms, and Java Edition. Guides, auto farm builds, a tutorial finder, a crafting guide, commands in your edition's syntax, mobs, food, brewing, enchantments, ores, slime chunks, saved coordinates and calculators.</p>
@@ -129,6 +130,7 @@
   // Some assistants only show once their game is linked from a launcher.
   const linked = new Set(games.map(g => (T.dedicated(g) || {}).href).filter(Boolean));
   document.querySelectorAll('.card[data-when-linked]').forEach(c => { c.hidden = !linked.has(c.getAttribute('href')); });
+  document.getElementById('none').hidden = !!document.querySelector('.card[data-when-linked]:not([hidden])');
   if (!games.length) return;
   const box = document.getElementById('yours');
   const link = box.querySelector('.card.link');
