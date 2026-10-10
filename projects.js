@@ -358,6 +358,7 @@ window.TAVERN_PROJECTS = {
     ["station","2026-10-10","Stationeers Assistant: guides, IC10 tutorial, linter and emulator","/stationeers/"],
     ["home","2026-10-10","The Workshop: edit projects, the path and every project's files in the browser","/workshop/"],
     ["station","2026-10-10","created web implemented version","https://tavernworks.dev/stationeers/"],
-    ["home","2026-10-10","The Guild: barkeep and guild list share one section","#guilds"]
+    ["home","2026-10-10","The Guild: barkeep and guild list share one section","#guilds"],
+    ["tips","2026-10-10","Crypto addresses fold into tap-to-copy chips","#support"]
   ]
 };

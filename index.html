@@ -121,17 +121,16 @@
   .btn.discord:hover{filter:brightness(1.1);border-color:#fff}
   .jar{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px}
   .jar > p{color:var(--muted)}
-  .wallets{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:18px}
-  .wallet{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px}
-  .wallet h3{font-family:Cinzel,serif;font-size:16px;color:var(--gold2)}
-  .addr{display:flex;gap:8px;align-items:stretch}
-  .addr code{flex:1;min-width:0;font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--text);background:#0f0b08;border:1px solid var(--line);border-radius:8px;padding:9px 10px;word-break:break-all}
-  .copy{flex-shrink:0;font:600 13px Inter,system-ui,sans-serif;color:var(--text);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:0 12px;cursor:pointer;transition:.15s}
-  .copy:hover{border-color:var(--gold)}
-  .copy.done{border-color:var(--green);color:var(--green)}
-  .wallet small{color:var(--muted);font-size:12.5px}
+  .jar .wallet{font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%}
+  .jar .wallet .name,.jar .wallet .role{display:block}
+  .jar .wallet .role{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .jar .wallet:hover{border-color:var(--gold);transform:translateY(-2px)}
+  .jar .wallet.done{border-color:var(--green)}
+  .jar .wallet.done .role{color:var(--green);font-family:inherit}
+  .jar .crypto{margin-top:18px}
+  #tips-group:not([hidden]) + .crypto{margin-top:0}
+  .jar .crypto-note{color:var(--muted);font-size:12.5px;margin-top:10px}
   .jar .cta{justify-content:flex-start;margin-top:14px}
-  #tips-group:not([hidden]) + .wallets{margin-top:0}
   .jar .cta{align-items:center}
   .jar .edit{margin-left:auto;font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:4px 10px;transition:.15s}
   .jar .edit:hover{color:var(--gold2);border-color:var(--gold)}
@@ -276,18 +275,17 @@
       <div class="chips" id="tips"></div>
       <h4>Or send crypto</h4>
     </div>
-    <div class="wallets">
-      <div class="wallet">
-        <h3>Ethereum (ETH)</h3>
-        <div class="addr"><code>0x422413678AdFC67d3d9AB545FE4e1ec1D00197fd</code><button class="copy" type="button" data-copy="0x422413678AdFC67d3d9AB545FE4e1ec1D00197fd">Copy</button></div>
-        <small>Send ETH on the Ethereum network. Check the address and network in your wallet before confirming.</small>
-      </div>
-      <div class="wallet">
-        <h3>Bitcoin (BTC)</h3>
-        <div class="addr"><code>3JYo1Vwyh6aQENzXoi16rA9mXZuZQVL1rN</code><button class="copy" type="button" data-copy="3JYo1Vwyh6aQENzXoi16rA9mXZuZQVL1rN">Copy</button></div>
-        <small>Send BTC on the Bitcoin network. Check the address carefully before confirming.</small>
-      </div>
+    <div class="chips crypto">
+      <button class="chip wallet" type="button" data-copy="0x422413678AdFC67d3d9AB545FE4e1ec1D00197fd" title="Copy ETH address: 0x422413678AdFC67d3d9AB545FE4e1ec1D00197fd">
+        <span class="dot">Ξ</span>
+        <span class="who"><div class="name">Ethereum (ETH)</div><div class="role">0x4224…97fd · copy</div></span>
+      </button>
+      <button class="chip wallet" type="button" data-copy="3JYo1Vwyh6aQENzXoi16rA9mXZuZQVL1rN" title="Copy BTC address: 3JYo1Vwyh6aQENzXoi16rA9mXZuZQVL1rN">
+        <span class="dot">₿</span>
+        <span class="who"><div class="name">Bitcoin (BTC)</div><div class="role">3JYo1V…VL1rN · copy</div></span>
+      </button>
     </div>
+    <p class="crypto-note">Tap to copy. Send ETH on Ethereum and BTC on Bitcoin, and check the address and network in your wallet before confirming.</p>
     <p style="margin-top:20px">Questions, bug reports or feature ideas? Come say hi in the Discord.</p>
     <div class="cta">
       <a class="btn discord" href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">
@@ -632,10 +630,12 @@ const PEOPLE = [];
 })();
 </script>
 <script>
-document.querySelectorAll('.copy').forEach((b) => b.addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copied'; b.classList.add('done'); }
-  catch { b.textContent = 'Select it'; }
-  setTimeout(() => { b.textContent = 'Copy'; b.classList.remove('done'); }, 1800);
+// Crypto chips show a shortened address; a click copies the full one.
+document.querySelectorAll('.wallet').forEach((b) => b.addEventListener('click', async () => {
+  const role = b.querySelector('.role'), was = role.textContent;
+  try { await navigator.clipboard.writeText(b.dataset.copy); role.textContent = 'Copied!'; b.classList.add('done'); }
+  catch { window.prompt('Copy this address:', b.dataset.copy); return; }
+  setTimeout(() => { role.textContent = was; b.classList.remove('done'); }, 1800);
 }));
 </script>
 <script>
