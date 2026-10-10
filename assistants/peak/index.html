@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PEAK Assistant · Tavernworks</title>
-<meta name="description" content="PEAK Assistant: every biome and its hazards, afflictions and how to cure them, items, Ascent difficulty modifiers, team roles, a run log and a pre-climb checklist. Runs in your browser.">
+<meta name="description" content="PEAK Assistant: every biome and its hazards, afflictions and how to cure them, items, Ascent difficulty modifiers, team roles, a daily tracker for which biomes are on today's mountain, a run log and a pre-climb checklist. Runs in your browser.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏔️</text></svg>">
 <style>
 :root{--bg:#0f1117;--panel:#161a24;--panel2:#1f2532;--line:#313a4d;--tx:#ebeef5;--dim:#9aa3b8;--acc:#ff8f4a;--acc-ink:#2b1000;--acc2:#8cc8ff;--ok:#7ad37f;--warn:#f2c14e;--err:#ff7a6b}
@@ -57,6 +57,13 @@ a.mob:hover{text-decoration:underline}
 .stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
 .mech li{margin:4px 0}
 .clock{font:600 40px/1.1 Consolas,"Cascadia Mono",monospace;margin:6px 0}
+.today{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin:10px 0}
+.lvl{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.lvl small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.lvl .pick{display:flex;gap:6px;flex-wrap:wrap}
+.lvl .pick button{flex:1;min-width:0;padding:6px 8px}
+.lvl .pick button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+.lvl b.fixed{color:var(--acc)}
 </style>
 <script src="/bot-sandbox/app/config.js"></script>
 <script src="/google-signin.js"></script>
@@ -188,7 +195,7 @@ const PREP=['Everyone knows the route to the first wall','One climbing item per 
 'Food for this biome and the next','Sunscreen for the Mesa, warm gear for the Alpine','A Flare (Ascent 4 and up)','A Scout Effigy, if you found one','Spare food for the Kiln'];
 
 /* ================= STATE ================= */
-let S={checks:{},prep:{},runs:[],notes:''};
+let S={checks:{},prep:{},runs:[],notes:'',days:{},resetMin:17*60};
 try{const x=JSON.parse(localStorage.getItem('peak_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
 const save=()=>{try{localStorage.setItem('peak_state',JSON.stringify(S));}catch(e){}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -197,13 +204,13 @@ const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 const mark=c=>c?'<span class="conf" title="Wiki or published guides">●</span>':'<span class="unv" title="Player reports; check in-game">○</span>';
 
 /* ================= PAGES ================= */
-const PAGES=[['home','Home'],['guides','Guides'],['biomes','Biomes'],['afflictions','Afflictions'],['items','Items'],['ascents','Ascents'],['prep','Pre-climb Checklist'],['runs','Run Log'],['notes','My Notes']];
+const PAGES=[['home','Home'],['today',"Today's Mountain"],['guides','Guides'],['biomes','Biomes'],['afflictions','Afflictions'],['items','Items'],['ascents','Ascents'],['prep','Pre-climb Checklist'],['runs','Run Log'],['notes','My Notes']];
 function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>PEAK<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
 
-const TILE={guides:'Climbing, teamwork, campfires and what to carry',biomes:'Every level from the Shore to the Peak, with hazards',afflictions:'What eats your stamina, and what cures it',items:'Climbing gear, food, medicine and mystic items',ascents:'What each difficulty adds',prep:'Run through it at the plane crash',runs:'Log your attempts and your best climb',notes:'Your own notes'};
+const TILE={today:'Which biomes are on the mountain today. Report what you see',guides:'Climbing, teamwork, campfires and what to carry',biomes:'Every level from the Shore to the Peak, with hazards',afflictions:'What eats your stamina, and what cures it',items:'Climbing gear, food, medicine and mystic items',ascents:'What each difficulty adds',prep:'Run through it at the plane crash',runs:'Log your attempts and your best climb',notes:'Your own notes'};
 function pgHome(){const wins=S.runs.filter(r=>r.top===6).length;
 return `${TWArt.hero(3527290,'PEAK')}<h2>PEAK Assistant</h2><p class="sub">A companion for <i>PEAK</i>, the co-op climbing game. Your checklists, runs and notes are saved on this device.</p>
-<div class="stats"><div class="stat"><small>Runs logged</small>${S.runs.length}</div><div class="stat"><small>Summits</small>${wins}</div><div class="stat"><small>Highest Ascent summited</small>${bestAscent()}</div></div>
+<div class="stats"><div class="stat"><small>Today's mountain</small>${todaySummary()}</div><div class="stat"><small>Runs logged</small>${S.runs.length}</div><div class="stat"><small>Summits</small>${wins}</div><div class="stat"><small>Highest Ascent summited</small>${bestAscent()}</div></div>
 <div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
 <div class="note">Facts marked <span class="conf">●</span> come from the PEAK wiki or published guides. Facts marked <span class="unv">○</span> come from player reports or a single source. Item numbers vary between patches, so trust what you see in-game first.</div>`;}
 function bestAscent(){const w=S.runs.filter(r=>r.top===6).map(r=>ASCENTS.findIndex(a=>a[0]===r.asc));return w.length?esc(ASCENTS[Math.max(...w)][0]):'—';}
@@ -244,6 +251,72 @@ ${mountainMap()}<p class="tw-cap">Cross-section of the climb, not to scale. Spli
 ${lv.map(l=>`<h3>Level ${l}</h3><div class="grid">${BIOMES.filter(b=>b.lvl===l).map(b=>`<div class="tile" onclick="location.hash='biomes/${slug(b.n)}'"><b>${esc(b.n)}</b>${b.haz.map(h=>`<span class="tag">${esc(h)}</span>`).join('')}<div class="dim">${esc(b.d)}</div></div>`).join('')}</div>`).join('')}`;
 }
 
+/* ================= TODAY'S MOUNTAIN =================
+   Everyone gets the same island, and it changes once a day at the same moment
+   worldwide (17:00 UTC per the PEAK wiki). A session already underway keeps its map.
+   We can't read the game, so the day's biomes come from what the player reports;
+   the reset time can be corrected from the in-game "new map in" countdown. */
+const SWAP=[...new Set(BIOMES.map(b=>b.lvl))].filter(l=>BIOMES.filter(b=>b.lvl===l).length>1);
+const DAY=864e5;
+/* Start (ms) of the map day containing time t. */
+function mapStart(t){const r=S.resetMin*6e4,d=Math.floor((t-r)/DAY);return d*DAY+r;}
+const dayKey=t=>new Date(mapStart(t)).toISOString().slice(0,10);
+const todayRep=()=>S.days[dayKey(Date.now())]||null;
+function hm(ms){const m=Math.max(0,Math.round(ms/6e4));return `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`;}
+function todaySummary(){const r=todayRep();if(!r)return '<a class="mob" href="#today">Not reported yet</a>';
+  const got=SWAP.filter(l=>r[l]);return `<a class="mob" href="#today">${got.length?got.map(l=>esc(r[l].replace(/^The /,''))).join(' · '):'Not reported yet'}</a>`;}
+/* How each biome has come up across the days reported, so you can see the mix. */
+function biomeCounts(){const c={};Object.values(S.days).forEach(d=>SWAP.forEach(l=>{if(d[l])c[d[l]]=(c[d[l]]||0)+1;}));return c;}
+function pgToday(){
+  const now=Date.now(),st=mapStart(now),k=dayKey(now),r=S.days[k]||{},local=new Date(st+DAY);
+  const rh=String(Math.floor(S.resetMin/60)).padStart(2,'0')+':'+String(S.resetMin%60).padStart(2,'0');
+  const seen=SWAP.filter(l=>r[l]).map(l=>BIOMES.find(b=>b.n===r[l]));
+  const haz=[...new Set(seen.flatMap(b=>b.haz))];
+  const pack=[];if(r[3]==='Mesa')pack.push('Sunscreen for the Mesa sun');if(r[3]==='Alpine')pack.push('Warm gear and a Lantern for Alpine blizzards');
+  if(r[4]==='Gloom')pack.push('Energy drinks for the Gloom\'s Drowsy fog');if(r[4]==='Caldera')pack.push('Climb fast: the Caldera lava rises');
+  if(r[5]==='The Kiln')pack.push('Spare food: nothing grows in the Kiln');if(r[2]==='Roots')pack.push('A First-Aid Kit or Cure-All for the Roots\' spores');
+  const hist=Object.keys(S.days).filter(d=>d!==k).sort().reverse();
+  const cnt=biomeCounts(),totalDays=Object.keys(S.days).length;
+  return `<h2>Today's Mountain</h2><p class="sub">Everyone gets the same island each day. Tap the biome you saw on each level and the assistant remembers it until the next map. Only what you report is shown, so nothing here is a guess.</p>
+<div class="stats"><div class="stat"><small>This map since</small>${new Date(st).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'})}</div>
+<div class="stat"><small>New map in</small><span id="tcd">${hm(st+DAY-now)}</span></div>
+<div class="stat"><small>Next map at (your time)</small>${local.toLocaleTimeString([], {timeStyle:'short'})}</div></div>
+<div class="today">
+<div class="lvl"><small>Level 1</small><b class="fixed">The Shore</b><div class="dim">Always first.</div></div>
+${SWAP.map(l=>{const opts=BIOMES.filter(b=>b.lvl===l);return `<div class="lvl"><small>Level ${l}</small><div class="pick">${opts.map(b=>`<button type="button" data-lv="${l}" data-b="${esc(b.n)}" class="${r[l]===b.n?'on':''}" aria-pressed="${r[l]===b.n}">${esc(b.n.replace(/^The /,''))}</button>`).join('')}</div><div class="dim" style="margin-top:4px">${r[l]?`<a href="#biomes/${slug(r[l])}">Dangers &rarr;</a>`:'Not seen yet'}</div></div>`;}).join('')}
+<div class="lvl"><small>Level 6</small><b class="fixed">The Peak</b><div class="dim">Always last.</div></div></div>
+${r.at?`<p class="dim">Last updated ${new Date(r.at).toLocaleTimeString([], {timeStyle:'short'})}. Tap a chosen biome again to clear it. <button type="button" id="tclr">Clear today</button></p>`:''}
+${seen.length?`<div class="tip"><b>Today's hazards:</b> ${haz.map(h=>`<a class="mob" href="#afflictions">${esc(h)}</a>`).join(', ')||'none'}${pack.length?`<ul class="mech" style="margin:6px 0 0">${pack.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`:''}</div>`:''}
+<div class="card"><h3 style="margin-top:0">Keep the reset time right</h3>
+<p class="dim" style="margin-top:0">${S.resetMin===1020?'The map changes at 17:00 UTC (from the PEAK wiki).':`You set the map change to ${rh} UTC from the in-game countdown.`} If the game's countdown disagrees, type what it shows and the tracker will match it. Game updates can also start a new island early. If the map changes before the countdown ends, clear today and report again.</p>
+<form class="row" id="tcal"><label>In-game "new map in" <input id="tch" type="number" min="0" max="23" placeholder="h" style="width:64px"> h <input id="tcm" type="number" min="0" max="59" placeholder="m" style="width:64px"> m</label><button class="pri">Match the game</button>${S.resetMin!==1020?'<button type="button" id="tcdef">Back to 17:00 UTC</button>':''}</form><div class="dim" id="tcmsg"></div></div>
+<h3>Past days</h3>
+${totalDays>1?`<div class="dim">Across ${totalDays} reported days: ${Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([n,c])=>`${esc(n)} ${c}`).join(' · ')}</div>`:''}
+<div class="card tbl"><table><tr><th>Map day</th>${SWAP.map(l=>`<th>Level ${l}</th>`).join('')}<th></th></tr>${hist.map(d=>`<tr><td>${esc(d)}</td>${SWAP.map(l=>`<td>${S.days[d][l]?esc(S.days[d][l]):'<span class="dim">—</span>'}</td>`).join('')}<td><button data-dday="${esc(d)}" title="Delete">✕</button></td></tr>`).join('')||`<tr><td colspan="${SWAP.length+2}" class="dim">Days you report show up here.</td></tr>`}</table></div>`;
+}
+let todayTimer=0;
+function todayWire(m){
+  const k=dayKey(Date.now());
+  m.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{const d=S.days[k]||(S.days[k]={}),l=b.dataset.lv;
+    d[l]=d[l]===b.dataset.b?undefined:b.dataset.b;if(!d[l])delete d[l];d.at=Date.now();
+    if(!SWAP.some(x=>d[x]))delete S.days[k];save();route();});
+  if($('tclr'))$('tclr').onclick=()=>{delete S.days[k];save();route();};
+  m.querySelectorAll('[data-dday]').forEach(b=>b.onclick=()=>{if(confirm('Delete '+b.dataset.dday+'?')){delete S.days[b.dataset.dday];save();route();}});
+  $('tcal').onsubmit=e=>{e.preventDefault();const h=+$('tch').value||0,mi=+$('tcm').value||0,left=h*60+mi;
+    if(!left||left>1440){$('tcmsg').textContent='Enter the hours and minutes the in-game countdown shows.';return;}
+    const at=new Date(Date.now()+left*6e4);const old=k;
+    S.resetMin=at.getUTCHours()*60+at.getUTCMinutes();
+    /* Keep today's report with the map it describes, even if the day boundary moved. */
+    const nk=dayKey(Date.now());if(nk!==old&&S.days[old]&&!S.days[nk]){S.days[nk]=S.days[old];delete S.days[old];}
+    save();route();};
+  if($('tcdef'))$('tcdef').onclick=()=>{S.resetMin=1020;save();route();};
+  /* Tick the countdown; redraw when the map rolls over so yesterday's report clears. */
+  clearInterval(todayTimer);todayTimer=setInterval(()=>{
+    if(!$('tcd')){clearInterval(todayTimer);return;}
+    if(dayKey(Date.now())!==k){route();return;}
+    $('tcd').textContent=hm(mapStart(Date.now())+DAY-Date.now());},30000);
+}
+
 function pgAfflictions(){return `<h2>Afflictions</h2><p class="sub">Each one takes a slice of your stamina bar until it's cleared.</p>
 <div class="card tbl"><table><tr><th>Affliction</th><th>Caused by</th><th>Cleared by</th></tr>${AFFLICTIONS.map(a=>`<tr><td>${mark(a.conf)} <b>${esc(a.n)}</b></td><td>${esc(a.cause)}</td><td>${esc(a.cure)}</td></tr>`).join('')}</table></div>
 <div class="tip">A Cure-All is the best all-rounder. Give one to whoever climbs first.</div>`;}
@@ -274,7 +347,7 @@ function pgRuns(){return `<h2>Run Log</h2><p class="sub">Log each attempt: how h
 <div class="card"><form class="row" id="rf"><select id="ra">${ASCENTS.map(a=>`<option>${esc(a[0])}</option>`).join('')}</select>
 <select id="rt">${LEVELS.map((l,i)=>`<option value="${i+1}">${l}</option>`).join('')}</select>
 <input id="rn" type="text" style="width:240px" placeholder="What happened?"> <button class="pri">Log run</button></form></div>
-<div class="card tbl"><table><tr><th>When</th><th>Difficulty</th><th>Reached</th><th>Note</th><th></th></tr>${S.runs.map((r,i)=>({r,i})).reverse().map(({r,i})=>`<tr><td>${new Date(r.at).toLocaleDateString()}</td><td>${esc(r.asc)}</td><td>${r.top===6?'<span class="ok">Summit</span>':esc(LEVELS[r.top-1])}</td><td>${esc(r.note)}</td><td><button data-del="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="5" class="dim">No runs yet.</td></tr>'}</table></div>`;}
+<div class="card tbl"><table><tr><th>When</th><th>Difficulty</th><th>Reached</th><th>Note</th><th></th></tr>${S.runs.map((r,i)=>({r,i})).reverse().map(({r,i})=>`<tr><td>${new Date(r.at).toLocaleDateString()}</td><td>${esc(r.asc)}</td><td>${r.top===6?'<span class="ok">Summit</span>':esc(LEVELS[r.top-1])}</td><td>${esc(r.note)}${r.biomes&&r.biomes.length?` <span class="dim">(${r.biomes.map(esc).join(', ')})</span>`:''}</td><td><button data-del="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="5" class="dim">No runs yet.</td></tr>'}</table></div>`;}
 
 function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Routes that worked, who carries what, today's mountain...">${esc(S.notes)}</textarea>`;}
 
@@ -284,14 +357,15 @@ function route(){
   const page=PAGES.some(p=>p[0]===pg)?pg:'home';
   buildNav(page);
   const m=$('main');
-  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),biomes:()=>pgBiomes(sub),afflictions:pgAfflictions,items:pgItems,ascents:pgAscents,prep:pgPrep,runs:pgRuns,notes:pgNotes})[page]();
+  m.innerHTML=({home:pgHome,today:pgToday,guides:()=>pgGuides(sub),biomes:()=>pgBiomes(sub),afflictions:pgAfflictions,items:pgItems,ascents:pgAscents,prep:pgPrep,runs:pgRuns,notes:pgNotes})[page]();
   m.scrollTop=0;
   m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
   m.querySelectorAll('input[type=checkbox][data-l]').forEach(cb=>{cb.onchange=()=>{S.prep[cb.dataset.l]=cb.checked;save();const d=PREP.filter((_,i)=>S.prep[i]).length;$('ldone').textContent=d+' of '+PREP.length+' ready';$('lbar').style.width=d/PREP.length*100+'%';};});
+  if(page==='today')todayWire(m);
   if(page==='items'){$('iq').oninput=itemsRender;$('ic').onchange=itemsRender;itemsRender();}
   if(page==='runs'){
     if(S.lastAsc)$('ra').value=S.lastAsc;
-    $('rf').onsubmit=e=>{e.preventDefault();S.lastAsc=$('ra').value;S.runs.push({asc:S.lastAsc,top:+$('rt').value,note:$('rn').value.trim(),at:new Date().toISOString()});save();route();};
+    $('rf').onsubmit=e=>{e.preventDefault();S.lastAsc=$('ra').value;const tb=todayRep();S.runs.push({asc:S.lastAsc,top:+$('rt').value,note:$('rn').value.trim(),at:new Date().toISOString(),biomes:tb?SWAP.map(l=>tb[l]).filter(Boolean):[]});save();route();};
     m.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{S.runs.splice(+b.dataset.del,1);save();route();});
   }
   if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
