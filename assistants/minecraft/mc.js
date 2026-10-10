@@ -310,7 +310,45 @@ b:'Bedrock has no quasi-connectivity, but pistons can move chests, furnaces and 
 <label class="chk"><input type="checkbox" data-k="l3"> Jump, then jump again in the air to glide. Use a rocket to climb.</label>
 <label class="chk"><input type="checkbox" data-k="l4"> Put Unbreaking III and Mending on the elytra. Repair broken elytra with phantom membranes at an anvil.</label>
 <label class="chk"><input type="checkbox" data-k="l5"> Land into water or dive steeply and pull up late. Crashing into walls hurts.</label>
-<label class="chk"><input type="checkbox" data-k="l6"> Build a creeper or gunpowder farm so rockets are free. See <a href="#farms">Auto farms</a>.</label>`}
+<label class="chk"><input type="checkbox" data-k="l6"> Build a creeper or gunpowder farm so rockets are free. See <a href="#farms">Auto farms</a>.</label>`},
+{id:'killchamber',title:'Kill chambers and drop heights',blurb:'Fall mobs to one hit, collect loot and XP.',body:`
+<p>A kill chamber is the bottom of a mob farm: mobs fall down a chute, land hurt, and you finish them with one hit. Killing them yourself gives XP and rare drops; a drop that kills outright gives items but no XP.</p>
+<h3>How fall damage works</h3>
+<p>A mob takes <b>1 point of damage (half a heart) for every block it falls past the first 3</b>. So damage = blocks fallen &minus; 3. Measure from the block the mob walks off down to the floor it lands on (the top of the hoppers).</p>
+<ul class="mech">
+<li><b>One-hit height</b> = health + 2. The mob lands with half a heart left, so any hit kills it.</li>
+<li><b>Instant kill height</b> = health + 3. The fall kills it: loot, but no XP.</li>
+<li>Fall damage ignores armor, but <b>Feather Falling</b> and <b>Protection</b> on boots reduce it. A few mobs spawn with enchanted boots and survive with more health; they still die to a second hit.</li>
+</ul>
+<h3>Drop heights by mob</h3>
+<div class="tbl"><table><tr><th>Mob</th><th>Health</th><th>One-hit drop</th><th>Kills outright</th></tr>
+<tr><td>Zombie, husk, drowned, zombie villager, skeleton, stray, creeper, wither skeleton, zombified piglin, villager, player</td><td>20</td><td><b>22</b></td><td>23</td></tr>
+<tr><td>Spider, piglin, bogged</td><td>16</td><td><b>18</b></td><td>19</td></tr>
+<tr><td>Cave spider</td><td>12</td><td><b>14</b></td><td>15</td></tr>
+<tr><td>Cow, pig, mooshroom</td><td>10</td><td><b>12</b></td><td>13</td></tr>
+<tr><td>Sheep, silverfish, endermite</td><td>8</td><td><b>10</b></td><td>11</td></tr>
+<tr><td>Rabbit</td><td>3</td><td><b>5</b></td><td>6</td></tr>
+<tr><td>Pillager, vindicator, evoker</td><td>24</td><td><b>26</b></td><td>27</td></tr>
+<tr><td>Witch</td><td>26</td><td><b>28</b></td><td>29</td></tr>
+<tr><td>Guardian, turtle</td><td>30</td><td><b>32</b></td><td>33</td></tr>
+<tr><td>Enderman, hoglin, zoglin</td><td>40</td><td><b>42</b></td><td>43</td></tr>
+<tr><td>Ravager</td><td>100</td><td><b>102</b></td><td>103</td></tr>
+</table></div>
+<p class="dim">Health is in points: 2 points = 1 heart. Tap a mob on the <a href="#mobs">Mobs</a> page for more.</p>
+<h3>Mobs a drop won't hurt</h3>
+<p>Chickens, slimes, magma cubes, blazes, ghasts, breezes, iron golems, snow golems, cats, bats, bees, parrots, phantoms, vexes and allays take no fall damage. Use another kill method for these: a lava blade under a sign or slab, magma blocks, drowning, or hitting them yourself. Goats and frogs take reduced fall damage, so they need a much taller drop.</p>
+<h3>Build it</h3>
+<label class="chk"><input type="checkbox" data-k="k1"> Pick the drop height from the table for your target mob. For a mixed dark-room farm, use 22 blocks: zombies, skeletons and creepers land at half a heart and spiders die outright.</label>
+<label class="chk"><input type="checkbox" data-k="k2"> Build a 1x1 chute to drop down. Spiders are 2 blocks wide and can't fit, which keeps them out; make it 2x2 if you want spiders.</label>
+<label class="chk"><input type="checkbox" data-k="k3"> Don't let mobs land in water, on slime blocks, powder snow, hay bales, beds or honey: all of them cancel or cut fall damage. Water anywhere in the chute resets the fall.</label>
+<label class="chk"><input type="checkbox" data-k="k4"> At the bottom, mobs land on hoppers that feed a chest. Use enough hoppers or a hopper line so loot never backs up.</label>
+<label class="chk"><input type="checkbox" data-k="k5"> Wall the landing pit with glass or slabs and leave a half-block gap (a bottom slab on top of the wall, or a top slab below head height) to swing through. Baby zombies fit through a 1-block gap, but not half a block.</label>
+<label class="chk"><input type="checkbox" data-k="k6"> Light your side of the chamber and roof it, so nothing spawns next to you.</label>
+<label class="chk"><input type="checkbox" data-k="k7"> Test with one mob before you fill the farm. If it survives with more than half a heart, add a block to the drop; if it dies, remove one.</label>
+<label class="chk"><input type="checkbox" data-k="k8"> Use a sword with Sweeping Edge (Java), Looting and Mending. Sweeping hits the whole pile at once, and the farm's XP keeps the sword repaired.</label>
+<p class="dim">Stay within the farm's spawn range while you wait: mobs only spawn 24 to 128 blocks from a player (Java) or 24 to 44 blocks (Bedrock, by default simulation distance). Building the chamber about 25 blocks below the spawning floor works for both.</p>`,
+j:'Java: mobs only drop XP and rare loot if a player or tamed wolf hurt them in the last 5 seconds, which is why the one-hit height matters. Piling over 24 mobs into one block causes entity cramming damage (gamerule maxEntityCramming), which kills them with no XP, so keep loot flowing out.',
+b:'Bedrock: fall damage uses the same blocks minus 3 rule, but always test with one mob since landing on hoppers or slabs can shift it by a block. Bedrock has no entity cramming damage, so crowded pits stay alive until you hit them.'}
 ];
 
 /* Mobs: [name, kind, where, drops, how to deal with it] */
@@ -653,7 +691,7 @@ const PAGES = [['home','Home'],['guides','Guides'],['farms','Auto farms'],['tuto
   .concat(B ? [['realms','Realms']] : [])
   .concat([['diff','Java vs Bedrock'],['brewing','Brewing'],['enchants','Enchantments'],['mobs','Mobs'],['food','Food'],['ores','Ores'],['calc','Calculators'],['coords','Coordinates'],['notes','My Notes']]);
 const TILE = {
-  guides:'First night to the End, farming, redstone, raids, monuments, Ancient Cities, elytra',
+  guides:'First night to the End, farming, redstone, raids, monuments, Ancient Cities, elytra, kill chambers',
   farms:'Step-by-step auto farms for crops, iron, XP, mobs and more, in ' + ED_NAME + ' terms',
   tutorials:'Search YouTube, the Minecraft Wiki and Reddit for ' + ED_NAME + ' tutorials',
   crafting:'Every crafting table recipe in the 3x3 grid, with a materials planner',
