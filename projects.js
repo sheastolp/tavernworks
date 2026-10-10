@@ -191,7 +191,7 @@ window.TAVERN_PROJECTS = {
       "card": {
         "section": "workbench",
         "title": "Game Assistants",
-        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i> and <i>Oddsparks: An Automation Adventure</i>, and a companion for every game you link from Steam, Epic Games or GOG.",
+        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games or GOG.",
         "href": "/assistants/",
         "url": "tavernworks.dev/assistants",
         "pill": "BETA",
@@ -213,6 +213,14 @@ window.TAVERN_PROJECTS = {
       "name": "Oddsparks Assistant",
       "href": "/assistants/oddsparks/",
       "dir": "assistants/oddsparks",
+      "card": null
+    },
+    {
+      "key": "minecraft",
+      "icon": "⛏️",
+      "name": "Minecraft Assistants",
+      "href": "/assistants/minecraft/",
+      "dir": "assistants/minecraft",
       "card": null
     },
     {
@@ -379,6 +387,7 @@ window.TAVERN_PROJECTS = {
     ["station","2026-10-10","Moves into the Game Assistants folder","/assistants/stationeers/"],
     ["sparks","2026-10-10","Oddsparks Assistant: Spark guide, logistics, quests, planner and calculators","/assistants/oddsparks/"],
     ["assistants","2026-10-10","Game Assistants: one card for every game companion","/assistants/"],
-    ["assistants","2026-10-10","Link Steam, Epic Games and GOG: a companion app for every installed game","/assistants/library/"]
+    ["assistants","2026-10-10","Link Steam, Epic Games and GOG: a companion app for every installed game","/assistants/library/"],
+    ["minecraft","2026-10-10","Minecraft Assistants: Bedrock Edition with Realms, and Java Edition","/assistants/minecraft/"]
   ]
 };
