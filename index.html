@@ -391,8 +391,9 @@
 <script>
 // The path so far: every change on tavernworks.dev, one lane per project,
 // oldest on the left, ending at today. One line joins every change in
-// order, turning at an angle when it moves to another project. Add a point to POINTS when something ships (lane key,
-// date, what changed, and where it lives).
+// order, turning at an angle when it moves to another project. Only the
+// SHOWN projects with the most recent changes get a lane. Add a point to
+// POINTS when something ships (lane key, date, what changed, and where it lives).
 (function () {
   const LANES = {
     home:    { icon: "🍺", name: "The Tavern",       href: "/" },
@@ -408,7 +409,8 @@
     sound:   { icon: "🔊", name: "Sound Bytes",      href: "/soundbytes/" },
     station: { icon: "🛰️", name: "Stationeers Assistant", href: "/stationeers/" },
   };
-  const POINTS = [
+  const SHOWN = 7;
+  const ALL = [
     ["home",    "2026-10-05", "The tavern opens: GuildScribe live, Hushwave on GitHub", "/"],
     ["guildscribe", "2026-10-06", "Moves in at guildscribe.tavernworks.dev", "https://guildscribe.tavernworks.dev/"],
     ["localai", "2026-10-06", "Local AI gets its own page", "/local-ai/"],
@@ -556,7 +558,9 @@
     ["guildscribe", "2026-10-10", "!rob @GuildScribeBot fines the robber into the swear jar", "https://guildscribe.tavernworks.dev/"],
     ["burn",    "2026-10-10", "Smarter AI: sharper commentary and roasts from what you said", "https://burn.tavernworks.dev/"],
     ["station", "2026-10-10", "Stationeers Assistant: guides, IC10 tutorial, linter and emulator", "/stationeers/"],
-  ].map(([lane, date, title, href], i) => ({ lane, date, title, href, i }));
+  ].map(([lane, date, title, href]) => ({ lane, date, title, href }));
+  const recent = [...new Set(ALL.map((p) => p.lane).reverse())].slice(0, SHOWN);
+  const POINTS = ALL.filter((p) => recent.includes(p.lane)).map((p, i) => ({ ...p, i }));
 
   const trail = document.getElementById("trail");
   if (!trail) return;
@@ -601,13 +605,15 @@
   }).join("");
 
   // Every change joined in order: straight along a lane, at an angle when
-  // the next change is in another project. Then a faint trail from each
-  // project's last change on to today.
+  // the next change is in another project. Then a faint trail along each
+  // lane from the left edge to its first change, and from its last change on
+  // to today.
   const nowX = x(POINTS.length) - STEP / 2 + 6;
   svg += `<path class="lane-line" d="${POINTS.map((p, n) => `${n ? "L" : "M"}${x(p.i)} ${y(p.lane)}`).join(" ")}"/>`;
   order.forEach((k) => {
     const pts = POINTS.filter((p) => p.lane === k);
     const yy = y(k);
+    if (pts[0].i) svg += `<line class="hop" x1="0" y1="${yy}" x2="${x(pts[0].i) - R}" y2="${yy}"/>`;
     svg += `<line class="hop" x1="${x(pts[pts.length - 1].i) + R}" y1="${yy}" x2="${nowX}" y2="${yy}"/>`;
   });
   svg += `<line class="now" x1="${nowX}" y1="${TOP - 6}" x2="${nowX}" y2="${height}"/>` +
