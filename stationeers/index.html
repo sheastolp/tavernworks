@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stationeers Assistant · Tavernworks</title>
+<meta name="description" content="Stationeers Assistant: survival guides, an IC10 tutorial, a coding knowledge base, a linter and emulator, and calculators. Runs in your browser.">
+<style>
+:root{--bg:#0e1318;--panel:#161d25;--panel2:#1d2630;--line:#2a3643;--tx:#d6dde5;--dim:#8a98a8;--acc:#f5a623;--acc2:#4cc9f0;--ok:#5fd38d;--warn:#f2c14e;--err:#ff6b6b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:8px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:#1a1200;font-weight:600}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+.two{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:14px}
+@media(max-width:1000px){.two{grid-template-columns:1fr}}
+@media(max-width:760px){#app{flex-direction:column}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:#1a1200;border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#0b1015;border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+input[type=text],input[type=number]{width:130px}
+input[type=checkbox]{width:auto}
+code,pre,textarea.mono{font-family:Consolas,"Cascadia Mono",monospace;font-size:13px}
+pre{background:#0b1015;border:1px solid var(--line);border-radius:6px;padding:10px;overflow:auto;margin:6px 0}
+code{background:#0b1015;padding:1px 5px;border-radius:4px;color:#ffd48a}
+pre code{background:none;padding:0;color:var(--tx)}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.note{border-left:3px solid var(--warn);background:#2a2412;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.ed{display:flex;border:1px solid var(--line);border-radius:6px;background:#0b1015;height:420px;overflow:hidden}
+#gut{padding:8px 6px;text-align:right;color:var(--dim);font:13px/18px Consolas,monospace;overflow:hidden;user-select:none;min-width:40px;border-right:1px solid var(--line)}
+#gut div{height:18px;padding:0 4px}
+#gut .pc{background:var(--acc);color:#1a1200}
+#gut .e{background:#4a1d1d;color:var(--err)}
+#gut .w{background:#3d3413;color:var(--warn)}
+#code{flex:1;border:0;border-radius:0;resize:none;padding:8px;font:13px/18px Consolas,monospace;white-space:pre;overflow:auto;outline:none;background:transparent}
+.msg{padding:3px 8px;border-radius:4px;margin:2px 0;cursor:pointer;font-size:13px}
+.msg.error{background:#3a1717;color:#ffb3b3}.msg.warn{background:#352d10;color:#f2dc8b}.msg.info{background:#16283a;color:#a9d6f5}.msg.ok{background:#14301f;color:#9be5b8}
+.regs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.reg{background:#0b1015;border:1px solid var(--line);border-radius:5px;padding:2px 6px;font:12px Consolas,monospace;display:flex;justify-content:space-between}
+.reg i{color:var(--dim);font-style:normal}
+.devs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.devs textarea{width:100%;height:56px;font:12px Consolas,monospace}
+.res{background:#0b1015;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:8px;font-family:Consolas,monospace}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.kb-item{border-bottom:1px solid var(--line);padding:8px 0}
+.kb-item .n{font:600 14px Consolas,monospace;color:#ffd48a}
+</style>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/*CORE_START*/
+const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
+const BATCH={Average:0,Sum:1,Minimum:2,Maximum:3};
+const REAGENT_MODES={Contents:0,Required:1,Recipe:2};
+const CONSTS={pi:Math.PI,deg2rad:Math.PI/180,rad2deg:180/Math.PI,nan:NaN,pinf:Infinity,ninf:-Infinity,epsilon:Number.EPSILON};
+
+function crc32(str){
+  if(!crc32.t){crc32.t=[];for(let i=0;i<256;i++){let c=i;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);crc32.t[i]=c>>>0;}}
+  let c=0xFFFFFFFF;const b=new TextEncoder().encode(str);
+  for(const x of b)c=crc32.t[(c^x)&255]^(c>>>8);
+  return (c^0xFFFFFFFF)|0;
+}
+
+/* ---- instruction table ---- */
+const INS=[];
+const add=(n,spec,cat,desc,ex)=>INS.push({n,spec:spec.split(' ').filter(Boolean),cat,desc,ex:ex||''});
+add('alias','a x','Setup','Give a register or device pin a readable name.','alias heater d1');
+add('define','a v','Setup','Create a named constant (number or HASH).','define LIMIT 300');
+add('move','r v','Basic','Copy a value into a register.','move r0 5');
+add('yield','','Flow','End this tick; the chip resumes next tick. Put one in every main loop.','yield');
+add('sleep','v','Flow','Pause the chip for a number of seconds.','sleep 2');
+add('hcf','','Flow','Halt and catch fire. Stops the chip (and damages it in-game).','hcf');
+['add','sub','mul','div','mod','max','min','pow','atan2'].forEach(n=>add(n,'r v v','Math',{add:'a + b',sub:'a - b',mul:'a * b',div:'a / b',mod:'a mod b (result is never negative)',max:'Larger of a and b',min:'Smaller of a and b',pow:'a raised to b',atan2:'Angle (radians) of the point (b, a)'}[n],n+' r0 r1 r2'));
+['sqrt','abs','ceil','floor','round','trunc','exp','log','sin','cos','tan','asin','acos','atan'].forEach(n=>add(n,'r v','Math',{sqrt:'Square root',abs:'Absolute value',ceil:'Round up',floor:'Round down',round:'Round to nearest',trunc:'Drop the fraction',exp:'e to the power a',log:'Natural logarithm',sin:'Sine (radians)',cos:'Cosine (radians)',tan:'Tangent (radians)',asin:'Arcsine',acos:'Arccosine',atan:'Arctangent'}[n],n+' r0 r1'));
+add('rand','r','Math','Random number in [0,1).','rand r0');
+['and','or','xor','nor','sll','srl','sra'].forEach(n=>add(n,'r v v','Logic',{and:'Bitwise AND',or:'Bitwise OR',xor:'Bitwise XOR',nor:'Bitwise NOR',sll:'Shift left (logical)',srl:'Shift right (logical)',sra:'Shift right (arithmetic)'}[n],n+' r0 r1 r2'));
+add('not','r v','Logic','Bitwise NOT.','not r0 r1');
+[['seq','equal'],['sne','not equal'],['sgt','greater than'],['sge','greater or equal'],['slt','less than'],['sle','less or equal']].forEach(([n,t])=>{
+  add(n,'r v v','Set (compare)',`r = 1 if a is ${t} b, else 0.`,n+' r0 r1 r2');
+  add(n+'z','r v','Set (compare)',`r = 1 if a is ${t} zero, else 0.`,n+'z r0 r1');
+});
+add('sap','r v v v','Set (compare)','r = 1 if a and b are approximately equal (tolerance c, relative).','sap r0 r1 r2 0.01');
+add('sna','r v v v','Set (compare)','r = 1 if a and b are NOT approximately equal.','sna r0 r1 r2 0.01');
+add('sapz','r v v','Set (compare)','r = 1 if a is approximately zero (tolerance b).','sapz r0 r1 0.001');
+add('snaz','r v v','Set (compare)','r = 1 if a is NOT approximately zero.','snaz r0 r1 0.001');
+add('sdse','r d','Set (compare)','r = 1 if the device pin is set (a device is connected).','sdse r0 d0');
+add('sdns','r d','Set (compare)','r = 1 if the device pin is NOT set.','sdns r0 d0');
+add('select','r v v v','Set (compare)','r = (a is non-zero) ? b : c.','select r0 r1 10 20');
+add('j','v','Jump','Jump to a line number or label.','j loop');
+add('jal','v','Jump','Jump and store the return line in ra.','jal myFunc');
+add('jr','v','Jump','Relative jump by a number of lines.','jr -3');
+const CMP=[['eq','equal to'],['ne','not equal to'],['gt','greater than'],['ge','greater or equal to'],['lt','less than'],['le','less or equal to']];
+CMP.forEach(([c,t])=>{
+  add('b'+c,'v v v','Branch',`Jump to line if a is ${t} b.`,`b${c} r0 r1 loop`);
+  add('b'+c+'z','v v','Branch',`Jump to line if a is ${t} zero.`,`b${c}z r0 loop`);
+  add('b'+c+'al','v v v','Branch & link',`Like b${c}, but stores the return line in ra.`,`b${c}al r0 r1 myFunc`);
+  add('b'+c+'zal','v v','Branch & link',`Like b${c}z, but stores the return line in ra.`,`b${c}zal r0 myFunc`);
+  add('br'+c,'v v v','Branch (relative)',`Relative jump if a is ${t} b.`,`br${c} r0 r1 -2`);
+  add('br'+c+'z','v v','Branch (relative)',`Relative jump if a is ${t} zero.`,`br${c}z r0 -2`);
+});
+[['ap','approximately equal'],['na','not approximately equal']].forEach(([c,t])=>{
+  add('b'+c,'v v v v','Branch',`Jump if a and b are ${t} (tolerance c).`,`b${c} r0 r1 0.01 loop`);
+  add('b'+c+'z','v v v','Branch',`Jump if a is ${t} to zero (tolerance b).`,`b${c}z r0 0.001 loop`);
+  add('b'+c+'al','v v v v','Branch & link',`Like b${c}, stores return line in ra.`,`b${c}al r0 r1 0.01 myFunc`);
+  add('b'+c+'zal','v v v','Branch & link',`Like b${c}z, stores return line in ra.`,`b${c}zal r0 0.001 myFunc`);
+  add('br'+c,'v v v v','Branch (relative)',`Relative jump if a and b are ${t}.`,`br${c} r0 r1 0.01 -2`);
+  add('br'+c+'z','v v v','Branch (relative)',`Relative jump if a is ${t} to zero.`,`br${c}z r0 0.001 -2`);
+});
+add('bdse','d v','Branch','Jump if the device pin is set.','bdse d0 hasDevice');
+add('bdns','d v','Branch','Jump if the device pin is NOT set.','bdns d0 noDevice');
+add('bdseal','d v','Branch & link','Like bdse, stores return line in ra.','bdseal d0 myFunc');
+add('bdnsal','d v','Branch & link','Like bdns, stores return line in ra.','bdnsal d0 myFunc');
+add('brdse','d v','Branch (relative)','Relative jump if the device pin is set.','brdse d0 -2');
+add('brdns','d v','Branch (relative)','Relative jump if the device pin is NOT set.','brdns d0 -2');
+add('l','r d t','Device','Load a logic value from a device into a register.','l r0 d0 Temperature');
+add('s','d t v','Device','Store a value into a device logic property.','s d1 On 1');
+add('ls','r d v t','Device','Load a value from a device slot.','ls r0 d0 0 Quantity');
+add('ss','d v t v','Device','Store a value into a device slot property.','ss d0 0 Open 1');
+add('lr','r d m x','Device','Load a reagent value from a device.','lr r0 d0 Contents Iron');
+add('lb','r v t m','Batch','Load from ALL devices with a prefab hash, combined by a batch mode.','lb r0 HASH("StructureGasSensor") Temperature Average');
+add('sb','v t v','Batch','Store to ALL devices with a prefab hash.','sb HASH("StructureLightLong") On 1');
+add('lbn','r v v t m','Batch','Batch load filtered by prefab hash AND device name hash.','lbn r0 hashType hashName Temperature Average');
+add('sbn','v v t v','Batch','Batch store filtered by prefab hash AND device name hash.','sbn hashType hashName On 1');
+add('lbs','r v v t m','Batch','Batch load from a slot of all devices with a prefab hash.','lbs r0 hashType 0 Quantity Sum');
+add('sbs','v v t v','Batch','Batch store to a slot of all devices with a prefab hash.','sbs hashType 0 Open 1');
+add('lbns','r v v v t m','Batch','Batch slot load filtered by type hash and name hash.','lbns r0 hashType hashName 0 Quantity Sum');
+add('sbns','v v v t v','Batch','Batch slot store filtered by type hash and name hash.','sbns hashType hashName 0 Open 1');
+add('push','v','Stack','Push a value on the chip stack (sp increments).','push r0');
+add('pop','r','Stack','Pop the top value into a register (sp decrements).','pop r0');
+add('peek','r','Stack','Read the top of the stack without popping.','peek r0');
+add('poke','v v','Stack','Write a value to a specific stack address.','poke 0 r0');
+add('get','r d v','Stack','Read a value from a connected device\'s memory.','get r0 d0 0');
+add('put','d v v','Stack','Write a value to a connected device\'s memory.','put d0 0 r0');
+add('getd','r v v','Stack','Like get, but addressed by device reference id.','getd r0 id 0');
+add('putd','v v v','Stack','Like put, but addressed by device reference id.','putd id 0 r0');
+add('clr','d','Stack','Clear the memory of a device.','clr d0');
+add('rmap','r d v','Device','Look up the reagent hash for a device/reagent mapping.','rmap r0 d0 hash');
+const INSMAP={};INS.forEach(i=>INSMAP[i.n]=i);
+
+const LOGIC_TYPES=[
+['On','0/1 power switch of the device.'],['Power','Whether the device has power (read).'],['Open','Door/hatch/valve open state.'],['Lock','Lock state.'],['Mode','Device mode selector.'],['Setting','Numeric setting (dial, pump rate, display value...).'],['Activate','Button/activation flag.'],['Error','Error flag.'],['Charge','Current stored energy of a battery-type device.'],['Maximum','Maximum capacity/limit of the device.'],['Ratio','Fill ratio 0-1.'],['Quantity','Item count (slots) or amount.'],['Pressure','Gas pressure in kPa.'],['Temperature','Gas/device temperature in Kelvin.'],['PressureExternal','External pressure (kPa) on controllers/vents.'],['PressureInternal','Internal pressure (kPa) on controllers/vents.'],['PressureSetting','Target pressure setting.'],['TemperatureSetting','Target temperature setting.'],['TotalMoles','Total moles of gas.'],['Volume','Volume of the device or network.'],['RatioOxygen','Share of oxygen in the gas mix (0-1).'],['RatioNitrogen','Share of nitrogen.'],['RatioCarbonDioxide','Share of carbon dioxide.'],['RatioVolatiles','Share of volatiles.'],['RatioPollutant','Share of pollutant.'],['RatioWater','Share of water vapour.'],['RatioNitrousOxide','Share of nitrous oxide.'],['Horizontal','Horizontal angle (solar panels, dishes, sensors).'],['Vertical','Vertical angle.'],['HorizontalRatio','Horizontal as ratio.'],['VerticalRatio','Vertical as ratio.'],['SolarAngle','Sun angle reported by a daylight sensor.'],['SolarIrradiance','Sunlight strength.'],['PowerPotential','Potential power the network could supply.'],['PowerActual','Power actually being used.'],['PowerRequired','Power required by the network.'],['RequiredPower','Power a device needs to run.'],['Color','Colour index of lights/screens.'],['Occupied','Slot holds an item.'],['OccupantHash','Hash of the item in the slot.'],['Class','Class of item in slot.'],['Damage','Damage amount.'],['Efficiency','Device efficiency.'],['Growth','Plant growth progress.'],['Mature','Plant mature flag.'],['Seeding','Plant is seeding.'],['Health','Plant/entity health.'],['ImportQuantity','Items waiting at import.'],['ExportQuantity','Items waiting at export.'],['ClearMemory','Clear device memory flag.'],['ReferenceId','Unique id of the device.'],['PrefabHash','Prefab hash of the device.'],['NameHash','Hash of the device\'s label name.'],['Combustion','Combustion flag in a gas mix.'],['Time','Game time value from clocks.'],['Rpm','Rotation speed.'],['Torque','Torque output.'],['Force','Force output.'],['Stress','Structural stress.'],['Idle','Idle flag.'],['Plant','Plant command flag.'],['Harvest','Harvest command flag.'],['Output','Output value.'],['Reagents','Reagent total.'],['LineNumber','Current line of a chip.'],['Filtration','Filter on/off.'],['Contents','Contents value.'],['Required','Required amount.'],['Recipe','Recipe value.']
+];
+const TYPE_SET=new Set(LOGIC_TYPES.map(x=>x[0]));
+['Average','Sum','Minimum','Maximum','Contents','Required','Recipe'].forEach(x=>TYPE_SET.add(x));
+
+/* ---- parsing ---- */
+function stripComment(s){let q=false;for(let i=0;i<s.length;i++){const c=s[i];if(c==='"')q=!q;else if(c==='#'&&!q)return s.slice(0,i);}return s;}
+function tokenize(s){return s.trim().match(/HASH\("[^"]*"\)|"[^"]*"|\S+/g)||[];}
+function parseProgram(src){
+  const lines=src.split(/\r?\n/),prog=[],labels={};
+  lines.forEach((raw,i)=>{
+    const t=stripComment(raw).trim();
+    if(!t){prog.push({});return;}
+    const m=t.match(/^([A-Za-z_]\w*):$/);
+    if(m){labels[m[1]]=i;prog.push({label:m[1]});return;}
+    const tk=tokenize(t);
+    prog.push({op:tk[0].toLowerCase(),args:tk.slice(1),text:t});
+  });
+  return{lines,prog,labels};
+}
+function parseNum(t){
+  if(/^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(t))return parseFloat(t);
+  let m=t.match(/^\$([0-9a-fA-F_]+)$/);if(m)return parseInt(m[1].replace(/_/g,''),16);
+  m=t.match(/^%([01_]+)$/);if(m)return parseInt(m[1].replace(/_/g,''),2);
+  m=t.match(/^HASH\("([^"]*)"\)$/);if(m)return crc32(m[1]);
+  return null;
+}
+function regIdx(t,al,d=0){
+  let m=t.match(/^r(\d+)$/);if(m){const n=+m[1];return n<=15?n:-1;}
+  if(t==='sp')return 16;if(t==='ra')return 17;
+  if(d<8&&al&&has(al,t))return regIdx(al[t],al,d+1);
+  return -1;
+}
+function devName(t,al,d=0){
+  if(/^d[0-5]$/.test(t)||t==='db')return t;
+  if(d<8&&al&&has(al,t))return devName(al[t],al,d+1);
+  return null;
+}
+
+/* ---- emulator ---- */
+const CMPF={eq:(a,b)=>a===b,ne:(a,b)=>a!==b,gt:(a,b)=>a>b,ge:(a,b)=>a>=b,lt:(a,b)=>a<b,le:(a,b)=>a<=b};
+const approx=(a,b,c)=>Math.abs(a-b)<=Math.max(c*Math.max(Math.abs(a),Math.abs(b)),Number.EPSILON*8);
+const M2={add:(x,y)=>x+y,sub:(x,y)=>x-y,mul:(x,y)=>x*y,div:(x,y)=>x/y,mod:(x,y)=>((x%y)+y)%y,max:Math.max,min:Math.min,pow:Math.pow,atan2:Math.atan2,
+  and:(x,y)=>Math.trunc(x)&Math.trunc(y),or:(x,y)=>Math.trunc(x)|Math.trunc(y),xor:(x,y)=>Math.trunc(x)^Math.trunc(y),nor:(x,y)=>~(Math.trunc(x)|Math.trunc(y)),
+  sll:(x,y)=>Math.trunc(x)<<Math.trunc(y),srl:(x,y)=>Math.trunc(x)>>>Math.trunc(y),sra:(x,y)=>Math.trunc(x)>>Math.trunc(y)};
+const M1={sqrt:Math.sqrt,abs:Math.abs,ceil:Math.ceil,floor:Math.floor,round:Math.round,trunc:Math.trunc,exp:Math.exp,log:Math.log,sin:Math.sin,cos:Math.cos,tan:Math.tan,asin:Math.asin,acos:Math.acos,atan:Math.atan,not:x=>~Math.trunc(x)};
+
+class VM{
+  constructor(src,devTexts){const p=parseProgram(src);this.lines=p.lines;this.prog=p.prog;this.labels=p.labels;this.devTexts=devTexts||{};this.reset();}
+  reset(){
+    this.reg=new Array(18).fill(0);this.stack=new Array(512).fill(0);this.pc=0;this.al={};this.defs={};
+    this.dev={};['d0','d1','d2','d3','d4','d5','db'].forEach(n=>{this.dev[n]=this.parseDev(this.devTexts[n]||'');});
+    this.halted=false;this.error=null;this.ticks=0;this.count=0;this.log=[];this.yielded=false;this.sleepFor=0;
+    if(!this.prog.some(p=>p.op)){this.halted=true;this.error='Program has no instructions.';}
+  }
+  parseDev(t){const o={};String(t).split(/\r?\n/).forEach(l=>{const m=l.trim().match(/^(\w+)\s*[=: ]\s*(-?[\d.eE+-]+)$/);if(m)o[m[1]]=parseFloat(m[2]);});return o;}
+  val(t){
+    if(t===undefined)throw new Error('missing operand');
+    const n=parseNum(t);if(n!==null)return n;
+    const ri=regIdx(t,this.al);if(ri>=0)return this.reg[ri];
+    if(has(this.defs,t))return this.defs[t];
+    if(has(this.labels,t))return this.labels[t];
+    if(has(CONSTS,t))return CONSTS[t];
+    throw new Error(`unknown operand '${t}'`);
+  }
+  ri(t){const i=regIdx(t,this.al);if(i<0)throw new Error(`'${t}' is not a register`);return i;}
+  dn(t){const d=devName(t,this.al);if(!d)throw new Error(`'${t}' is not a device pin`);return d;}
+  getProp(dt,type){const d=this.dn(dt);if(!has(this.dev[d],type)){this.log.push(`${d} has no '${type}' in the mock (returned 0)`);return 0;}return this.dev[d][type];}
+  step(){
+    if(this.halted)return;
+    let g=0;while(this.pc<this.prog.length&&!this.prog[this.pc].op&&g++<10000)this.pc++;
+    if(this.pc>=this.prog.length){this.pc=0;this.yielded=true;return;}
+    const p=this.prog[this.pc];
+    try{const nx=this.exec(p);this.pc=Number.isFinite(nx)?nx:this.pc+1;this.count++;}
+    catch(e){this.error=`Line ${this.pc+1}: ${e.message}`;this.halted=true;}
+  }
+  tick(){this.yielded=false;let n=0;while(!this.halted&&!this.yielded&&n<128){this.step();n++;}this.ticks++;}
+  exec(p){
+    const a=p.args,op=p.op,R=this.reg;let next=this.pc+1;
+    const V=i=>this.val(a[i]);const setR=(i,x)=>{R[this.ri(a[i])]=x;};
+    const def=INSMAP[op];
+    if(!def)throw new Error(`unknown instruction '${op}'`);
+    if(a.length!==def.spec.length)throw new Error(`'${op}' expects ${def.spec.length} operand(s), got ${a.length}`);
+    if(has(M2,op)){setR(0,M2[op](V(1),V(2)));return next;}
+    if(has(M1,op)){setR(0,M1[op](V(1)));return next;}
+    let m=op.match(/^b(r?)(eq|ne|gt|ge|lt|le)(z?)(al)?$/);
+    if(m){const[,rel,c,z,al]=m;let cond,t;if(z){cond=CMPF[c](V(0),0);t=V(1);}else{cond=CMPF[c](V(0),V(1));t=V(2);}
+      if(cond){if(al)R[17]=this.pc+1;next=rel?this.pc+t:t;}return next;}
+    m=op.match(/^b(r?)(ap|na)(z?)(al)?$/);
+    if(m){const[,rel,c,z,al]=m;let ok,t;if(z){ok=approx(V(0),0,V(1));t=V(2);}else{ok=approx(V(0),V(1),V(2));t=V(3);}
+      if(c==='na')ok=!ok;if(ok){if(al)R[17]=this.pc+1;next=rel?this.pc+t:t;}return next;}
+    m=op.match(/^b(r?)(dse|dns)(al)?$/);
+    if(m){const[,rel,c,al]=m;const set=devName(a[0],this.al)!==null;const ok=c==='dse'?set:!set;const t=V(1);
+      if(ok){if(al)R[17]=this.pc+1;next=rel?this.pc+t:t;}return next;}
+    m=op.match(/^s(eq|ne|gt|ge|lt|le)(z?)$/);
+    if(m){const r=m[2]?CMPF[m[1]](V(1),0):CMPF[m[1]](V(1),V(2));setR(0,r?1:0);return next;}
+    switch(op){
+      case 'alias':this.al[a[0]]=a[1];break;
+      case 'define':this.defs[a[0]]=V(1);break;
+      case 'move':setR(0,V(1));break;
+      case 'rand':setR(0,Math.random());break;
+      case 'yield':this.yielded=true;break;
+      case 'sleep':this.yielded=true;this.sleepFor=V(0);break;
+      case 'hcf':this.halted=true;this.error='hcf: chip halted.';break;
+      case 'j':next=V(0);break;
+      case 'jal':R[17]=this.pc+1;next=V(0);break;
+      case 'jr':next=this.pc+V(0);break;
+      case 'sap':setR(0,approx(V(1),V(2),V(3))?1:0);break;
+      case 'sna':setR(0,approx(V(1),V(2),V(3))?0:1);break;
+      case 'sapz':setR(0,approx(V(1),0,V(2))?1:0);break;
+      case 'snaz':setR(0,approx(V(1),0,V(2))?0:1);break;
+      case 'sdse':setR(0,devName(a[1],this.al)?1:0);break;
+      case 'sdns':setR(0,devName(a[1],this.al)?0:1);break;
+      case 'select':setR(0,V(1)?V(2):V(3));break;
+      case 'l':setR(0,this.getProp(a[1],a[2]));break;
+      case 's':this.dev[this.dn(a[0])][a[1]]=V(2);break;
+      case 'push':if(R[16]>=512)throw new Error('stack overflow');this.stack[R[16]++]=V(0);break;
+      case 'pop':if(R[16]<=0)throw new Error('stack underflow');setR(0,this.stack[--R[16]]);break;
+      case 'peek':setR(0,this.stack[R[16]-1]);break;
+      case 'poke':this.stack[V(0)]=V(1);break;
+      default:
+        if(/^(l|s)b|^ls$|^ss$|^lr$|^rmap$|^get|^put|^clr$/.test(op)){this.log.push(`'${op}' is not emulated (no-op; loads return 0)`);if(def.spec[0]==='r')setR(0,0);}
+    }
+    return next;
+  }
+}
+
+/* ---- linter ---- */
+function lev(a,b){const d=[];for(let i=0;i<=a.length;i++){d[i]=[i];}for(let j=1;j<=b.length;j++)d[0][j]=j;for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[a.length][b.length];}
+function nearest(op){let best=null,bd=99;for(const k in INSMAP){const d=lev(op,k);if(d<bd){bd=d;best=k;}}return bd<=2?best:null;}
+function lint(src){
+  const out=[];const P=parseProgram(src);const al={},defs={},later={};
+  const push=(line,level,msg)=>out.push({line,level,msg});
+  let last=-1;P.lines.forEach((l,i)=>{if(l.trim())last=i;});
+  if(last+1>128)push(129,'warn',`Program is ${last+1} lines; the chip limit is 128 lines (labels, comments and blank lines count).`);
+  P.prog.forEach(p=>{if((p.op==='alias'||p.op==='define')&&p.args[0])later[p.args[0]]=true;});
+  const seenLabels={};let hasYield=false,backJump=false;
+  P.prog.forEach((p,i)=>{
+    const ln=i+1;
+    if(p.label){if(seenLabels[p.label])push(ln,'error',`Duplicate label '${p.label}'.`);seenLabels[p.label]=true;return;}
+    if(!p.op)return;
+    if(p.op==='yield'||p.op==='sleep')hasYield=true;
+    const def=INSMAP[p.op];
+    if(!def){const s=nearest(p.op);push(ln,'error',`Unknown instruction '${p.op}'.`+(s?` Did you mean '${s}'?`:''));return;}
+    if(p.args.length!==def.spec.length){push(ln,'error',`'${p.op}' takes ${def.spec.length} operand(s) (${def.spec.length?def.ex:p.op}), found ${p.args.length}.`);return;}
+    p.args.forEach((tok,k)=>{
+      const type=def.spec[k];
+      if(type==='x')return;
+      if(type==='a'){
+        if(!/^[A-Za-z_]\w*$/.test(tok))push(ln,'error',`'${tok}' is not a valid name.`);
+        else if(INSMAP[tok]||/^(r\d+|d[0-5]|db|sp|ra)$/.test(tok))push(ln,'error',`'${tok}' is reserved and can't be used as a name.`);
+        return;
+      }
+      if(type==='r'){if(regIdx(tok,al)<0)push(ln,'error',`'${tok}' is not a register (use r0-r15, sp, ra or an alias of one).`);return;}
+      if(type==='d'){if(!devName(tok,al)){push(ln,has(later,tok)&&!has(al,tok)?'warn':'error',has(later,tok)&&!has(al,tok)?`'${tok}' is used before its alias line runs.`:`'${tok}' is not a device pin (d0-d5, db or an alias).`);}return;}
+      if(type==='t'||type==='m'){
+        if(parseNum(tok)!==null||regIdx(tok,al)>=0||has(defs,tok))return;
+        if(!/^[A-Za-z_]\w*$/.test(tok))push(ln,'error',`'${tok}' is not a valid ${type==='t'?'logic type':'mode'}.`);
+        else if(!TYPE_SET.has(tok))push(ln,'info',`'${tok}' isn't in my ${type==='t'?'logic type':'mode'} list. Fine if Stationpedia lists it; check spelling and case.`);
+        return;
+      }
+      // value
+      if(parseNum(tok)!==null||regIdx(tok,al)>=0||has(defs,tok)||has(P.labels,tok)||has(CONSTS,tok))return;
+      if(has(later,tok))push(ln,'warn',`'${tok}' is used before it is defined (aliases/defines run in order).`);
+      else push(ln,'error',`Unknown name '${tok}' (not a number, register, define or label).`);
+    });
+    if(p.op==='alias'&&p.args.length===2){
+      const t=p.args[1];if(regIdx(t,al)<0&&!devName(t,al))push(ln,'error',`alias target '${t}' must be a register or device pin.`);
+      al[p.args[0]]=t;
+    }
+    if(p.op==='define'&&p.args.length===2)defs[p.args[0]]=true;
+    if((p.op==='j'||/^b/.test(p.op))&&p.args.length){const t=p.args[p.args.length-1];if(has(P.labels,t)&&P.labels[t]<i)backJump=true;}
+  });
+  if(backJump&&!hasYield)push(0,'info','Loop found with no yield or sleep. Add a yield inside the loop so the chip hands the tick back.');
+  return out;
+}
+/*CORE_END*/
+
+/* ================= DATA ================= */
+const GUIDES=[
+{id:'first',title:'Your first hour',blurb:'Staying alive and getting a base standing.',body:`
+<p>The game is trying to kill you from second one. Work through these in order.</p>
+<h3>Priorities</h3>
+<label class="chk"><input type="checkbox" data-k="g1a"> Check your suit gauges: oxygen, battery, pressure, temperature. Know where each reads on the HUD.</label>
+<label class="chk"><input type="checkbox" data-k="g1b"> Gather basic resources near the landing site before wandering far.</label>
+<label class="chk"><input type="checkbox" data-k="g1c"> Get a sealed, pressurised room (even a small one) so you can take your helmet off and recharge.</label>
+<label class="chk"><input type="checkbox" data-k="g1d"> Get basic power running (solar or a generator) with a battery buffer.</label>
+<label class="chk"><input type="checkbox" data-k="g1e"> Set up a way to refill suit oxygen and battery in the base.</label>
+<label class="chk"><input type="checkbox" data-k="g1f"> Save manually before risky trips.</label>
+<h3>Habits that save runs</h3>
+<ul><li>Never leave base with a nearly empty oxygen tank or battery. Carry spares.</li><li>Pressure is in <b>kPa</b>, temperature in <b>Kelvin</b> in logic. 293 K is roughly 20 C.</li><li>Open the in-game Stationpedia whenever you meet an unknown item. It is the ground truth for your game version.</li></ul>
+<div class="note">Numbers in these guides are starting points. The game changes between updates, so confirm anything critical in Stationpedia.</div>`},
+{id:'power',title:'Power basics',blurb:'Cables, load limits, batteries, isolation.',body:`
+<h3>Cables and load</h3>
+<table><tr><th>Cable</th><th>Rated load</th></tr><tr><td>Normal cable</td><td>about 5 kW</td></tr><tr><td>Heavy cable</td><td>about 100 kW</td></tr><tr><td>Super-heavy cable</td><td>about 500 kW</td></tr></table>
+<p>If the load on a cable exceeds its rating it can burn out. Use the <a href="#calc">Power calculator</a> to check a network before you plug a big machine in.</p>
+<h3>Design rules</h3>
+<ul><li>Keep <b>life support</b> on its own network or behind a transformer/breaker so a factory overload can't kill your air.</li><li>Always have a battery buffer. Generators and solar fluctuate.</li><li>Don't daisy-chain heavy machines onto light cable. Match the cable to the biggest consumer.</li><li>Label important devices with the labeller so IC10 can find them by name later.</li></ul>
+<label class="chk"><input type="checkbox" data-k="g2a"> Life support network separated from industry</label>
+<label class="chk"><input type="checkbox" data-k="g2b"> Battery buffer installed</label>
+<label class="chk"><input type="checkbox" data-k="g2c"> Cable ratings checked against peak load</label>`},
+{id:'atmos',title:'Atmospherics',blurb:'Pipes, pumps, sensors and the gas law.',body:`
+<h3>Core ideas</h3>
+<ul><li>Gas obeys the ideal gas law: <code>P = nRT / V</code>. Use the <a href="#calc">Gas calculator</a>.</li><li>Heating a sealed volume raises pressure; adding gas raises pressure; bigger volume lowers it.</li><li>Pipes are volume. More pipe network means more moles needed to reach the same pressure.</li><li>Sensors give you temperature (K), pressure (kPa), and gas ratios you can read with IC10 (<code>RatioOxygen</code> etc.).</li></ul>
+<h3>Breathable room target</h3>
+<p>Aim near Earth-like: about 100 kPa total, about 20% oxygen, the rest nitrogen, with minimal CO2 and pollutants. Verify the exact tolerances with your HUD and Stationpedia.</p>
+<h3>Typical loop</h3>
+<ol><li>Gas sensor reads the room.</li><li>IC10 (or a pump setting) compares to a target.</li><li>Pumps/vents/filters act. Use <b>hysteresis</b> (two thresholds) so devices don't flicker. See the <a href="#snippets">Snippets</a> page.</li></ol>`},
+{id:'temp',title:'Temperature and fire',blurb:'Staying within safe temperature and avoiding explosions.',body:`
+<ul><li>Logic temperatures are Kelvin: <code>C = K - 273.15</code>.</li><li>Hot or cold gas damages you and your gear. Don't open a hatch onto an extreme room.</li><li>Oxygen plus fuel gases (volatiles, hydrogen) plus a spark is an explosion. Keep fuel networks separate from breathable air.</li><li>Heat exchangers and radiators move heat; large gas volumes change temperature slowly, small ones quickly.</li></ul>
+<div class="note">Always run a temperature safety interlock (an IC10 that shuts things off above a limit) on anything that makes heat.</div>`},
+{id:'auto',title:'Automation planning',blurb:'Sensor to chip to actuator.',body:`
+<p>Almost every automation is the same shape:</p>
+<pre><code>read sensor  ->  compare with target  ->  switch actuator</code></pre>
+<h3>Planning checklist</h3>
+<label class="chk"><input type="checkbox" data-k="g5a"> Decide what to measure and the unit (K, kPa, ratio).</label>
+<label class="chk"><input type="checkbox" data-k="g5b"> Decide low and high thresholds (hysteresis).</label>
+<label class="chk"><input type="checkbox" data-k="g5c"> Pick pins (d0-d5) or use batch reads by prefab hash.</label>
+<label class="chk"><input type="checkbox" data-k="g5d"> Add a safety cutoff that wins over normal control.</label>
+<label class="chk"><input type="checkbox" data-k="g5e"> Test in the <a href="#editor">emulator</a> before pasting into the game.</label>
+<p>Start with the <a href="#tutorial">IC10 tutorial</a>.</p>`},
+{id:'bringup',title:'Base bring-up checklist',blurb:'Tick things off as your base grows.',body:`
+<label class="chk"><input type="checkbox" data-k="b1"> Sealed room with breathable air</label>
+<label class="chk"><input type="checkbox" data-k="b2"> Generation (solar/generator) + battery buffer</label>
+<label class="chk"><input type="checkbox" data-k="b3"> Suit charging and oxygen refill station</label>
+<label class="chk"><input type="checkbox" data-k="b4"> Temperature control in the living area</label>
+<label class="chk"><input type="checkbox" data-k="b5"> Airlock</label>
+<label class="chk"><input type="checkbox" data-k="b6"> Storage and labelled devices</label>
+<label class="chk"><input type="checkbox" data-k="b7"> Power/atmos monitoring on screens</label>
+<label class="chk"><input type="checkbox" data-k="b8"> First IC10 automation running</label>
+<label class="chk"><input type="checkbox" data-k="b9"> Backup save and a written plan for expansion</label>`}
+];
+
+const LESSONS=[
+{t:'1. Registers and math',txt:'The chip has 16 general registers (<code>r0</code>-<code>r15</code>), plus <code>sp</code> and <code>ra</code>. Most instructions write their result into the first operand.',code:'# Lesson 1: registers\nmove r0 10\nmove r1 5\nadd r2 r0 r1\nmul r3 r2 2\nsub r4 r3 r1\n'},
+{t:'2. Loops and branches',txt:'A <b>label</b> is a name followed by a colon. <code>blt a b label</code> jumps when a &lt; b. Always put a <code>yield</code> in a loop so the chip finishes its tick. Use <b>Tick</b> in the emulator and watch r0 count up.',code:'# Lesson 2: count to 10\nmove r0 0\nloop:\nadd r0 r0 1\nyield\nblt r0 10 loop\n'},
+{t:'3. Devices: l and s',txt:'<code>alias</code> names a device pin. <code>l r0 sensor Temperature</code> loads a value; <code>s heater On 1</code> writes one. In the emulator set d0 Temperature=290 and watch d1 On switch.',code:'# Lesson 3: simple thermostat\nalias sensor d0\nalias heater d1\nloop:\nl r0 sensor Temperature\nslt r1 r0 293\ns heater On r1\nyield\nj loop\n'},
+{t:'4. Batch reads with hashes',txt:'Instead of wiring each sensor to a pin, <code>lb</code> reads <i>every</i> device of a prefab type and combines them (Average, Sum, Minimum, Maximum). <code>HASH("Name")</code> turns a prefab name into its number. Use the <a href="#calc">Hash tool</a>. The emulator does not simulate batch devices, but the linter checks the syntax.',code:'# Lesson 4: batch average\ndefine SENSORS HASH("StructureGasSensor")\nalias display d1\nloop:\nlb r0 SENSORS Temperature Average\ns display Setting r0\nyield\nj loop\n'},
+{t:'5. Subroutines',txt:'<code>jal label</code> jumps and stores the return line in <code>ra</code>; <code>j ra</code> returns. Reuse code instead of copying it.',code:'# Lesson 5: subroutine\nmove r0 3\njal double\nmove r4 r0\nyield\nj 0\ndouble:\nmul r0 r0 2\nj ra\n'},
+{t:'6. The stack',txt:'<code>push</code>, <code>pop</code> and <code>peek</code> use <code>sp</code> as the stack pointer. Handy for saving registers around subroutines.',code:'# Lesson 6: stack\npush 7\npush 8\npop r0\npop r1\n'},
+{t:'7. Hysteresis',txt:'Two thresholds stop a device flickering on and off: switch on below LOW, off above HIGH, otherwise leave it alone. Set d0 Temperature to 280, 295 and 300 and tick.',code:'# Lesson 7: hysteresis heater\nalias sensor d0\nalias heater d1\ndefine LOW 290\ndefine HIGH 298\nloop:\nl r0 sensor Temperature\nblt r0 LOW turnOn\nbgt r0 HIGH turnOff\nyield\nj loop\nturnOn:\ns heater On 1\nyield\nj loop\nturnOff:\ns heater On 0\nyield\nj loop\n'}
+];
+
+const SNIPPETS=[
+{t:'Hysteresis heater (temperature)',d:'Heater on below LOW, off above HIGH.',code:LESSONS[6].code},
+{t:'Average gas temperature to a display',d:'Batch-read every gas sensor and show it on a display.',code:LESSONS[3].code},
+{t:'Pressure-controlled pump',d:'Pump runs while room pressure is below a target band.',code:'alias sensor d0\nalias pump d1\ndefine LOW 95\ndefine HIGH 105\nloop:\nl r0 sensor Pressure\nblt r0 LOW on\nbgt r0 HIGH off\nyield\nj loop\non:\ns pump On 1\nyield\nj loop\noff:\ns pump On 0\nyield\nj loop\n'},
+{t:'Over-temperature safety cutoff',d:'Forces a device off above a hard limit.',code:'alias sensor d0\nalias machine d1\ndefine LIMIT 400\nloop:\nl r0 sensor Temperature\nsgt r1 r0 LIMIT\nbnez r1 trip\nyield\nj loop\ntrip:\ns machine On 0\nyield\nj trip\n'},
+{t:'Subroutine example',d:'jal / j ra pattern.',code:LESSONS[4].code},
+{t:'Solar tracker (verify in game)',d:'Copies sensor angles to all dual solar panels. Check logic types and angle ranges in Stationpedia first.',code:'# VERIFY logic types/angles for your game version\nalias sensor d0\ndefine PANEL HASH("StructureSolarPanelDual")\nloop:\nl r0 sensor Horizontal\nl r1 sensor Vertical\nsb PANEL Horizontal r0\nsb PANEL Vertical r1\nyield\nj loop\n'}
+];
+
+const CONCEPTS=[
+['Registers','r0-r15 are general purpose. sp is the stack pointer, ra holds the return line. Everything is a number (floating point).'],
+['Device pins','d0-d5 are the pins you connect devices to. db is the chip\'s own housing. Use alias to name them.'],
+['alias vs define','alias names a register/device pin. define names a constant value (numbers, HASH). Both run in order, so put them at the top.'],
+['Labels','A label is name: on its own line. Jumping to a label continues at the next instruction. Labels count toward the line limit.'],
+['Line limit','The chip holds 128 lines. Comments and blank lines count.'],
+['Booleans','There are no booleans. 0 is false, anything else is true. Set/compare instructions return 1 or 0.'],
+['Tick model','Each tick the chip runs a limited number of lines. yield ends your tick early; sleep pauses for seconds. A loop without yield just burns the tick.'],
+['Batch modes','Average=0, Sum=1, Minimum=2, Maximum=3. Used by lb, lbn, lbs, lbns.'],
+['Reagent modes','Contents=0, Required=1, Recipe=2 for lr.'],
+['Hashes','HASH("StructureGasSensor") converts a prefab name to a signed 32-bit CRC32 integer. Use the Hash tool on the Calculators page.'],
+['Units','Pressure in kPa, temperature in Kelvin, energy in Joules, power in Watts.'],
+['Approximate compare','Floating-point == is fragile. Use sap/bap (relative tolerance) instead of seq/beq for measured values.'],
+['Number formats','Decimals (1.5), hex ($FF) and binary (%1010) are accepted.'],
+['Constants','pi, deg2rad, rad2deg, nan, pinf, ninf, epsilon.']
+];
+const GOTCHAS=[
+'Temperatures are Kelvin: 20 C is 293.15, not 20.',
+'Reading a property the device does not have is an error in game. Check the device in Stationpedia.',
+'Use lb/sb for many identical devices; use pins for a specific device.',
+'Average over zero matching devices gives NaN. Guard with a sdse/count check.',
+'Writing On does not override a manual lock-out on some devices. Check the device\'s Lock property.',
+'A tight loop with no yield makes the chip appear frozen. Always yield.',
+'mod always returns a non-negative result.',
+'Do not compare floats with seq. Use sap with a small tolerance.',
+'A define used before its line runs is undefined. Keep alias/define at the top.'
+];
+
+/* ================= STATE ================= */
+let S={checks:{},notes:'',code:LESSONS[2].code,snips:[],kb:[],devs:{d0:'Temperature=290',d1:'On=0',d2:'',d3:'',d4:'',d5:'',db:''}};
+try{const x=JSON.parse(localStorage.getItem('sa_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('sa_state',JSON.stringify(S));}catch(e){}};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=id=>document.getElementById(id);
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Home'],['guides','Guides'],['tutorial','IC10 Tutorial'],['kb','Knowledge Base'],['snippets','Snippets'],['editor','Editor & Emulator'],['calc','Calculators'],['notes','My Notes']];
+function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><h1>STATIONEERS<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+
+function pgHome(){return `<h2>Stationeers Assistant</h2><p class="sub">Guides, an IC10 tutorial, a coding knowledge base, a linter/emulator and calculators. Everything runs offline.</p>
+<div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${({guides:'Survival, power, atmospherics, checklists',tutorial:'7 lessons you can load and run',kb:'Searchable instruction and logic-type reference',snippets:'Ready-made IC10 programs and generators',editor:'Write IC10 with live linting, step it in an emulator',calc:'Gas law, power, hash, temperature',notes:'Your own notes and saved snippets'})[id]}</div></div>`).join('')}</div>
+<div class="note">Reference data (instruction set, logic types) is from memory of the IC10 language and may lag your game version. Stationpedia in-game is the final authority.</div>`;}
+
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div>`;}
+  return `<h2>Guides</h2><p class="sub">Checkboxes are saved on this computer.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
+}
+
+function pgTutorial(){return `<h2>IC10 Tutorial</h2><p class="sub">IC10 is the assembly-like language of the Integrated Circuit chip. Each lesson loads straight into the emulator.</p>`+
+ LESSONS.map((l,i)=>`<div class="card"><h3 style="margin-top:0">${l.t}</h3><p>${l.txt}</p><pre><code>${esc(l.code)}</code></pre><button class="pri" onclick="loadCode(${i},'lesson')">Open in editor</button></div>`).join('');}
+
+function kbItems(){
+  const a=[];
+  INS.forEach(i=>a.push({k:'Instruction',n:i.n,s:i.n+' '+i.spec.map(x=>({r:'reg',v:'val',d:'dev',t:'type',m:'mode',a:'name',x:'arg'}[x])).join(' '),d:i.desc,ex:i.ex,c:i.cat}));
+  LOGIC_TYPES.forEach(([n,d])=>a.push({k:'Logic type',n,s:n,d,ex:'l r0 d0 '+n,c:'Logic type'}));
+  CONCEPTS.forEach(([n,d])=>a.push({k:'Concept',n,s:n,d,ex:'',c:'Concept'}));
+  GOTCHAS.forEach((d,i)=>a.push({k:'Gotcha',n:'Tip '+(i+1),s:'',d,ex:'',c:'Gotcha'}));
+  S.kb.forEach(e=>a.push({k:'Mine',n:e.t,s:'',d:e.d,ex:'',c:'My entry'}));
+  return a;
+}
+function pgKB(){return `<h2>Coding Knowledge Base</h2><p class="sub">Search instructions, logic types, concepts and gotchas. Add your own entries at the bottom.</p>
+<div class="row"><input id="kbq" type="text" style="width:280px" placeholder="Search (e.g. branch, Temperature, stack)"><select id="kbf"><option value="">All</option><option>Instruction</option><option>Logic type</option><option>Concept</option><option>Gotcha</option><option>Mine</option></select><span class="dim" id="kbc"></span></div>
+<div class="card" id="kbl"></div>
+<div class="card"><h3 style="margin-top:0">Add your own entry</h3><div class="row"><input id="kbt" type="text" placeholder="Title"></div><textarea id="kbd" style="width:100%;height:70px" placeholder="What you learned"></textarea><div class="row"><button onclick="addKB()">Save entry</button></div></div>`;}
+function kbRender(){
+  const q=($('kbq').value||'').toLowerCase(),f=$('kbf').value;
+  const r=kbItems().filter(x=>(!f||x.k===f)&&(!q||(x.n+' '+x.d+' '+x.s+' '+x.c).toLowerCase().includes(q)));
+  $('kbc').textContent=r.length+' result'+(r.length===1?'':'s');
+  $('kbl').innerHTML=r.slice(0,150).map(x=>`<div class="kb-item"><span class="n">${esc(x.s||x.n)}</span><span class="tag">${esc(x.c)}</span><div>${esc(x.d)}</div>${x.ex?`<code>${esc(x.ex)}</code>`:''}</div>`).join('')+(r.length>150?'<p class="dim">Showing the first 150. Narrow your search.</p>':'');
+}
+function addKB(){const t=$('kbt').value.trim(),d=$('kbd').value.trim();if(!t||!d)return;S.kb.push({t,d});save();kbRender();$('kbt').value='';$('kbd').value='';}
+
+function pgSnippets(){
+  const all=SNIPPETS.concat(S.snips.map(s=>({t:s.t,d:'Saved by you',code:s.code,mine:true})));
+  return `<h2>Snippets & Generators</h2><p class="sub">Ready-made programs. Each opens in the editor.</p>
+<div class="card"><h3 style="margin-top:0">Hysteresis controller generator</h3>
+<div class="row">Sensor pin <select id="gs"><option>d0</option><option>d1</option><option>d2</option><option>d3</option><option>d4</option><option>d5</option></select> Device pin <select id="gd"><option>d1</option><option>d0</option><option>d2</option><option>d3</option><option>d4</option><option>d5</option></select> Property <input id="gp" type="text" value="Temperature" style="width:150px"> LOW <input id="gl" type="number" value="290" style="width:80px"> HIGH <input id="gh" type="number" value="298" style="width:80px"> Mode <select id="gm"><option value="heat">Heater (on when low)</option><option value="cool">Cooler (on when high)</option></select> <button class="pri" onclick="genHyst()">Generate</button></div>
+<pre><code id="gout" class="dim">Press Generate.</code></pre><button onclick="loadGen()">Open in editor</button></div>
+${all.map((s,i)=>`<div class="card"><h3 style="margin-top:0">${esc(s.t)}</h3><p class="dim">${esc(s.d)}</p><pre><code>${esc(s.code)}</code></pre><div class="row"><button class="pri" onclick="loadCode(${i},'snip')">Open in editor</button><button onclick="copyText(${i})">Copy</button>${s.mine?`<button onclick="delSnip(${i-SNIPPETS.length})">Delete</button>`:''}</div></div>`).join('')}`;}
+let GEN='';
+function genHyst(){
+  const s=$('gs').value,d=$('gd').value,p=$('gp').value||'Temperature',lo=$('gl').value,hi=$('gh').value,heat=$('gm').value==='heat';
+  GEN=`alias sensor ${s}\nalias actuator ${d}\ndefine LOW ${lo}\ndefine HIGH ${hi}\nloop:\nl r0 sensor ${p}\nblt r0 LOW lowSide\nbgt r0 HIGH highSide\nyield\nj loop\nlowSide:\ns actuator On ${heat?1:0}\nyield\nj loop\nhighSide:\ns actuator On ${heat?0:1}\nyield\nj loop\n`;
+  $('gout').className='';$('gout').textContent=GEN;
+}
+function loadGen(){if(!GEN)genHyst();S.code=GEN;save();location.hash='editor';}
+function allSnips(){return SNIPPETS.concat(S.snips.map(s=>({t:s.t,code:s.code})));}
+function copyText(i){navigator.clipboard&&navigator.clipboard.writeText(allSnips()[i].code);}
+function delSnip(i){S.snips.splice(i,1);save();route();}
+function loadCode(i,kind){S.code=kind==='lesson'?LESSONS[i].code:allSnips()[i].code;save();location.hash='editor';}
+
+/* ---- editor ---- */
+let vm=null,auto=null,lintRes=[];
+function pgEditor(){
+  return `<h2>Editor & Emulator</h2><p class="sub">Live linter on the left; a step-through emulator on the right. Device pins are mocked from the boxes below.</p>
+<div class="two"><section class="card"><div class="row"><button onclick="copyCode()">Copy</button><button onclick="dlCode()">Download .ic10</button><button onclick="saveSnip()">Save as snippet</button><button onclick="if(confirm('Clear the editor?')){S.code='';save();$('code').value='';edChange();}">Clear</button><span class="dim" id="cnt"></span></div>
+<div class="ed"><div id="gut"></div><textarea id="code" spellcheck="false" wrap="off"></textarea></div>
+<div id="hint" class="dim" style="margin-top:6px;min-height:20px"></div><div id="lint" style="margin-top:6px"></div></section>
+<section class="card"><div class="row"><button class="pri" onclick="emu('step')">Step</button><button class="pri" onclick="emu('tick')">Tick</button><button onclick="emu('auto')" id="autob">Auto-run</button><button onclick="emu('reset')">Reset</button></div>
+<div id="status" class="dim"></div><h3>Registers</h3><div class="regs" id="regs"></div><h3>Stack</h3><div id="stk" class="dim"></div>
+<h3>Live devices</h3><div id="live" class="dim"></div><h3>Mock device start values <span class="dim">(applied on Reset)</span></h3>
+<div class="devs">${['d0','d1','d2','d3','d4','d5','db'].map(n=>`<div><b>${n}</b><textarea id="dev_${n}" class="mono" placeholder="Prop=value">${esc(S.devs[n]||'')}</textarea></div>`).join('')}</div>
+<h3>Log</h3><div id="log" class="dim"></div></section></div>`;}
+function edInit(){
+  const c=$('code');c.value=S.code;
+  c.addEventListener('input',edChange);c.addEventListener('scroll',()=>{$('gut').scrollTop=c.scrollTop;});
+  ['keyup','click'].forEach(e=>c.addEventListener(e,hint));
+  c.addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();const s=c.selectionStart;c.setRangeText('  ',s,c.selectionEnd,'end');edChange();}});
+  ['d0','d1','d2','d3','d4','d5','db'].forEach(n=>$('dev_'+n).addEventListener('input',e=>{S.devs[n]=e.target.value;save();}));
+  edChange();emu('reset');
+}
+function edChange(){S.code=$('code').value;save();lintRes=lint(S.code);renderGutter();renderLint();hint();vm=null;emuShow();}
+function renderGutter(){
+  const n=Math.max(S.code.split('\n').length,1);const el={},wl={};
+  lintRes.forEach(r=>{if(r.line>0){if(r.level==='error')el[r.line]=1;else if(r.level==='warn')wl[r.line]=1;}});
+  const pc=vm&&!vm.halted?vm.pc+1:(vm?vm.pc+1:0);
+  let h='';for(let i=1;i<=n;i++)h+=`<div class="${i===pc&&vm?'pc':el[i]?'e':wl[i]?'w':''}">${i}</div>`;
+  $('gut').innerHTML=h;$('gut').scrollTop=$('code').scrollTop;
+  $('cnt').textContent=n+' / 128 lines';
+}
+function renderLint(){
+  const L=lintRes;
+  $('lint').innerHTML=L.length?L.map(r=>`<div class="msg ${r.level}" onclick="goLine(${r.line})">${r.line>0?'Line '+r.line+': ':''}${esc(r.msg)}</div>`).join(''):'<div class="msg ok">No problems found.</div>';
+}
+function goLine(n){if(n<1)return;const c=$('code'),ls=c.value.split('\n');let p=0;for(let i=0;i<n-1&&i<ls.length;i++)p+=ls[i].length+1;c.focus();c.setSelectionRange(p,p+(ls[n-1]||'').length);}
+function hint(){
+  const c=$('code');if(!c)return;const ls=c.value.slice(0,c.selectionStart).split('\n');const line=(ls[ls.length-1]+c.value.slice(c.selectionStart).split('\n')[0]);
+  const t=tokenize(stripComment(line));const d=t.length&&INSMAP[t[0].toLowerCase()];
+  $('hint').innerHTML=d?`<b style="color:#ffd48a">${d.n}</b> ${d.spec.map(x=>({r:'reg',v:'val',d:'dev',t:'type',m:'mode',a:'name',x:'arg'}[x])).join(' ')} &mdash; ${esc(d.desc)}`:'';
+}
+function copyCode(){navigator.clipboard&&navigator.clipboard.writeText(S.code);}
+function dlCode(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([S.code],{type:'text/plain'}));a.download='script.ic10';a.click();}
+function saveSnip(){const t=prompt('Snippet name?');if(t){S.snips.push({t,code:S.code});save();alert('Saved. Find it on the Snippets page.');}}
+function emu(a){
+  if(a==='auto'){if(auto){clearInterval(auto);auto=null;$('autob').textContent='Auto-run';}else{if(!vm)emu('reset');auto=setInterval(()=>{if(vm.halted){emu('auto');return;}vm.tick();emuShow();},300);$('autob').textContent='Stop';}return;}
+  if(a==='reset'||!vm){const dt={};['d0','d1','d2','d3','d4','d5','db'].forEach(n=>dt[n]=$('dev_'+n)?$('dev_'+n).value:'');vm=new VM(S.code,dt);if(a==='reset'){emuShow();return;}}
+  if(a==='step')vm.step();if(a==='tick')vm.tick();
+  emuShow();
+}
+function fmt(x){return Number.isInteger(x)?String(x):(Number.isFinite(x)?String(+x.toFixed(4)):String(x));}
+function emuShow(){
+  if(!$('regs'))return;
+  const v=vm;
+  const names=[...Array(16).keys()].map(i=>'r'+i).concat(['sp','ra']);
+  $('regs').innerHTML=names.map((n,i)=>`<div class="reg"><i>${n}</i><span>${v?fmt(v.reg[i]):0}</span></div>`).join('');
+  if(!v){$('status').textContent='Not started. Press Step or Tick.';$('stk').textContent='empty';$('live').textContent='';$('log').textContent='';renderGutter();return;}
+  $('status').innerHTML=(v.error?`<span class="bad">${esc(v.error)}</span>`:`Next line: ${v.pc+1} &middot; instructions run: ${v.count} &middot; ticks: ${v.ticks}`)+(v.sleepFor?` &middot; sleep ${v.sleepFor}s requested`:'');
+  const sp=v.reg[16];$('stk').textContent=sp?v.stack.slice(Math.max(0,sp-8),sp).map(fmt).join(', ')+'  (top is right, sp='+sp+')':'empty';
+  $('live').innerHTML=Object.keys(v.dev).filter(n=>Object.keys(v.dev[n]).length).map(n=>`<b>${n}</b>: ${Object.entries(v.dev[n]).map(([k,x])=>k+'='+fmt(x)).join(', ')}`).join('<br>')||'none';
+  $('log').innerHTML=v.log.slice(-6).map(esc).join('<br>');
+  renderGutter();
+}
+
+/* ---- calculators ---- */
+const R_GAS=8.3144;
+function pgCalc(){return `<h2>Calculators</h2><p class="sub">Fill the known values and leave one blank.</p>
+<div class="card"><h3 style="margin-top:0">Ideal gas (P = nRT / V)</h3><div class="row">Pressure kPa <input id="gp_" type="number"> Volume L <input id="gv_" type="number"> Moles <input id="gn_" type="number"> Temp K <input id="gt_" type="number"> <button class="pri" onclick="solveGas()">Solve</button></div><div class="res" id="gres">R = ${R_GAS} L&middot;kPa/(mol&middot;K)</div>
+<div class="row">Pipe segments <input id="pn_" type="number" value="10" style="width:80px"> &times; litres each <input id="pv_" type="number" value="1000" style="width:80px"> = <b id="pt_">10000</b> L <span class="dim">(1000 L per segment is a common figure; check Stationpedia)</span></div></div>
+<div class="card"><h3 style="margin-top:0">Cable load</h3><div class="row">Loads in watts (comma separated) <input id="cl_" type="text" style="width:260px" value="1500, 3000"> <select id="cc_"><option value="5000">Normal (5 kW)</option><option value="100000">Heavy (100 kW)</option><option value="500000">Super-heavy (500 kW)</option></select> <button class="pri" onclick="calcCable()">Check</button></div><div class="res" id="cres"></div></div>
+<div class="card"><h3 style="margin-top:0">Battery runtime</h3><div class="row">Stored energy J <input id="bj_" type="number"> Draw W <input id="bw_" type="number"> <button class="pri" onclick="calcBat()">Calculate</button></div><div class="res" id="bres"></div></div>
+<div class="card"><h3 style="margin-top:0">Hash tool (IC10 HASH)</h3><div class="row">Prefab or name <input id="hs_" type="text" style="width:260px" value="StructureGasSensor"> <button class="pri" onclick="calcHash()">Hash</button></div><div class="res" id="hres"></div></div>
+<div class="card"><h3 style="margin-top:0">Temperature</h3><div class="row">Kelvin <input id="tk_" type="number"> Celsius <input id="tc_" type="number"> Fahrenheit <input id="tf_" type="number"></div></div>`;}
+const nv=id=>{const v=$(id).value;return v===''?null:parseFloat(v);};
+function solveGas(){
+  let P=nv('gp_'),V=nv('gv_'),n=nv('gn_'),T=nv('gt_');const blanks=[P,V,n,T].filter(x=>x===null).length;
+  if(blanks!==1){$('gres').textContent='Leave exactly one field blank.';return;}
+  if(P===null)P=n*R_GAS*T/V;else if(V===null)V=n*R_GAS*T/P;else if(n===null)n=P*V/(R_GAS*T);else T=P*V/(n*R_GAS);
+  $('gres').innerHTML=`P = <b>${fmt(P)}</b> kPa &nbsp; V = <b>${fmt(V)}</b> L &nbsp; n = <b>${fmt(n)}</b> mol &nbsp; T = <b>${fmt(T)}</b> K (${fmt(T-273.15)} C)`;
+}
+function calcCable(){const t=$('cl_').value.split(',').map(x=>parseFloat(x)).filter(x=>!isNaN(x)).reduce((a,b)=>a+b,0),c=+$('cc_').value,p=t/c*100;
+  $('cres').innerHTML=`Total <b>${fmt(t)} W</b> of ${c/1000} kW = <b class="${p>100?'bad':p>80?'':'ok'}">${p.toFixed(1)}%</b> `+(p>100?'<span class="bad">Overloaded: expect burnout. Use heavier cable or split the network.</span>':p>80?'Close to the limit. Leave headroom.':'Within rating.');}
+function calcBat(){const j=nv('bj_'),w=nv('bw_');if(!j||!w){$('bres').textContent='Enter both values.';return;}const s=j/w;$('bres').textContent=`${fmt(s)} s  =  ${fmt(s/60)} min  =  ${fmt(s/3600)} h`;}
+function calcHash(){const s=$('hs_').value;const h=crc32(s);$('hres').innerHTML=`<b>${h}</b> &nbsp; (0x${(h>>>0).toString(16).toUpperCase()})<br><span class="dim">define NAME HASH("${esc(s)}")</span>`;}
+function pipeUpd(){const t=(+$('pn_').value||0)*(+$('pv_').value||0);$('pt_').textContent=fmt(t);}
+function tempSync(src){
+  const k=$('tk_'),c=$('tc_'),f=$('tf_');let K;
+  if(src==='k')K=parseFloat(k.value);else if(src==='c')K=parseFloat(c.value)+273.15;else K=(parseFloat(f.value)-32)*5/9+273.15;
+  if(isNaN(K))return;if(src!=='k')k.value=+K.toFixed(2);if(src!=='c')c.value=+(K-273.15).toFixed(2);if(src!=='f')f.value=+((K-273.15)*9/5+32).toFixed(2);
+}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this computer.</p><textarea id="nt" style="width:100%;height:60vh" class="mono" placeholder="Coordinates, base layout, device names, to-do...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+function route(){
+  if(auto){clearInterval(auto);auto=null;}
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=PAGES.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main');
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),tutorial:pgTutorial,kb:pgKB,snippets:pgSnippets,editor:pgEditor,calc:pgCalc,notes:pgNotes})[page]();
+  m.scrollTop=0;
+  m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
+  if(page==='kb'){$('kbq').oninput=kbRender;$('kbf').onchange=kbRender;kbRender();}
+  if(page==='editor'){vm=null;edInit();}
+  if(page==='calc'){['pn_','pv_'].forEach(i=>$(i).oninput=pipeUpd);$('tk_').oninput=()=>tempSync('k');$('tc_').oninput=()=>tempSync('c');$('tf_').oninput=()=>tempSync('f');calcHash();}
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',route);
+route();
+</script>
+</body>
+</html>

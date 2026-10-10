@@ -324,6 +324,12 @@
       <p>Write and test Twitch chat bot commands against a simulated chat, without going live. On Windows, or right in your browser.</p>
       <div class="meta"><span class="url">tavernworks.dev/bot-sandbox</span><span class="pill live">V1.9.3</span></div>
     </a>
+    <a class="card" href="/stationeers/">
+      <div class="icon">🛰️</div>
+      <h3>Stationeers Assistant</h3>
+      <p>A companion for <i>Stationeers</i>. Survival guides, an IC10 tutorial, a searchable coding reference, a linter and step-through emulator, and gas, power and hash calculators. Runs in your browser.</p>
+      <div class="meta"><span class="url">tavernworks.dev/stationeers</span><span class="pill beta">BETA</span></div>
+    </a>
   </div>
 
   <div class="divider" id="support">THE TIP JAR</div>
@@ -400,6 +406,7 @@
     discord: { icon: "🎲", name: "GuildScribe Discord", href: "https://discord.gg/BmdDXCrAzK" },
     journal: { icon: "📖", name: "Journal",          href: "/journal/" },
     sound:   { icon: "🔊", name: "Sound Bytes",      href: "/soundbytes/" },
+    station: { icon: "🛰️", name: "Stationeers Assistant", href: "/stationeers/" },
   };
   const POINTS = [
     ["home",    "2026-10-05", "The tavern opens: GuildScribe live, Hushwave on GitHub", "/"],
@@ -548,6 +555,7 @@
     ["guildscribe", "2026-10-10", "The Division 2 companion: builds, loot, missions and lookups", "https://guildscribe.tavernworks.dev/"],
     ["guildscribe", "2026-10-10", "!rob @GuildScribeBot fines the robber into the swear jar", "https://guildscribe.tavernworks.dev/"],
     ["burn",    "2026-10-10", "Smarter AI: sharper commentary and roasts from what you said", "https://burn.tavernworks.dev/"],
+    ["station", "2026-10-10", "Stationeers Assistant: guides, IC10 tutorial, linter and emulator", "/stationeers/"],
   ].map(([lane, date, title, href], i) => ({ lane, date, title, href, i }));
 
   const trail = document.getElementById("trail");
