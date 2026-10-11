@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Valheim Assistant · Tavernworks</title>
-<meta name="description" content="Valheim Assistant: every biome from the Meadows to the Deep North, all eight bosses with summons and prep checklists, a bestiary, a food planner with live food timers, meads, gear and pickaxe tiers, a materials finder, a smelting calculator, a comfort and rested calculator, raids, skills, a portal network log, progression and notes. Runs in your browser.">
+<meta name="description" content="Valheim Assistant: every biome from the Meadows to the Deep North, all eight bosses with summons and prep checklists, a bestiary, a food planner with live food timers, meads, gear and pickaxe tiers, a materials finder, a smelting calculator, a comfort and rested calculator, raids, skills, a portal network log, a mod list with an install guide, progression and notes. Runs in your browser.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪓</text></svg>">
 <style>
 :root{--bg:#0d1114;--panel:#151b20;--panel2:#1d252c;--line:#2c3842;--tx:#e9eef0;--dim:#93a3ad;--acc:#e3b04b;--acc-ink:#231800;--acc2:#8fc3d6;--ok:#8fcf7a;--warn:#f2c14e;--err:#ff7a6b}
@@ -584,8 +584,32 @@ const GUIDES=[
 <div class="note">The Deep North arrived with 1.0 in September 2026. Details here come from early guides and are still settling.</div>`}
 ];
 
+/* Popular mods. All install through BepInEx. side: who needs it ('all' = every player and the server,
+   'client' = only you, 'server' = the dedicated server, plus clients for some settings).
+   Links search Thunderstore by name, so they keep working when a mod changes owner. */
+const MOD_CATS=['Framework','Quality of life','Building','Gameplay','Server'];
+const MODCAT=[
+{n:'BepInExPack Valheim',c:'Framework',side:'all',conf:true,d:'The mod loader. Every other mod here needs it. Mod managers install it for you.'},
+{n:'Jotunn',c:'Framework',side:'all',conf:true,d:'A modding library many content mods depend on. Install it when a mod lists it.'},
+{n:'ValheimPlus',c:'Quality of life',side:'all',conf:false,d:'One big config file: bigger stacks, carry weight, crafting from chests, building tweaks and more. The original stopped updating; use a maintained fork.'},
+{n:'Equipment and Quick Slots',c:'Quality of life',side:'client',conf:true,d:'Separate slots for armour and three extra hotkey slots, freeing up your inventory.'},
+{n:'Craft From Containers',c:'Quality of life',side:'client',conf:false,d:'Build and craft using materials in nearby chests.'},
+{n:'AutoFeed',c:'Quality of life',side:'client',conf:false,d:'Tamed animals eat from nearby chests, so you don\'t have to drop food on the floor.'},
+{n:'Better UI Reforged',c:'Quality of life',side:'client',conf:false,d:'Health bars, XP pop-ups, item details and a cleaner HUD.'},
+{n:'Gizmo',c:'Building',side:'client',conf:true,d:'Rotate build pieces on every axis, not just around the vertical.'},
+{n:'PlanBuild',c:'Building',side:'all',conf:true,d:'Place ghost blueprints and fill them in with materials later. Save and share whole buildings.'},
+{n:'MassFarming',c:'Building',side:'client',conf:false,d:'Plant and harvest crops in a grid with one click.'},
+{n:'Plant Everything',c:'Building',side:'all',conf:false,d:'Plant berries, mushrooms, thistle and trees with the Cultivator.'},
+{n:'Epic Loot',c:'Gameplay',side:'all',conf:true,d:'Diablo-style magic, rare and legendary items with random effects, plus bounties and a trader.'},
+{n:'Better Archery',c:'Gameplay',side:'client',conf:false,d:'Zoom while aiming, a quiver, and arrows you can pick back up.'},
+{n:'Server Devcommands',c:'Server',side:'all',conf:true,d:'Admin and dev commands on a dedicated server, with extra tools for building and testing.'},
+{n:'Better Networking',c:'Server',side:'all',conf:false,d:'Compresses and smooths network traffic. Helps with lag on busy servers.'}
+];
+const SIDE={all:'Everyone',client:'Just you',server:'Server'};
+const modLink=n=>'https://thunderstore.io/c/valheim/?q='+encodeURIComponent(n);
+
 /* ================= STATE ================= */
-let S={checks:{},prog:{},bossDone:{},bossPrep:{},plate:['','',''],ate:[0,0,0],comfort:{},portals:[],timers:[],notes:'',smelt:{}};
+let S={checks:{},prog:{},bossDone:{},bossPrep:{},plate:['','',''],ate:[0,0,0],comfort:{},portals:[],mods:[],timers:[],notes:'',smelt:{}};
 try{const x=JSON.parse(localStorage.getItem('vh_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
 const save=()=>{try{localStorage.setItem('vh_state',JSON.stringify(S));}catch(e){}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -602,18 +626,18 @@ const PAGES=[['home','Home'],
  ['_','World'],['guides','Guides'],['biomes','Biomes'],['bosses','Bosses'],['creatures','Bestiary'],['raids','Raids'],
  ['_','Survival'],['food','Food planner'],['meads','Meads'],['comfort','Comfort and rest'],['skills','Skills'],
  ['_','Crafting'],['gear','Gear by biome'],['materials','Materials finder'],['smelting','Smelting calculator'],
- ['_','Your world'],['progress','Progression'],['portals','Portal log'],['timers','Timers'],['notes','My Notes']];
+ ['_','Your world'],['progress','Progression'],['portals','Portal log'],['mods','Mods'],['timers','Timers'],['notes','My Notes']];
 const GROUPS=['World','Survival','Crafting','Your world'];
 function buildNav(cur){let gi=0;$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>VALHEIM<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>id==='_'?`<div class="grp">${GROUPS[gi++]}</div>`:`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
 const REAL=PAGES.filter(p=>p[0]!=='_');
 
-const TILE={guides:'First day, combat, rest, building, sailing, taming, farming, dungeons, magic, Ashlands and Deep North',biomes:'All nine biomes with a world map',bosses:'All eight, with summons, weaknesses, powers and prep lists',creatures:'Weaknesses, resistances, drops and taming',raids:'What attacks your base and why',food:'Pick three foods, see your totals, and run food timers',meads:'Every mead and what it does',comfort:'Work out your comfort and how long Rested lasts',skills:'Every skill and the death penalty',gear:'Armour, weapons, stations and pickaxe tiers',materials:'Where every material comes from',smelting:'Coal, wood and time for a pile of ore',progress:'Meadows to the Deep North, ticked off',portals:'Name, place and purpose of every portal',timers:'Fermenters, crops, smelters, eggs',notes:'Your own notes'};
+const TILE={guides:'First day, combat, rest, building, sailing, taming, farming, dungeons, magic, Ashlands and Deep North',biomes:'All nine biomes with a world map',bosses:'All eight, with summons, weaknesses, powers and prep lists',creatures:'Weaknesses, resistances, drops and taming',raids:'What attacks your base and why',food:'Pick three foods, see your totals, and run food timers',meads:'Every mead and what it does',comfort:'Work out your comfort and how long Rested lasts',skills:'Every skill and the death penalty',gear:'Armour, weapons, stations and pickaxe tiers',materials:'Where every material comes from',smelting:'Coal, wood and time for a pile of ore',progress:'Meadows to the Deep North, ticked off',portals:'Name, place and purpose of every portal',mods:'Install guide, popular mods and your own mod list',timers:'Fermenters, crops, smelters, eggs',notes:'Your own notes'};
 function pgHome(){
   const done=PROG.filter((_,i)=>S.prog[i]).length,bosses=BOSSES.filter(b=>S.bossDone[b.id]).length,now=Date.now();
   const fed=S.plate.filter((f,i)=>f&&S.ate[i]&&now-S.ate[i]<(foodBy(f)||{dur:0}).dur*6e4).length;
   const next=BOSSES.find(b=>!S.bossDone[b.id]);
   return `${TWArt.hero(892970,'Valheim')}<h2>Valheim Assistant</h2><p class="sub">A companion for <i>Valheim</i>, from the Meadows to the Deep North. Your checklists, food plate, portals, timers and notes are saved on this device.</p>
-<div class="stats"><div class="stat"><small>Bosses down</small><a class="mob big" href="#bosses">${bosses} / ${BOSSES.length}</a></div><div class="stat"><small>Next boss</small>${next?`<a class="mob" href="#bosses/${next.id}">${esc(next.n)}</a>`:'<span class="ok">All done. Skål!</span>'}</div><div class="stat"><small>Progression</small><a class="mob" href="#progress">${done} of ${PROG.length}</a></div><div class="stat"><small>Foods active</small><a class="mob" href="#food">${fed} / 3</a></div><div class="stat"><small>Portals logged</small><a class="mob" href="#portals">${S.portals.length}</a></div><div class="stat"><small>Timers running</small><a class="mob" href="#timers">${S.timers.filter(t=>t.end>now).length}</a></div></div>
+<div class="stats"><div class="stat"><small>Bosses down</small><a class="mob big" href="#bosses">${bosses} / ${BOSSES.length}</a></div><div class="stat"><small>Next boss</small>${next?`<a class="mob" href="#bosses/${next.id}">${esc(next.n)}</a>`:'<span class="ok">All done. Skål!</span>'}</div><div class="stat"><small>Progression</small><a class="mob" href="#progress">${done} of ${PROG.length}</a></div><div class="stat"><small>Foods active</small><a class="mob" href="#food">${fed} / 3</a></div><div class="stat"><small>Portals logged</small><a class="mob" href="#portals">${S.portals.length}</a></div><div class="stat"><small>Mods on</small><a class="mob" href="#mods">${S.mods.filter(m=>m.on).length} / ${S.mods.length}</a></div><div class="stat"><small>Timers running</small><a class="mob" href="#timers">${S.timers.filter(t=>t.end>now).length}</a></div></div>
 <div class="grid">${REAL.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
 <div class="note">Facts marked <span class="conf">●</span> come from the Valheim wiki, Iron Gate's patch notes or several guides that agree. Facts marked <span class="unv">○</span> come from a single source, changed in a recent rebalance, or are about the Deep North, which is only weeks old. World modifiers change many numbers, so trust what you see in-game first.</div>`;}
 
@@ -825,6 +849,45 @@ function portalWire(){
   document.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=()=>{if(confirm('Remove portal '+S.portals[+b.dataset.pdel].t+'?')){S.portals.splice(+b.dataset.pdel,1);save();route();}});
 }
 
+/* ================= MODS ================= */
+let modQ='',modC='';
+function pgMods(){const on=S.mods.filter(m=>m.on).length;
+  return `<h2>Mods</h2><p class="sub">Keep track of the mods in your game. Add your own, or pick from the popular ones below. Your list is saved on this device.</p>
+<h3 style="margin-top:0">My mods</h3>
+<div class="card"><form class="row" id="mf"><input id="mn" type="text" style="width:190px" placeholder="Mod name" required><input id="mv" type="text" style="width:90px" placeholder="Version"><select id="ms">${Object.entries(SIDE).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select><input id="mu" type="url" style="width:200px" placeholder="Link (optional)"><input id="mnote" type="text" style="width:180px" placeholder="Note"><button class="pri">Add mod</button></form>
+<div class="dim" style="font-size:12px">"Everyone" means every player and the server need the same mod and version to join each other.</div></div>
+<div class="card tbl"><table><tr><th>On</th><th>Mod</th><th>Version</th><th>Who needs it</th><th>Note</th><th></th></tr>${S.mods.map((m,i)=>`<tr><td><input type="checkbox" data-mon="${i}"${m.on?' checked':''} title="Installed and enabled"></td><td><b>${/^https?:\/\//i.test(m.u||'')?`<a href="${esc(m.u)}" target="_blank" rel="noopener">${esc(m.n)}</a>`:esc(m.n)}</b></td><td><input type="text" data-me="${i}:v" value="${esc(m.v||'')}" style="width:80px"></td><td><select data-me="${i}:s">${Object.entries(SIDE).map(([k,v])=>`<option value="${k}"${m.s===k?' selected':''}>${v}</option>`).join('')}</select></td><td><input type="text" data-me="${i}:note" value="${esc(m.note||'')}" style="width:180px"></td><td><button data-mdel="${i}" title="Remove">✕</button></td></tr>`).join('')||'<tr><td colspan="6" class="dim">No mods yet. Add one above or from the list below.</td></tr>'}</table></div>
+${S.mods.length?`<div class="row"><span class="dim">${on} of ${S.mods.length} on</span><span style="flex:1"></span><button id="mcopy">Copy list for friends</button><button id="mclear">Clear list</button></div>`:''}
+<h3>Popular mods</h3>
+<div class="row"><input type="search" id="mq" placeholder="Search mods" style="width:220px" value="${esc(modQ)}"></div>
+<div class="chips" id="mc"><button data-c="" class="${modC?'':'on'}">All</button>${MOD_CATS.map(c=>`<button data-c="${esc(c)}" class="${modC===c?'on':''}">${esc(c)}</button>`).join('')}</div>
+<div class="card tbl"><table id="mt"></table></div>
+<h3>How to install mods</h3>
+<div class="card"><ol class="mech" style="margin:0;padding-left:20px">
+<li><b>Back up your saves first.</b> Copy the <code>worlds_local</code> and <code>characters_local</code> folders from <code>%userprofile%\\AppData\\LocalLow\\IronGate\\Valheim</code> (Windows) or <code>~/.config/unity3d/IronGate/Valheim</code> (Linux).</li>
+<li><b>Easiest: use a mod manager.</b> Install <b>r2modman</b> or the <b>Thunderstore Mod Manager</b>, pick Valheim, make a profile and click Install on the mods you want. It adds BepInEx and any dependencies for you. Start the game with the manager's <b>Start modded</b> button.</li>
+<li><b>By hand:</b> download <b>BepInExPack Valheim</b> and copy its contents into the Valheim folder (Steam: right-click Valheim → Manage → Browse local files). Run the game once, then drop each mod's <code>.dll</code> into <code>BepInEx/plugins</code>.</li>
+<li>Change a mod's settings in <code>BepInEx/config</code>, or with the in-game config manager (F1) if you have it.</li>
+<li><b>Playing together:</b> share a mod manager profile code, or the list above, so everyone has the same mods and versions. For "Everyone" mods, install them on the dedicated server too.</li></ol></div>
+<div class="tip"><ul class="mech" style="margin:0"><li>Big Valheim updates (like 1.0 and the Deep North) break many mods for a while. Wait for them to update, or roll back the game in Steam's Betas tab.</li><li>If the game won't start, disable half your mods, test, and repeat to find the culprit. Check <code>BepInEx/LogOutput.log</code> for errors.</li><li>Only download mods from Thunderstore or Nexus Mods. A mod is code that runs on your PC.</li><li>Mods work on Steam PC and dedicated servers. Xbox and Game Pass players can't load them, so they can't join a server that requires mods.</li></ul></div>
+<div class="note">Popular mods marked <span class="unv">○</span> change owners, get replaced by forks, or haven't confirmed support for the latest update. Check the Thunderstore page before installing.</div>`;}
+function modWire(){
+  $('mf').onsubmit=e=>{e.preventDefault();const n=$('mn').value.trim();if(!n)return;S.mods.push({n,v:$('mv').value.trim(),s:$('ms').value,u:/^https?:\/\//i.test($('mu').value.trim())?$('mu').value.trim():'',note:$('mnote').value.trim(),on:true});save();route(true);};
+  document.querySelectorAll('[data-mon]').forEach(cb=>cb.onchange=()=>{S.mods[+cb.dataset.mon].on=cb.checked;save();});
+  document.querySelectorAll('[data-me]').forEach(i=>i.oninput=i.onchange=()=>{const [ix,k]=i.dataset.me.split(':');S.mods[+ix][k]=i.value;save();});
+  document.querySelectorAll('[data-mdel]').forEach(b=>b.onclick=()=>{S.mods.splice(+b.dataset.mdel,1);save();route(true);});
+  if($('mclear'))$('mclear').onclick=()=>{if(confirm('Remove every mod from your list?')){S.mods=[];save();route(true);}};
+  if($('mcopy'))$('mcopy').onclick=()=>{const txt=S.mods.filter(m=>m.on).map(m=>`${m.n}${m.v?' '+m.v:''} (${SIDE[m.s]||'Everyone'})${m.u?' '+m.u:''}`).join('\n');
+    const done=()=>{$('mcopy').textContent='Copied!';setTimeout(()=>{if($('mcopy'))$('mcopy').textContent='Copy list for friends';},1500);};
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(done,()=>prompt('Copy your mod list:',txt));};
+  const draw=()=>{const q=modQ.toLowerCase(),mine=new Set(S.mods.map(m=>m.n.toLowerCase()));const rows=MODCAT.filter(m=>(!modC||m.c===modC)&&(!q||(m.n+' '+m.c+' '+m.d).toLowerCase().includes(q)));
+    $('mt').innerHTML=`<tr><th>Mod</th><th>Kind</th><th>Who needs it</th><th>What it does</th><th></th></tr>`+(rows.map(m=>{const i=MODCAT.indexOf(m),has=mine.has(m.n.toLowerCase());return `<tr><td>${mark(m.conf)} <a href="${modLink(m.n)}" target="_blank" rel="noopener"><b>${esc(m.n)}</b></a></td><td>${esc(m.c)}</td><td>${SIDE[m.side]}</td><td class="dim">${esc(m.d)}</td><td>${has?'<span class="ok">✔ Added</span>':`<button data-madd="${i}">Add</button>`}</td></tr>`;}).join('')||'<tr><td colspan="5" class="dim">Nothing matches.</td></tr>');
+    document.querySelectorAll('[data-madd]').forEach(b=>b.onclick=()=>{const m=MODCAT[+b.dataset.madd];S.mods.push({n:m.n,v:'',s:m.side,u:modLink(m.n),note:'',on:true});save();route(true);});};
+  $('mq').oninput=e=>{modQ=e.target.value;draw();};
+  document.querySelectorAll('#mc button').forEach(b=>b.onclick=()=>{modC=b.dataset.c;document.querySelectorAll('#mc button').forEach(x=>x.classList.toggle('on',x===b));draw();});
+  draw();
+}
+
 /* ================= TIMERS ================= */
 function pgTimers(){const now=Date.now();
   return `<h2>Timers</h2><p class="sub">Real-time timers for things that take a while in-game. They keep running when you close the page. A full day in Valheim is about 30 minutes.</p>
@@ -856,7 +919,7 @@ function route(keepScroll){
   const page=REAL.some(p=>p[0]===pg)?pg:'home';
   buildNav(page);
   const m=$('main'),top=m.scrollTop;
-  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),biomes:()=>pgBiomes(sub),bosses:()=>pgBosses(sub),creatures:pgCreatures,raids:pgRaids,food:pgFood,meads:pgMeads,comfort:pgComfort,skills:pgSkills,gear:pgGear,materials:pgMaterials,smelting:pgSmelting,progress:pgProgress,portals:pgPortals,timers:pgTimers,notes:pgNotes})[page]();
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),biomes:()=>pgBiomes(sub),bosses:()=>pgBosses(sub),creatures:pgCreatures,raids:pgRaids,food:pgFood,meads:pgMeads,comfort:pgComfort,skills:pgSkills,gear:pgGear,materials:pgMaterials,smelting:pgSmelting,progress:pgProgress,portals:pgPortals,mods:pgMods,timers:pgTimers,notes:pgNotes})[page]();
   m.scrollTop=keepScroll===true?top:0;
   m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
   m.querySelectorAll('input[type=checkbox][data-p]').forEach(cb=>{cb.onchange=()=>{S.prog[cb.dataset.p]=cb.checked;save();const d=PROG.filter((_,i)=>S.prog[i]).length;$('pdone').textContent=d+' of '+PROG.length+' done';$('pbar').style.width=d/PROG.length*100+'%';};});
@@ -868,6 +931,7 @@ function route(keepScroll){
   if(page==='materials')matWire();
   if(page==='smelting')smeltWire();
   if(page==='portals')portalWire();
+  if(page==='mods')modWire();
   if(page==='timers')timerWire();
   if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
 }
