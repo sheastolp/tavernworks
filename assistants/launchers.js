@@ -323,7 +323,7 @@
   }
 
   function art(g) {
-    return g.l === 'steam' ? 'https://cdn.cloudflare.steamstatic.com/steam/apps/' + g.id + '/header.jpg' : '';
+    return g.l === 'steam' ? 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/' + g.id + '/header.jpg' : '';
   }
 
   function links(g) {

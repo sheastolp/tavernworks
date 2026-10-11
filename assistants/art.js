@@ -1,6 +1,10 @@
 /* Shared artwork helpers for the game assistants.
    TWArt.hero(appid, title) returns a banner using the game's Steam header art.
-   If the image can't load (offline, blocked), the banner removes itself. */
+   Newer games aren't on Steam's old cdn.cloudflare /steam/apps/ path, so each
+   image tries Steam's current store_item_assets CDN first, then older hosts and
+   other Steam art (capsule, library hero). If none load (offline, blocked), the
+   image removes itself.
+   Plain <img data-steam="appid" onerror="TWArt.next(this)"> works too. */
 (function () {
   const css = `
 .tw-hero{position:relative;aspect-ratio:460/215;max-width:460px;border-radius:12px;overflow:hidden;margin:0 0 16px;
@@ -19,9 +23,23 @@
 
   const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   window.TWArt = {
-    steam: id => 'https://cdn.cloudflare.steamstatic.com/steam/apps/' + id + '/header.jpg',
+    urls: id => [
+      'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/' + id + '/header.jpg',
+      'https://cdn.akamai.steamstatic.com/steam/apps/' + id + '/header.jpg',
+      'https://cdn.cloudflare.steamstatic.com/steam/apps/' + id + '/header.jpg',
+      'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/' + id + '/capsule_616x353.jpg',
+      'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/' + id + '/library_hero.jpg'
+    ],
+    steam(id) { return this.urls(id)[0]; },
+    // onerror handler: move to the next Steam URL, or remove the image (and with
+    // data-steam-drop="parent", its banner) once every URL has failed.
+    next(img) {
+      const list = this.urls(img.dataset.steam), i = (+img.dataset.steamTry || 0) + 1;
+      if (i < list.length) { img.dataset.steamTry = i; img.src = list[i]; return; }
+      (img.dataset.steamDrop === 'parent' ? img.parentNode : img).remove();
+    },
     hero(id, title) {
-      return `<div class="tw-hero">${esc(title)}<img src="${this.steam(id)}" alt="${esc(title)} key art" loading="lazy" onerror="this.parentNode.remove()"></div>`;
+      return `<div class="tw-hero">${esc(title)}<img src="${this.steam(id)}" data-steam="${esc(id)}" data-steam-drop="parent" alt="${esc(title)} key art" loading="lazy" onerror="TWArt.next(this)"></div>`;
     },
     esc
   };
