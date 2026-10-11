@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crusader Kings III Assistant · Tavernworks</title>
+<meta name="description" content="Crusader Kings III Assistant: beginner to expert guides, start characters, a clickable map of the regions, every personality, congenital and education trait, lifestyles, stress and dread, a marriage and genetics planner, a succession simulator, crown authority and governments, the council, vassals and factions, holdings, warfare and casus belli, a men-at-arms counter finder, faith, culture, dynasty legacies, DLC, a campaign and dynasty chronicle, console commands and notes. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👑</text></svg>">
+<style>
+:root{--bg:#120f0d;--panel:#1c1714;--panel2:#26201b;--line:#3a3029;--tx:#f0e9e1;--dim:#a99c8f;--acc:#d9a441;--acc-ink:#211500;--acc2:#e08b7a;--ok:#8fcf7a;--warn:#f2c14e;--err:#ff7a6b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:215px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:7px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#nav .grp{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:12px 10px 2px}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#nav .grp{display:none}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#0b0907;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number],input[type=search]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.tag.w{background:#1d2a17;color:#a9dd8e}.tag.r{background:#2c1716;color:#ff9b8f}.tag.i{background:#16222c;color:#9cc9dc}.tag.g{background:#2c2410;color:#efcd7a}
+.note{border-left:3px solid var(--warn);background:#241f0f;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.stat .big{font:600 20px/1.2 Consolas,"Cascadia Mono",monospace}
+.mech li{margin:4px 0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chips button{border-radius:999px;padding:3px 11px;font-size:13px}
+.chips button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.heir{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.heir.p{border-color:var(--acc)}
+.heir h4{margin:0 0 4px;font-size:14px}
+.tier{display:inline-block;min-width:22px;text-align:center;font:600 11px/18px Consolas,monospace;border-radius:4px;margin-right:6px;color:#1a120a}
+.t4{background:#c79bf0}.t3{background:#d9a441}.t2{background:#8fc3d6}.t1{background:#9fcf8a}
+.meter{display:flex;height:18px;border-radius:5px;overflow:hidden;border:1px solid var(--line);background:var(--panel2);margin:6px 0}
+.meter i{display:block;height:100%}
+.tree{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.lvl{display:flex;gap:4px;flex-wrap:wrap}
+.lvl label{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:12px;display:flex;gap:4px;align-items:center}
+kbd,code{font:12px Consolas,"Cascadia Mono",monospace;background:#0b0907;border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js?v=2" data-track="ck3_state"></script>
+<script src="/assistants/art.js"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   conf: true  = long-standing mechanics from the CK3 wiki, Paradox dev diaries or several agreeing guides.
+   conf: false = exact numbers that moved between patches, DLC details, or single-source claims; check the tooltip.
+   Written against patch 1.19 (spring 2026). Base-game mechanics have been stable for years; DLC
+   systems (Roads to Power, Khans of the Steppe, All Under Heaven, Chapter V) are marked ○ where
+   details could have shifted. CK3 shows almost every number in a tooltip: trust that first. */
+
+const SKL=['Diplomacy','Martial','Stewardship','Intrigue','Learning','Prowess'];
+
+/* Personality traits. pair: the opposite; sk: skill changes; good: what it's good for;
+   stress: what stresses a character with this trait (the core of CK3 roleplay). */
+const PERS=[
+{n:'Brave',pair:'Craven',sk:'Martial +2, Prowess +3',good:'Commanders and knights; vassals respect it',stress:'Fleeing danger, refusing duels',conf:true},
+{n:'Craven',pair:'Brave',sk:'Martial −2, Prowess −3, Intrigue +2',good:'Schemers; harder to kill in schemes',stress:'Duels, leading in battle',conf:false},
+{n:'Calm',pair:'Wrathful',sk:'Diplomacy +1, Intrigue +1',good:'Stress loss; stable rulers',stress:'Rash, violent choices',conf:false},
+{n:'Wrathful',pair:'Calm',sk:'Martial +3, Diplomacy −1, Intrigue −1',good:'Dread, warfare',stress:'Letting slights go, showing mercy',conf:false},
+{n:'Chaste',pair:'Lustful',sk:'Learning +2, fertility −25%',good:'Clergy, learning builds',stress:'Seduction, affairs',conf:false},
+{n:'Lustful',pair:'Chaste',sk:'Intrigue +2, fertility +25%',good:'Seduce schemes, more children',stress:'Refusing romance',conf:false},
+{n:'Content',pair:'Ambitious',sk:'Learning +2, Intrigue −1',good:'Loyal vassals and councillors',stress:'Grabbing for power',conf:false},
+{n:'Ambitious',pair:'Content',sk:'All skills +1, +stress gain',good:'Rulers on the rise',stress:'Turning down power and titles',conf:false},
+{n:'Diligent',pair:'Lazy',sk:'Most skills +2, +stress gain',good:'Councillors, any ruler',stress:'Idleness, skipping duties',conf:false},
+{n:'Lazy',pair:'Diligent',sk:'All skills −1',good:'Low stress',stress:'Hard work, long activities',conf:false},
+{n:'Fickle',pair:'Stubborn',sk:'Diplomacy +2, Stewardship −2',good:'Diplomats',stress:'Holding firm',conf:false},
+{n:'Stubborn',pair:'Fickle',sk:'Stewardship +3',good:'Stewards; stress resistant in sieges',stress:'Backing down, compromise',conf:false},
+{n:'Forgiving',pair:'Vengeful',sk:'Diplomacy +2, Learning +1, Intrigue −2',good:'Releasing prisoners for opinion',stress:'Executions, revenge',conf:false},
+{n:'Vengeful',pair:'Forgiving',sk:'Intrigue +2, Diplomacy −2',good:'Rivalries, murder of rivals',stress:'Forgiving enemies',conf:false},
+{n:'Generous',pair:'Greedy',sk:'Diplomacy +3, less gold income',good:'Vassal opinion, gift economy',stress:'Hoarding, refusing gifts',conf:false},
+{n:'Greedy',pair:'Generous',sk:'Diplomacy −1, more gold income',good:'Treasury',stress:'Giving gold away, paying for things',conf:false},
+{n:'Gregarious',pair:'Shy',sk:'Diplomacy +2',good:'Feasts, befriending',stress:'Avoiding company',conf:true},
+{n:'Shy',pair:'Gregarious',sk:'Diplomacy −2, scheme secrecy',good:'Schemes, low feast pressure',stress:'Feasts, meeting people',conf:false},
+{n:'Honest',pair:'Deceitful',sk:'Diplomacy +2, Intrigue −4',good:'Trusted councillors',stress:'Lying, scheming, blackmail',conf:false},
+{n:'Deceitful',pair:'Honest',sk:'Intrigue +4, Diplomacy −2',good:'Spymasters, schemes',stress:'Confessing, coming clean',conf:false},
+{n:'Humble',pair:'Arrogant',sk:'+Piety, −Prestige',good:'Clergy, piety builds',stress:'Boasting, grand displays',conf:false},
+{n:'Arrogant',pair:'Humble',sk:'+Prestige, opinion penalties',good:'Prestige builds',stress:'Apologising, submitting',conf:false},
+{n:'Just',pair:'Arbitrary',sk:'Stewardship +2, Learning +1',good:'Stewards, revoking with cause',stress:'Unlawful revocations, breaking rules',conf:false},
+{n:'Arbitrary',pair:'Just',sk:'Intrigue +2, Stewardship −1, Learning −1',good:'Tyranny without guilt, Dread',stress:'Following procedure',conf:false},
+{n:'Patient',pair:'Impatient',sk:'Learning +2',good:'Long schemes, sieges',stress:'Rushing',conf:false},
+{n:'Impatient',pair:'Patient',sk:'Learning −2, faster schemes',good:'Quick schemes',stress:'Waiting',conf:false},
+{n:'Temperate',pair:'Gluttonous',sk:'Stewardship +2',good:'Health, fasting',stress:'Feasting, indulgence',conf:true},
+{n:'Gluttonous',pair:'Temperate',sk:'Stewardship −2',good:'Feasts',stress:'Fasting',conf:true},
+{n:'Trusting',pair:'Paranoid',sk:'Diplomacy +2, Intrigue −2',good:'Opinion gains',stress:'Suspicion',conf:false},
+{n:'Paranoid',pair:'Trusting',sk:'Intrigue +3, Diplomacy −1',good:'Scheme defence',stress:'Trusting others',conf:false},
+{n:'Zealous',pair:'Cynical',sk:'Martial +2, +Piety',good:'Holy wars, Crusades, piety',stress:'Tolerating heresy, changing faith',conf:false},
+{n:'Cynical',pair:'Zealous',sk:'Intrigue +2, Learning +2',good:'Converting freely, faith reforms',stress:'Pious acts, pilgrimage',conf:false},
+{n:'Compassionate',pair:'Callous, Sadistic',sk:'Diplomacy +2, Intrigue −2',good:'Opinion, low dread',stress:'Executions, torture, imprisoning kin',conf:true},
+{n:'Callous',pair:'Compassionate',sk:'Intrigue +2, Diplomacy −2',good:'Executing enemies freely',stress:'Showing mercy',conf:false},
+{n:'Sadistic',pair:'Compassionate',sk:'Intrigue +2, Prowess +2, dread gain',good:'Dread rule, the torturer life',stress:'Mercy',conf:false},
+{n:'Eccentric',pair:'—',sk:'Learning +2, Diplomacy −2',good:'Learning builds',stress:'Conformity',conf:false}
+];
+
+/* Congenital traits. Tiered groups go from mild (1) to strong (3). */
+const CONG=[
+{g:'Intellect',good:true,tiers:['Quick','Intelligent','Genius'],eff:'+ to every skill (about +1 / +3 / +5) and faster lifestyle XP',conf:false},
+{g:'Beauty',good:true,tiers:['Comely','Pretty','Beautiful'],eff:'+ Diplomacy and attraction opinion; better marriages and seductions',conf:false},
+{g:'Physique',good:true,tiers:['Hale','Robust','Amazonian / Herculean'],eff:'+ Health and Prowess; longer life; Herculean is the male name',conf:false},
+{g:'Intellect (bad)',good:false,tiers:['Slow','Stupid','Imbecile'],eff:'− to every skill; Imbecile is ruinous',conf:true},
+{g:'Beauty (bad)',good:false,tiers:['Homely','Ugly','Hideous'],eff:'− Diplomacy and attraction opinion',conf:true},
+{g:'Physique (bad)',good:false,tiers:['Delicate','Frail','Feeble'],eff:'− Health and Prowess',conf:true},
+{g:'Fecund',good:true,tiers:['Fecund'],eff:'+ Fertility and a longer life',conf:true},
+{g:'Shrewd',good:true,tiers:['Shrewd'],eff:'+ Small boost to every skill ○ (older patches)',conf:false},
+{g:'Strong',good:true,tiers:['Strong'],eff:'+ Prowess and health',conf:true},
+{g:'Giant',good:false,tiers:['Giant'],eff:'+ Prowess but − Health; feared',conf:true},
+{g:'Dwarf',good:false,tiers:['Dwarf'],eff:'− Prowess, − Health, opinion penalty',conf:true},
+{g:'Clubfooted',good:false,tiers:['Clubfooted'],eff:'− Prowess, opinion penalty',conf:true},
+{g:'Hunchbacked',good:false,tiers:['Hunchbacked'],eff:'− Prowess, opinion penalty',conf:true},
+{g:'Lisping / Stuttering',good:false,tiers:['Lisping','Stuttering'],eff:'− Diplomacy',conf:true},
+{g:'Spindly',good:false,tiers:['Spindly'],eff:'− Prowess',conf:true},
+{g:'Scaly',good:false,tiers:['Scaly'],eff:'Opinion penalty; some see it as a curse',conf:true},
+{g:'Albino',good:false,tiers:['Albino'],eff:'Opinion effects vary by faith; − Health',conf:false},
+{g:'Wheezing',good:false,tiers:['Wheezing'],eff:'− Health',conf:true},
+{g:'Bleeder',good:false,tiers:['Bleeder'],eff:'Haemophilia: big − Health, wounds kill',conf:true},
+{g:'Infertile / Barren',good:false,tiers:['Infertile'],eff:'Very low fertility. Dynasty killer.',conf:true},
+{g:'Inbred',good:false,tiers:['Inbred'],eff:'From close-kin marriages: − skills, − Health, − Fertility',conf:true},
+{g:'Pure-blooded',good:true,tiers:['Pure-blooded'],eff:'From a Blood legacy + close-kin marriages: + Health, + Fertility, no inbreeding risk',conf:false}
+];
+
+/* Education traits by focus. Level 1 to 4. */
+const EDU=[
+['Diplomacy',['Naive Appeaser','Adequate Bargainer','Charismatic Negotiator','Grey Eminence']],
+['Martial',['Misguided Warrior','Tough Soldier','Skilled Tactician','Brilliant Strategist']],
+['Stewardship',['Indulgent Wastrel','Thrifty Clerk','Fortune Builder','Midas Touched']],
+['Intrigue',['Amateurish Plotter','Flamboyant Trickster','Intricate Webweaver','Elusive Shadow']],
+['Learning',['Conscientious Scribe','Insightful Thinker','Astute Intellectual','Mastermind Philosopher']]
+];
+const CHILD=[
+['Rowdy','Leans towards Wrathful, Brave, Arbitrary, Impatient','Martial or Intrigue education'],
+['Charming','Leans towards Gregarious, Lustful, Fickle, Deceitful','Diplomacy or Intrigue'],
+['Curious','Leans towards Diligent, Gregarious, Arbitrary, Impatient','Learning or Stewardship'],
+['Pensive','Leans towards Shy, Patient, Calm, Chaste','Learning or Stewardship'],
+['Bossy','Leans towards Arrogant, Stubborn, Ambitious, Brave','Martial or Stewardship']
+];
+
+/* Coping traits from mental breaks. */
+const COPING=[
+['Drunkard','Drinks the stress away','Stewardship −, health −'],
+['Hashishiyah','Hashish (some cultures)','Intrigue +, health −'],
+['Rakish','Affairs and carousing','Lustful-style behaviour, scandal risk'],
+['Reclusive','Withdraws from society','Diplomacy −, less stress from company'],
+['Irritable','Snaps at people','Diplomacy −, opinion −'],
+['Flagellant','Self-punishment','Health −, piety +'],
+['Profligate','Spends to feel better','Gold −'],
+['Improvident','Buys things to cope','Gold −'],
+['Contrite','Apologises and atones','Diplomacy −?, opinion gains'],
+['Comfort eater','Eats to cope','Becomes overweight'],
+['Inappetetic','Stops eating','Health −'],
+['Journaller','Writes it all down','Learning +, low downside: one of the best'],
+['Confider','Talks it through with a friend','Needs a friend; low downside'],
+['Athletic','Exercises the stress away','Prowess +, health +: the best one']
+];
+
+/* Lifestyles. Every lifestyle has three trees; finishing a tree gives its trait. */
+const LIFE=[
+{n:'Diplomacy',col:'#7fb3e0',trees:[
+ ['Family','Patriarch / Matriarch','Stronger family: children with better traits, family members like you, easier marriages and education.'],
+ ['Majesty','Augustus','Prestige, vassal opinion and a stable realm. Strong for big realms.'],
+ ['Foreign Affairs','Diplomat','Alliances, sway, foreign opinion and peace deals.']],
+ focus:'Diplomacy focus: +opinion and diplomacy.',why:'Pick it when vassal opinion is your problem or you rule a huge realm.'},
+{n:'Martial',col:'#e07a6a',trees:[
+ ['Strategy','Strategist','Battle advantage, faster sieges, better commanders.'],
+ ['Authority','Overseer','Control, levies, dread and keeping vassals in line.'],
+ ['Chivalry','Gallant','Prowess, knights, seducing and impressing.']],
+ focus:'Martial focus: +martial, +knight effectiveness.',why:'Warlords and conquerors, or anyone fighting their own vassals.'},
+{n:'Stewardship',col:'#e3c06a',trees:[
+ ['Wealth','Avaricious','Gold. More taxes, cheaper things, gold-powered sway.'],
+ ['Domain','Architect','Domain limit, development and buildings.'],
+ ['Duty','Administrator','Vassal tax and levies, control, and vassal management.']],
+ focus:'Stewardship focus: +stewardship, +development.',why:'Almost always good. Domain limit fixes the most common early problem.'},
+{n:'Intrigue',col:'#9e7fd1',trees:[
+ ['Skulduggery','Schemer','Murder and hostile schemes, secrets and hooks.'],
+ ['Intimidation','Torturer','Dread: vassals obey out of fear, not love.'],
+ ['Temptation','Seducer','Seduction, romance and the hooks that come with it.']],
+ focus:'Intrigue focus: +intrigue, +secrets found.',why:'Clearing a rival heir, or ruling by fear.'},
+{n:'Learning',col:'#8fcf7a',trees:[
+ ['Medicine','Physician','Health, longer life, stress relief, treating disease.'],
+ ['Scholarship','Scholar','Innovations, lifestyle XP, education.'],
+ ['Theology','Theologian','Piety, faith, clergy relations and conversion.']],
+ focus:'Learning focus: +learning, +piety.',why:'Medicine keeps you alive. Theology funds faith reforms.'},
+{n:'Extra lifestyles (DLC)',col:'#b3a07a',trees:[
+ ['Wanderer','—','Tours & Tournaments adds a travel-themed lifestyle: safer, faster journeys and better pilgrimages.']],
+ focus:'Unlocked through travel.',why:'Tree names vary by patch and DLC: check your Lifestyle screen ○.',conf:false}
+];
+
+/* Crown authority levels (feudal and clan realms). */
+const CROWN=[
+['Autonomous Vassals',0,'Vassals do almost what they like: they can fight each other and revoking titles is dangerous.','Start of many games.'],
+['Limited Crown Authority',1,'Vassals can no longer declare war on each other ○, and title revocation becomes possible.','Cheap, few downsides. Raise to it early.'],
+['High Crown Authority',2,'Vassals can\'t declare war on each other; you can control vassal succession more; vassals dislike it.','Needed for Single Heir succession in most realms ○.'],
+['Absolute Crown Authority',3,'Your vassals can\'t refuse much. Revoke titles, change succession and laws more freely. Big vassal opinion penalty.','Late game; make sure vassals fear or love you first.']
+];
+
+/* Succession laws. kind: how titles get divided. */
+const SUCC=[
+{n:'Confederate Partition',kind:'conf',conf:true,req:'Tribal realms are mostly locked to it',d:'The realm is divided among all eligible children. Titles of your primary title\'s tier can be re-created to give younger heirs an independent realm. The worst law for keeping a realm together.'},
+{n:'Partition',kind:'part',conf:true,req:'Default for most feudal realms in early dates',d:'Titles are split as evenly as possible among all eligible children. The primary heir gets your primary title; heirs who receive a title of the same tier become independent, the rest become vassals of the primary heir.'},
+{n:'High Partition',kind:'high',conf:true,req:'Feudal, after the right innovation (early medieval) ○',d:'Like Partition, but the primary heir always gets at least half of your titles. Much better than Partition.'},
+{n:'Single Heir (Primogeniture)',kind:'single',conf:true,req:'The Primogeniture innovation (High Medieval era) and enough crown authority ○',d:'Everything goes to the eldest eligible child. The realm stays whole; younger children get claims and may be unhappy.'},
+{n:'Single Heir (Ultimogeniture)',kind:'single',conf:false,req:'Specific cultures (some steppe and Celtic traditions) ○',d:'Everything goes to the youngest child.'},
+{n:'Seniority',kind:'single',conf:false,req:'Specific cultures and governments ○',d:'The oldest member of the dynasty inherits. Good for avoiding child rulers, bad for planning.'},
+{n:'Feudal Elective',kind:'elect',conf:true,req:'Kingdom/empire title law; needs an innovation',d:'Vassals of the title vote among candidates (often their own dynasty members). You nominate too; keep electors friendly or hooked.'},
+{n:'Tanistry',kind:'elect',conf:true,req:'Gaelic (Irish, Scottish) cultures',d:'Dynasty members of the same house elect a successor. Good at producing an adult ruler.'},
+{n:'Scandinavian Elective',kind:'elect',conf:true,req:'Norse cultures (Northern Lords content in base game for some parts) ○',d:'Powerful vassals vote among dynasty members and other strong rulers.'},
+{n:'Saxon Elective',kind:'elect',conf:false,req:'Anglo-Saxon and some English cultures',d:'Elector vassals vote; the Witenagemot style.'},
+{n:'Princely Elective',kind:'elect',conf:true,req:'The Holy Roman Empire',d:'Seven prince-electors (by title) choose the next emperor. Classic HRE problem: your dynasty can lose the crown.'},
+{n:'Administrative (Roads to Power)',kind:'admin',conf:false,req:'Administrative government (Byzantium and others) ○',d:'Titles belong to the state; the throne passes by appointment/influence. Noble families compete with influence rather than inheriting land.'}
+];
+const GENDER=[
+['Male Preference','Men first; women inherit if there are no eligible men.'],
+['Male Only','Women never inherit.'],
+['Equal','Gender doesn\'t matter: eldest child of either sex.'],
+['Female Preference / Female Only','Rare; set by faith doctrine.']
+];
+
+/* Governments. */
+const GOVS=[
+{n:'Feudal',conf:true,d:'The default for Christian, Zoroastrian, Hindu and many reformed rulers. Vassals owe taxes and levies by contract; crown authority and succession law matter most. Holdings: castles.'},
+{n:'Clan',conf:true,d:'Most Muslim rulers. Vassal tax and levies depend on their opinion of you, not a contract. Partition-style succession (with polygamy and many sons, realms shatter). Houses within the realm matter.'},
+{n:'Tribal',conf:true,d:'Pagans and the edges of the map. Pay buildings and men-at-arms with prestige, raid, and use the Subjugation and Conquest casus belli. Reform into feudal or clan once you hit the Early Medieval era and have the right innovations and a reformed or organised faith.'},
+{n:'Theocracy',conf:true,d:'Bishops and religious heads. Not normally played. Their temples give your faith taxes and levies.'},
+{n:'Republic',conf:true,d:'Merchant cities like Venice and Genoa. Not playable in the base game. ○ Chapter V\'s Silk & Silver is announced to deal with merchant families.'},
+{n:'Administrative',conf:false,d:'Roads to Power. Byzantium and a few others. Titles are appointed, noble families gather influence, themes (provinces) are governed by appointed governors. You can rise from family head to emperor.'},
+{n:'Landless (Adventurer)',conf:false,d:'Roads to Power. Play a landless adventurer with a camp and followers, take contracts, then carve out a realm.'},
+{n:'Nomadic and Herder',conf:false,d:'Khans of the Steppe. Steppe rulers move with their herds, use the herd as a resource and grow by subjugating neighbours.'},
+{n:'East Asian governments',conf:false,d:'All Under Heaven expanded the map to East Asia with its own government types (the Chinese imperial system and Japanese feudalism among them). Check the in-game encyclopedia.'}
+];
+
+/* Council. */
+const COUNCIL=[
+['Chancellor','Diplomacy','Domestic Affairs (vassal opinion), Integrate Title (make a conquered title yours de jure), Fabricate Claim','Pick a friendly vassal with high diplomacy. Fabricate Claim is the best way to make war without a CB.'],
+['Steward','Stewardship','Collect Taxes, Increase Development, Promote Culture ○','Development grows slowly but forever: park the steward on your capital county.'],
+['Marshal','Martial','Organise Levies, Increase Control, Train Commanders','Increase Control fixes newly conquered and rebellious counties.'],
+['Spymaster','Intrigue','Disrupt Schemes, Find Secrets, Spy on foreign courts','Find Secrets on vassals gives hooks: the most useful tool in the game.'],
+['Court Chaplain','Learning','Convert county, faith/clergy relations, Fabricate claim (some faiths) ○','Must share your faith. Theocratic vassals care who it is.']
+];
+
+/* Factions. */
+const FACTIONS=[
+['Independence','Vassals want to leave your realm.','Keep their opinion up, hooks, dread; don\'t have too many big vassals.'],
+['Liberty','Vassals want lower crown authority.','Appears after you raise crown authority. Fades as opinion recovers.'],
+['Claimant','Back someone with a claim on your title.','Kill, imprison or marry off the claimant.'],
+['Populist (Peasant)','A county of a different culture or faith rises.','Convert the culture or faith, or keep control high.'],
+['Peasant revolt','Unhappy peasants rise.','Raise control; lower taxes where the county is unhappy.']
+];
+
+/* Casus belli. */
+const CBS=[
+{n:'Claim',req:'You or someone you back has a claim',win:'The title goes to the claimant',tip:'Your claims (pressed) or a courtier\'s. Fabricate claims with the Chancellor.',conf:true},
+{n:'De Jure Claim',req:'You hold a title the target land is de jure part of',win:'All the de jure land under one of your titles',tip:'Own a duchy title and you can take its counties. Create titles to unlock wars.',conf:true},
+{n:'County / Duchy Conquest',req:'Some cultures, traditions and tribal realms ○',win:'The land',tip:'Tribals and some warlike cultures can conquer without a claim.',conf:false},
+{n:'Holy War',req:'Different faith; cost scales with hostility and size',win:'A county, duchy or kingdom of theirs',tip:'Zealous rulers and faiths with high fervour fight well. Crusades and jihads are the great version.',conf:true},
+{n:'Great Holy War',req:'Called by the head of faith',win:'A kingdom for a chosen beneficiary',tip:'Join on the side that matters and earn prestige/piety by contribution.',conf:true},
+{n:'Subjugation',req:'Tribal, with prestige and the right era ○',win:'The whole target realm becomes your vassal',tip:'Massive for tribal starts.',conf:false},
+{n:'Invasion',req:'Special characters and cultures (William the Conqueror, some Norse adventurers) ○',win:'A kingdom',tip:'Rare, powerful, expensive.',conf:false},
+{n:'Independence / Liberty / Claimant faction',req:'Vassal factions',win:'Their demand',tip:'Defend with your levies and men-at-arms; allies help.',conf:true},
+{n:'Struggle CBs',req:'Fate of Iberia / Legacy of Persia regions',win:'Varies by phase',tip:'Struggles change what CBs exist while they last.',conf:false},
+{n:'Revoke Title (war)',req:'A vassal refuses a revocation',win:'You take the title',tip:'Revoking makes them a rebel; be ready to fight.',conf:true}
+];
+
+/* Men-at-arms base types. counters: types this one counters. */
+const MAA=[
+{id:'skirm',n:'Skirmishers',ex:'Light Footmen',role:'Cheap screen; good pursuit/screen for its cost',counters:['heavyinf'],conf:false},
+{id:'archer',n:'Archers',ex:'Bowmen, Crossbowmen (innovation)',role:'Ranged damage; strong in hills and behind rivers',counters:['skirm'],conf:false},
+{id:'pike',n:'Pikemen',ex:'Pikemen',role:'High toughness, kills cavalry',counters:['lightcav','heavycav','camel','elephant'],conf:true},
+{id:'heavyinf',n:'Heavy Infantry',ex:'Armored Footmen',role:'High damage and toughness; expensive',counters:['pike'],conf:false},
+{id:'lightcav',n:'Light Cavalry',ex:'Light Horsemen',role:'Pursuit (kills fleeing) and screen (saves yours)',counters:['archer'],conf:false},
+{id:'heavycav',n:'Heavy Cavalry',ex:'Armored Horsemen',role:'Huge damage; poor in hills, forests, wetlands',counters:['archer'],conf:false},
+{id:'archcav',n:'Archer Cavalry',ex:'Horse Archers',role:'Ranged and fast; steppe and nomad armies',counters:['heavyinf','pike'],conf:false},
+{id:'camel',n:'Camel Cavalry',ex:'Camel Riders',role:'Desert cavalry; terrain bonus in desert',counters:['lightcav','heavycav'],conf:false},
+{id:'elephant',n:'War Elephants',ex:'War Elephants (India and nearby)',role:'Huge damage and toughness',counters:['heavyinf','lightcav','heavycav'],conf:false},
+{id:'siege',n:'Siege Weapons',ex:'Onager → Mangonel → Trebuchet → Bombard',role:'Speeds up sieges a lot; no battle value',counters:[],conf:true}
+];
+/* Cultural / regional men-at-arms. */
+const MAAC=[
+['Huscarls','Heavy Infantry','Norse and North Germanic cultures',true],
+['Varangian Guard','Heavy Infantry','The Byzantine emperor\'s guard ○',false],
+['Longbowmen','Archers','English and Welsh cultures',true],
+['Gallowglass','Heavy Infantry','Gaelic cultures (Irish, Scottish) ○',false],
+['Schiltron','Pikemen','Scottish ○',false],
+['Landsknecht','Pikemen','German cultures, late era',true],
+['Cataphracts','Heavy Cavalry','Greek / Byzantine',true],
+['Druzhina','Heavy Cavalry','East Slavic (Russian) ○',false],
+['Horse Archers','Archer Cavalry','Steppe cultures (Turkic, Mongol, Hungarian)',true],
+['Mountaineers','Skirmishers','The Mountaineers tradition ○',false],
+['Conrocets','Light Cavalry','Catalan / Occitan ○',false],
+['Camel Riders','Camel Cavalry','Arab and Berber cultures, desert regions',true],
+['War Elephants','Elephants','Indian cultures and the regions where elephants live',true],
+['Ghulams / Mamluks','Heavy Cavalry','Some Muslim realms ○',false]
+];
+
+/* Dynasty legacies. Each track has five perks bought with renown, in order. */
+const LEGACY=[
+['Kin','Family loyalty, more children, family opinion. Keeps a big dynasty together.'],
+['Blood','Genetics: better chance for good congenital traits, Pure-blooded with close-kin marriages, fewer bad traits.'],
+['Warfare','Martial bonuses, knight effectiveness, prestige from war.'],
+['Law','Crown authority, title revocation and vassal management.'],
+['Guile','Intrigue: schemes, secrets and hooks.'],
+['Erudition','Learning and lifestyle XP, innovations.'],
+['Glory','Prestige and renown gain, legitimacy.']
+];
+
+/* Eras and a few landmark innovations. */
+const ERAS=[
+['Tribal','Raiding, tribal holdings, the start for pagans and much of Africa and the steppe.','Hird / warband men-at-arms, Barracks, Early Feudal ideas'],
+['Early Medieval','Where most of Europe starts in 867 and 1066.','Crossbows, Motte (castle upgrades), High Partition ○, Castle Baileys'],
+['High Medieval','Big castles, knights and better laws.','Primogeniture (single heir), Heraldry, Royal Armory, Trebuchets, Advanced Bowmaking'],
+['Late Medieval','The end game.','Bombards, Plate armour, Rightful Ownership, Ordinances']
+];
+
+/* Holdings and buildings. */
+const HOLD=[
+['Castle','Levies, defence and some tax. Feudal and clan rulers rule from castles. Your domain should be castles.'],
+['City','Lots of tax, few levies. Give cities to burgher vassals; they pay well.'],
+['Temple','Piety and church relations. Held by bishops (theocratic vassals) who pay your faith.'],
+['Tribal holding','Tribal rulers only. Upgrade to castles after you reform.'],
+['Duchy building','One special building per duchy capital (e.g. Royal Forest, Military Academy, Tournament Grounds ○). Huge bonuses; build them first.'],
+['Special building','Famous wonders like the Hagia Sophia, the Pyramids or Notre Dame: unique bonuses, often for a faith or region.'],
+['Development','Each county\'s development raises tax and levies and speeds innovations for your culture. The Steward\'s task grows it.'],
+['Control','How firmly you hold a county. Low control cuts tax and levies; the Marshal can raise it.']
+];
+
+/* Map regions. x,y place them on the schematic. */
+const REGIONS=[
+{id:'britain',n:'British Isles',x:110,y:110,rx:34,ry:42,col:'#6a8fb3',cult:'English, Anglo-Saxon, Norman, Welsh, Scottish, Irish',faith:'Catholic (Insular Christian in 867)',start:'Ireland 1066 (Murchad of Munster, the tutorial) is the classic first game. 1066 England for the Norman invasion.',mech:'Norman invasion in 1066, Norse raids in 867, Saxon and Tanistry elective laws.',conf:true},
+{id:'scandi',n:'Scandinavia',x:225,y:55,rx:48,ry:30,col:'#5f7f9e',cult:'Norse (Norwegian, Swedish, Danish in 1066)',faith:'Norse pagan in 867, Catholic by 1066',start:'Any Norse petty king in 867: raid, reform the faith, conquer.',mech:'Raiding, Viking adventures, Scandinavian elective, reforming paganism. Northern Lords adds much more.',conf:true},
+{id:'france',n:'France',x:160,y:160,rx:38,ry:34,col:'#4f6fbf',cult:'French, Occitan, Breton, Frankish (867)',faith:'Catholic',start:'Any French duke in 1066; Normandy is a favourite.',mech:'Huge fragmented realm; easy targets for a strong duke.',conf:true},
+{id:'iberia',n:'Iberia',x:100,y:225,rx:44,ry:34,col:'#c79a4f',cult:'Castilian, Basque, Catalan, Andalusian, Galician',faith:'Catholic, Sunni, Mozarabic',start:'Castile or León in 1066, or an Andalusian taifa.',mech:'The Iberian Struggle (Fate of Iberia): a long situation ending in conciliation, compromise, or a decisive winner.',conf:true},
+{id:'hre',n:'Germany and the HRE',x:235,y:130,rx:40,ry:32,col:'#b3a17a',cult:'German (Saxon, Bavarian, Franconian...), Dutch, Czech',faith:'Catholic',start:'Bohemia 1066 (Vratislav) is a strong, friendly start.',mech:'Princely Elective for the emperor. Big vassals. Investiture fights with the Pope.',conf:true},
+{id:'italy',n:'Italy',x:240,y:210,rx:24,ry:38,col:'#5fa07a',cult:'Italian, Lombard, Sicilian, Greek',faith:'Catholic, some Sunni in Sicily',start:'Matilda of Tuscany (1066) or Robert Guiscard in Apulia (1066).',mech:'The Pope, merchant republics, and the Norman conquest of the south.',conf:true},
+{id:'rus',n:'Rus and the Baltic',x:330,y:90,rx:56,ry:38,col:'#8f6f5f',cult:'Russian, Finnish, Baltic, Volga peoples',faith:'Orthodox (1066), pagan (867), Baltic and Finnic pagans',start:'Rurik in Novgorod (867); Kiev in 1066.',mech:'Huge, empty land. Partition shatters it every generation.',conf:true},
+{id:'balkans',n:'Balkans',x:290,y:190,rx:28,ry:24,col:'#9f7fbf',cult:'Serbian, Croatian, Bulgarian, Vlach, Hungarian',faith:'Orthodox and Catholic',start:'Hungary 1066; Bulgaria 867.',mech:'Caught between the Byzantine Empire and the Catholic west.',conf:true},
+{id:'byz',n:'Byzantium and Anatolia',x:345,y:225,rx:40,ry:24,col:'#c25f8f',cult:'Greek, Armenian, Georgian, Turkic (1066)',faith:'Orthodox, Armenian Apostolic',start:'The Byzantine emperor in any start. In 1178, Roads to Power makes it an administrative realm.',mech:'Administrative government (Roads to Power), Seljuk invasion after 1066.',conf:true},
+{id:'levant',n:'Levant and Egypt',x:345,y:285,rx:34,ry:28,col:'#d6b25f',cult:'Levantine, Egyptian, Bedouin, Coptic',faith:'Sunni and Shia, Coptic, Jewish communities',start:'The Fatimids in 1066; Saladin in 1178 ○.',mech:'Crusades target Jerusalem here. Holy sites of three religions.',conf:true},
+{id:'arabia',n:'Arabia',x:410,y:315,rx:30,ry:32,col:'#c98f4f',cult:'Bedouin, Yemeni, Omani',faith:'Sunni, Shia, Ibadi',start:'A Bedouin tribe to restore the Caliphate.',mech:'Clan government, desert terrain, Mecca and Medina.',conf:true},
+{id:'persia',n:'Persia',x:450,y:235,rx:40,ry:32,col:'#7fbf9f',cult:'Persian, Kurdish, Daylamite, Khorasani, Turkic',faith:'Sunni, Shia, Zoroastrian',start:'Any Persian ruler in 867; restore Zoroastrian Iran.',mech:'The Persian Struggle (Legacy of Persia).',conf:true},
+{id:'steppe',n:'The Steppe',x:440,y:140,rx:58,ry:32,col:'#a7a76a',cult:'Turkic (Pecheneg, Cuman, Kipchak), Mongol (1178)',faith:'Tengri pagan, some Islam and Christianity',start:'A Cuman or Pecheneg khan; Temüjin in 1178 ○.',mech:'Horse archers; Khans of the Steppe adds nomadic government and herds.',conf:true},
+{id:'india',n:'India',x:530,y:300,rx:40,ry:40,col:'#e08f5f',cult:'Many: Marathi, Tamil, Bengali, Rajput...',faith:'Hindu, Buddhist, Jain',start:'Any Rajput or southern kingdom. Huge, rich and self-contained.',mech:'War elephants, castes in some cultures, many faiths in one realm.',conf:true},
+{id:'tibet',n:'Tibet and the Himalaya',x:555,y:215,rx:36,ry:22,col:'#9fb3c7',cult:'Tibetan, Nepali',faith:'Bön, Buddhist',start:'The Tibetan Empire in 867 is a famous fragmenting start.',mech:'Mountains: slow wars, strong defenders.',conf:true},
+{id:'africa',n:'West and North Africa',s:'Africa',x:130,y:320,rx:60,ry:34,col:'#bf8f5f',cult:'Berber, Mande, Hausa, Soninke',faith:'Sunni, Ibadi, West African pagans',start:'Mali/Ghana for gold-rich tribes; a Berber tribe to cross into Iberia.',mech:'Tribal starts, deserts and the gold trade.',conf:true},
+{id:'eastafrica',n:'Nubia and Ethiopia',x:385,y:365,rx:30,ry:22,col:'#8f9f5f',cult:'Nubian, Ethiopian, Somali',faith:'Coptic and Ethiopian Christians, Sunni',start:'Makuria or Ethiopia: Christian kingdoms surrounded by Islam.',mech:'Holy sites, fortresses on the Nile.',conf:true}
+];
+
+/* Start characters. d: difficulty 1 easy to 5 very hard. */
+const STARTS=[
+{y:1066,n:'Murchad of Munster',t:'Ireland',d:1,conf:true,why:'The tutorial start. Unite Ireland, then take Britain. Isolated, small, forgiving.'},
+{y:1066,n:'William of Normandy',t:'Duchy of Normandy',d:2,conf:true,why:'Invade England. A strong duke with a ready casus belli and a big army.'},
+{y:1066,n:'Harold Godwinson',t:'Kingdom of England',d:4,conf:true,why:'Defend England from Hardrada and William at once.'},
+{y:1066,n:'Harald Hardrada',t:'Kingdom of Norway',d:3,conf:true,why:'Claim on England; an elite Norse warrior king.'},
+{y:1066,n:'Vratislav of Bohemia',t:'Duchy of Bohemia (HRE)',d:2,conf:true,why:'Rich, defended by mountains; push for the Kingdom of Bohemia.'},
+{y:1066,n:'Matilda of Tuscany',t:'March of Tuscany',d:3,conf:true,why:'A young woman ruling in Italy; equal inheritance tricks and the Pope.'},
+{y:1066,n:'Robert Guiscard',t:'Duchy of Apulia',d:2,conf:true,why:'Norman adventurer: take Sicily and southern Italy.'},
+{y:1066,n:'Konstantinos X Doukas',t:'Byzantine Empire',d:3,conf:true,why:'Huge but besieged on every side. Learn how big realms fall apart.'},
+{y:1066,n:'A Seljuk sultan',t:'Seljuk Empire',d:2,conf:false,why:'The steamroller. Massive army in Persia and Anatolia.'},
+{y:867,n:'Björn Ironside',t:'Sweden (Uppland)',d:2,conf:true,why:'Raid all of Europe, then reform Norse paganism.'},
+{y:867,n:'Ivar the Boneless',t:'Northumbria / Great Heathen Army',d:3,conf:false,why:'A Norse army in England. Carve out a kingdom.'},
+{y:867,n:'Harald Fairhair',t:'Vestfold (Norway)',d:2,conf:true,why:'Unite Norway. Classic Norse start.'},
+{y:867,n:'Rurik',t:'Novgorod',d:2,conf:true,why:'Found the Rus. Huge lands with weak neighbours.'},
+{y:867,n:'Charles the Bald',t:'West Francia',d:3,conf:true,why:'A Carolingian empire about to fall apart. Hold it together.'},
+{y:867,n:'Louis the German',t:'East Francia',d:3,conf:true,why:'Proto-HRE. Many sons, partition danger.'},
+{y:867,n:'Basileios I',t:'Byzantine Empire',d:3,conf:true,why:'A former peasant on the throne.'},
+{y:867,n:'The Abbasid Caliph',t:'Abbasid Caliphate',d:4,conf:true,why:'Rich and enormous, but rebels everywhere.'},
+{y:867,n:'Tibetan emperor',t:'Tibetan Empire',d:5,conf:false,why:'A collapsing empire. For experienced players.'},
+{y:1178,n:'Manuel I Komnenos',t:'Byzantine Empire (administrative)',d:3,conf:false,why:'Roads to Power\'s showcase: administrative government.'},
+{y:1178,n:'Saladin',t:'Ayyubid realm',d:2,conf:false,why:'Strong sultan, Jerusalem within reach.'},
+{y:1178,n:'Baldwin IV',t:'Kingdom of Jerusalem',d:5,conf:false,why:'The leper king. Survive Saladin.'},
+{y:1178,n:'Frederick Barbarossa',t:'Holy Roman Empire',d:3,conf:false,why:'The HRE at its height. Wrestle the Pope and the Italian cities.'},
+{y:1178,n:'Henry II',t:'England and the Angevin lands',d:3,conf:false,why:'An empire spread over England and France, and rebellious sons.'},
+{y:1178,n:'Temüjin',t:'The Mongol steppe',d:4,conf:false,why:'Become Genghis Khan (Khans of the Steppe adds a lot).'}
+];
+
+/* Faith doctrines: [group, options, what to know]. */
+const DOCTRINES=[
+['Head of Faith','None · Spiritual · Temporal','Spiritual heads (the Pope) call holy wars and grant divorces; Temporal heads are rulers who hold the title themselves. "None" means nobody can excommunicate you.'],
+['Gender','Male Dominated · Equal · Female Dominated','Who can rule, lead armies and inherit by default.'],
+['Pluralism','Fundamentalist · Righteous · Pluralist','How much your faith hates others: holy-war costs and opinion of other faiths.'],
+['Theocracy','Lay Clergy · Theocratic','Theocratic faiths have bishops as vassals who pay you, but they want a say.'],
+['Clerical Function / Appointment','Alms and Pacification · Recruitment · Control','What your clergy do for you and who appoints them.'],
+['Marriage','Monogamy · Concubines · Polygamy','More wives or concubines means more children, and more partition chaos.'],
+['Divorce','Disallowed · Must be approved · Always allowed','Whether you can get rid of a barren spouse.'],
+['Consanguinity','Restricted · Cousins · Avunculate · Unrestricted','How closely related spouses may be. Pair Unrestricted with a Blood legacy for Pure-blooded.'],
+['Homosexuality, Adultery, Kinslaying, Deviancy, Witchcraft','Crime · Shunned · Accepted','Whether these are crimes (strong hooks on anyone guilty), shunned (weak hooks) or accepted.']
+];
+/* Some well-known tenets. */
+const TENETS=[
+['Communion','Piety from activities and feasts; easier conversion ○',false],
+['Armed Pilgrimages','Holy-war bonuses and no penalty for joining Great Holy Wars ○',false],
+['Unrelenting Faith','Big fervour bonuses, but you can\'t easily make peace with other faiths ○',false],
+['Pursuit of Power','Prestige from war, faster schemes ○',false],
+['Divine Marriage','Marry close family without the inbreeding penalty (pairs with Unrestricted consanguinity) ○',false],
+['Sacred Childbirth','Piety and opinion from having children ○',false],
+['Monasticism','Clergy and learning bonuses ○',false],
+['Pacifism','Less fighting, more piety; Hindu/Buddhist flavour ○',false],
+['Human Sacrifice','Pagan: sacrifice prisoners for piety and dread ○',false],
+['Ritual Celebrations','Cheaper feasts, more piety ○',false],
+['Sacred Lies','Intrigue bonuses; lying isn\'t sinful ○',false],
+['Struggle and Submission','Prestige from war and stress relief ○',false],
+['Tax Nonbelievers','Gold from vassals of other faiths ○',false],
+['Warmonger','Holy wars against anyone, costs reduced ○',false],
+['Esotericism','Learning and secrets ○',false],
+['Astrology','Learning and stress events ○',false],
+['Asceticism','Stress loss for humble characters ○',false],
+['Adaptive','Easier to adopt local customs ○',false],
+['Ancestor Worship','Dynasty prestige ○',false],
+['Sanctity of Nature','Hunts and the wilderness ○',false]
+];
+
+/* Culture. Pillars and some traditions. */
+const ETHOS=[
+['Bellicose','Prestige and martial bonuses; warlike traditions.'],
+['Spiritual','Piety and faith-related traditions.'],
+['Stoic','Stress resistance and stubborn defence.'],
+['Courtly','Prestige, diplomacy and court traditions.'],
+['Egalitarian','Commoners and women advance more easily.'],
+['Inventive','Faster innovations.'],
+['Communal','Development and community traditions.']
+];
+const TRAD=[
+['Mountaineers','Fight better in mountains; Mountaineer men-at-arms'],
+['Forest Folk','Forest combat and development'],
+['Seafarers','Embarking and naval movement'],
+['Warrior Culture','More knights, prestige from war'],
+['Hereditary Hierarchy','Crown authority and vassal acceptance of succession'],
+['Chivalry','Knights and prowess; romance with chivalrous flair'],
+['Stand and Fight!','Defensive battle bonuses'],
+['Hit-and-Run Tactics','Light cavalry and retreats'],
+['Swords for Hire','Cheaper mercenaries'],
+['Isolationist','Resist foreign culture; dislike of foreigners'],
+['Charitable','Generosity and piety'],
+['Legalistic','Better laws and stewardship'],
+['Republican Legacy','Stewardship, cities and merchant flavour']
+];
+
+/* Schemes and hooks. */
+const SCHEMES=[
+['Murder','Hostile','Kill someone. The classic way to clear a bad heir or rival. Discovery means a murder secret on you (a crime under most faiths).'],
+['Abduct','Hostile','Take someone prisoner without a war. Then ransom, execute or hold them for a hook.'],
+['Fabricate Hook','Hostile','Get a weak hook on someone (a favour you can call in).'],
+['Claim Throne','Hostile','Your claim, pressed from inside a court. Lets claimants take over.'],
+['Befriend','Personal','Make a friend. Friends join your wars, give you stress relief and are loyal councillors.'],
+['Seduce','Personal','Become lovers. Hooks, children, scandal and occasionally a dead spouse.'],
+['Romance','Personal','Win someone\'s heart with less scandal: the respectable seduction.'],
+['Sway','Personal','Raise someone\'s opinion of you. Slow but safe.'],
+['Elope','Personal','Run off with a lover against their family\'s wishes ○']
+];
+const HOOKS=[
+['Weak hook','A favour: you helped them, gave them a gift, or forged a debt. Used once and then gone.'],
+['Strong hook','Blackmail over a criminal secret (murder, adultery, homosexuality where criminal, witchcraft...). Can be used repeatedly with a cooldown and doesn\'t vanish.'],
+['What hooks do','Make someone accept a marriage, a council seat, a vassal contract change, joining your war, leaving a faction, or giving up a title. They also stop a vassal from joining factions against you.'],
+['How to get them','The Spymaster\'s Find Secrets task, Fabricate Hook schemes, seduction, gifts (Wealth perks), saving people in events, and having them owe you gold.']
+];
+
+/* Stress levels. */
+const STRESS=[
+[0,'Calm','No penalties.'],
+[100,'Stress level 1','A mental break event: pick how you cope (you may gain a coping trait). Small penalties.'],
+[200,'Stress level 2','Another mental break. Bigger penalties to health and skills.'],
+[300,'Stress level 3','The worst. More breaks, a real chance of insanity-type traits and much worse health. ○ Very high stress can be lethal.']
+];
+
+/* Activities from Tours & Tournaments and later. */
+const ACTS=[
+['Feast','Prestige, opinion and stress loss. Gregarious and gluttonous characters love it; Shy ones hate it.',true],
+['Hunt','Prestige, stress loss and trophies (artifacts). Some hunts end in accidents...',true],
+['Pilgrimage','Piety and stress loss; travel to a holy site.',true],
+['Tournament','Prestige, artifacts and fame for your knights. Contests: joust, melee, archery, horse race and more.',true],
+['Grand Wedding','A big, expensive wedding for prestige and alliances.',true],
+['Coronation','Legitimacy and prestige when you take the throne ○',false],
+['Inspiration','Patronise an inspired character to make an artifact or a book (Royal Court) ○',false]
+];
+
+/* DLC. kind: E expansion, F flavour, C core/event pack. */
+const DLC=[
+{n:'Northern Lords',y:2021,k:'Flavour pack',d:'Norse flavour: Viking adventures, runestones, skald poems, raids, Scandinavian elective law.',buy:'If you play Norse.',conf:true},
+{n:'The Royal Court',y:2022,k:'Expansion',d:'A throne room for kings and emperors, court grandeur, artifacts, inspirations, court positions, culture hybridization and divergence, and new cultural traditions.',buy:'The most important DLC for most players.',conf:true},
+{n:'Fate of Iberia',y:2022,k:'Flavour pack',d:'The Iberian Struggle situation, new events and Iberian flavour.',buy:'If you play in Iberia.',conf:true},
+{n:'Friends & Foes',y:2023,k:'Event pack',d:'Many new friendship and rivalry events and memories.',buy:'Nice-to-have.',conf:true},
+{n:'Tours & Tournaments',y:2023,k:'Expansion',d:'Travel, activities (tournaments, grand weddings, more), accolades for knights, the Wanderer and Hunter lifestyles.',buy:'Strongly recommended.',conf:true},
+{n:'Wards & Wardens',y:2024,k:'Event pack',d:'Childhood and guardianship events. Released alongside a free scheme rework ○',buy:'Nice-to-have.',conf:false},
+{n:'Legacy of Persia',y:2024,k:'Flavour pack',d:'The Persian Struggle situation and Persian flavour.',buy:'If you play in Persia.',conf:true},
+{n:'Legends of the Dead',y:2024,k:'Core pack',d:'Legends that spread your fame, epidemics (the Black Death), and new events.',buy:'Good for long campaigns.',conf:true},
+{n:'Roads to Power',y:2024,k:'Expansion',d:'The administrative government (Byzantium), landless adventurers, the 1178 start and lots of eastern Mediterranean flavour.',buy:'Huge if you like Byzantium or landless play.',conf:true},
+{n:'Wandering Nobles',y:2025,k:'Event pack',d:'More content for landless and travelling characters ○',buy:'If you like adventurer play.',conf:false},
+{n:'Khans of the Steppe',y:2025,k:'Expansion',d:'Nomadic government, herds, and the steppe reworked ○',buy:'If you play the steppe.',conf:false},
+{n:'Coronations',y:2025,k:'Event pack',d:'Coronation activities and legitimacy ○',buy:'Nice-to-have.',conf:false},
+{n:'All Under Heaven',y:2025,k:'Expansion',d:'Extends the map to China, Japan, Korea and Southeast Asia, with their own systems ○',buy:'If you want the whole of Asia.',conf:false},
+{n:'Chapter V: By God Alone / Silk & Silver',y:2026,k:'Expansion pass',d:'Announced: religion (By God Alone) and trade and merchant families (Silk & Silver) ○',buy:'Check the store; released piece by piece through 2026.',conf:false}
+];
+
+/* Console commands. Use: launch with -debug_mode, open with ` or ~. */
+const CONSOLE=[
+['gold 1000','Give yourself 1000 gold',true],
+['prestige 1000','Give yourself 1000 prestige',true],
+['piety 1000','Give yourself 1000 piety',true],
+['add_trait intellect_good_3','Give a trait by its game key (intellect_good_3 is Genius; see the key list below)',true],
+['remove_trait wrathful','Remove a trait by its game key',true],
+['instabuild','Toggle instant building',true],
+['yesmen','Everyone accepts every proposal (toggle)',true],
+['observe','Become an observer (stop playing a character)',true],
+['kill <id>','Kill a character by ID (see charinfo/debug tooltips)',true],
+['fow','Toggle fog of war',false],
+['add_lifestyle_xp_all 1000','XP in every lifestyle ○',false],
+['effect add_stress = -100','Run any script effect (here: remove stress)',true],
+['effect add_dread = 50','Add dread',true],
+['effect add_gold = 1000','Script version of gold',true],
+['effect change_age = -10','Make yourself younger ○',false],
+['effect add_character_modifier = { modifier = <key> }','Add a modifier by key ○',false],
+['help','List every command in your version',true]
+];
+
+/* Glossary. */
+const GLOSS=[
+['De jure','Where a title "rightfully" belongs. A county is de jure part of a duchy, which is part of a kingdom. De jure claims start wars.'],
+['De facto','Who actually holds it.'],
+['Primary title','Your highest title; it sets your rank and is what your primary heir gets.'],
+['Domain','The holdings (counties) you hold personally. Your taxes and levies come mostly from here.'],
+['Domain limit','How many holdings you can hold before penalties. Give the rest to vassals.'],
+['Vassal limit','How many direct vassals you can have before penalties. Create duchies and give them out to reduce it.'],
+['Levies','Peasant soldiers raised from your holdings. Cheap, weak, numerous.'],
+['Men-at-arms (MaA)','Professional regiments you pay for. Where battles are won.'],
+['Knights','Your best fighters at court. Prowess matters; the Martial lifestyle and traditions improve them.'],
+['Prowess','Personal fighting skill. For knights and duels.'],
+['Prestige','Your reputation. Spent on wars, titles, men-at-arms (tribal), many decisions. Prestige level unlocks things.'],
+['Piety','Your standing with your faith. Spent on holy wars, faith actions and excommunication requests.'],
+['Renown','Dynasty prestige. Buys dynasty legacies.'],
+['Dread','Fear of you. Vassals with lower boldness than your dread are intimidated and won\'t rebel easily.'],
+['Stress','Builds when you act against your personality. Breaks at 100, 200 and 300.'],
+['Hook','Leverage over someone. Weak (one use) or strong (blackmail).'],
+['Secret','Something hidden (murder, affair, heresy). Found secrets give hooks or can be exposed.'],
+['Scheme','A plot: murder, abduct, seduce, befriend, sway...'],
+['Casus belli (CB)','A reason for war. No CB, no war.'],
+['War score','How the war is going. 100% forces a win; occupying the target and winning battles raise it.'],
+['Truce','No war allowed for a while after peace. Breaking it costs prestige ○.'],
+['Tyranny','Opinion penalty from unlawful acts (imprisoning without reason, revoking without cause).'],
+['Claim','A right to a title. Pressed claims can be inherited by your heirs; unpressed are weaker.'],
+['Fervour','How fired up your faith is. Low fervour makes heresies and conversions more likely.'],
+['Holy site','Places sacred to your faith. Holding them unlocks reformation and gives bonuses.'],
+['Development','How advanced a county is. Raises taxes, levies and your culture\'s innovation speed.'],
+['Control','How firmly you hold a county. Conquered lands start low.'],
+['Era','Tribal → Early → High → Late Medieval. Each culture advances on its own.'],
+['Innovation','Culture tech: unlocks buildings, laws, men-at-arms and succession laws.'],
+['Fascination','The innovation your culture head is focusing on.'],
+['Struggle','A regional situation (Iberia, Persia) that runs for decades and ends in one of several ways.'],
+['Court grandeur','Royal Court: how splendid your court is. Kings and emperors only.'],
+['Artifact','An item with bonuses: a crown, a sword, a trophy, a book.'],
+['Legend','Legends of the Dead: a story about your character that spreads and grows.'],
+['Influence','Administrative government\'s currency for appointments ○.'],
+['Lifestyle','What your character works on: Diplomacy, Martial, Stewardship, Intrigue or Learning.'],
+['Focus','The part of a lifestyle you\'re training. XP goes into its perk trees.'],
+['Ironman','Autosave-only mode. Needed for achievements; disables the console.']
+];
+
+/* Common mistakes. */
+const MISTAKES=[
+['Leaving partition on','Your realm splits on your death. Switch to High Partition as soon as you can, then Single Heir.'],
+['Too many direct vassals','Over the vassal limit you lose opinion and levies. Create duchies and hand them out.'],
+['Over the domain limit','Penalties to tax and levies. Give spare counties to loyal vassals; keep the best castles.'],
+['Fighting with only levies','Men-at-arms decide battles. Spend gold on them and upgrade with buildings.'],
+['Ignoring your heir\'s education','A bad heir ruins a dynasty. Pick a guardian with high skill in the focus you want.'],
+['Giving land to ambitious vassals','Ambitious, high-martial vassals with big domains lead factions. Give land to content, loyal or family members.'],
+['Never resting','Stress kills. Take time to feast, hunt or use the stress-relieving decisions.'],
+['Marrying for love only','Marriages make alliances, claims and better children. Marry for genetics and politics.'],
+['Forgetting the truce','Peace locks you out of war with that realm for years. Plan your next target.'],
+['Declaring a big war when broke','Mercenaries and long wars drain gold. Keep a war chest.']
+];
+
+const TRAITKEYS=[['Quick / Intelligent / Genius','intellect_good_1 / _2 / _3'],['Comely / Pretty / Beautiful','beauty_good_1 / _2 / _3'],['Hale / Robust / Amazonian','physique_good_1 / _2 / _3'],['Education (level 1–4)','education_diplomacy_4, education_martial_4, education_stewardship_4, education_intrigue_4, education_learning_4'],['Personality','the name in lower case: brave, diligent, just, calm...'],['Bad congenital','intellect_bad_1..3, beauty_bad_1..3, physique_bad_1..3'],['Others','strong, shrewd, fecund, giant, inbred, pure_blooded ○']];
+
+/* Helpers (needed by the guides below). */
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const mark=c=>c?'<span class="conf" title="Wiki, dev diaries or several agreeing guides">●</span>':'<span class="unv" title="Exact numbers moved between patches, DLC details, or a single source; check the tooltip">○</span>';
+
+const GUIDES=[
+{id:'first',title:'Your first game',blurb:'Pick a start, read the screen, survive the first decade.',body:`
+<p>CK3 is a game about a <b>dynasty</b>, not a country. When your character dies you play as their heir. The game ends if no one in your dynasty holds a title.</p>
+<label class="chk"><input type="checkbox" data-k="f1"> Start in <b>1066 Ireland</b> as Murchad of Munster (the tutorial), or any duke in a quiet corner. Avoid empires and tiny counts surrounded by kings.</label>
+<label class="chk"><input type="checkbox" data-k="f2"> Pick a lifestyle focus (top-left portrait → Lifestyle). Stewardship → Domain is the safest first pick.</label>
+<label class="chk"><input type="checkbox" data-k="f3"> Fill your council. Use the "best candidate" suggestions, then set tasks: Chancellor on Fabricate Claim, Steward on Collect Taxes, Spymaster on Find Secrets.</label>
+<label class="chk"><input type="checkbox" data-k="f4"> Marry if you aren't. Look for a spouse with good congenital traits and a powerful family (an alliance).</label>
+<label class="chk"><input type="checkbox" data-k="f5"> Hire men-at-arms in the Military tab. Two or three regiments beat hundreds of levies.</label>
+<label class="chk"><input type="checkbox" data-k="f6"> Check your heir and their education. Assign a guardian with high skill in the focus you want.</label>
+<label class="chk"><input type="checkbox" data-k="f7"> Find a war: use a claim or de jure claim on a weaker neighbour (the Decisions and Casus Belli lists show options).</label>
+<label class="chk"><input type="checkbox" data-k="f8"> Watch your vassals: green opinion good, red bad. Big unhappy vassals start factions.</label>
+<div class="tip">Pause (space) whenever something pops up. CK3 is meant to be read. Hover everything: the tooltips explain every number.</div>`},
+{id:'realm',title:'Running a realm',blurb:'Domain limit, vassals, titles and keeping it together.',body:`
+<ul class="mech"><li>Keep your <b>domain</b> under its limit: hold the best castles (and maybe one city), give the rest away.</li>
+<li>Give land to people who won't rebel: <b>content</b>, <b>loyal</b>, friends, family with your dynasty, or vassals you have hooks on.</li>
+<li>Create <b>duchy</b> titles you hold most of: it lowers your vassal count and unlocks de jure claims on the rest.</li>
+<li>Raise <b>crown authority</b> when your vassals are happy. Each level gives you more control and annoys them.</li>
+<li>Change to a better <b>succession law</b> as soon as you can. See the <a href="#succession">Succession simulator</a>.</li>
+<li>Build in your capital: development there grows your culture's innovations too.</li></ul>`},
+{id:'succ',title:'Succession without tears',blurb:'Stop your realm splitting on death.',body:`
+<ul class="mech"><li><b>Partition</b> splits everything. Every son (or child) gets a share, and heirs with same-tier titles become independent.</li>
+<li>Switch to <b>High Partition</b> as soon as your culture has the innovation: the primary heir always gets at least half.</li>
+<li>Get <b>Single Heir</b> (Primogeniture) in the High Medieval era with enough crown authority.</li>
+<li>Until then: have fewer children, put extra children into the clergy or holy orders, marry daughters away matrilineally or not, <b>destroy</b> extra titles of your primary tier you don't need, or <b>give lesser titles to your primary heir</b> while you're alive.</li>
+<li><b>Disinherit</b> a bad child (costs prestige/dread and opinion), or let a scheme handle it.</li>
+<li>Elective laws let you pick the best candidate, but you need the electors' votes.</li></ul>
+<div class="tip">Play with the <a href="#succession">simulator</a> before your ruler gets old.</div>`},
+{id:'war',title:'How to win wars',blurb:'Men-at-arms, knights, commanders, terrain and war score.',body:`
+<ul class="mech"><li>An army is <b>levies</b> (cheap, weak), <b>men-at-arms</b> (expensive, strong), and <b>knights</b> (your best fighters).</li>
+<li>The <b>commander</b>'s Martial gives battle advantage. Brave, high-martial commanders with commander traits (Logistician, Reaver, Unyielding...) are best.</li>
+<li><b>Terrain</b> matters: defenders on hills and mountains gain advantage, attacking across a river or from the sea loses it. Heavy cavalry hate forests and hills.</li>
+<li><b>Supply</b> runs out in large armies in poor land. Split into smaller stacks and gather before battle.</li>
+<li><b>War score</b>: battles, sieges and holding the war's target. At 100% you can force the peace.</li>
+<li>Siege weapons make sieges far faster. Hire mercenaries or holy orders when you need more men fast.</li>
+<li>Allies: marry into powerful families. Call them in with the war's "Call allies" button.</li></ul>
+<div class="tip">See the <a href="#maa">Men-at-arms counter finder</a> before your next war.</div>`},
+{id:'intrigue',title:'Schemes, secrets and hooks',blurb:'The quiet way to win.',body:`
+<ul class="mech"><li>Put your <b>Spymaster</b> on Find Secrets in your own court and your vassals' courts. Every secret is a potential hook.</li>
+<li><b>Strong hooks</b> come from criminal secrets: blackmail that never runs out. Use them to make vassals accept anything.</li>
+<li><b>Murder</b> clears bad heirs and rivals. Recruit agents (people with opinion of you or hooks), and raise success chance before launching.</li>
+<li>Getting caught creates a secret on <i>you</i>. Keep your own spymaster on Disrupt Schemes.</li>
+<li>Seduce and Romance give hooks and children; Befriend and Sway build love.</li></ul>`},
+{id:'faith',title:'Faith, holy wars and reformation',blurb:'Piety, crusades and making your own religion.',body:`
+<ul class="mech"><li>Piety comes from pious acts, temples, the Theology tree and some traits.</li>
+<li><b>Holy wars</b> take land from other faiths. The head of faith can call a <b>Great Holy War</b> (crusade or jihad) for a whole kingdom.</li>
+<li>Pagan faiths can be <b>reformed</b>: hold enough of your holy sites (usually three) and pay the piety, then pick doctrines and tenets ○.</li>
+<li>Any faith can spawn a new one: <b>Create a new faith</b> (a heresy) if you're a big enough ruler with enough piety, and change its doctrines.</li>
+<li>Your court chaplain converts counties. Holy sites and faith fervour make conversion faster.</li></ul>
+<div class="tip">See <a href="#faith">Faith</a> for doctrines and tenets worth picking.</div>`},
+{id:'culture',title:'Culture, innovations and eras',blurb:'Tech, traditions and new cultures.',body:`
+<ul class="mech"><li>Each culture researches <b>innovations</b> on its own. Development in that culture's counties and the culture head's Learning speed it up.</li>
+<li>The culture head picks a <b>fascination</b>: the innovation research focuses on.</li>
+<li>Cultures have pillars (ethos, heritage, language, martial custom) and <b>traditions</b> that give bonuses.</li>
+<li>With enough acceptance you can <b>hybridise</b> two cultures, or <b>diverge</b> into a new one with your pick of traditions (Royal Court) ○.</li>
+<li>Your steward can promote your culture in a county; the county slowly converts.</li></ul>`},
+{id:'dynasty',title:'Dynasty and house',blurb:'Renown, legacies and cadet branches.',body:`
+<ul class="mech"><li>Your <b>dynasty</b> earns renown from its members' titles and deeds. Spend it on <b>legacies</b> (permanent dynasty-wide perks).</li>
+<li>A <b>house</b> is a branch of the dynasty. Big landed relatives can found <b>cadet branches</b>.</li>
+<li>The house and dynasty heads have powers over members: disinherit, denounce, legitimise bastards, and call on family ○.</li>
+<li>Marry your children to rulers and get your dynasty onto as many thrones as you can: if you die without a landed heir, you continue as a landed dynasty member.</li></ul>`},
+{id:'stress',title:'Stress and mental health',blurb:'Why your king went mad.',body:`
+<ul class="mech"><li>Acting against your <b>personality</b> builds stress: a Compassionate ruler executing someone, a Shy one hosting a feast.</li>
+<li>Stress breaks at <b>100, 200 and 300</b>. Each break forces a coping choice, often a new trait.</li>
+<li>Lose stress with activities (feasts, hunts, pilgrimages), friends and lovers, the Calm trait, Learning Medicine perks, and good coping traits like <b>Athletic</b> and <b>Journaller</b>.</li>
+<li>Play in character: most event options that fit your traits reduce stress.</li></ul>
+<div class="tip">Try the <a href="#stress">stress calculator</a> and the trait conflict checker on <a href="#traits">Traits</a>.</div>`},
+{id:'marriage',title:'Marriage, alliances and children',blurb:'Politics in the bedchamber.',body:`
+<ul class="mech"><li>A marriage gives an <b>alliance</b> with the spouse's liege family (usually), and claims for your children.</li>
+<li><b>Matrilineal</b> marriages keep children in the woman's dynasty: use them for daughters who'll rule.</li>
+<li>Marry for <b>genetics</b>: Genius, Beautiful and Herculean spouses give you better heirs. See the <a href="#genetics">Genetics planner</a>.</li>
+<li>Betrothals lock in a marriage for a child; they become married when of age.</li>
+<li>Too many sons under partition shatters your realm. Under single heir, more sons are useful spares.</li></ul>`},
+{id:'money',title:'Gold, prestige and piety',blurb:'What to spend on and when.',body:`
+<ul class="mech"><li><b>Gold</b>: men-at-arms and their upgrades first, then buildings in your capital, then a war chest.</li>
+<li><b>Prestige</b>: wars, creating titles, raising crown authority, hiring knights' accolades, tribal buildings and men-at-arms.</li>
+<li><b>Piety</b>: holy wars, faith actions, excommunication requests, reformation.</li>
+<li>Don't sit on large amounts. Prestige and piety levels matter, but the points are meant to be spent.</li>
+<li>Stewardship and the Wealth tree increase gold; Diplomacy Majesty raises prestige; Learning Theology raises piety.</li></ul>`},
+{id:'activities',title:'Travel and activities',blurb:'Feasts, hunts, pilgrimages and tournaments.',body:`
+<ul class="mech"><li>Host or attend activities from the Activities button. Each costs gold and time, and gives prestige, piety, stress loss or artifacts.</li>
+<li>Travel (Tours & Tournaments) takes time and carries danger. A good Travel Leader and safety options help.</li>
+<li>Your knights can win <b>accolades</b> at tournaments, which give bonuses to your army.</li></ul>
+<div class="card tbl" style="margin-top:8px"><table><tr><th>Activity</th><th>What it does</th></tr>${ACTS.map(a=>`<tr><td>${mark(a[2])} <b>${a[0]}</b></td><td>${a[1]}</td></tr>`).join('')}</table></div>`},
+{id:'tribal',title:'Playing tribal and pagan',blurb:'Raid, conquer, reform.',body:`
+<ul class="mech"><li>Tribal rulers pay for buildings and men-at-arms with <b>prestige</b>. Wars are cheap and frequent.</li>
+<li><b>Raid</b> neighbours of other faiths for gold and prisoners (Northern Lords adds much more).</li>
+<li>Use <b>Subjugation</b> to make whole realms into vassals, and the conquest CBs some cultures get.</li>
+<li>Reform your faith once you hold enough holy sites, then switch to feudal or clan government when your culture reaches the right innovations.</li></ul>`},
+{id:'admin',title:'Administrative government (Roads to Power)',blurb:'The Byzantine way.',body:`
+<ul class="mech"><li>Titles belong to the state: governors are appointed, not inherited. Your <b>noble family</b> keeps its estate and influence.</li>
+<li><b>Influence</b> is the currency for appointments and politics.</li>
+<li>Themes (provinces) are run by governors who can be moved and replaced.</li>
+<li>Rise through the ranks; the throne can go to a powerful family by appointment or coup.</li></ul>
+<div class="note">Roads to Power mechanics have been patched several times. Treat details here as ○ and read the in-game encyclopedia.</div>`},
+{id:'landless',title:'Landless adventurers (Roads to Power)',blurb:'A camp, a band and a dream.',body:`
+<ul class="mech"><li>Play a landless adventurer: a camp with followers and officers, taking contracts from rulers.</li>
+<li>Earn gold, prestige and provisions, then claim land of your own with an adventurer's CB.</li>
+<li>Good for a fresh start with a younger son, or when you lose your last title.</li></ul>
+<div class="note">○ Details vary by patch; the game's tutorials for landless play are worth reading.</div>`},
+{id:'steppe',title:'The steppe (Khans of the Steppe)',blurb:'Herds, horses and hordes.',body:`
+<ul class="mech"><li>Nomadic rulers move their camps with their <b>herds</b> and use them as a resource.</li>
+<li>Horse archers dominate. Subjugate neighbours rather than administer them.</li>
+<li>The Mongols in 1178 make for a dramatic game.</li></ul>
+<div class="note">○ Written from the DLC's announced features; check the encyclopedia.</div>`},
+{id:'ironman',title:'Ironman and achievements',blurb:'Rules and tips.',body:`
+<ul class="mech"><li>Achievements need <b>Ironman</b> on (set when starting a game), with a checksum-compatible game (mods that change it disable achievements).</li>
+<li>The console is disabled in Ironman.</li>
+<li>Save in Ironman means autosave only: think before you click.</li>
+<li>Many achievements need a specific start date or character. Read the condition before you start.</li></ul>`},
+{id:'mistakes',title:'Common mistakes',blurb:'What new players get wrong.',body:`<div class="tbl"><table>${MISTAKES.map(m=>`<tr><td style="width:240px"><b>${m[0]}</b></td><td>${m[1]}</td></tr>`).join('')}</table></div>`}
+];
+
+/* ================= STATE ================= */
+let S={checks:{},game:{start:'',char:'',dyn:'',year:'',iron:false},goals:[],rulers:[],legacy:{},myTraits:[],succ:{law:'part',heirs:3,titles:[{n:'Kingdom of Ireland',t:3},{n:'Duchy of Munster',t:2},{n:'Duchy of Leinster',t:2},{n:'County of Desmond',t:1},{n:'County of Thomond',t:1},{n:'County of Ormond',t:1},{n:'County of Dublin',t:1}]},gen:{a:[],b:[],rel:'none',blood:0,cons:'cousins'},stressV:0,dread:{d:0,b:0},maaFoe:[],notes:''};
+try{const x=JSON.parse(localStorage.getItem('ck3_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('ck3_state',JSON.stringify(S));}catch(e){}};
+const TIER=['','C','D','K','E'],TIERN=['','County','Duchy','Kingdom','Empire'];
+const tierTag=t=>`<span class="tier t${t}" title="${TIERN[t]}">${TIER[t]}</span>`;
+const diff=n=>'<span title="Difficulty" style="color:var(--acc)">'+'●'.repeat(n)+'<span class="dim">'+'●'.repeat(5-n)+'</span></span>';
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Home'],
+ ['_','Learn'],['guides','Guides'],['starts','Start characters'],['regions','Map and regions'],['glossary','Glossary'],
+ ['_','Your ruler'],['traits','Traits'],['lifestyles','Lifestyles'],['education','Education'],['stress','Stress and dread'],['genetics','Genetics planner'],
+ ['_','The realm'],['succession','Succession simulator'],['laws','Laws and governments'],['council','Council and vassals'],['intrigue','Schemes and hooks'],['holdings','Holdings'],
+ ['_','War'],['warfare','Warfare and CBs'],['maa','Men-at-arms'],
+ ['_','Faith and blood'],['faith','Faith'],['culture','Culture'],['dynasty','Dynasty legacies'],['dlc','DLC guide'],
+ ['_','Your game'],['campaign','Campaign and goals'],['chronicle','Dynasty chronicle'],['console','Console commands'],['notes','My Notes']];
+const GROUPS=['Learn','Your ruler','The realm','War','Faith and blood','Your game'];
+function buildNav(cur){let gi=0;$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>CRUSADER KINGS III<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>id==='_'?`<div class="grp">${GROUPS[gi++]}</div>`:`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+const REAL=PAGES.filter(p=>p[0]!=='_');
+
+const TILE={guides:'First game, realm, succession, war, intrigue, faith, culture, dynasty, stress, marriage, money, activities, tribal, Byzantium, landless, steppe, Ironman, mistakes',starts:'Famous characters in 867, 1066 and 1178, rated by difficulty',regions:'A clickable map with cultures, faiths, starts and mechanics',glossary:'Every CK3 term in plain words',traits:'Personality, congenital, education and coping traits, with a conflict checker',lifestyles:'All fifteen trees and what each is good for',education:'Childhood traits, education traits and picking a guardian',stress:'Stress levels, coping and a dread check',genetics:'Plan a marriage for better heirs and check inbreeding risk',succession:'See exactly how your realm will split',laws:'Crown authority, succession laws, gender laws, governments',council:'Council tasks, vassal opinion and factions',intrigue:'Every scheme and how hooks work',holdings:'Castles, cities, temples, buildings, development and control',warfare:'Battles, terrain, supply, war score and every casus belli',maa:'Men-at-arms types, cultural regiments and a counter finder',faith:'Doctrines, tenets, holy wars and reformation',culture:'Pillars, ethos, traditions, eras and innovations',dynasty:'Renown and a legacy tracker',dlc:'Every DLC and whether it\'s worth it',campaign:'Your current game and goals',chronicle:'A log of every ruler in your dynasty',console:'Debug mode, commands and trait keys',notes:'Your own notes'};
+function pgHome(){
+  const g=S.game,gd=S.goals.filter(x=>x.done).length,lg=Object.values(S.legacy).filter(Boolean).length;
+  return `${TWArt.hero(1158310,'Crusader Kings III')}<h2>Crusader Kings III Assistant</h2><p class="sub">A companion for <i>Crusader Kings III</i>, from your first count to a dynasty that rules the known world. Your campaign, goals, chronicle, legacies and notes are saved on this device.</p>
+<div class="stats"><div class="stat"><small>Playing</small>${g.char?`<a class="mob" href="#campaign">${esc(g.char)}</a>`:'<a class="mob" href="#campaign">Set up a game</a>'}</div><div class="stat"><small>Year</small><span class="big">${esc(g.year||'—')}</span></div><div class="stat"><small>Goals done</small><a class="mob big" href="#campaign">${gd} / ${S.goals.length}</a></div><div class="stat"><small>Rulers logged</small><a class="mob big" href="#chronicle">${S.rulers.length}</a></div><div class="stat"><small>Legacy perks</small><a class="mob big" href="#dynasty">${lg} / ${LEGACY.length*5}</a></div><div class="stat"><small>Stress</small><a class="mob big" href="#stress">${S.stressV||0}</a></div></div>
+<div class="grid">${REAL.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> are long-standing mechanics from the CK3 wiki, Paradox's dev diaries or several guides that agree. Facts marked <span class="unv">○</span> are exact numbers that moved between patches, DLC details, or come from one source. Written against patch 1.19 (2026). CK3 explains almost every number in a tooltip: trust what you see in-game first.</div>`;}
+
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g){const i=GUIDES.indexOf(g);return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div><div class="row">${i?`<a class="mob" href="#guides/${GUIDES[i-1].id}">&larr; ${GUIDES[i-1].title}</a>`:''}<span style="flex:1"></span>${GUIDES[i+1]?`<a class="mob" href="#guides/${GUIDES[i+1].id}">${GUIDES[i+1].title} &rarr;</a>`:''}</div>`;}}
+  return `<h2>Guides</h2><p class="sub">From your first count to the late game. Checkboxes are saved on this device.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
+}
+
+let stFilter={y:0,d:0};
+function pgStarts(){return `<h2>Start characters</h2><p class="sub">Famous rulers worth playing, by start date and difficulty. Any landed character in any start is playable, so these are only suggestions.</p>
+<div class="chips" id="sty">${[0,867,1066,1178].map(y=>`<button data-y="${y}" class="${stFilter.y===y?'on':''}">${y||'All dates'}</button>`).join('')}</div>
+<div class="chips" id="std">${[0,1,2,3,4,5].map(d=>`<button data-d="${d}" class="${stFilter.d===d?'on':''}">${d?'Difficulty '+d:'Any difficulty'}</button>`).join('')}</div>
+<div class="card tbl"><table id="stt"></table></div>
+<div class="tip"><ul class="mech" style="margin:0"><li><b>867</b>: the Viking age. Tribal and pagan realms, huge fragmented empires.</li><li><b>1066</b>: the Norman conquest. Most of Europe is feudal; the classic start.</li><li><b>1178</b> (Roads to Power): the Komnenian Byzantines, Saladin, the young Temüjin.</li></ul></div>
+<div class="note">1178 characters, and anything marked ○, depend on DLC or on details I couldn't confirm. Difficulty is a rough guide.</div>`;}
+function startsWire(){const draw=()=>{const r=STARTS.filter(s=>(!stFilter.y||s.y===stFilter.y)&&(!stFilter.d||s.d===stFilter.d));
+  $('stt').innerHTML='<tr><th>Year</th><th>Character</th><th>Realm</th><th>Difficulty</th><th>Why play it</th></tr>'+(r.map(s=>`<tr><td>${s.y}</td><td>${mark(s.conf)} <b>${esc(s.n)}</b></td><td>${esc(s.t)}</td><td>${diff(s.d)}</td><td class="dim">${esc(s.why)}</td></tr>`).join('')||'<tr><td colspan="5" class="dim">Nothing matches.</td></tr>');};
+  document.querySelectorAll('#sty button').forEach(b=>b.onclick=()=>{stFilter.y=+b.dataset.y;document.querySelectorAll('#sty button').forEach(x=>x.classList.toggle('on',x===b));draw();});
+  document.querySelectorAll('#std button').forEach(b=>b.onclick=()=>{stFilter.d=+b.dataset.d;document.querySelectorAll('#std button').forEach(x=>x.classList.toggle('on',x===b));draw();});
+  draw();}
+
+function regionMap(){
+  return `<svg class="tw-map" viewBox="0 0 620 410" style="max-width:700px" role="img" aria-label="Schematic map of the Crusader Kings III world">
+<rect width="620" height="410" fill="#0e1a22"/>
+${REGIONS.map(r=>`<a href="#regions/${r.id}" aria-label="${esc(r.n)}"><title>${esc(r.n)}</title><ellipse class="hit" cx="${r.x}" cy="${r.y}" rx="${r.rx}" ry="${r.ry}" fill="${r.col}" stroke="#120f0d" stroke-width="2"/><text class="lbl" x="${r.x}" y="${r.y+4}" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${esc(r.s||r.n.replace(/ and .*/,''))}</text></a>`).join('')}
+<text x="608" y="160" font-size="11" fill="#9fb3bf" text-anchor="end">East Asia →</text><text x="608" y="174" font-size="10" fill="#9fb3bf" text-anchor="end">(All Under Heaven)</text>
+<text x="300" y="398" font-size="11" fill="#9fb3bf" text-anchor="middle">Mediterranean in the middle · Sahara to the south</text>
+<text x="590" y="30" font-size="14" fill="#e6d8c4" text-anchor="middle">N</text><path d="M590 34 L590 56" stroke="#e6d8c4" stroke-width="2" marker-start="url(#ar)"/>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#e6d8c4"/></marker></defs></svg>`;}
+function pgRegions(sub){
+  const r=sub&&REGIONS.find(x=>x.id===sub);
+  if(r){const i=REGIONS.indexOf(r),st=STARTS.filter(s=>s.t&&(r.start+' '+r.n).toLowerCase().includes(s.n.split(' ')[0].toLowerCase()));
+    return `<p><a href="#regions">&larr; Map</a></p><h2>${mark(r.conf)} ${esc(r.n)}</h2>
+<div class="card"><div class="tbl"><table><tr><th style="width:140px">Cultures</th><td>${esc(r.cult)}</td></tr><tr><th>Faiths</th><td>${esc(r.faith)}</td></tr><tr><th>Good starts</th><td>${esc(r.start)}</td></tr><tr><th>What's special</th><td>${esc(r.mech)}</td></tr></table></div></div>
+${st.length?`<h3>Start characters here</h3><div class="card tbl"><table>${st.map(s=>`<tr><td>${s.y}</td><td><b>${esc(s.n)}</b></td><td>${diff(s.d)}</td><td class="dim">${esc(s.why)}</td></tr>`).join('')}</table></div>`:''}
+<div class="row">${i?`<a class="mob" href="#regions/${REGIONS[i-1].id}">&larr; ${esc(REGIONS[i-1].n)}</a>`:''}<span style="flex:1"></span>${REGIONS[i+1]?`<a class="mob" href="#regions/${REGIONS[i+1].id}">${esc(REGIONS[i+1].n)} &rarr;</a>`:''}</div>`;}
+  return `<h2>Map and regions</h2><p class="sub">The CK3 map runs from Iceland to Tibet (and to East Asia with All Under Heaven), from Scandinavia to the Sahel. Tap a region for its cultures, faiths, starts and special mechanics.</p>
+${regionMap()}<p class="tw-cap">Schematic, not to scale.</p>
+<div class="grid">${REGIONS.map(r=>`<div class="tile" onclick="location.hash='regions/${r.id}'"><b>${esc(r.n)}</b><div class="dim">${esc(r.mech)}</div></div>`).join('')}</div>`;}
+
+let glQ='';
+function pgGlossary(){return `<h2>Glossary</h2><p class="sub">CK3 has a lot of words. Here's what they mean.</p><div class="row"><input type="search" id="gq" placeholder="Search terms" style="width:240px" value="${esc(glQ)}"></div><div class="card tbl" style="margin-top:8px"><table id="gt"></table></div>`;}
+function glossWire(){const draw=()=>{const q=glQ.toLowerCase();const r=GLOSS.filter(g=>!q||(g[0]+' '+g[1]).toLowerCase().includes(q));$('gt').innerHTML=r.map(g=>`<tr><td style="width:170px"><b>${esc(g[0])}</b></td><td>${esc(g[1])}</td></tr>`).join('')||'<tr><td class="dim">Nothing matches.</td></tr>';};$('gq').oninput=e=>{glQ=e.target.value;draw();};draw();}
+
+/* ================= TRAITS ================= */
+let trTab='pers',trQ='';
+function pgTraits(){
+  const mine=S.myTraits.map(n=>PERS.find(p=>p.n===n)).filter(Boolean);
+  const clash=mine.filter(a=>mine.some(b=>b!==a&&a.pair.split(/,\s*/).includes(b.n)));
+  return `<h2>Traits</h2><p class="sub">Traits define a character: skills, opinions, and what stresses them. Characters like others who share their traits and dislike those with the opposite ones.</p>
+<h3>Your ruler's personality</h3><div class="card"><div class="dim" style="margin-bottom:6px">Pick your ruler's three personality traits to see what will stress them and what they're suited for.</div>
+<div class="chips" id="mytr">${PERS.map(p=>`<button data-tr="${esc(p.n)}" class="${S.myTraits.includes(p.n)?'on':''}">${esc(p.n)}</button>`).join('')}</div>
+${mine.length?`${clash.length?'<div class="note">Opposite traits can\'t go together. Untick one.</div>':''}${S.myTraits.length>3?'<div class="note">Characters normally have three personality traits.</div>':''}<div class="tbl"><table><tr><th>Trait</th><th>Skills</th><th>Good for</th><th>Stressed by</th></tr>${mine.map(p=>`<tr><td><b>${p.n}</b></td><td>${esc(p.sk)}</td><td>${esc(p.good)}</td><td class="bad">${esc(p.stress)}</td></tr>`).join('')}</table></div>
+<div class="tip">Avoid: ${mine.map(p=>esc(p.stress.toLowerCase())).join('; ')}. Get along with: characters who are ${mine.map(p=>p.n).join(', ')}. Clash with: ${[...new Set(mine.flatMap(p=>p.pair.split(/,\s*/)))].filter(x=>x!=='—').join(', ')}.</div>`:''}</div>
+<div class="chips" id="trtab">${[['pers','Personality'],['cong','Congenital'],['edu','Education'],['cope','Coping']].map(([k,n])=>`<button data-t="${k}" class="${trTab===k?'on':''}">${n}</button>`).join('')}</div>
+<div class="row"><input type="search" id="trq" placeholder="Search traits" style="width:240px" value="${esc(trQ)}"></div>
+<div class="card tbl" style="margin-top:8px"><table id="trt"></table></div>
+<div class="note">Exact skill numbers changed in several patches, so most rows are marked ○: hover the trait in-game for today's values. Sharing a trait gives a positive opinion; holding the opposite trait gives a negative one.</div>`;}
+function traitsWire(){
+  document.querySelectorAll('#mytr button').forEach(b=>b.onclick=()=>{const n=b.dataset.tr;S.myTraits=S.myTraits.includes(n)?S.myTraits.filter(x=>x!==n):S.myTraits.concat(n);save();route(true);});
+  const draw=()=>{const q=trQ.toLowerCase(),f=s=>!q||s.toLowerCase().includes(q);let h='';
+    if(trTab==='pers'){const r=PERS.filter(p=>f(p.n+p.pair+p.sk+p.good+p.stress));h='<tr><th>Trait</th><th>Opposite</th><th>Skills</th><th>Good for</th><th>Stressed by</th></tr>'+r.map(p=>`<tr><td>${mark(p.conf)} <b>${p.n}</b></td><td>${esc(p.pair)}</td><td>${esc(p.sk)}</td><td>${esc(p.good)}</td><td class="dim">${esc(p.stress)}</td></tr>`).join('');}
+    if(trTab==='cong'){const r=CONG.filter(c=>f(c.g+c.tiers.join(' ')+c.eff));h='<tr><th>Group</th><th>Tiers</th><th>Effect</th></tr>'+r.map(c=>`<tr><td>${mark(c.conf)} <b>${esc(c.g)}</b> <span class="tag ${c.good?'w':'r'}">${c.good?'good':'bad'}</span></td><td>${c.tiers.map(esc).join(' → ')}</td><td>${esc(c.eff)}</td></tr>`).join('');}
+    if(trTab==='edu'){h='<tr><th>Focus</th><th>Level 1</th><th>Level 2</th><th>Level 3</th><th>Level 4</th></tr>'+EDU.filter(e=>f(e[0]+e[1].join(' '))).map(e=>`<tr><td><b>${e[0]}</b></td>${e[1].map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('');}
+    if(trTab==='cope'){h='<tr><th>Coping trait</th><th>How</th><th>Effect</th></tr>'+COPING.filter(c=>f(c.join(' '))).map(c=>`<tr><td><b>${c[0]}</b></td><td>${esc(c[1])}</td><td class="dim">${esc(c[2])}</td></tr>`).join('');}
+    $('trt').innerHTML=h||'<tr><td class="dim">Nothing matches.</td></tr>';};
+  document.querySelectorAll('#trtab button').forEach(b=>b.onclick=()=>{trTab=b.dataset.t;document.querySelectorAll('#trtab button').forEach(x=>x.classList.toggle('on',x===b));draw();});
+  $('trq').oninput=e=>{trQ=e.target.value;draw();};draw();}
+
+function pgLifestyles(){return `<h2>Lifestyles</h2><p class="sub">Pick a lifestyle and a focus. You earn XP every month; each perk point buys a perk in one of the three trees. Finishing a tree gives its trait. Most characters fill one or two trees in a lifetime.</p>
+<div class="tree">${LIFE.map(l=>`<div class="card" style="border-top:3px solid ${l.col};margin:0"><h3 style="margin-top:0;color:${l.col}">${l.conf===false?mark(false)+' ':''}${esc(l.n)}</h3><div class="tbl"><table>${l.trees.map(t=>`<tr><td><b>${esc(t[0])}</b>${t[1]!=='—'?`<div class="dim" style="font-size:12px">→ ${esc(t[1])}</div>`:''}</td><td>${esc(t[2])}</td></tr>`).join('')}</table></div><p class="dim" style="margin:6px 0 0">${esc(l.focus)} ${esc(l.why)}</p></div>`).join('')}</div>
+<h3>Which to pick</h3><div class="card"><ul class="mech">
+<li><b>New player, any ruler</b>: Stewardship → Domain. More domain limit and development fixes the early game.</li>
+<li><b>Old or sickly ruler</b>: Learning → Medicine. Health, stress loss, longer life.</li>
+<li><b>Conqueror</b>: Martial → Strategy for battle advantage, or Authority to keep the realm in line.</li>
+<li><b>Big empire</b>: Diplomacy → Majesty (vassal opinion and prestige), or Stewardship → Duty.</li>
+<li><b>Heir problems</b>: Intrigue → Skulduggery.</li>
+<li><b>Faith reform</b>: Learning → Theology for piety.</li>
+<li><b>Bad heir with a strong Intellect</b>: Learning → Scholarship for faster XP everywhere.</li></ul></div>
+<div class="note">Perk names and exact bonuses changed over the years; the trees and their end traits are long-standing. Genius and Intelligent characters, and some educations, earn lifestyle XP faster.</div>`;}
+
+function pgEducation(){return `<h2>Education</h2><p class="sub">Children pick up a <b>childhood trait</b> around age 3 and choose an <b>education focus</b> around age 6. At 16 they get an education trait (level 1 to 4) in that skill, and three personality traits form along the way.</p>
+<h3>Education traits</h3><div class="card tbl"><table><tr><th>Focus</th><th>1</th><th>2</th><th>3</th><th>4</th></tr>${EDU.map(e=>`<tr><td><b>${e[0]}</b></td>${e[1].map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</table></div>
+<h3>Childhood traits</h3><div class="card tbl"><table><tr><th>Trait</th><th>Personality it leads to</th><th>Fits</th></tr>${CHILD.map(c=>`<tr><td><b>${c[0]}</b></td><td>${c[1]} ${mark(false)}</td><td class="dim">${c[2]}</td></tr>`).join('')}</table></div>
+<h3>Picking a guardian</h3><div class="card"><ul class="mech">
+<li>The guardian's <b>skill in the child's focus</b> matters most. A guardian with 15+ in that skill gives the best chance of a level 3 or 4 trait.</li>
+<li>The guardian's <b>personality</b> can rub off: a Diligent guardian helps, a Lazy one hurts.</li>
+<li>Your heir should usually get <b>Stewardship</b> or <b>Diplomacy</b> (ruling) or <b>Learning</b> (XP and health). <b>Martial</b> if they'll be at war.</li>
+<li>A guardian who is a ruler forms a relationship and an alliance-like bond with the child ○.</li>
+<li>Educating someone else's heir makes them like you: a cheap way to make a future ally.</li>
+<li>Childhood events nudge personality. Pick options that match the traits you want.</li></ul></div>
+<div class="note">Wards & Wardens added more childhood content and changed some odds ○.</div>`;}
+
+/* ================= STRESS & DREAD ================= */
+function pgStress(){const v=Math.max(0,+S.stressV||0),lvl=v>=300?3:v>=200?2:v>=100?1:0,next=[100,200,300,400][lvl],pct=Math.min(100,v/400*100);
+  return `<h2>Stress and dread</h2><p class="sub">Stress builds when your ruler acts against their personality. Dread is how much people fear you.</p>
+<h3>Stress</h3><div class="card"><div class="row"><label>Current stress <input type="number" id="sv" min="0" max="500" value="${v}" style="width:90px"></label><span class="dim">Hover the stress bar under your portrait to see it.</span></div>
+<div class="meter"><i style="width:${Math.min(pct,25)}%;background:#6a8f5a"></i><i style="width:${Math.max(0,Math.min(pct,50)-25)}%;background:#c9a441"></i><i style="width:${Math.max(0,Math.min(pct,75)-50)}%;background:#d47a3a"></i><i style="width:${Math.max(0,pct-75)}%;background:#c84a3a"></i></div>
+<div class="stats"><div class="stat"><small>Stress level</small><span class="big ${lvl>=2?'bad':''}">${lvl}</span></div><div class="stat"><small>Next break at</small><span class="big">${lvl<3?next:'—'}</span></div><div class="stat"><small>Room left</small><span class="big">${lvl<3?next-v:'none'}</span></div></div>
+<div class="tbl"><table>${STRESS.map(s=>`<tr class="${lvl===STRESS.indexOf(s)?'':'dim'}"><td style="width:70px" class="n">${s[0]}+</td><td style="width:130px"><b>${s[1]}</b></td><td>${s[2]}</td></tr>`).join('')}</table></div></div>
+<h3>Losing stress</h3><div class="card"><ul class="mech"><li>Activities: feasts, hunts, pilgrimages (match them to your traits).</li><li>Friends, lovers and a happy marriage.</li><li>The Learning Medicine tree, and the Calm, Content and Lazy traits.</li><li>Good coping traits: <b>Athletic</b> and <b>Journaller</b>. Bad ones: Drunkard, Flagellant, Inappetetic.</li><li>Choosing event options that fit your personality.</li><li>Resting: some decisions and events let you take time off ○.</li></ul></div>
+<h3>Coping traits</h3><div class="card tbl"><table>${COPING.map(c=>`<tr><td style="width:150px"><b>${c[0]}</b></td><td>${esc(c[1])}</td><td class="dim">${esc(c[2])}</td></tr>`).join('')}</table></div>
+<h3>Dread check</h3><div class="card"><div class="row"><label>Your dread <input type="number" id="dd" min="0" max="100" value="${S.dread.d||0}" style="width:80px"></label><label>Vassal's boldness <input type="number" id="db" min="-100" max="100" value="${S.dread.b||0}" style="width:80px"></label></div><div id="dout"></div>
+<ul class="mech"><li>Gain dread by executing, torturing, imprisoning, the Intimidation tree and the Sadistic and Wrathful traits.</li><li>It decays over time back towards your baseline.</li><li>Vassals with <b>boldness</b> (from Brave, Ambitious, Wrathful and their prowess ○) below your dread are <b>intimidated</b>; far below, <b>cowed</b>. They won't join factions as readily.</li></ul></div>
+<div class="note">Stress thresholds of 100, 200 and 300 are long-standing; the effects at each level, and the dread thresholds, changed with patches ○.</div>`;}
+function stressWire(){
+  $('sv').onchange=e=>{S.stressV=Math.max(0,+e.target.value||0);save();route(true);};
+  const d=()=>{const x=+S.dread.d||0,b=+S.dread.b||0,diffv=x-b;$('dout').innerHTML=diffv>=50?'<span class="ok">Cowed ○</span>: very unlikely to rebel.':diffv>0?'<span class="ok">Intimidated</span>: fear keeps them in line.':'<span class="bad">Not afraid</span>: only opinion and hooks will keep them loyal.';};
+  $('dd').oninput=e=>{S.dread.d=+e.target.value||0;save();d();};$('db').oninput=e=>{S.dread.b=+e.target.value||0;save();d();};d();}
+
+/* ================= GENETICS ================= */
+const GENS=CONG.flatMap(c=>c.tiers.map((t,i)=>({t,g:c.g,lvl:i+1,good:c.good,tiered:c.tiers.length>1}))).filter(x=>x.g!=='Inbred');
+const RELS=[['none','Not related',0],['third','Distant kin',1],['cousin','First cousins',2],['avunc','Uncle / aunt and niece / nephew',3],['half','Half-siblings',4],['sib','Siblings / parent and child',5]];
+function pgGenetics(){const G=S.gen;
+  const pick=(side)=>`<div class="chips" data-side="${side}">${GENS.map(x=>`<button data-gt="${esc(x.t)}" class="${G[side].includes(x.t)?'on':''}" style="${x.good?'':'opacity:.85'}">${x.good?'':'⚠ '}${esc(x.t)}</button>`).join('')}</div>`;
+  return `<h2>Genetics planner</h2><p class="sub">Congenital traits are inherited. Tick what each parent has to see what their children are likely to get, and check how risky the match is.</p>
+<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))"><div class="card" style="margin:0"><h3 style="margin-top:0">Parent A (you)</h3>${pick('a')}</div><div class="card" style="margin:0"><h3 style="margin-top:0">Parent B (spouse)</h3>${pick('b')}</div></div>
+<div class="card" style="margin-top:12px"><div class="row"><label>How related <select id="grel">${RELS.map(r=>`<option value="${r[0]}"${G.rel===r[0]?' selected':''}>${r[1]}</option>`).join('')}</select></label>
+<label>Faith consanguinity <select id="gcons">${[['restricted','Restricted'],['cousins','Cousins allowed'],['avunc','Avunculate'],['unrest','Unrestricted']].map(r=>`<option value="${r[0]}"${G.cons===r[0]?' selected':''}>${r[1]}</option>`).join('')}</select></label>
+<label>Blood legacy perks <select id="gbl">${[0,1,2,3,4,5].map(n=>`<option${+G.blood===n?' selected':''}>${n}</option>`).join('')}</select></label></div></div>
+<div id="gout"></div>
+<div class="note">CK3's inheritance odds aren't shown in-game and have changed over time. The likelihood words here are rules of thumb ○: a trait on <b>both</b> parents is very likely to pass on, a trait on <b>one</b> parent is a coin-toss or worse, and traits can also come back from grandparents. Tiered traits can land a tier higher or lower.</div>`;}
+function genWire(){const G=S.gen;
+  document.querySelectorAll('[data-side]').forEach(box=>box.querySelectorAll('button').forEach(b=>b.onclick=()=>{const s=box.dataset.side,t=b.dataset.gt,x=GENS.find(q=>q.t===t);
+    let arr=G[s].includes(t)?G[s].filter(q=>q!==t):G[s].filter(q=>!(x.tiered&&GENS.find(z=>z.t===q).g===x.g)).concat(t);G[s]=arr;save();route(true);}));
+  $('grel').onchange=e=>{G.rel=e.target.value;save();route(true);};$('gcons').onchange=e=>{G.cons=e.target.value;save();route(true);};$('gbl').onchange=e=>{G.blood=+e.target.value;save();route(true);};
+  const groups=[...new Set([...G.a,...G.b].map(t=>GENS.find(x=>x.t===t)).filter(Boolean).map(x=>x.g))];
+  const rows=groups.map(g=>{const a=GENS.find(x=>x.g===g&&G.a.includes(x.t)),b=GENS.find(x=>x.g===g&&G.b.includes(x.t)),good=(a||b).good;
+    const both=a&&b,bl=+G.blood;let w=both?'Very likely':'Possible';let pct=both?80:35;if(good)pct+=bl>=2?10:0;else pct-=bl>=3?10:0;pct=Math.max(5,Math.min(95,pct));
+    if(!both&&pct<30)w='Unlikely';
+    const tierNote=(a&&b&&a.tiered&&a.lvl!==b.lvl)?` Most likely between ${GENS.find(x=>x.g===g&&x.lvl===Math.min(a.lvl,b.lvl)).t} and ${GENS.find(x=>x.g===g&&x.lvl===Math.max(a.lvl,b.lvl)).t}.`:'';
+    return `<tr><td><b>${esc(g)}</b> <span class="tag ${good?'w':'r'}">${good?'good':'bad'}</span></td><td>${a?esc(a.t):'<span class="dim">—</span>'}</td><td>${b?esc(b.t):'<span class="dim">—</span>'}</td><td><div class="meter" style="width:140px;margin:2px 0"><i style="width:${pct}%;background:${good?'#8fcf7a':'#ff7a6b'}"></i></div><span class="${good?'ok':'bad'}">${w}</span> <span class="dim">(~${pct}% ○)</span>${tierNote}</td></tr>`;});
+  const rel=RELS.findIndex(r=>r[0]===G.rel),allowed={restricted:1,cousins:2,avunc:3,unrest:5}[G.cons];
+  const pure=+G.blood>=4&&rel>=2;const risk=rel===0?'None':rel===1?'Very low':rel===2?'Some':rel===3?'High':'Very high';
+  $('gout').innerHTML=`<div class="card tbl"><table><tr><th>Trait</th><th>Parent A</th><th>Parent B</th><th>Child</th></tr>${rows.join('')||'<tr><td colspan="4" class="dim">Tick some traits above.</td></tr>'}</table></div>
+<div class="stats"><div class="stat"><small>Inbreeding risk</small><span class="big ${rel>=3?'bad':''}">${pure?'Pure-blooded ○':risk}</span></div><div class="stat"><small>Faith allows it</small><span class="big ${rel>allowed?'bad':'ok'}">${rel>allowed?'No: incest':'Yes'}</span></div><div class="stat"><small>Good traits in play</small><span class="big">${groups.filter(g=>GENS.find(x=>x.g===g).good).length}</span></div><div class="stat"><small>Bad traits in play</small><span class="big">${groups.filter(g=>!GENS.find(x=>x.g===g).good).length}</span></div></div>
+${rel>=2&&!pure?'<div class="note">Close-kin children risk <b>Inbred</b> and other bad traits. Divine Marriage (tenet) or a high Blood legacy with close-kin marriages can make them Pure-blooded instead ○.</div>':''}`;}
+
+/* ================= SUCCESSION SIMULATOR ================= */
+const LAWOPT=[['conf','Confederate Partition'],['part','Partition'],['high','High Partition'],['single','Single Heir (Primogeniture)'],['elect','Elective']];
+const PRESETS=[
+['Irish king (default)',[{n:'Kingdom of Ireland',t:3},{n:'Duchy of Munster',t:2},{n:'Duchy of Leinster',t:2},{n:'County of Desmond',t:1},{n:'County of Thomond',t:1},{n:'County of Ormond',t:1},{n:'County of Dublin',t:1}]],
+['Duke with spare counties',[{n:'Duchy of Normandy',t:2},{n:'County of Rouen',t:1},{n:'County of Caux',t:1},{n:'County of Évreux',t:1},{n:'County of Bayeux',t:1}]],
+['King of two kingdoms',[{n:'Kingdom of England',t:3},{n:'Kingdom of Scotland',t:3},{n:'Duchy of Wessex',t:2},{n:'Duchy of Lothian',t:2},{n:'County of Middlesex',t:1},{n:'County of Lothian',t:1},{n:'County of Somerset',t:1}]],
+['Emperor',[{n:'Empire of Britannia',t:4},{n:'Kingdom of England',t:3},{n:'Kingdom of Ireland',t:3},{n:'Duchy of Wessex',t:2},{n:'Duchy of Munster',t:2},{n:'County of Middlesex',t:1},{n:'County of Desmond',t:1},{n:'County of Dublin',t:1}]]];
+function simulate(law,nh,titles){
+  const ts=titles.map((t,i)=>({...t,i})).filter(t=>t.n.trim()).sort((a,b)=>b.t-a.t||a.i-b.i);
+  const heirs=Array.from({length:Math.max(1,nh)},()=>[]);if(!ts.length)return {heirs,ts};
+  heirs[0].push(ts[0]);const rest=ts.slice(1);
+  if(law==='single'||law==='elect'||nh<=1){heirs[0].push(...rest);return {heirs,ts};}
+  if(law==='high'){const need=Math.ceil(ts.length/2);while(heirs[0].length<need&&rest.length)heirs[0].push(rest.shift());}
+  // Even split: each title (highest tier first) to the heir with the fewest titles; ties go to the elder child.
+  for(const t of rest){let best=law==='high'?1:0;for(let h=0;h<heirs.length;h++){if(law==='high'&&h===0)continue;if(heirs[h].length<heirs[best].length)best=h;}heirs[best].push(t);}
+  return {heirs,ts};}
+function pgSuccession(){const C=S.succ;return `<h2>Succession simulator</h2><p class="sub">Enter your titles and number of eligible children to see how your realm will divide when you die. Your primary title is the first one of the highest tier.</p>
+<div class="card"><div class="row"><label>Law <select id="slaw">${LAWOPT.map(([k,n])=>`<option value="${k}"${C.law===k?' selected':''}>${n}</option>`).join('')}</select></label><label>Eligible children <input type="number" id="sheirs" min="1" max="10" value="${C.heirs}" style="width:70px"></label>
+<label>Preset <select id="spre"><option value="">—</option>${PRESETS.map((p,i)=>`<option value="${i}">${esc(p[0])}</option>`).join('')}</select></label></div>
+<div class="tbl"><table id="stit"><tr><th>Title</th><th>Tier</th><th></th></tr>${C.titles.map((t,i)=>`<tr><td><input type="text" data-tn="${i}" value="${esc(t.n)}" style="width:240px"></td><td><select data-tt="${i}">${[4,3,2,1].map(k=>`<option value="${k}"${t.t===k?' selected':''}>${TIERN[k]}</option>`).join('')}</select></td><td><button data-tdel="${i}" title="Remove">✕</button></td></tr>`).join('')}</table></div>
+<div class="row"><button id="sadd">+ Add title</button><span class="dim">Only list titles you hold yourself. Vassals' titles don't pass to your children.</span></div></div>
+<div id="sout"></div>
+<h3>Succession laws</h3><div class="card tbl"><table><tr><th>Law</th><th>How it works</th><th>Needs</th></tr>${SUCC.map(s=>`<tr><td>${mark(s.conf)} <b>${esc(s.n)}</b></td><td>${esc(s.d)}</td><td class="dim">${esc(s.req)}</td></tr>`).join('')}</table></div>
+<h3>Gender law</h3><div class="card tbl"><table>${GENDER.map(g=>`<tr><td style="width:240px"><b>${g[0]}</b></td><td>${g[1]}</td></tr>`).join('')}</table></div>
+<div class="tip"><b>Beating partition</b><ul class="mech" style="margin:4px 0 0"><li>Have fewer eligible children, or send extras into the clergy or a holy order (they can't inherit).</li><li>Give titles to your primary heir while you're alive: they keep them.</li><li><b>Destroy</b> extra titles of your primary tier you don't need (Titles screen) so they can't be handed out.</li><li>Change to High Partition or Single Heir the moment you can.</li><li>Disinherit a child (prestige and opinion cost) or plan an "accident".</li></ul></div>
+<div class="note">The simulator splits titles as evenly as possible, highest tier first, as Partition aims to. The game's real algorithm also weighs de jure ties and keeps titles near each other, so its split can differ ○. Heirs who get a title of your primary tier become independent; the rest become vassals of the primary heir.</div>`;}
+function succWire(){const C=S.succ;
+  const draw=()=>{const {heirs,ts}=simulate(C.law,+C.heirs||1,C.titles);if(!ts.length){$('sout').innerHTML='<div class="dim">Add a title.</div>';return;}
+    const top=ts[0].t,counties=ts.filter(t=>t.t===1).length,kept=heirs[0].filter(t=>t.t===1).length;
+    const indep=heirs.slice(1).filter(h=>h.some(t=>t.t===top)).length;
+    $('sout').innerHTML=`${C.law==='elect'?'<div class="note">Under an elective law everything goes to one winner chosen by electors. Your preferred candidate needs their votes: check the title\'s Succession tab ○.</div>':''}
+<div class="stats"><div class="stat"><small>Primary heir keeps</small><span class="big">${heirs[0].length} / ${ts.length}</span></div><div class="stat"><small>Counties kept</small><span class="big ${kept<counties/2?'bad':''}">${kept} / ${counties}</span></div><div class="stat"><small>New independent realms</small><span class="big ${indep?'bad':'ok'}">${indep}</span></div><div class="stat"><small>Siblings as vassals</small><span class="big">${heirs.slice(1).filter(h=>h.length&&!h.some(t=>t.t===top)).length}</span></div></div>
+<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">${heirs.map((h,i)=>{const ind=i>0&&h.some(t=>t.t===top);return `<div class="heir ${i?'':'p'}"><h4>${i?'Child '+(i+1):'Primary heir'} ${i?(h.length?(ind?'<span class="tag r">independent</span>':'<span class="tag g">vassal of the heir</span>'):'<span class="tag">nothing</span>'):'<span class="tag w">gets your primary title</span>'}</h4>${h.map(t=>`<div>${tierTag(t.t)}${esc(t.n)}</div>`).join('')||'<div class="dim">—</div>'}</div>`;}).join('')}</div>`;};
+  $('slaw').onchange=e=>{C.law=e.target.value;save();draw();};
+  $('sheirs').oninput=e=>{C.heirs=Math.max(1,Math.min(10,+e.target.value||1));save();draw();};
+  $('spre').onchange=e=>{if(e.target.value==='')return;C.titles=PRESETS[+e.target.value][1].map(t=>({...t}));save();route(true);};
+  document.querySelectorAll('[data-tn]').forEach(i=>i.oninput=()=>{C.titles[+i.dataset.tn].n=i.value;save();draw();});
+  document.querySelectorAll('[data-tt]').forEach(s=>s.onchange=()=>{C.titles[+s.dataset.tt].t=+s.value;save();draw();});
+  document.querySelectorAll('[data-tdel]').forEach(b=>b.onclick=()=>{C.titles.splice(+b.dataset.tdel,1);save();route(true);});
+  $('sadd').onclick=()=>{C.titles.push({n:'New county',t:1});save();route(true);};
+  draw();}
+
+function pgLaws(){return `<h2>Laws and governments</h2><p class="sub">Realm laws set what you can do to your vassals; succession laws decide who gets what when you die.</p>
+<h3>Crown authority</h3><div class="card tbl"><table><tr><th>Level</th><th>What changes</th><th>Advice</th></tr>${CROWN.map(c=>`<tr><td><b>${c[1]}. ${c[0]}</b></td><td>${c[2]}</td><td class="dim">${c[3]}</td></tr>`).join('')}</table></div>
+<div class="tip">Raising crown authority costs prestige, gives a temporary opinion penalty and can spawn a Liberty faction. Do it when vassals are happy, intimidated or hooked, and when you aren't at war. Tribal realms use tribal authority instead; clans use their own version ○.</div>
+<h3>Succession</h3><div class="card"><p style="margin:0">See the <a href="#succession">Succession simulator</a> for every law and how titles split.</p></div>
+<h3>Governments</h3><div class="card tbl"><table>${GOVS.map(g=>`<tr><td style="width:170px">${mark(g.conf)} <b>${esc(g.n)}</b></td><td>${esc(g.d)}</td></tr>`).join('')}</table></div>
+<h3>Creating titles</h3><div class="card"><ul class="mech"><li>Hold enough of a title's de jure land and you can <b>create</b> it for gold and prestige (Titles screen). Duchies need around half their counties; kingdoms and empires need most of their land ○.</li>
+<li>Creating a title unlocks de jure claims on the rest of it.</li>
+<li>Some famous titles come from <b>decisions</b>: restoring the Roman Empire, forming Britannia, uniting Spain, founding new kingdoms and empires ○. Look at the Decisions tab; the tooltip lists what you need.</li>
+<li>Keep one primary title; hold more of the same tier and partition will hand them out.</li></ul></div>`;}
+
+function pgCouncil(){return `<h2>Council and vassals</h2><p class="sub">Five councillors, each tied to a skill. Their skill sets how well their task works.</p>
+<div class="card tbl"><table><tr><th>Position</th><th>Skill</th><th>Tasks</th><th>Tip</th></tr>${COUNCIL.map(c=>`<tr><td><b>${c[0]}</b></td><td>${c[1]}</td><td>${c[2]}</td><td class="dim">${c[3]}</td></tr>`).join('')}</table></div>
+<div class="tip">A powerful vassal on your council is happier and less likely to join a faction. Your spouse also has a council-like role with their own task.</div>
+<h3>Keeping vassals happy</h3><div class="card"><ul class="mech">
+<li>Opinion comes from: shared traits, culture and faith, how you treat them, gifts, titles you give them, your prestige level, and tyranny (negative).</li>
+<li>Vassals under <b>feudal contracts</b> pay taxes and levies at a level you can renegotiate with a hook or high opinion. Special rights include title-revocation protection, war-declaration rights and council seats ○.</li>
+<li><b>Clan</b> vassals pay according to opinion: keep them happy.</li>
+<li>Powerful vassals (the top few by strength) want council seats and get upset if ignored.</li>
+<li>Hooks, dread and opinion all stop factions. Use all three.</li></ul></div>
+<h3>Factions</h3><div class="card tbl"><table><tr><th>Faction</th><th>Wants</th><th>How to stop it</th></tr>${FACTIONS.map(f=>`<tr><td><b>${f[0]}</b></td><td>${f[1]}</td><td class="dim">${f[2]}</td></tr>`).join('')}</table></div>
+<div class="note">Factions give an ultimatum once their power is high enough compared to yours (discontent). Refuse and it's war. Members you have strong hooks on can be made to leave.</div>`;}
+
+function pgIntrigue(){return `<h2>Schemes and hooks</h2><p class="sub">Schemes run in the background while you play. Success depends on your skill, your agents, and their target's defences.</p>
+<div class="card tbl"><table><tr><th>Scheme</th><th>Type</th><th>What it does</th></tr>${SCHEMES.map(s=>`<tr><td><b>${s[0]}</b></td><td><span class="tag ${s[1]==='Hostile'?'r':'w'}">${s[1]}</span></td><td>${s[2]}</td></tr>`).join('')}</table></div>
+<h3>Hooks</h3><div class="card tbl"><table>${HOOKS.map(h=>`<tr><td style="width:150px"><b>${h[0]}</b></td><td>${h[1]}</td></tr>`).join('')}</table></div>
+<h3>Making a scheme work</h3><div class="card"><ul class="mech"><li>Hostile schemes use <b>Intrigue</b>; personal schemes use the skill they name (Diplomacy for Befriend and Sway, Intrigue or Diplomacy for Seduce).</li>
+<li>Recruit <b>agents</b> close to the target: their courtiers, guards, family. Hooks and gold help.</li>
+<li>Watch <b>success chance</b> and <b>secrecy</b>. Wait for opportunities before launching ○.</li>
+<li>Defend yourself with a high-intrigue Spymaster on Disrupt Schemes.</li></ul></div>
+<div class="note">Schemes were reworked in 2024 (alongside Wards & Wardens) into phases with agents in roles and opportunities; older guides describe the old system ○.</div>`;}
+
+function pgHoldings(){return `<h2>Holdings</h2><p class="sub">Each county has a capital holding and slots for more. Buildings in your domain raise your income, levies and men-at-arms.</p>
+<div class="card tbl"><table>${HOLD.map(h=>`<tr><td style="width:160px"><b>${h[0]}</b></td><td>${h[1]}</td></tr>`).join('')}</table></div>
+<h3>What to build</h3><div class="card"><ul class="mech"><li>In your <b>capital</b> first: development there also speeds your culture's innovations.</li>
+<li><b>Duchy buildings</b> in duchy capitals: one per duchy, each a big bonus.</li>
+<li>Buildings that boost your men-at-arms types (e.g. a building that improves archers ○) multiply their value.</li>
+<li>Terrain sets which buildings are best: pastures on plains, hill forts in hills, and so on.</li>
+<li>Build new holdings in empty slots for more taxes and levies (they go to vassals if you're over your domain limit).</li></ul></div>`;}
+
+/* ================= WAR ================= */
+function pgWarfare(){return `<h2>Warfare and casus belli</h2><p class="sub">You need a casus belli (a reason) for every war. Then levies, men-at-arms, knights and a good commander do the rest.</p>
+<h3>Battles</h3><div class="card"><ul class="mech">
+<li><b>Advantage</b> decides the battle: commander Martial, commander traits, terrain, river and strait crossings, fort levels and some perks and traditions.</li>
+<li>Battles have phases: <b>maneuver</b>, <b>early</b> and <b>late</b> combat, then <b>aftermath</b>, when <b>pursuit</b> kills fleeing men and <b>screen</b> saves yours.</li>
+<li><b>Knights</b> add damage by prowess. Ten good knights equal a lot of levies.</li>
+<li><b>Counters</b>: each men-at-arms type is countered by others. See the <a href="#maa">counter finder</a>.</li>
+<li>Defenders in mountains, hills and forests are hard to beat; attacking across a river or from ships loses advantage.</li></ul></div>
+<h3>Campaigns</h3><div class="card"><ul class="mech">
+<li><b>Supply</b>: armies above the local supply limit suffer attrition. Spread out, then merge for battle.</li>
+<li><b>Winter</b> hurts supply and movement in the north ○.</li>
+<li><b>Sieges</b>: bring siege weapons. Holdings with high fort levels take far longer.</li>
+<li><b>War score</b>: battles, occupations and holding the war's goal (a "ticking" bonus) ○.</li>
+<li><b>Allies</b>: call them in. <b>Mercenaries</b> and <b>holy orders</b> cost gold or piety but arrive fast.</li>
+<li><b>Raiding</b> (tribal, some faiths and cultures): loot and prisoners; raiders return home with the loot.</li></ul></div>
+<h3>Casus belli</h3><div class="card tbl"><table><tr><th>CB</th><th>Needs</th><th>Win and you get</th><th>Notes</th></tr>${CBS.map(c=>`<tr><td>${mark(c.conf)} <b>${esc(c.n)}</b></td><td>${esc(c.req)}</td><td>${esc(c.win)}</td><td class="dim">${esc(c.tip)}</td></tr>`).join('')}</table></div>
+<div class="tip">No CB? Fabricate a claim with your Chancellor, create a duchy title to get de jure claims, marry into claims, or invite claimants to your court.</div>`;}
+
+const MAAN=id=>MAA.find(m=>m.id===id).n;
+function pgMaa(){const counteredBy=id=>MAA.filter(m=>m.counters.includes(id)).map(m=>m.n);
+  return `<h2>Men-at-arms</h2><p class="sub">Professional regiments. They win battles; levies fill the gaps. Each type counters some types and is countered by others.</p>
+<div class="card tbl"><table><tr><th>Type</th><th>Examples</th><th>Role</th><th>Counters</th><th>Countered by</th></tr>${MAA.map(m=>`<tr><td>${mark(m.conf)} <b>${m.n}</b></td><td>${esc(m.ex)}</td><td class="dim">${esc(m.role)}</td><td>${m.counters.map(c=>`<span class="tag w">${MAAN(c)}</span>`).join('')||'—'}</td><td>${counteredBy(m.id).map(c=>`<span class="tag r">${c}</span>`).join('')||'—'}</td></tr>`).join('')}</table></div>
+<h3>Counter finder</h3><div class="card"><div class="dim">What is your enemy fielding?</div><div class="chips" id="foe">${MAA.filter(m=>m.id!=='siege').map(m=>`<button data-foe="${m.id}" class="${S.maaFoe.includes(m.id)?'on':''}">${m.n}</button>`).join('')}</div><div id="foeout"></div></div>
+<h3>Cultural and regional regiments</h3><div class="card tbl"><table><tr><th>Regiment</th><th>Base type</th><th>Who gets it</th></tr>${MAAC.map(c=>`<tr><td>${mark(c[3])} <b>${c[0]}</b></td><td>${c[1]}</td><td class="dim">${c[2]}</td></tr>`).join('')}</table></div>
+<h3>Building an army</h3><div class="card"><ul class="mech"><li>Pick two or three types and stack buildings that improve them in your domain.</li><li>Cultural regiments are usually stronger than the generic ones: use them.</li><li>Fill regiments up, and upgrade them in the High and Late Medieval eras.</li><li>Light cavalry earn their keep in pursuit and screen even when they don't counter anything.</li><li>Siege weapons in every serious army.</li></ul></div>
+<div class="note">The core counters (pikemen beat cavalry, cavalry beats archers, skirmishers beat heavy infantry) are long-standing; the full chart and the stats behind it moved with patches, so every row is worth checking against the regiment's tooltip ○.</div>`;}
+function maaWire(){const draw=()=>{const foes=S.maaFoe;if(!foes.length){$('foeout').innerHTML='';return;}
+  const score={};MAA.forEach(m=>{if(m.id==='siege')return;let s=0;foes.forEach(f=>{if(m.counters.includes(f))s+=1;if(MAA.find(x=>x.id===f).counters.includes(m.id))s-=1;});score[m.id]=s;});
+  const best=MAA.filter(m=>score[m.id]>0).sort((a,b)=>score[b.id]-score[a.id]),bad=MAA.filter(m=>score[m.id]<0);
+  $('foeout').innerHTML=`<p style="margin:8px 0 4px"><b>Bring:</b> ${best.map(m=>`<span class="tag w">${m.n}</span>`).join('')||'<span class="dim">nothing counters this mix directly: go for raw numbers, knights and terrain</span>'}</p><p style="margin:4px 0"><b>Avoid:</b> ${bad.map(m=>`<span class="tag r">${m.n}</span>`).join('')||'<span class="dim">nothing in particular</span>'}</p>`;};
+  document.querySelectorAll('#foe button').forEach(b=>b.onclick=()=>{const id=b.dataset.foe;S.maaFoe=S.maaFoe.includes(id)?S.maaFoe.filter(x=>x!==id):S.maaFoe.concat(id);b.classList.toggle('on');save();draw();});draw();}
+
+/* ================= FAITH, CULTURE, DYNASTY ================= */
+function pgFaith(){return `<h2>Faith</h2><p class="sub">Every faith is built from doctrines and three tenets. Reform a pagan faith or found a new one to choose your own.</p>
+<h3>Doctrines</h3><div class="card tbl"><table><tr><th>Doctrine</th><th>Options</th><th>Why it matters</th></tr>${DOCTRINES.map(d=>`<tr><td><b>${d[0]}</b></td><td>${d[1]}</td><td class="dim">${d[2]}</td></tr>`).join('')}</table></div>
+<h3>Tenets</h3><div class="card tbl"><table>${TENETS.map(t=>`<tr><td style="width:190px">${mark(t[2])} <b>${t[0]}</b></td><td>${t[1]}</td></tr>`).join('')}</table></div>
+<h3>Reforming and founding</h3><div class="card"><ul class="mech">
+<li><b>Pagan reformation</b>: control enough of your faith's holy sites and have enough piety, then use the Reform decision ○. You pick new doctrines and tenets and the faith becomes organised.</li>
+<li><b>New faith</b>: big rulers with piety can "Create a New Faith" from the Religion screen. You become its head if you choose a doctrine that allows it.</li>
+<li>Each doctrine and tenet has a piety cost; changing many at once gets expensive.</li>
+<li>Popular for a strong dynasty: <b>Unrestricted consanguinity</b> with a Blood legacy, <b>Communion</b> for piety, <b>Pursuit of Power</b> or <b>Armed Pilgrimages</b> for war ○.</li></ul></div>
+<h3>Holy wars and excommunication</h3><div class="card"><ul class="mech"><li>Holy wars cost piety and need a target of another faith; the hostility between faiths sets the cost.</li><li>The head of a spiritual faith can call a <b>Great Holy War</b> against a kingdom.</li><li>The head of faith can <b>excommunicate</b> a ruler of the faith: anyone can then holy-war them.</li><li><b>Fervour</b> falls as heresies and other faiths grow; low fervour makes conversions to a heresy more likely.</li></ul></div>
+<div class="note">Chapter V's <i>By God Alone</i> is announced to rework religion in 2026. If you have it, some of this may have changed ○.</div>`;}
+
+function pgCulture(){return `<h2>Culture</h2><p class="sub">Every culture has pillars and traditions, and researches innovations on its own.</p>
+<h3>Pillars</h3><div class="card"><ul class="mech"><li><b>Ethos</b>: the culture's broad character (below).</li><li><b>Heritage</b>: its family of cultures (Frankish, Iberian, North Germanic...). Same heritage means easy acceptance.</li><li><b>Language</b>: shared language helps diplomacy and acceptance.</li><li><b>Martial custom</b>: who can be knights and commanders (men, women or both).</li></ul></div>
+<h3>Ethos</h3><div class="card tbl"><table>${ETHOS.map(e=>`<tr><td style="width:140px"><b>${e[0]}</b></td><td>${e[1]}</td></tr>`).join('')}</table></div>
+<h3>Some traditions</h3><div class="card tbl"><table>${TRAD.map(t=>`<tr><td style="width:190px"><b>${t[0]}</b></td><td>${t[1]} ${mark(false)}</td></tr>`).join('')}</table></div>
+<h3>Eras and innovations</h3><div class="card tbl"><table><tr><th>Era</th><th>What it's like</th><th>Landmark innovations</th></tr>${ERAS.map(e=>`<tr><td><b>${e[0]}</b></td><td>${e[1]}</td><td class="dim">${e[2]} ${mark(false)}</td></tr>`).join('')}</table></div>
+<div class="tip"><ul class="mech" style="margin:0"><li>Raise development in your culture's counties to speed innovations.</li><li>The culture head (the highest-tier ruler of the culture) picks the fascination; a high-Learning head helps everyone.</li><li><b>Hybridise</b> with a culture you have high acceptance with, or <b>diverge</b> to rewrite your traditions (Royal Court) ○.</li><li>Your steward can <b>promote culture</b> in a county to convert it.</li></ul></div>`;}
+
+function pgDynasty(){const lg=Object.values(S.legacy).filter(Boolean).length;
+  return `<h2>Dynasty legacies</h2><p class="sub">Your dynasty earns <b>renown</b> from every landed member. Spend it on legacies: each track has five perks bought in order. Tick the ones your dynasty has.</p>
+<div class="dim">${lg} of ${LEGACY.length*5} perks</div><div class="bar"><i style="width:${lg/(LEGACY.length*5)*100}%"></i></div>
+<div class="tree">${LEGACY.map(([n,d])=>`<div class="card" style="margin:0"><h3 style="margin-top:0">${n}</h3><p class="dim" style="margin:0 0 8px">${d}</p><div class="lvl">${[1,2,3,4,5].map(i=>`<label><input type="checkbox" data-lg="${n}:${i}"${S.legacy[n+':'+i]?' checked':''}> ${i}</label>`).join('')}</div></div>`).join('')}</div>
+<div class="tip" style="margin-top:14px"><ul class="mech" style="margin:0"><li><b>Blood</b> is a favourite: better genes for every generation.</li><li><b>Law</b> helps with crown authority and vassals; <b>Kin</b> keeps family loyal.</li><li>Renown grows faster with more landed dynasty members, especially kings and emperors.</li><li>Cost rises with each perk you buy ○.</li></ul></div>
+<h3>House and dynasty heads</h3><div class="card"><ul class="mech"><li>The dynasty head can use dynasty powers on members: disinherit, denounce, legitimise bastards, and ask for support ○.</li><li>House heads lead a branch. Big cadet branches can become rivals.</li><li>Plant your dynasty on many thrones. If your line fails, you continue as another landed member.</li></ul></div>
+<div class="note">DLC and patches added extra legacy tracks for some cultures and expansions ○; the seven here are the base set.</div>`;}
+
+function pgDlc(){return `<h2>DLC guide</h2><p class="sub">What each piece adds and whether it's worth it. The base game is complete on its own.</p>
+<div class="card tbl"><table><tr><th>DLC</th><th>Year</th><th>Kind</th><th>What it adds</th><th>Worth it?</th></tr>${DLC.map(d=>`<tr><td>${mark(d.conf)} <b>${esc(d.n)}</b></td><td>${d.y}</td><td>${esc(d.k)}</td><td>${esc(d.d)}</td><td class="dim">${esc(d.buy)}</td></tr>`).join('')}</table></div>
+<div class="tip">If you buy one: <b>The Royal Court</b>. Two: add <b>Tours & Tournaments</b>. Then pick by where you play: <b>Roads to Power</b> for Byzantium, <b>Northern Lords</b> for Vikings, the struggle packs for Iberia and Persia.</div>
+<div class="note">Release years are approximate for some packs, and 2025–26 content is marked ○. Cosmetic packs (clothing and music) aren't listed. Paradox retires older expansion passes from sale from time to time.</div>`;}
+
+/* ================= YOUR GAME ================= */
+const GOALSUG=['Unite my de jure kingdom','Switch to High Partition','Get Single Heir succession','Raise crown authority to High','Reform my faith','Hold all my faith\'s holy sites','Get a Genius heir','Hybridise or diverge my culture','Become an emperor','Restore the Roman Empire','Reach the Late Medieval era','Buy every Blood legacy perk','Survive to 1453'];
+function pgCampaign(){const g=S.game,done=S.goals.filter(x=>x.done).length;
+  return `<h2>Campaign and goals</h2><p class="sub">Keep track of your current game and what you're aiming for.</p>
+<div class="card"><div class="row"><label>Start date <select id="gs">${['','867','1066','1178','Custom'].map(y=>`<option${g.start===y?' selected':''}>${y}</option>`).join('')}</select></label>
+<label>Character <input type="text" id="gc" value="${esc(g.char)}" style="width:180px" placeholder="e.g. Murchad"></label>
+<label>Dynasty <input type="text" id="gd" value="${esc(g.dyn)}" style="width:150px" placeholder="e.g. Uí Briain"></label>
+<label>Year <input type="number" id="gy" value="${esc(g.year)}" style="width:90px"></label>
+<label class="chk" style="margin:0"><input type="checkbox" id="gi"${g.iron?' checked':''}> Ironman</label></div></div>
+<h3>Goals</h3><div class="dim" id="gdone">${done} of ${S.goals.length} done</div><div class="bar"><i id="gbar" style="width:${S.goals.length?done/S.goals.length*100:0}%"></i></div>
+<div class="card"><form class="row" id="gf"><input type="text" id="gn" style="width:300px" placeholder="A goal, e.g. Form the Kingdom of Ireland"><button class="pri">Add</button></form>
+<div class="chips">${GOALSUG.map((s,i)=>`<button type="button" data-gsug="${i}">+ ${esc(s)}</button>`).join('')}</div>
+${S.goals.map((x,i)=>`<div class="row"><label class="chk" style="flex:1;margin:0"><input type="checkbox" data-gdone="${i}"${x.done?' checked':''}> <span class="${x.done?'dim':''}">${esc(x.n)}</span></label><button data-gdel="${i}" title="Remove">✕</button></div>`).join('')||'<div class="dim">No goals yet.</div>'}</div>
+${S.goals.length?'<button id="gclear">Remove finished goals</button>':''}`;}
+function campWire(){const g=S.game;
+  $('gs').onchange=e=>{g.start=e.target.value;save();};$('gc').oninput=e=>{g.char=e.target.value;save();};$('gd').oninput=e=>{g.dyn=e.target.value;save();};$('gy').oninput=e=>{g.year=e.target.value;save();};$('gi').onchange=e=>{g.iron=e.target.checked;save();};
+  $('gf').onsubmit=e=>{e.preventDefault();const n=$('gn').value.trim();if(!n)return;S.goals.push({n,done:false});save();route(true);};
+  document.querySelectorAll('[data-gsug]').forEach(b=>b.onclick=()=>{S.goals.push({n:GOALSUG[+b.dataset.gsug],done:false});save();route(true);});
+  document.querySelectorAll('[data-gdone]').forEach(c=>c.onchange=()=>{S.goals[+c.dataset.gdone].done=c.checked;save();route(true);});
+  document.querySelectorAll('[data-gdel]').forEach(b=>b.onclick=()=>{S.goals.splice(+b.dataset.gdel,1);save();route(true);});
+  if($('gclear'))$('gclear').onclick=()=>{S.goals=S.goals.filter(x=>!x.done);save();route(true);};}
+
+function pgChronicle(){const R=S.rulers,yrs=R.reduce((s,r)=>s+(+r.to&&+r.from?Math.max(0,r.to-r.from):0),0);
+  return `<h2>Dynasty chronicle</h2><p class="sub">A record of every ruler you've played. Add each heir when they take over.</p>
+<div class="stats"><div class="stat"><small>Rulers</small><span class="big">${R.length}</span></div><div class="stat"><small>Years recorded</small><span class="big">${yrs}</span></div><div class="stat"><small>Average reign</small><span class="big">${R.filter(r=>+r.to&&+r.from).length?Math.round(yrs/R.filter(r=>+r.to&&+r.from).length):'—'}</span></div></div>
+<div class="card"><form class="row" id="rf"><input type="text" id="rn" style="width:170px" placeholder="Name (e.g. Brian II)"><input type="text" id="rt" style="width:170px" placeholder="Title (e.g. King of Ireland)"><input type="number" id="ra" style="width:90px" placeholder="From" value="${R.length&&R[R.length-1].to?esc(R[R.length-1].to):''}"><input type="number" id="rb" style="width:90px" placeholder="To"><button class="pri">Add ruler</button></form></div>
+<div class="card tbl"><table><tr><th>#</th><th>Ruler</th><th>Title</th><th>From</th><th>To</th><th>Traits, deeds, how they died</th><th></th></tr>${R.map((r,i)=>`<tr><td class="dim">${i+1}</td><td><input type="text" data-re="${i}:n" value="${esc(r.n)}" style="width:140px"></td><td><input type="text" data-re="${i}:t" value="${esc(r.t)}" style="width:150px"></td><td><input type="number" data-re="${i}:from" value="${esc(r.from)}" style="width:80px"></td><td><input type="number" data-re="${i}:to" value="${esc(r.to)}" style="width:80px"></td><td><input type="text" data-re="${i}:d" value="${esc(r.d||'')}" style="width:260px" placeholder="Genius, Conqueror; murdered by his brother"></td><td><button data-rdel="${i}" title="Remove">✕</button></td></tr>`).join('')||'<tr><td colspan="7" class="dim">No rulers yet. Start with the character you picked.</td></tr>'}</table></div>`;}
+function chronWire(){
+  $('rf').onsubmit=e=>{e.preventDefault();const n=$('rn').value.trim();if(!n)return;S.rulers.push({n,t:$('rt').value.trim(),from:$('ra').value,to:$('rb').value,d:''});save();route(true);};
+  document.querySelectorAll('[data-re]').forEach(i=>i.oninput=()=>{const [ix,k]=i.dataset.re.split(':');S.rulers[+ix][k]=i.value;save();});
+  document.querySelectorAll('[data-rdel]').forEach(b=>b.onclick=()=>{if(confirm('Remove '+S.rulers[+b.dataset.rdel].n+' from the chronicle?')){S.rulers.splice(+b.dataset.rdel,1);save();route(true);}});}
+
+function pgConsole(){return `<h2>Console commands</h2><p class="sub">For testing, fixing a broken save, or just having fun. Not available in Ironman, and they turn off achievements for that game.</p>
+<div class="card"><ol class="mech"><li>In Steam: right-click Crusader Kings III → Properties → Launch options, and type <code>-debug_mode</code>. (Other launchers have a similar launch-options box.)</li><li>Start the game and load a non-Ironman save.</li><li>Press <kbd>\`</kbd> or <kbd>~</kbd> (the key under Esc) to open the console. Type <code>help</code> for every command in your version.</li><li>Debug mode also shows character and title IDs in tooltips.</li></ol></div>
+<div class="card tbl"><table><tr><th>Command</th><th>What it does</th><th></th></tr>${CONSOLE.map(c=>`<tr><td>${mark(c[2])} <code>${esc(c[0])}</code></td><td>${esc(c[1])}</td><td><button data-copy="${esc(c[0])}" title="Copy">Copy</button></td></tr>`).join('')}</table></div>
+<h3>Trait keys</h3><div class="card tbl"><table>${TRAITKEYS.map(t=>`<tr><td style="width:220px"><b>${t[0]}</b></td><td><code>${esc(t[1])}</code></td></tr>`).join('')}</table></div>
+<div class="note">Command names have changed in a few patches. If one doesn't work, <code>help</code> lists the current ones, and <code>effect</code> runs any script effect by its game name.</div>`;}
+function consoleWire(){document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{try{navigator.clipboard.writeText(b.dataset.copy);b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1200);}catch(e){}});}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Who to murder, which cousin to marry, the claim you're fabricating, the duchy you'll create next...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+function route(keepScroll){
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=REAL.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main'),top=m.scrollTop;
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),starts:pgStarts,regions:()=>pgRegions(sub),glossary:pgGlossary,traits:pgTraits,lifestyles:pgLifestyles,education:pgEducation,stress:pgStress,genetics:pgGenetics,succession:pgSuccession,laws:pgLaws,council:pgCouncil,intrigue:pgIntrigue,holdings:pgHoldings,warfare:pgWarfare,maa:pgMaa,faith:pgFaith,culture:pgCulture,dynasty:pgDynasty,dlc:pgDlc,campaign:pgCampaign,chronicle:pgChronicle,console:pgConsole,notes:pgNotes})[page]();
+  m.scrollTop=keepScroll===true?top:0;
+  m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
+  m.querySelectorAll('input[type=checkbox][data-lg]').forEach(cb=>{cb.onchange=()=>{S.legacy[cb.dataset.lg]=cb.checked;save();route(true);};});
+  if(page==='starts')startsWire();
+  if(page==='glossary')glossWire();
+  if(page==='traits')traitsWire();
+  if(page==='stress')stressWire();
+  if(page==='genetics')genWire();
+  if(page==='succession')succWire();
+  if(page==='maa')maaWire();
+  if(page==='campaign')campWire();
+  if(page==='chronicle')chronWire();
+  if(page==='console')consoleWire();
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',()=>route());
+route();
+</script>
+</body>
+</html>

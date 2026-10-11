@@ -191,7 +191,7 @@ window.TAVERN_PROJECTS = {
       "card": {
         "section": "workbench",
         "title": "Game Assistants",
-        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i>, <i>Icarus</i>, <i>How to Fish</i>, <i>Raft</i>, <i>PEAK</i>, <i>Conan Exiles</i>, <i>Valheim</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games, GOG, the Xbox app or Windows.",
+        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i>, <i>Icarus</i>, <i>How to Fish</i>, <i>Raft</i>, <i>PEAK</i>, <i>Conan Exiles</i>, <i>Valheim</i>, <i>Crusader Kings III</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games, GOG, the Xbox app or Windows.",
         "href": "/assistants/",
         "url": "tavernworks.dev/assistants",
         "pill": "BETA",
@@ -261,6 +261,14 @@ window.TAVERN_PROJECTS = {
       "name": "Valheim Assistant",
       "href": "/assistants/valheim/",
       "dir": "assistants/valheim",
+      "card": null
+    },
+    {
+      "key": "ck3",
+      "icon": "👑",
+      "name": "Crusader Kings III Assistant",
+      "href": "/assistants/crusader-kings-3/",
+      "dir": "assistants/crusader-kings-3",
       "card": null
     },
     {
@@ -451,6 +459,7 @@ window.TAVERN_PROJECTS = {
     ["sparks","2026-10-10","Oddsparks Assistant: recipes, buildings, suggested layouts and clearer guides","/assistants/oddsparks/"],
     ["peak","2026-10-10","PEAK Assistant: Today's Mountain biome tracker","/assistants/peak/"],
     ["conan","2026-10-10","Conan Exiles Assistant: guides, regions, dungeons, thralls with Wheel of Pain timers and an attribute planner","/assistants/conan-exiles/"],
-    ["valheim","2026-10-11","Valheim Assistant: biomes to the Deep North, eight bosses, a food planner with timers, smelting and comfort calculators and a portal log","/assistants/valheim/"]
+    ["valheim","2026-10-11","Valheim Assistant: biomes to the Deep North, eight bosses, a food planner with timers, smelting and comfort calculators and a portal log","/assistants/valheim/"],
+    ["ck3","2026-10-11","Crusader Kings III Assistant: a succession simulator, genetics planner, men-at-arms counter finder, traits, lifestyles, faith, culture, dynasty legacies and a dynasty chronicle","/assistants/crusader-kings-3/"]
   ]
 };
