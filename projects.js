@@ -191,7 +191,7 @@ window.TAVERN_PROJECTS = {
       "card": {
         "section": "workbench",
         "title": "Game Assistants",
-        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i>, <i>Icarus</i>, <i>How to Fish</i>, <i>Raft</i>, <i>PEAK</i>, <i>Conan Exiles</i>, <i>Valheim</i>, <i>Crusader Kings III</i>, <i>Stellaris</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games, GOG, the Xbox app or Windows.",
+        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i>, <i>Icarus</i>, <i>How to Fish</i>, <i>Raft</i>, <i>PEAK</i>, <i>Conan Exiles</i>, <i>Valheim</i>, <i>Crusader Kings III</i>, <i>Stellaris</i>, <i>RuneScape: Dragonwilds</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games, GOG, the Xbox app or Windows.",
         "href": "/assistants/",
         "url": "tavernworks.dev/assistants",
         "pill": "BETA",
@@ -277,6 +277,14 @@ window.TAVERN_PROJECTS = {
       "name": "Stellaris Assistant",
       "href": "/assistants/stellaris/",
       "dir": "assistants/stellaris",
+      "card": null
+    },
+    {
+      "key": "dragonwilds",
+      "icon": "🐉",
+      "name": "RuneScape: Dragonwilds Assistant",
+      "href": "/assistants/dragonwilds/",
+      "dir": "assistants/dragonwilds",
       "card": null
     },
     {
@@ -469,6 +477,7 @@ window.TAVERN_PROJECTS = {
     ["conan","2026-10-10","Conan Exiles Assistant: guides, regions, dungeons, thralls with Wheel of Pain timers and an attribute planner","/assistants/conan-exiles/"],
     ["valheim","2026-10-11","Valheim Assistant: biomes to the Deep North, eight bosses, a food planner with timers, smelting and comfort calculators and a portal log","/assistants/valheim/"],
     ["ck3","2026-10-11","Crusader Kings III Assistant: a succession simulator, genetics planner, men-at-arms counter finder, traits, lifestyles, faith, culture, dynasty legacies and a dynasty chronicle","/assistants/crusader-kings-3/"],
-    ["stellaris","2026-10-11","Stellaris Assistant: an empire builder that checks your choices, a trait-point builder, a habitability checker, an ascension perk planner, a fleet counter finder, crisis prep and a galactic log","/assistants/stellaris/"]
+    ["stellaris","2026-10-11","Stellaris Assistant: an empire builder that checks your choices, a trait-point builder, a habitability checker, an ascension perk planner, a fleet counter finder, crisis prep and a galactic log","/assistants/stellaris/"],
+    ["dragonwilds","2026-10-11","RuneScape: Dragonwilds Assistant: regions to the Scorned Wilderness, a quest tracker, Velgar to Kuldra, a power level calculator, a rune shopping list, a farm plot log and lodestones","/assistants/dragonwilds/"]
   ]
 };

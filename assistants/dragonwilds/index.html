@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RuneScape: Dragonwilds Assistant · Tavernworks</title>
+<meta name="description" content="RuneScape: Dragonwilds Assistant: every region of Ashenfall from Brynmoor to the Scorned Wilderness, the main quest chain with a tracker, all five world bosses and Kuldra's raid with prep checklists, mini-bosses, a bestiary, all 13 skills with a level tracker, spells with a rune planner, a power level calculator, gear tiers, food and potions, runecrafting, fishing and farming, a lodestone log, timers and notes. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐉</text></svg>">
+<style>
+:root{--bg:#100d0b;--panel:#1a1512;--panel2:#241d18;--line:#3a2f26;--tx:#f0e8de;--dim:#a8988a;--acc:#e0a63c;--acc-ink:#241500;--acc2:#e3775d;--ok:#8fcf7a;--warn:#f2c14e;--err:#ff7a6b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:215px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:7px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#nav .grp{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:12px 10px 2px}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#nav .grp{display:none}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#0a0807;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number],input[type=search]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.tag.w{background:#2c1f14;color:#f0b783}.tag.r{background:#14232c;color:#9cc9dc}.tag.i{background:#2b1418;color:#ff9b9b}.tag.g{background:#18281a;color:#a6dc94}
+.note{border-left:3px solid var(--warn);background:#24210f;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.stat .big{font:600 20px/1.2 Consolas,"Cascadia Mono",monospace}
+.mech li{margin:4px 0}
+.pl{display:inline-block;min-width:26px;text-align:center;font:700 12px/18px Consolas,monospace;border-radius:4px;background:var(--acc);color:var(--acc-ink);padding:0 5px}
+.slot{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.slot select{width:100%}
+.timer{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.timer .t{font:600 22px/1.1 Consolas,"Cascadia Mono",monospace}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chips button{border-radius:999px;padding:3px 11px;font-size:13px}
+.chips button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--dim)}
+.legend b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.big2{font:600 26px/1.2 Consolas,"Cascadia Mono",monospace;color:var(--acc)}
+.lvl{width:64px!important}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js?v=2" data-track="dw_state"></script>
+<script src="/assistants/art.js"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   conf: true  = several guides agree, or it's from Jagex's own patch notes and announcements.
+   conf: false = sources disagree, a single source, or a number that moved in a recent patch; check in-game.
+   Written against the 1.0 release (15 September 2026) and its 1.0.0.x hotfixes. Dragonwilds
+   changed a lot during Early Access (the 99 level cap, the combat rework, the bench split in
+   Umbral Sands), and guides from 2025 often describe the old game, so a lot here is marked ○. */
+
+/* Regions in the order you'll take them on. pl = enemy power level there. */
+const REGIONS=[
+{id:'brynmoor',n:'Brynmoor',pl:'1–2',plN:1,conf:true,col:'#6f9a4a',gear:'Starter sets, then Bronze',boss:null,quest:'First Steps → Rune Mysteries',
+ d:"The southern starting region of Ashenfall. Woods, farmland and goblin camps. You'll do the tutorial quests here and build your first base.",
+ subs:['Temple Woods','Bramblemead Valley','Whispering Swamp'],
+ foes:['Goblin Warrior','Goblin Archer','Goblin Bruiser','Rats','The Rat King (vault boss)'],
+ res:['Ash logs','Stone, clay and copper','Tin','Rune essence (floating rocks over glowing geysers)','Shrimp, sardine and trout','Redberries and wild herbs','Vault shards and cores in vaults'],
+ tips:["Finish the four tutorial quests before wandering off. They hand you the core stations.","Build a small base near trees, stone and water. You can move later.","Pick up every rune essence you see: you need it for the Rune Altar, spells and the Brewing Cauldron.","Talk to the Wise Old Man in Bramblemead for Shrimp Catcher (Fishing) and Growing Pains (Farming)."]},
+{id:'ghornfell',n:'Ghornfell',pl:'3–4',plN:3,conf:true,col:'#8a7a45',gear:'Bronze, then Iron',boss:'velgar',quest:'Dragon Slayer',
+ d:"The northern half of the mainland: open plains, a poisonous swamp and storm-blasted highlands, all held by the Garou. General Velgar waits at Velgar's Rise.",
+ subs:['Fractured Plains','Bloodblight Swamp','Stormtouched Highlands (one power level higher)'],
+ foes:['Garou Hunter','Garou Berserker','Garou Druid','Garou Thane','Garou King (mini-boss)','Goblins'],
+ res:['Oak logs','Iron ore','Anchovies and salmon','Bloodwood sap','Dragon tooth (Stormtouched Highlands)','Bittercap mushrooms'],
+ tips:["Every Garou in the Stormtouched Highlands is a power level above its cousin elsewhere in Ghornfell.","The Highlands shock you. A Wild Pie (Grounded perk) halves shock damage.","Garou Hunters cause Bleeding; a Meat Pizza helps.","The Dragon Gate to the Scorned Wilderness is in the north-west of the Fractured Plains, near Velgar's Rise. You won't open it until the end of the game."]},
+{id:'fellhollow',n:'Fellhollow',pl:'5',plN:5,conf:true,col:'#5d4f6e',gear:'Steel',boss:'imaru',quest:'Withering Heights',
+ d:"A cursed land of dead woods, dragon roosts and ruined keeps, opened by Dragon Slayer. Imaru the Soul-Eater haunts the tower at Hope's Fall.",
+ subs:['Bleakfields Valley','Forgotten Temple',"Dragon's Run",'Emberwood','Witchwillow Range',"Hope's Fall",'Lake of Lost Souls','Silverthorn Keep','Coalridge Pass'],
+ foes:['Green dragons','Undead and spectres','Garou','Goblins','Zogre (mini-boss)'],
+ res:['Willow logs','Coal and steel materials','Draconic leather','Sacred oil','The most fishing spots of any region (38 net, 19 rod)'],
+ tips:["You need three curse fragments to open Imaru's tower: Grief (Emberwood shrines), Rage (Vekchenven Kara, under a waterfall) and Despair (Silverthorn Keep, past a green dragon).","Green dragons are weak to Water.","Place a Lodestone outside Hope's Fall before you fight Imaru."]},
+{id:'dowdun',n:'Dowdun Reach',pl:'6',plN:6,conf:true,col:'#4a5560',gear:'Mithril',boss:'titan',quest:"Black Knight's Fortress",
+ d:"The Black Knights' stronghold, a huge fortress cut into thirteen areas. Added in update 0.11.0 (March 2026). The Black Knight Titan guards the Bastion.",
+ subs:['The Approach','Courtyard','Nexus','Library','Grand Hall','Garrison','Pastures','Menagerie','Crypt','Lake','Demon Gate','Cathedral','The Bastion'],
+ foes:['Black Knights','Blue dragons','Abyssal Demon (mini-boss)','Goblins (power level 6 here)','Garou'],
+ res:['Maple logs','Mithril bars','Cursed leather','Mystic cloth','Demonic oil','Giant krill and armoured catfish'],
+ tips:["Summon Shelter doesn't work in the Bastion. Arrive rested.","The Titan resists Slash and Fire. Bring a mithril mace or warhammer and water runes.","Black Knight armour is a sidegrade to Mithril, not an upgrade."]},
+{id:'umbral',n:'Umbral Sands',pl:'7',plN:7,conf:true,col:'#c49a4f',fg:'#2a1d06',gear:'Adamant',boss:'fuzan',quest:"Icthlarin's Little Helper",
+ d:"A desert behind the Bastion door, added in update 0.12.0 (June 2026). Moon Garou clans, the KotHaar, kalphites, red dragons at night and Fuzan's Burning Spire.",
+ subs:['Alcarrid Oasis','Dunes of Uzzer','Manafem Plains','The Burning Spire'],
+ foes:['KotHaar-Hur, -Ket and -Xil','KotHaar-Mej','Kalphite Guardian','Moon Garou (three clans)','Red dragons (night only)'],
+ res:['Yew logs','Adamant materials','Obsidian','Monkfish'],
+ tips:["Win over the three Moon Garou clans; finishing their camp quests repairs the mirrors that light Fuzan's tower.","Most KotHaar are weak to Water and resist Fire and arrows. The KotHaar-Mej is the exception: weak to Ranged, resists Air.","Red dragons hunt here at night with Fuzan. Travel by day early on.","The Fight Cave (30 waves, then Fuzan) gives the Fire Cape. The ten-wave Trials of Fuzan is the story version."]},
+{id:'scorned',n:'Scorned Wilderness',pl:'8',plN:8,conf:false,col:'#8a2f2a',gear:'Rune, Black Dragonhide, Ancestral',boss:'kuldra',quest:'Regicide',
+ d:"The 1.0 endgame, through the Dragon Gate. A raid through five zones to Kuldra's Sanctum. Every run starts again in Dragontail Vines.",
+ subs:['Dragontail Vines',"Rasthin's Rest (safe hub, Commander Zilyana)",'Shattered Stronghold (black dragon)',"Kuldra's Sanctum"],
+ foes:['Goblin Thugs','Goblin Poisonshot Archers','Garou Exiles','Garou Lightning Berserkers','Rotsworn Reanimators','Skeletal Blightshots','Black Knight Crusaders','Blazing Black Knights','Stormpact Demons','Black dragons'],
+ res:['Rune materials','Black dragonhide','Ascension shards (Kuldra, black dragons)','Raid reward packs'],
+ tips:["Guides recommend power level 7+ gear, an adamant or better pickaxe and axe, antipoison and lots of food.","Set a Lodestone at Rasthin's Rest.","Bring a ranged weapon: some phases of the Kuldra fight need you to shoot dragons from a distance.","The region's power level isn't published; 8 is our estimate from the Rune gear it hands out."]}
+];
+
+/* World bosses in order, then Kuldra. */
+const BOSSES=[
+{id:'velgar',n:'General Velgar',short:'Velgar',region:'Ghornfell',where:"Velgar's Rise, Fractured Plains",pl:4,hp:6000,conf:true,quest:'Dragon Slayer',
+ summon:"Craft a Challenge Horn on the smithing anvil (a Dragon Tooth, Bloodwood Sap and 5 bronze bars) and place it on the Dragonkin Altar.",
+ find:"The Dragon Tooth comes from the Stormtouched Highlands. One guide says the horn needs Artisan 15 (○).",
+ weak:[],res:[],imm:['Poison','Burning'],
+ attacks:['Ground phase: claws, tail and poison breath','Air phase: flies up and rains poison over the arena','Ground spikes and homing earth attacks','Meteor barrages on aerial passes',"Rotates through the front, right and left of the altar"],
+ drop:"Velgar's head (for the Wise Old Man), Tome of the Dragon Slayer (500 XP in Attack, Ranged and Magic), power level 4 Ascension shards",
+ unlocks:'Fellhollow',
+ prep:['Antipoison potions (the fight is lost the moment poison sticks without them)','A strong bow and plenty of arrows for the air phase','Iron armour (power level 4)','Healing food and potions','Wardstones (○)','Skip weapon poison: he is immune'],
+ tip:"He has no weakness, so use your best style. Keep antipoison up, shoot him in the air phase, and stay out of the poison pools."},
+{id:'imaru',n:'Imaru the Soul-Eater',short:'Imaru',region:'Fellhollow',where:"The tower at Hope's Fall",pl:5,hp:14000,conf:true,quest:'Withering Heights',
+ summon:"Collect the three curse fragments (Grief, Rage, Despair) to break the seal on the tower.",
+ find:"Grief: the Emberwood shrines. Rage: inside Vekchenven Kara, under a waterfall. Despair: Silverthorn Keep, past a green dragon. You collect them again for every rematch.",
+ weak:[],res:[],imm:['Poison','Burning','Bleed'],
+ attacks:['Ground stomps (dodge-roll them)','An outer ring of fire: stand in the centre of the arena','Spectral Mode: enter the Soulscourge to ground her and kill the Rot adds','Her specter form sends lost souls and ghost wolves at anyone who Soul Rifts too long'],
+ drop:"Imaru's head, Dragoncurse Shield (and its Masterwork recipe), Tome of the Undying, Undead Draconic Visage, power level 5 Ascension shards",
+ unlocks:'Dowdun Reach',
+ prep:['Steel armour (power level 5)','All three curse fragments','A Lodestone just outside the tower','Healing potions and food','Your strongest style: she has no weakness'],
+ tip:"Hug her legs for melee damage, stay central when the fire ring spawns, and clear the Rot adds in Spectral Mode before finishing her."},
+{id:'titan',n:'Black Knight Titan',short:'Titan',region:'Dowdun Reach',where:"Black Knight's Fortress (The Bastion)",pl:6,hp:14000,conf:true,quest:"Black Knight's Fortress",
+ summon:"Reach the end of Black Knight's Fortress. To fight again, wait in the arena for 55 seconds after a kill and a Titan Seal appears in the middle of the room.",
+ find:"The Bastion is the last area of Dowdun Reach; its far door opens into Umbral Sands.",
+ weak:['Crush','Water'],res:['Fire','Slash'],imm:['Burning','Bleed','Poison'],
+ attacks:['Leap','Earthquake','Stone Edge','Melee swings when abilities are on cooldown','Overhead swings and a stomp that a normal shield can’t block (use Tempest Shield or dodge)','Phase two adds fire'],
+ drop:"Broken Titan's Wrath (guaranteed), 20–30 Ascension shards",
+ unlocks:'Umbral Sands',
+ prep:['Mithril armour (power level 6)','A mithril mace or warhammer (Crush), not the Black Greataxe','Water runes, or enchanted iron bolts','No fire runes or fire arrows','Tempest Shield','Arrive rested: Summon Shelter is blocked in the Bastion'],
+ tip:"Crush and Water. It's the only world boss with a weakness, so build for it."},
+{id:'fuzan',n:'Fuzan',short:'Fuzan',region:'Umbral Sands',where:'The Burning Spire',pl:7,hp:16000,conf:false,quest:"Icthlarin's Little Helper",
+ summon:"Win over the three Moon Garou clans to repair the mirrors that light his tower, then clear the ten-wave Trials of Fuzan. The Spire pedestal also offers the 30-wave Fight Cave, which ends with Fuzan and gives the Fire Cape.",
+ find:"Icthlarin's Little Helper starts at the door to Umbral Sands.",
+ weak:['Water (one guide)'],res:['Fire'],imm:['Poison','Bleed','Burning'],
+ attacks:['Eight phases','A hazardous floor from the first phase on','Fire breath cone that one-shots anyone not behind a pillar','Hunts with red dragons at night'],
+ drop:'Fuzan drops, the Fire Cape (Fight Cave route only)',
+ unlocks:'Regicide and the Scorned Wilderness',
+ prep:['Adamant armour (power level 7)','Water runes and enchanted iron bolts','Fire resistance','Know where the pillars are before phase one','Lots of healing'],
+ tip:"Watch the floor and keep a pillar between you and his breath. One guide calls him power level 6 and says he has no weakness, so check the Journal (J) on your first try."},
+{id:'kuldra',n:'Kuldra, the God-Eater',short:'Kuldra',region:'Scorned Wilderness',where:"Kuldra's Sanctum, end of the Scorned Wilderness raid",pl:null,hp:null,conf:false,quest:'Regicide',
+ summon:"Finish Icthlarin's Little Helper, open the Dragon Gate north-west of the Fractured Plains to start Regicide, fight through the raid and enter Kuldra's Sanctum.",
+ find:"Commander Zilyana waits at Rasthin's Rest. Talk to her again when you're ready to fight.",
+ weak:[],res:[],imm:[],
+ attacks:['Phases 1–3: gather elemental Anima from dragons, power the pylon, make an Anima Orb, load the Harmonic Resonator and fire it at Kuldra','Phase 1: Water (or Earth) Anima from a blue dragon. At about 75% Zilyana raises a barrier: get inside or die','Phase 2: kill the red dragon hatchling for Fire Anima to open the Anima Orb Dispenser. Another barrier at about 50%','Phase 3: Fire and Water Anima together','The beam: get out of its path or hide behind the green crystals; stop using machinery when it starts','Elemental ground attacks with tells on the floor','Phase 4: inside Kuldra. Kill Kuldra’s Heart while heartworms spawn and poison builds up'],
+ drop:'Regicide Reward Pack, Dragon Kiteshield, Dragonslayer’s Cape, Queenslayer’s Reward Pack, full access to the raid. Dragon gear (power level 9, ○)',
+ unlocks:'The end of Kuldra’s Saga',
+ prep:['Power level 7+ armour and weapons (Rune is better)','A ranged weapon for the dragons and the heart','Antipoison potions for phase 4','Plenty of food and healing','A Lodestone at Rasthin’s Rest','Adamant or better pickaxe and axe for the raid'],
+ tip:"It's a puzzle fight more than a damage race. Each resonator hit is huge; spend your time on Anima, barriers and cover."}
+];
+
+/* Mini-bosses and vault bosses. */
+const MINIS=[
+{n:'Green dragon',where:"Emberwood, Dragon's Run, Hope's Fall, Silverthorn Keep (Fellhollow)",d:'Weak to Water. One guards the Despair fragment.',conf:true},
+{n:'Blue dragon',where:'Dowdun Reach',d:'About 4,000 health. Source of Water Anima in the Kuldra fight.',conf:false},
+{n:'Red dragon',where:'Umbral Sands, at night only',d:'Power level 7, about 5,000 health. Hunts alongside Fuzan.',conf:false},
+{n:'Black dragon',where:'Shattered Stronghold, Scorned Wilderness',d:'Killing it opens the next raid zone. Drops Ascension shards.',conf:false},
+{n:'Abyssal Demon',where:'Dowdun Reach',d:'Source of the Abyssal Whip (its progression was fixed in 1.0.0.5).',conf:false},
+{n:'Garou King',where:'Ghornfell',d:'Leader of the Garou packs.',conf:false},
+{n:'Zogre',where:'Fellhollow',d:'Big undead ogre.',conf:false},
+{n:'Vault bosses',where:'Vaults across Ashenfall (blue gate icon on the map)',d:'The Rat King, Vault Pyroclast, Vault Striker, Vault Corruptor, Vault Incinerator, Vault Overlord, Vault Archon and the Plague King.',conf:false}
+];
+
+/* Quests. The main chain gates each region. */
+const MAINQ=[
+{n:'First Steps',r:'Brynmoor',d:'Tutorial in Temple Woods: wake up, gather, craft your first tools.'},
+{n:'Getting Started',r:'Brynmoor',d:'Tutorial: build your first stations and a shelter.'},
+{n:'Ratcatcher',r:'Brynmoor',d:'Tutorial: your first fights, against rats.'},
+{n:'Rune Mysteries',r:'Brynmoor',d:'Tutorial: rune essence, the Rune Altar and your first spells.'},
+{n:'Dragon Slayer',r:'Ghornfell',d:"Craft the Challenge Horn, kill General Velgar and take his head to the Wise Old Man. Unlocks Fellhollow."},
+{n:'Withering Heights',r:'Fellhollow',d:"Gather the curse fragments and kill Imaru at Hope's Fall. Unlocks Dowdun Reach."},
+{n:"Black Knight's Fortress",r:'Dowdun Reach',d:'Fight through the fortress and kill the Black Knight Titan. Opens the Bastion door to Umbral Sands.'},
+{n:"Icthlarin's Little Helper",r:'Umbral Sands',d:'Win over three Moon Garou clans (nine clan tasks), clear the Trials of Fuzan and kill Fuzan.'},
+{n:'Regicide',r:'Scorned Wilderness',d:"Open the Dragon Gate, meet Zilyana at Rasthin's Rest, kill Kuldra and bring her head back. The finale of Kuldra's Saga."}
+];
+const SIDEQ=[
+{n:'Shrimp Catcher',r:'Brynmoor',d:'Craft a Coarse Net, then talk to the Wise Old Man. Teaches Fishing. Reward: Tome of Fishing Vol. 1, 3 feather bait.',conf:true},
+{n:'Growing Pains',r:'Brynmoor',d:'Make a wooden watering can or spade. Dig a plot, grow wheat. Unlocks Farming. Reward: plant cures, Tome of Farming Vol. 2, Farming level 3.',conf:true},
+{n:'Moon Garou clan tasks (×9)',r:'Umbral Sands',d:"Three camps, three tasks each, inside Icthlarin's Little Helper.",conf:true}
+];
+
+/* Skills. g = group. ul = known unlocks [level, name, what it does]. */
+const SKILLS=[
+{n:'Attack',g:'Combat',d:'Melee weapons. Trains by hitting things with them.',ul:[[11,'Tempest Shield','A spell shield (15 Air runes) that blocks what a normal shield can’t.'],[16,'Weapon Expertise','Perk for your melee weapons.'],[20,'Enchant Weapon: Fire','Fire on your weapon; crits can burn (○ level 20 or 25).'],[30,'Enchant Weapon: Air','Faster melee attacks.'],[null,'Enchant Weapon: Water','Added in 1.0.']]},
+{n:'Ranged',g:'Combat',d:'Shortbows, longbows and crossbows. Trains by landing shots.',ul:[[null,'Bow and crossbow perks','See the in-game tree (K).']]},
+{n:'Magic',g:'Combat',d:'Wands and staves, plus combat spells. Trains by casting.',ul:[[11,'Surge',''],[30,'Confuse',''],[61,'Enfeeble','Weakens a target’s attacks. Added in 1.0.'],[80,'Vengeance','Reflects damage back at attackers. Added in 1.0.']]},
+{n:'Prayer',g:'Combat',d:'Coming in the Luminance update (December 2026): altars, offerings, burying bones and prayer points.',ul:[],soon:true},
+{n:'Mining',g:'Gathering',d:'Stone, clay, ore and rune essence.',ul:[[5,'Lift With Your Hips','Stone, clay and sand weigh 25% less.'],[11,'Rocksplosion','Blast boulders and ore apart (15 Earth, 5 Fire runes).'],[16,'Gem Prospector',''],[24,'Detect Ore and Clay','']]},
+{n:'Woodcutting',g:'Gathering',d:'Logs from each region’s trees.',ul:[[11,'Axtral Projection','An astral axe chops every tree in its path (5 Astral, 10 Air). The 1.0 upgrade throws three. (○ some list 45)'],[27,'Splinter','']]},
+{n:'Fishing',g:'Gathering',d:'Nets at net spots, rods at rod spots. Starts with Shrimp Catcher.',ul:[[1,'Coarse Net',''],[3,'Rods','The rod minigame: cast, fight, reel.'],[10,'Fishing Frenzy','Enchant a spot for an extra catch.'],[49,'Better nets','Net catch chance goes up a lot.']]},
+{n:'Farming',g:'Gathering',d:'Plots, seeds, water and compost. Unlocked by Growing Pains.',ul:[[10,'Compost Bin and Bucket',''],[15,'Uproot',''],[20,'Tree Farming',''],[42,'Iron Secateurs','More yield.'],[60,'Super Compost Bin',''],[74,'Rapid Growth','Push a crop one growth stage.']]},
+{n:'Runecrafting',g:'Artisan',d:'Turns rune essence into runes at the Rune Altar.',ul:[[1,'Air runes',''],[3,'Astral runes',''],[8,'Windstep','(○ now on Agility after 0.12.1?)'],[11,'Water runes',''],[15,'Earth runes',''],[25,'Fire runes',''],[38,'Nature runes',''],[50,'Law runes',''],[81,'Better recycling','Runes to Rune Essence refunds 60% instead of 40%.']]},
+{n:'Construction',g:'Artisan',d:'Building your base. XP from placing pieces and furniture.',ul:[[3,'Middle Ground',''],[11,'Eye of Oculus','A scouting spell.'],[40,'Personal Chest','A spell for weightless extra storage on long trips.']]},
+{n:'Artisan',g:'Artisan',d:'Crafting at benches: tools, gear, processing.',ul:[[11,'Bark to Bones','(10 Nature, 10 Earth)'],[56,'Magical Mending','Repair gear with a spell (10 Nature, 20 Earth). (○ some list 27)']]},
+{n:'Cooking',g:'Artisan',d:'Meals at the Campfire and Cooking Range. Better food, longer perks.',ul:[[null,'Recipes','Each recipe you cook unlocks the next; perks last longer at higher levels (○).']]},
+{n:'Agility',g:'Support',d:'Trains passively while you run, and faster on the six timed courses.',ul:[[1,'Brynmoor courses',''],[5,'Windstep (○)',''],[10,'Double Jump','(○ some list 25)'],[15,'Ghornfell courses',''],[30,'Fellhollow courses',''],[32,'Air Dash','(○ some list 35)'],[44,'Phase Dash',''],[50,'More carry weight',''],[51,'Dowdun Reach courses',''],[75,'More carry weight','']]}
+];
+
+/* Spells. runes: {type:count}. cd in seconds. */
+const RUNES=['Air','Water','Earth','Fire','Astral','Nature','Law'];
+const SPELLS=[
+{n:'Tempest Shield',s:'Attack',l:11,runes:{Air:15},cd:'45–60',conf:false,d:'A spell shield that blocks hits a normal shield can’t.'},
+{n:'Enchant Weapon: Fire',s:'Attack',l:20,runes:{Fire:15,Astral:5},cd:'90 or 300',conf:false,d:'Fire on your melee weapon; crits can burn.'},
+{n:'Enchant Weapon: Air',s:'Attack',l:30,runes:{Air:15,Astral:5},cd:'',conf:true,d:'Faster melee attacks.'},
+{n:'Enchant Weapon: Water',s:'Attack',l:null,runes:null,cd:'',conf:false,d:'Added in 1.0. Water damage on your weapon (good on the Titan).'},
+{n:'Surge',s:'Magic',l:11,runes:null,cd:'',conf:false,d:'Combat spell.'},
+{n:'Confuse',s:'Magic',l:30,runes:null,cd:'',conf:false,d:'Combat debuff.'},
+{n:'Enfeeble',s:'Magic',l:61,runes:{Astral:20,Water:20},cd:'75',conf:true,d:'Weakens the target’s attacks.'},
+{n:'Vengeance',s:'Magic',l:80,runes:{Astral:20,Earth:10},cd:'',conf:true,d:'Reflects incoming damage at the attacker.'},
+{n:'Rocksplosion',s:'Mining',l:11,runes:{Earth:15,Fire:5},cd:'',conf:true,d:'Breaks boulders and ore. Also knocks down floating rune essence.'},
+{n:'Axtral Projection',s:'Woodcutting',l:11,runes:{Astral:5,Air:10},cd:'',conf:false,d:'Astral axe that fells every tree in its path.'},
+{n:'Eye of Oculus',s:'Construction',l:11,runes:null,cd:'',conf:true,d:'Scouting.'},
+{n:'Personal Chest',s:'Construction',l:40,runes:null,cd:'',conf:true,d:'Weightless extra storage.'},
+{n:'Bark to Bones',s:'Artisan',l:11,runes:{Nature:10,Earth:10},cd:'300',conf:true,d:''},
+{n:'Magical Mending',s:'Artisan',l:56,runes:{Nature:10,Earth:20},cd:'60',conf:false,d:'Repairs your gear on the spot.'},
+{n:'Windstep',s:'Runecrafting / Agility',l:8,runes:null,cd:'',conf:false,d:'A movement burst.'},
+{n:'Runes to Rune Essence',s:'Runecrafting',l:null,runes:null,cd:'',conf:true,d:'Recycles runes you don’t need into 40% of their essence (60% from level 81).'},
+{n:'Fishing Frenzy',s:'Fishing',l:10,runes:null,cd:'',conf:true,d:'One extra catch from the enchanted spot.'},
+{n:'Rapid Growth',s:'Farming',l:74,runes:null,cd:'',conf:true,d:'Pushes a crop one growth stage.'},
+{n:'Superheat',s:'Artisan / Mining',l:null,runes:null,cd:'',conf:false,d:'Smelts ore without a furnace.'}
+];
+
+/* Gear by power level. */
+const GEAR=[
+{pl:1,reg:'Brynmoor',mel:'Starter melee',rng:'Starter bow',mag:'Starter wand',mat:'Ash logs, hides, stone',conf:false},
+{pl:2,reg:'Brynmoor',mel:'Early sets',rng:'Early leather',mag:'Early robes',mat:'Brynmoor materials',conf:false},
+{pl:3,reg:'Ghornfell',mel:'Bronze',rng:'Hard leather',mag:'Tier 3 robes',mat:'Bronze bars (3 copper + 3 tin = 2 bars)',conf:true},
+{pl:4,reg:'Ghornfell',mel:'Iron (or Paladin’s, a sidegrade)',rng:'Green dragonhide (○)',mag:'Tier 4 robes',mat:'Iron bars, leather, Vault shards',conf:true},
+{pl:5,reg:'Fellhollow',mel:'Steel',rng:'Green / Blue dragonhide (○)',mag:'Tier 5 robes',mat:'Steel bars, Draconic leather, Sacred oil',conf:true},
+{pl:6,reg:'Dowdun Reach',mel:'Mithril (or Black Knight, a sidegrade)',rng:'Blue dragonhide (○)',mag:'Mystic robes (○)',mat:'Mithril bars, Cursed leather, Mystic cloth, Demonic oil',conf:true},
+{pl:7,reg:'Umbral Sands',mel:'Adamant (or Obsidian, a sidegrade)',rng:'Red dragonhide',mag:'Tier 7 robes',mat:'Adamant materials, obsidian',conf:true},
+{pl:8,reg:'Scorned Wilderness',mel:'Rune',rng:'Black dragonhide',mag:'Ancestral robes',mat:'Rune materials (1.0)',conf:true},
+{pl:9,reg:'Kuldra',mel:'Dragon',rng:'—',mag:'—',mat:'Dropped by Kuldra',conf:false}
+];
+const TOOLS=[['Brynmoor','Ash','Ash','Bronze (○)'],['Ghornfell','Oak','Oak','Iron'],['Fellhollow','Willow','Willow','Steel'],['Dowdun Reach','Maple','Maple (○)','Mithril'],['Umbral Sands','Yew','Yew','Adamant'],['Scorned Wilderness','—','—','Adamant or better']];
+
+/* Bestiary. w = weak to, r = resists, i = immune. */
+const CREATURES=[
+{n:'Goblin Warrior',reg:'Brynmoor → Dowdun Reach',pl:'2–6',w:'Fire',r:'',i:'',conf:false,d:'Scales with the region: 140 health in Brynmoor, 490 in Dowdun Reach. The Journal lists Magic and Air instead.'},
+{n:'Goblin Bruiser',reg:'Brynmoor',pl:'2',w:'Fire',r:'',i:'',conf:false,d:'Heavy hitter. Dodge the slam.'},
+{n:'Goblin Archer',reg:'Brynmoor',pl:'2',w:'Stab',r:'',i:'',conf:false,d:'Close the gap or block.'},
+{n:'Garou Hunter',reg:'Ghornfell',pl:'3–4',w:'Air, Stab',r:'',i:'',conf:false,d:'260 health (Fractured Plains), 360 (Stormtouched). Causes Bleeding.'},
+{n:'Garou Berserker',reg:'Ghornfell',pl:'3–4',w:'Ranged / Fire',r:'Air / Earth',i:'',conf:false,d:'Sources disagree. Check its Journal (J) entry.'},
+{n:'Garou Druid',reg:'Ghornfell',pl:'3–4',w:'',r:'',i:'',conf:false,d:'Caster. Kill it first.'},
+{n:'Garou Thane',reg:'Ghornfell',pl:'3–4',w:'',r:'',i:'',conf:false,d:'Pack leader.'},
+{n:'Green dragon',reg:'Fellhollow',pl:'5',w:'Water',r:'',i:'',conf:true,d:'Mini-boss.'},
+{n:'Black Knight',reg:'Dowdun Reach',pl:'6',w:'Crush (○)',r:'Slash (○)',i:'',conf:false,d:'Armoured; maces work.'},
+{n:'Blue dragon',reg:'Dowdun Reach',pl:'6',w:'',r:'',i:'',conf:false,d:'About 4,000 health.'},
+{n:'KotHaar-Hur / -Ket / -Xil',reg:'Umbral Sands',pl:'7',w:'Water',r:'Fire, Arrows',i:'',conf:true,d:'Bring water runes.'},
+{n:'KotHaar-Mej',reg:'Umbral Sands',pl:'7',w:'Ranged',r:'Air',i:'',conf:true,d:'The odd one out.'},
+{n:'Kalphite Guardian',reg:'Umbral Sands',pl:'7',w:'',r:'Crush, Slash, Stab, Ranged, Air, Water',i:'',conf:false,d:'2,475 health. Fire and Earth are what’s left.'},
+{n:'Red dragon',reg:'Umbral Sands (night)',pl:'7',w:'',r:'',i:'',conf:false,d:'About 5,000 health.'},
+{n:'Black dragon',reg:'Scorned Wilderness',pl:'8',w:'',r:'',i:'',conf:false,d:'Guards the Shattered Stronghold.'},
+{n:'Stormpact Demon',reg:'Scorned Wilderness',pl:'8',w:'',r:'',i:'',conf:false,d:'New in 1.0.'}
+];
+
+/* Food and potions. */
+const FOOD=[
+{n:'Vegetable Soup',hp:40,sus:50,perk:'',ing:'Vegetables',conf:true},
+{n:'Hearty Meat Stew',hp:null,sus:null,perk:'',ing:'Raw bird meat, potatoes',conf:false,note:'Good early Cooking XP.'},
+{n:'Spicy Meat Stew',hp:null,sus:null,perk:'',ing:'Raw rat meat, cabbage',conf:false,note:'Good early Cooking XP.'},
+{n:'Grilled Mushroom',hp:null,sus:null,perk:'Fungal Fortitude (poison resistance)',ing:'Bittercap mushroom',conf:false},
+{n:'Fortifying Stew',hp:null,sus:null,perk:'Poison resistance',ing:'2 Bittercap mushroom, 2 any meat',conf:true},
+{n:'Kebab',hp:null,sus:null,perk:'Fungal Fortitude: poison resistance for 900 s',ing:'6 raw bestial meat, 6 raw farm meat, 4 onion, 4 bittercap',conf:true,note:'The late-game poison answer (Velgar, Kuldra’s heart).'},
+{n:'Wild Pie',hp:90,sus:110,perk:'Grounded: −50% shock damage for 900 s',ing:'Farm meat, game meat, redberries, dwellberries (recipe varies by source)',conf:false,note:'For the Stormtouched Highlands.'},
+{n:'Meat Pizza',hp:90,sus:110,perk:'Meaty Meal (600 s); helps against Bleeding',ing:'Meat, dough, toppings',conf:false,note:'For Garou Hunters.'},
+{n:'Berry Pie',hp:null,sus:null,perk:'',ing:'Berries, pastry',conf:false,note:'A big single heal.'}
+];
+const POTIONS=[
+{n:'Antipoison',ing:'Harralander, Bittercap mushroom',eff:'Cures and protects against poison.',conf:true},
+{n:'Weak Healing',ing:'Harralander, Redberries',eff:'A small heal.',conf:true},
+{n:'Healing',ing:'Snapdragon, 2 Dwellberries',eff:'A bigger heal.',conf:false},
+{n:'Lumberjack',ing:'Harralander, Antler',eff:'Woodcutting costs less stamina.',conf:true},
+{n:'Quarrymaster',ing:'Harralander, Clay',eff:'Mining costs less stamina.',conf:true},
+{n:'Attack',ing:'Snapdragon, Ground granite',eff:'Stronger melee.',conf:true},
+{n:'Focused (Artisan, Attack, Construction, Cooking, Mining, Runecrafting, Woodcutting)',ing:'Marrentill plus a second ingredient',eff:'More XP in that skill.',conf:true}
+];
+
+/* Fish ladder. */
+const FISH=[
+{r:'Brynmoor',pl:'1–2',fish:'Shrimp, sardine, trout',spots:'23 net, 13 rod',rod:'Ash'},
+{r:'Ghornfell',pl:'3–4',fish:'Anchovies, salmon',spots:'23 net, 10 rod',rod:'Oak'},
+{r:'Fellhollow',pl:'5',fish:'Fellhollow fish',spots:'38 net, 19 rod',rod:'Willow'},
+{r:'Dowdun Reach',pl:'6',fish:'Giant krill, armoured catfish (Courtyard, Grand Hall, Pastures)',spots:'10 net, 7 rod',rod:'Maple'},
+{r:'Umbral Sands',pl:'7',fish:'Lobster, monkfish (○)',spots:'—',rod:'Yew'}
+];
+
+/* Update history and roadmap. */
+const TIMELINE=[
+['2025-04-15','Early Access on Steam (0.7)','Brynmoor and Ghornfell, General Velgar, seven skills.',true],
+['2025-12','Farming (○)','Farming arrives, capped at 65 at first.',false],
+['2026-01-29','Level cap 99','Jagex announces every skill goes to 99 (it had been 50).',true],
+['2026-03-31','0.11.0 Dowdun Reach','The Black Knights’ fortress and Titan. New rune crafting: Attune and Auto Craft.',true],
+['2026-06-23','0.12.0 Umbral Sands','The desert, Moon Garou, KotHaar, Fuzan and the Fight Cave. Equipment split across specialist benches.',true],
+['2026-07','0.12.1','Agility rework.',false],
+['2026-09-15','1.0 release','Consoles and crossplay, the Scorned Wilderness, Regicide and Kuldra, sprint attacks, Enchant Weapon: Water, Enfeeble, Vengeance, Rune, Black Dragonhide, Ancestral and Dragon gear, 2,665 bug fixes.',true],
+['2026-09','1.0.0.4 and 1.0.0.5','Hotfixes for corrupted saves, multiplayer, dedicated servers, raid AI and the Abyssal Whip.',true],
+['2026-10','1.0.1 (planned)','Smaller update; Magic tree seeds are rumoured.',false],
+['2026-12','Luminance (planned)','Free update with the Prayer skill.',true],
+['2027','Song of Rebellion (planned)','The Hunter skill: track and trap creatures.',false],
+['2027','Slayer (planned)','A Slayer skill in a quarterly update.',false]
+];
+
+/* Progression checklist. */
+const PROG=[
+['Brynmoor','Finish First Steps and Getting Started'],['Brynmoor','Build a bed, storage and a Crafting Table'],['Brynmoor','Finish Ratcatcher'],['Brynmoor','Build the Rune Altar and finish Rune Mysteries'],['Brynmoor','Smelt your first bronze bar'],['Brynmoor','Build a Lodestone'],['Brynmoor','Shrimp Catcher (Fishing)'],['Brynmoor','Growing Pains (Farming)'],['Brynmoor','Brew an Antipoison potion'],
+['Ghornfell','Full Bronze, then Iron (power level 4)'],['Ghornfell','Get a Dragon Tooth from the Stormtouched Highlands'],['Ghornfell','Craft the Challenge Horn'],['Ghornfell','Kill General Velgar'],['Ghornfell','Hand Velgar’s head to the Wise Old Man (Dragon Slayer)'],
+['Fellhollow','Full Steel (power level 5)'],['Fellhollow','Grief fragment (Emberwood)'],['Fellhollow','Rage fragment (Vekchenven Kara)'],['Fellhollow','Despair fragment (Silverthorn Keep)'],['Fellhollow','Kill Imaru (Withering Heights)'],
+['Dowdun Reach','Full Mithril (power level 6)'],['Dowdun Reach','Reach the Bastion'],['Dowdun Reach','Kill the Black Knight Titan'],
+['Umbral Sands','Full Adamant (power level 7)'],['Umbral Sands','Win over all three Moon Garou clans'],['Umbral Sands','Clear the Trials of Fuzan and kill Fuzan'],['Umbral Sands','Fire Cape from the 30-wave Fight Cave'],
+['Scorned Wilderness','Open the Dragon Gate (start Regicide)'],['Scorned Wilderness','Lodestone at Rasthin’s Rest'],['Scorned Wilderness','Kill the black dragon in the Shattered Stronghold'],['Scorned Wilderness','Kill Kuldra'],['Scorned Wilderness','Rune, Black Dragonhide or Ancestral set'],['Scorned Wilderness','Make an Ascension Core and upgrade a Masterwork item'],
+['Skills','Any skill to 50'],['Skills','Any skill to 99'],['Skills','Every Agility course']
+];
+
+/* Guides. */
+const GUIDES=[
+{id:'start',title:'Your first hours',blurb:'Tutorial, first base, the first fights.',body:`
+<ol class="mech"><li>Do the four tutorial quests in Temple Woods first: <b>First Steps</b>, <b>Getting Started</b>, <b>Ratcatcher</b>, <b>Rune Mysteries</b>. They give you the Crafting Table, Campfire and Rune Altar.</li>
+<li>Build a small base near trees, stone and water. A bed (your respawn point), a chest and the stations. Move later.</li>
+<li>Keep four bars up: <b>health</b>, <b>stamina</b>, <b>sustenance</b> (food) and <b>hydration</b> (clean water). Sleep to stay rested.</li>
+<li>Pick up every <b>rune essence</b>. It hangs in floating rocks over glowing geysers: knock them down with a bow, staff or Rocksplosion, then mine them.</li>
+<li>Find clay for the <b>Kiln</b>, <b>Pottery Wheel</b> and <b>Brewing Cauldron</b>. Clay Vessels hold every potion.</li>
+<li>Smelt <b>bronze</b> in the Furnace (3 copper + 3 tin = 2 bars). Your first bar opens the Loom, Sawmill, Tanner's Kit, Blacksmith's Bench and Armour Bench (○).</li>
+<li>Talk to the <b>Wise Old Man</b> in Bramblemead for Shrimp Catcher and Growing Pains.</li>
+<li>Look for vaults (a small blue gate on the map) for <b>vault shards</b> and <b>cores</b>. Cores build Lodestones.</li></ol>
+<div class="tip">Don't go into a higher power level region early. Enemies scale to the region, not to you.</div>`},
+{id:'power',title:'Power level explained',blurb:'Why that wolf one-shots you.',body:`
+<ul class="mech"><li>Every enemy has a <b>power level</b> set by the region it lives in. The same goblin is level 2 in Brynmoor and level 6 in Dowdun Reach.</li>
+<li><b>Your</b> power level comes from your armour: no armour is 0, a full Steel set is 5. Mixed pieces are averaged and rounded down, so one old piece drops the whole set a step.</li>
+<li>Fighting above your level hurts a lot; matching it is fair; one level above is a real challenge.</li>
+<li><b>Ascension Cores</b> (99 Ascension shards and materials) raise a Masterwork item's power level by one at the Mystic Forge.</li></ul>
+<p><a class="mob" href="#power">Open the power level calculator →</a></p>`},
+{id:'combat',title:'Combat in 1.0',blurb:'Stamina, parries, styles and damage types.',body:`
+<ul class="mech"><li>Attacks, blocks, dodges and sprints share one <b>stamina</b> bar. Back off and let it refill when a group chases you.</li>
+<li><b>Parry</b>: block just before a parryable hit lands. It stuns the enemy, opens a follow-up and gives back stamina (about half your bar in 1.0). Some heavy attacks can't be parried.</li>
+<li><b>Sprint attacks</b> are new in 1.0: hit while sprinting for a gap-closer.</li>
+<li><b>Melee</b> has Stab, Slash and Crush. One-handers take a shield; two-handers hit much harder.</li>
+<li><b>Ranged</b>: shortbows fire fast, longbows hit hard at range, crossbows go with a shield. Zooming a bow costs no stamina.</li>
+<li><b>Magic</b>: wands are fast and take a shield; staves are two-handed and hit harder. Elements are Air, Water, Earth and Fire.</li>
+<li>Status effects: <b>Poison</b>, <b>Burning</b>, <b>Bleed</b> and <b>Shock</b>. Many bosses are immune to some.</li>
+<li>Press <b>J</b> for the Journal: it shows each creature's weaknesses once you've met it.</li></ul>`},
+{id:'base',title:'Bases and Lodestones',blurb:'Where to build, fast travel, respawns.',body:`
+<ul class="mech"><li>Build near trees, stone and water. Linked chests share materials within a radius (a sparkle shows it).</li>
+<li><b>Lodestones</b> are fast travel. They need Vault cores; you need at least two to travel. Teleports use Law runes (○).</li>
+<li>Build a small cottage with a bed at each dungeon entrance and boss arena: it's your respawn.</li>
+<li>Put a Lodestone outside every boss: Hope's Fall, the Bastion, Rasthin's Rest.</li>
+<li><b>Summon Shelter</b> gives you a quick rest in the field, but it's blocked in some places (the Bastion).</li></ul>
+<p><a class="mob" href="#lodestones">Open the Lodestone log →</a></p>`},
+{id:'magic',title:'Magic and runes',blurb:'Essence, the altar, vents and spell costs.',body:`
+<ul class="mech"><li>Seven runes: <b>Air, Water, Earth, Fire, Astral, Nature, Law</b>. Runecrafting unlocks them in order (Law at 50).</li>
+<li>At the Rune Altar, <b>Attune</b> gives up to 10 runes per essence and full XP through a short minigame; <b>Auto Craft</b> is instant at 5 per essence and 25% XP (since 0.11.0).</li>
+<li><b>Anima vents</b> out in the world give up to 30 runes per essence with no level requirement. Less XP, but it's how you get Law or Nature runes early.</li>
+<li>Most spells live in the gathering and crafting trees, not Magic, but they still cost runes.</li>
+<li>Recycle runes you don't use with <b>Runes to Rune Essence</b>.</li></ul>
+<p><a class="mob" href="#spells">Spells and the rune planner →</a> · <a class="mob" href="#runecraft">Runecrafting calculator →</a></p>`},
+{id:'fishing',title:'Fishing',blurb:'Nets, rods, bait and where the fish are.',body:`
+<ul class="mech"><li>Net spots and rod spots are different. Carry both.</li>
+<li>Rods open at level 3. The minigame is cast, fight, reel. A bad cast costs nothing; strafing the wrong way wastes stamina.</li>
+<li><b>Bait picks the fish</b>: Shrimp bait catches shrimp, Lobster bait catches lobster. No bait means more junk.</li>
+<li>Each region has a best rod: Ash, Oak, Willow, Maple, Yew.</li>
+<li>Level fast with nets, then rods with Fishing Frenzy (level 10).</li></ul>
+<p><a class="mob" href="#fishing">Fish by region →</a></p>`},
+{id:'farming',title:'Farming',blurb:'Plots, water, compost and disease.',body:`
+<ul class="mech"><li>Unlock it with <b>Growing Pains</b>.</li>
+<li>The loop: weed the plot, sow, fertilise, <b>water every day</b>, cure disease, harvest.</li>
+<li>Seeds take about <b>two in-game days</b>, growing at the start of each day.</li>
+<li>Each region has its own plot tier (Ash, Oak, Willow, Yew). Plant seeds in their matching plot.</li>
+<li>Compost raises yield; super compost (level 60) more so. Iron Secateurs (42) add more.</li></ul>
+<p><a class="mob" href="#farming">Plot log →</a></p>`},
+{id:'raid',title:'The Scorned Wilderness raid',blurb:'Regicide, the zones and Kuldra.',body:`
+<ul class="mech"><li>Finish Icthlarin's Little Helper, then use the <b>Dragon Gate</b> north-west of the Fractured Plains.</li>
+<li>Talk to <b>Commander Zilyana</b> at <b>Rasthin's Rest</b> (set a Lodestone there).</li>
+<li>Push through Dragontail Vines and the Shattered Stronghold. The black dragon there opens the way on.</li>
+<li>Kuldra is a four-phase puzzle fight. <a class="mob" href="#bosses/kuldra">See the Kuldra page →</a></li>
+<li>Every run starts again in Dragontail Vines.</li></ul>
+<div class="note">1.0 is weeks old and guides disagree on details (which Anima starts phase 1, the spelling of Zilyana). Trust what you see.</div>`},
+{id:'multi',title:'Multiplayer and servers',blurb:'Hosted worlds, dedicated servers, crossplay.',body:`
+<ul class="mech"><li><b>Hosted world</b>: up to 4 players including the host. It only exists while the host is in it.</li>
+<li><b>Dedicated server</b>: up to 6 players, always online.</li>
+<li><b>Crossplay</b> (1.0): PC, PlayStation 5 and Xbox Series X|S (Switch 2 ○). The host turns it on per world.</li>
+<li>No cross-save: a PC world doesn't move to console.</li>
+<li>Can console players join community dedicated servers? Not confirmed.</li></ul>`},
+{id:'mistakes',title:'Common mistakes',blurb:'Things everyone learns the hard way.',body:`
+<ul class="mech"><li>Wearing one old armour piece: the average rounds down and you drop a power level.</li>
+<li>Fighting Velgar without antipoison.</li>
+<li>Using fire or slash on the Black Knight Titan.</li>
+<li>Selling or ignoring rune essence early.</li>
+<li>Forgetting to water crops every day.</li>
+<li>No Lodestone near a boss, so every death is a long walk.</li>
+<li>Reading a 2025 guide: the level cap, rune crafting and benches all changed.</li></ul>`}
+];
+
+/* Timer presets: [name, minutes, confirmed]. */
+const TPRESETS=[['Crop (2 in-game days)',60,false],['Spell cooldown 5 min',5,true],['Enfeeble cooldown',1.25,true],['Food perk 900 s',15,true],['Meaty Meal 600 s',10,true],['Titan Seal (55 s)',0.92,true]];
+
+/* ================= STATE ================= */
+let S={checks:{},prog:{},quests:{},bossDone:{},bossPrep:{},levels:{},armour:{head:0,chest:0,legs:0},spellPlan:{},lodes:[],plots:[],timers:[],notes:'',customQ:[]};
+try{const x=JSON.parse(localStorage.getItem('dw_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('dw_state',JSON.stringify(S));}catch(e){}};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const mark=c=>c?'<span class="conf" title="Several guides agree, or from Jagex">●</span>':'<span class="unv" title="Sources disagree, single source, or changed recently; check in-game">○</span>';
+const tags=(a,c)=>(a||[]).filter(Boolean).map(x=>`<span class="tag ${c}" style="margin:0 4px 2px 0">${esc(x)}</span>`).join('');
+const tagS=(s,c)=>tags(s?s.split(/,\s*/):[],c);
+const bossOf=id=>BOSSES.find(b=>b.id===id);
+const regOf=id=>REGIONS.find(r=>r.id===id);
+function dur(ms){const s=Math.max(0,Math.round(ms/1e3)),h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+'h ':'')+String(m).padStart(h?2:1,'0')+'m '+String(x).padStart(2,'0')+'s';}
+const myPL=()=>Math.floor(((+S.armour.head||0)+(+S.armour.chest||0)+(+S.armour.legs||0))/3);
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Home'],
+ ['_'],['guides','Guides'],['regions','Regions'],['quests','Quests'],['bosses','Bosses'],['creatures','Bestiary'],
+ ['_'],['skills','Skills'],['spells','Spells and runes'],['power','Power level'],['gear','Gear tiers'],
+ ['_'],['food','Food and potions'],['runecraft','Runecrafting'],['fishing','Fishing'],['farming','Farming'],
+ ['_'],['progress','Progression'],['lodestones','Lodestone log'],['timers','Timers'],['updates','Updates and roadmap'],['notes','My Notes']];
+const GROUPS=['Ashenfall','Your character','Crafting and gathering','Your world'];
+const REAL=PAGES.filter(p=>p[0]!=='_');
+function buildNav(cur){let gi=0;$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>DRAGONWILDS<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>id==='_'?`<div class="grp">${GROUPS[gi++]}</div>`:`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+
+const TILE={guides:'First hours, power level, combat, bases, magic, fishing, farming, the raid, multiplayer',regions:'All six regions with a progression map',quests:'The main chain and side quests, ticked off',bosses:'Velgar to Kuldra, with prep checklists',creatures:'Weaknesses and resistances',skills:'All 13 skills, key unlocks and your levels',spells:'Every known spell and a rune shopping list',power:'Work out your power level from your armour',gear:'Armour, weapons and tools per region',food:'Meals with perks and every potion',runecraft:'Essence to runes, by method',fishing:'Rods, bait and fish per region',farming:'Track your plots and watering',progress:'Brynmoor to Kuldra',lodestones:'Every fast-travel point',timers:'Cooldowns, crops, food perks',updates:'From Early Access to Prayer',notes:'Your own notes'};
+
+function pgHome(){
+  const done=PROG.filter((_,i)=>S.prog[i]).length,bosses=BOSSES.filter(b=>S.bossDone[b.id]).length,now=Date.now();
+  const mq=MAINQ.filter(q=>S.quests[q.n]).length,next=BOSSES.find(b=>!S.bossDone[b.id]),pl=myPL();
+  const nextQ=MAINQ.find(q=>!S.quests[q.n]);
+  return `${TWArt.hero(1374490,'RuneScape: Dragonwilds')}<h2>RuneScape: Dragonwilds Assistant</h2><p class="sub">A companion for <i>RuneScape: Dragonwilds</i> 1.0, from Temple Woods to Kuldra's Sanctum. Your quests, levels, armour, lodestones, plots, timers and notes are saved on this device.</p>
+<div class="stats"><div class="stat"><small>Your power level</small><a class="mob big" href="#power">${pl}</a></div><div class="stat"><small>Main quests</small><a class="mob big" href="#quests">${mq} / ${MAINQ.length}</a></div><div class="stat"><small>Next quest</small>${nextQ?`<a class="mob" href="#quests">${esc(nextQ.n)}</a>`:'<span class="ok">Kuldra’s Saga done</span>'}</div><div class="stat"><small>Bosses down</small><a class="mob big" href="#bosses">${bosses} / ${BOSSES.length}</a></div><div class="stat"><small>Next boss</small>${next?`<a class="mob" href="#bosses/${next.id}">${esc(next.short)}</a>`:'<span class="ok">All down</span>'}</div><div class="stat"><small>Progression</small><a class="mob" href="#progress">${done} of ${PROG.length}</a></div><div class="stat"><small>Lodestones</small><a class="mob" href="#lodestones">${S.lodes.length}</a></div><div class="stat"><small>Timers running</small><a class="mob" href="#timers">${S.timers.filter(t=>t.end>now).length}</a></div></div>
+<div class="grid">${REAL.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> are from Jagex or several guides that agree. Facts marked <span class="unv">○</span> come from one source, disagree between guides, or changed recently. Dragonwilds changed a lot in Early Access and 1.0 is only weeks old, so trust the in-game Journal (J) and skill tree (K) first.</div>`;}
+
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div>`;}
+  return `<h2>Guides</h2><p class="sub">Short, practical guides for 1.0.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
+}
+
+/* Progression map: regions as a path, unlocked in order by the main quests. */
+function regionMap(){
+  const P={brynmoor:[90,300],ghornfell:[230,220],fellhollow:[370,300],dowdun:[540,230],umbral:[540,90],scorned:[230,80]};
+  const link=(a,b,lbl)=>{const [x1,y1]=P[a],[x2,y2]=P[b],mx=(x1+x2)/2,my=(y1+y2)/2;return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#e0a63c88" stroke-width="3" stroke-dasharray="6 5"/><text class="lbl" x="${mx}" y="${my-6}" text-anchor="middle" font-size="10" fill="#e8d6bf">${esc(lbl)}</text>`;};
+  let s=link('brynmoor','ghornfell','tutorial')+link('ghornfell','fellhollow','Dragon Slayer')+link('fellhollow','dowdun','Withering Heights')+link('dowdun','umbral',"Black Knight's Fortress")+link('umbral','scorned',"Icthlarin's Little Helper");
+  for(const r of REGIONS){const [x,y]=P[r.id],b=r.boss&&bossOf(r.boss),done=b&&S.bossDone[b.id];
+    s+=`<a href="#regions/${r.id}" aria-label="${esc(r.n)}"><title>${esc(r.n)}: power level ${r.pl}</title><circle class="hit" cx="${x}" cy="${y}" r="44" fill="${r.col}" stroke="#100d0b" stroke-width="2"/>
+<text class="lbl" x="${x}" y="${y-2}" text-anchor="middle" font-size="12" font-weight="700" fill="${r.fg||'#fff'}" style="stroke:${r.fg?'#ffffffaa':'#100d0b'}">${esc(r.n.replace(' Wilderness',''))}</text>
+<text x="${x}" y="${y+14}" text-anchor="middle" font-size="11" fill="${r.fg||'#fff'}">PL ${r.pl}${done?' ✔':''}</text></a>`;}
+  return `<svg class="tw-map" viewBox="0 0 620 370" style="max-width:660px" role="img" aria-label="Progression map of Ashenfall"><rect width="620" height="370" fill="#0d0a08"/>${s}
+<text x="16" y="356" font-size="11" fill="#a8988a">Each line is the main quest that opens the next region. ✔ = its boss is down.</text></svg>`;
+}
+function pgRegions(sub){
+  const r=sub&&regOf(sub);
+  if(r){const b=r.boss&&bossOf(r.boss),i=REGIONS.indexOf(r),prev=REGIONS[i-1],nxt=REGIONS[i+1],pl=myPL();
+    const ready=pl>=r.plN?'<span class="ok">You match it</span>':`<span class="bad">You're ${r.plN-pl} below</span>`;
+    const foes=CREATURES.filter(c=>c.reg.startsWith(r.n)||c.reg.includes(r.n));
+    return `<p><a href="#regions">&larr; All regions</a></p>
+<h2>${mark(r.conf)} ${esc(r.n)} <span class="pl">PL ${r.pl}</span></h2><p class="sub">${esc(r.d)}</p>
+<div class="stats"><div class="stat"><small>Wear</small><a class="mob" href="#gear">${esc(r.gear)}</a></div><div class="stat"><small>Your power level</small><a class="mob" href="#power">${pl}</a> · ${ready}</div>${b?`<div class="stat"><small>Boss</small><a class="mob" href="#bosses/${b.id}">${esc(b.short)}</a></div>`:''}<div class="stat"><small>Main quest</small><a class="mob" href="#quests">${esc(r.quest)}</a></div></div>
+<div class="card"><h3 style="margin-top:0">Areas</h3><div>${r.subs.map(x=>`<span class="tag" style="margin:0 6px 6px 0">${esc(x)}</span>`).join('')}</div></div>
+<div class="card"><h3 style="margin-top:0">Enemies</h3>${foes.length?`<div class="tbl"><table><tr><th>Creature</th><th>PL</th><th>Weak / resists</th><th>Notes</th></tr>${foes.map(c=>`<tr><td>${mark(c.conf)} <b>${esc(c.n)}</b></td><td>${esc(c.pl)}</td><td>${tagS(c.w,'w')}${tagS(c.r,'r')}</td><td class="dim">${esc(c.d)}</td></tr>`).join('')}</table></div><p class="dim" style="margin:8px 0 0">Also: ${r.foes.map(esc).join(', ')}</p>`:r.foes.map(esc).join(', ')}</div>
+<div class="card"><h3 style="margin-top:0">Resources</h3><ul class="mech">${r.res.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>
+<div class="tip"><b>Tips:</b><ul class="mech" style="margin:4px 0 0">${r.tips.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>
+<div class="row">${prev?`<a class="mob" href="#regions/${prev.id}">&larr; ${esc(prev.n)}</a>`:''}<span style="flex:1"></span>${nxt?`<a class="mob" href="#regions/${nxt.id}">${esc(nxt.n)} &rarr;</a>`:''}</div>`;}
+  return `<h2>Regions of Ashenfall</h2><p class="sub">Ashenfall splits into Brynmoor in the south and Ghornfell in the north, with Fellhollow, Dowdun Reach, Umbral Sands and the Scorned Wilderness opening one by one as you finish the main quests. Tap a region.</p>
+${regionMap()}<p class="tw-cap">A progression map, not the real geography. Enemies scale to the region, not to you.</p>
+<div class="grid">${REGIONS.map(r=>`<div class="tile" onclick="location.hash='regions/${r.id}'"><b>${esc(r.n)}</b> <span class="pl">PL ${r.pl}</span>${r.conf?'':' <span class="unv">○</span>'}<div class="dim">${esc(r.d)}</div></div>`).join('')}</div>`;
+}
+
+function pgQuests(){const mq=MAINQ.filter(q=>S.quests[q.n]).length;
+  const row=(q,i)=>`<label class="chk"><input type="checkbox" data-q="${esc(q.n)}"${S.quests[q.n]?' checked':''}> <span><b>${i!=null?(i+1)+'. ':''}${esc(q.n)}</b> <span class="tag">${esc(q.r)}</span>${q.conf===false?' '+mark(false):''}<br><span class="dim">${esc(q.d)}</span></span></label>`;
+  return `<h2>Quests</h2><p class="sub">The nine-quest main chain of Kuldra's Saga. Each one opens the next region. The wiki counts 46 quests in all (9 main, 28 side, 9 clan tasks).</p>
+<div class="dim">${mq} of ${MAINQ.length} main quests done</div><div class="bar"><i style="width:${mq/MAINQ.length*100}%"></i></div>
+<h3>Main quests</h3><div class="card">${MAINQ.map((q,i)=>row(q,i)).join('')}</div>
+<h3>Side quests</h3><div class="card">${SIDEQ.map(q=>row(q)).join('')}${S.customQ.map((q,i)=>`<div class="row"><label class="chk" style="flex:1"><input type="checkbox" data-q="c:${esc(q.n)}"${S.quests['c:'+q.n]?' checked':''}> <span><b>${esc(q.n)}</b> ${q.r?`<span class="tag">${esc(q.r)}</span>`:''}</span></label><button data-cqdel="${i}" title="Remove">✕</button></div>`).join('')}
+<form class="row" id="cqf" style="margin-top:10px"><input id="cqn" type="text" style="width:220px" placeholder="Add a side quest you found"><select id="cqr"><option value="">Region</option>${REGIONS.map(r=>`<option>${esc(r.n)}</option>`).join('')}</select><button class="pri">Add</button></form></div>
+<div class="tip">Side quests open as you reach each region's main quest. The main chain doesn't need them, but they hand out tomes (free XP) and recipes.</div>`;}
+function questWire(){
+  document.querySelectorAll('[data-q]').forEach(cb=>cb.onchange=()=>{S.quests[cb.dataset.q]=cb.checked;save();route(true);});
+  $('cqf').onsubmit=e=>{e.preventDefault();const n=$('cqn').value.trim();if(!n)return;S.customQ.push({n,r:$('cqr').value});save();route(true);};
+  document.querySelectorAll('[data-cqdel]').forEach(b=>b.onclick=()=>{S.customQ.splice(+b.dataset.cqdel,1);save();route(true);});
+}
+
+function pgBosses(sub){
+  const b=sub&&bossOf(sub);
+  if(b){const i=BOSSES.indexOf(b),prep=S.bossPrep[b.id]||{},pl=myPL(),r=REGIONS.find(x=>x.n===b.region);
+    return `<p><a href="#bosses">&larr; All bosses</a></p>
+<h2>${mark(b.conf)} ${esc(b.n)} <span class="tag">Boss ${i+1} of ${BOSSES.length}</span> <span class="tag">${esc(b.region)}</span></h2>
+<label class="chk" style="margin:6px 0 12px"><input type="checkbox" id="bdone"${S.bossDone[b.id]?' checked':''}> I've beaten ${esc(b.short)}</label>
+<div class="stats">${b.pl?`<div class="stat"><small>Power level</small><span class="big">${b.pl}</span> <span class="${pl>=b.pl?'ok':'bad'}">(you: ${pl})</span></div>`:''}${b.hp?`<div class="stat"><small>Health</small><span class="big">${b.hp.toLocaleString()}</span></div>`:''}<div class="stat"><small>Weak to</small>${tags(b.weak,'w')||'<span class="dim">Nothing</span>'}</div><div class="stat"><small>Resists</small>${tags(b.res,'r')||'<span class="dim">Nothing</span>'}</div><div class="stat"><small>Immune</small>${tags(b.imm,'i')||'<span class="dim">—</span>'}</div></div>
+<div class="card"><h3 style="margin-top:0">Where and how</h3><p style="margin:0 0 6px"><b>${esc(b.where)}</b> · quest: ${esc(b.quest)}</p><p style="margin:0 0 6px">${esc(b.summon)}</p><p class="dim" style="margin:0">${esc(b.find)}</p></div>
+<div class="card"><h3 style="margin-top:0">Attacks</h3><ul class="mech">${b.attacks.map(a=>`<li>${esc(a)}</li>`).join('')}</ul><div class="tip">${esc(b.tip)}</div></div>
+<div class="card"><h3 style="margin-top:0">Prep checklist</h3>${b.prep.map((p,j)=>`<label class="chk"><input type="checkbox" data-bp="${j}"${prep[j]?' checked':''}> ${esc(p)}</label>`).join('')}<button id="bpclear" style="margin-top:6px">Clear</button></div>
+<div class="card"><h3 style="margin-top:0">Reward</h3><p style="margin:0 0 6px">${esc(b.drop)}</p><p style="margin:0">Opens: <b>${esc(b.unlocks)}</b></p></div>
+<div class="row">${i?`<a class="mob" href="#bosses/${BOSSES[i-1].id}">&larr; ${esc(BOSSES[i-1].short)}</a>`:''}<span style="flex:1"></span>${r?`<a class="mob" href="#regions/${r.id}">${esc(r.n)}</a>`:''}<span style="flex:1"></span>${BOSSES[i+1]?`<a class="mob" href="#bosses/${BOSSES[i+1].id}">${esc(BOSSES[i+1].short)} &rarr;</a>`:''}</div>`;}
+  return `<h2>Bosses</h2><p class="sub">Four world bosses and Kuldra at the end of the raid. Each one finishes a main quest and opens the next region. Tap one for its fight and a prep checklist.</p>
+<div class="card tbl"><table><tr><th></th><th>Boss</th><th>Region</th><th class="n">PL</th><th class="n">Health</th><th>Weak</th><th>Immune</th><th>Opens</th></tr>${BOSSES.map((b,i)=>`<tr><td>${S.bossDone[b.id]?'<span class="ok" title="Beaten">✔</span>':i+1}</td><td>${mark(b.conf)} <a class="mob" href="#bosses/${b.id}">${esc(b.n)}</a></td><td>${esc(b.region)}</td><td class="n">${b.pl||'—'}</td><td class="n">${b.hp?b.hp.toLocaleString():'—'}</td><td>${tags(b.weak,'w')||'<span class="dim">—</span>'}</td><td>${tags(b.imm,'i')}</td><td>${esc(b.unlocks)}</td></tr>`).join('')}</table></div>
+<h3>Mini-bosses</h3><div class="card tbl"><table><tr><th>Who</th><th>Where</th><th>Notes</th></tr>${MINIS.map(m=>`<tr><td>${mark(m.conf)} <b>${esc(m.n)}</b></td><td>${esc(m.where)}</td><td class="dim">${esc(m.d)}</td></tr>`).join('')}</table></div>
+<div class="note">The Titan is the only world boss with a clear weakness. Velgar, Imaru and (probably) Fuzan have none, so bring the style you've trained most.</div>`;}
+function bossWire(sub){const b=bossOf(sub);if(!b)return;
+  $('bdone').onchange=e=>{S.bossDone[b.id]=e.target.checked;save();};
+  document.querySelectorAll('[data-bp]').forEach(cb=>cb.onchange=()=>{(S.bossPrep[b.id]=S.bossPrep[b.id]||{})[cb.dataset.bp]=cb.checked;save();});
+  $('bpclear').onclick=()=>{S.bossPrep[b.id]={};save();route(true);};
+}
+
+let crQ='',crDmg='';
+const DMG=['Stab','Slash','Crush','Ranged','Air','Water','Earth','Fire'];
+function pgCreatures(){
+  return `<h2>Bestiary</h2><p class="sub">Weaknesses and resistances. Enemies scale with the region, so the same creature gets tougher further out. Pick a damage type to see what it's good against.</p>
+<div class="row"><input type="search" id="cq" placeholder="Search creatures or regions" style="width:240px" value="${esc(crQ)}"></div>
+<div class="chips" id="cd"><button data-d="" class="${crDmg?'':'on'}">Any damage</button>${DMG.map(d=>`<button data-d="${d}" class="${crDmg===d?'on':''}">${d}</button>`).join('')}</div>
+<div class="legend"><span><b style="background:#f0b783"></b>Weak to</span><span><b style="background:#9cc9dc"></b>Resists</span></div>
+<div class="card tbl" style="margin-top:8px"><table id="ct"></table></div>
+<div class="note">Guides often disagree on weaknesses (the in-game Journal, creature pages and older tables don't match), so most rows are ○. Press J in-game: the Journal shows what you've learned.</div>`;}
+function creatureWire(){
+  const draw=()=>{const q=crQ.toLowerCase();const rows=CREATURES.filter(c=>(!q||(c.n+' '+c.reg+' '+c.d).toLowerCase().includes(q))&&(!crDmg||c.w.includes(crDmg)||c.r.includes(crDmg)));
+    $('ct').innerHTML=`<tr><th>Creature</th><th>Region</th><th>PL</th><th>Weak / resists</th><th>${crDmg?esc(crDmg):'Notes'}</th></tr>`+(rows.map(c=>`<tr><td>${mark(c.conf)} <b>${esc(c.n)}</b></td><td>${esc(c.reg)}</td><td>${esc(c.pl)}</td><td>${tagS(c.w,'w')}${tagS(c.r,'r')}</td><td class="dim">${crDmg?(c.w.includes(crDmg)?'<span class="ok">Good choice</span>':'<span class="bad">Resisted</span>'):esc(c.d)}</td></tr>`).join('')||'<tr><td colspan="5" class="dim">Nothing matches.</td></tr>');};
+  $('cq').oninput=e=>{crQ=e.target.value;draw();};
+  document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{crDmg=b.dataset.d;document.querySelectorAll('[data-d]').forEach(x=>x.classList.toggle('on',x===b));draw();});
+  draw();
+}
+
+function pgSkills(){const groups=[...new Set(SKILLS.map(s=>s.g))],tot=SKILLS.filter(s=>!s.soon).reduce((a,s)=>a+(+S.levels[s.n]||1),0);
+  return `<h2>Skills</h2><p class="sub">Thirteen skills, each to level 99 (raised from 50 in January 2026). Prayer arrives in December. Type in your levels to see what's next. Press K in-game for the full tree.</p>
+<div class="stats"><div class="stat"><small>Total level</small><span class="big" id="tot">${tot}</span></div><div class="stat"><small>Max</small><span class="big">${12*99}</span></div></div>
+${groups.map(g=>`<h3>${g}</h3><div class="grid">${SKILLS.filter(s=>s.g===g).map(s=>{const lv=+S.levels[s.n]||1,nx=s.ul.find(u=>u[0]&&u[0]>lv);return `<div class="card" style="margin:0"><div class="row" style="margin:0 0 6px"><b style="color:var(--acc);flex:1">${esc(s.n)}</b>${s.soon?'<span class="tag">Coming soon</span>':`<label class="dim">Level <input class="lvl" type="number" min="1" max="99" data-lv="${esc(s.n)}" value="${lv}"></label>`}</div><div class="dim" style="margin-bottom:6px">${esc(s.d)}</div>${s.ul.length?`<table>${s.ul.map(u=>`<tr class="${u[0]&&u[0]<=lv?'ok':''}"><td class="n" style="width:36px">${u[0]||'—'}</td><td><b>${esc(u[1])}</b> <span class="dim">${esc(u[2])}</span></td></tr>`).join('')}</table>`:''}${nx&&!s.soon?`<div class="tip" style="margin:8px 0 0">Next: <b>${esc(nx[1])}</b> at ${nx[0]}</div>`:''}</div>`;}).join('')}</div>`).join('')}
+<div class="note">Unlock levels are a mix of Early Access and 1.0 numbers, and guides disagree on several. Treat the levels as rough until you see them in the tree.</div>`;}
+function skillWire(){document.querySelectorAll('[data-lv]').forEach(i=>i.onchange=()=>{S.levels[i.dataset.lv]=Math.min(99,Math.max(1,+i.value||1));save();route(true);});}
+
+function spellCost(){const t={};for(const s of SPELLS){const n=+S.spellPlan[s.n]||0;if(!n||!s.runes)continue;for(const [k,v] of Object.entries(s.runes))t[k]=(t[k]||0)+v*n;}return t;}
+function pgSpells(){const t=spellCost(),tot=Object.values(t).reduce((a,b)=>a+b,0);
+  return `<h2>Spells and runes</h2><p class="sub">Most spells are unlocked by gathering and crafting skills, not Magic, but every one costs runes. Type how many casts you want and get a rune shopping list.</p>
+<div class="card tbl"><table><tr><th>Spell</th><th>Skill</th><th class="n">Level</th><th>Runes per cast</th><th class="n">Cooldown (s)</th><th>Casts</th></tr>${SPELLS.map(s=>`<tr><td>${mark(s.conf)} <b>${esc(s.n)}</b><div class="dim">${esc(s.d)}</div></td><td>${esc(s.s)}</td><td class="n">${s.l||'—'}</td><td>${s.runes?Object.entries(s.runes).map(([k,v])=>`<span class="tag g" style="margin:0 4px 2px 0">${v} ${k}</span>`).join(''):'<span class="dim">Check in-game</span>'}</td><td class="n">${esc(s.cd)||'—'}</td><td>${s.runes?`<input type="number" min="0" class="lvl" data-sp="${esc(s.n)}" value="${+S.spellPlan[s.n]||0}">`:''}</td></tr>`).join('')}</table></div>
+<h3>Shopping list</h3><div class="card">${tot?`<div class="stats">${RUNES.filter(r=>t[r]).map(r=>`<div class="stat"><small>${r} runes</small><span class="big">${t[r].toLocaleString()}</span></div>`).join('')}</div>
+<p style="margin:6px 0 0">That's <b>${tot.toLocaleString()}</b> runes: about <b>${Math.ceil(tot/10)}</b> essence by Attune, <b>${Math.ceil(tot/5)}</b> by Auto Craft, or as little as <b>${Math.ceil(tot/30)}</b> at an Anima vent. <a class="mob" href="#runecraft">Runecrafting →</a></p><button id="spclear" style="margin-top:8px">Clear</button>`:'<span class="dim">Type a number of casts above.</span>'}</div>
+<div class="note">The 1.0 numbers come from guides that disagree on several cooldowns and levels (Tempest Shield, Enchant Weapon: Fire, Magical Mending). Spells with no listed cost have costs we couldn't confirm.</div>`;}
+function spellWire(){document.querySelectorAll('[data-sp]').forEach(i=>i.onchange=()=>{S.spellPlan[i.dataset.sp]=Math.max(0,+i.value||0);save();route(true);});const c=$('spclear');if(c)c.onclick=()=>{S.spellPlan={};save();route(true);};}
+
+function pgPower(){const pl=myPL(),a=S.armour,opts=v=>[0,1,2,3,4,5,6,7,8,9].map(n=>`<option value="${n}"${+v===n?' selected':''}>${n?`${n} · ${esc((GEAR[n-1]||{}).mel||'')}`:'0 · Nothing'}</option>`).join('');
+  const sum=(+a.head||0)+(+a.chest||0)+(+a.legs||0),up=3*(pl+1)-sum;
+  const ready=REGIONS.map(r=>`<tr><td><a class="mob" href="#regions/${r.id}">${esc(r.n)}</a></td><td class="n">${r.pl}</td><td>${pl>=r.plN+1?'<span class="ok">Over-geared</span>':pl>=r.plN?'<span class="ok">Ready</span>':pl===r.plN-1?'<span class="unv">Hard</span>':'<span class="bad">Too dangerous</span>'}</td></tr>`).join('');
+  return `<h2>Power level calculator</h2><p class="sub">Your power level is the average of your armour pieces' power levels, rounded down. Pick the tier of each piece.</p>
+<div class="grid">${['head','chest','legs'].map(k=>`<div class="slot"><b style="text-transform:capitalize">${k}</b><select data-ar="${k}">${opts(a[k])}</select></div>`).join('')}</div>
+<div class="card" style="margin-top:12px"><div class="row"><span class="dim">Your power level</span><span class="big2">${pl}</span><span class="dim">(average ${(sum/3).toFixed(2)})</span></div>
+${pl<9?`<p style="margin:4px 0 0">You need <b>${up}</b> more tier step${up===1?'':'s'} across your pieces to reach power level ${pl+1}.</p>`:''}
+${Math.min(+a.head||0,+a.chest||0,+a.legs||0)<Math.max(+a.head||0,+a.chest||0,+a.legs||0)?'<p class="unv" style="margin:4px 0 0">One piece is dragging the average down. Upgrade the lowest first.</p>':''}</div>
+<h3>Where can I go?</h3><div class="card tbl"><table><tr><th>Region</th><th class="n">Enemy PL</th><th>For you</th></tr>${ready}</table></div>
+<div class="note">The averaging rule is from the wiki ●. Whether capes or shields count, and the exact 1.0 tier numbers, aren't confirmed ○. Masterwork items can be raised one level with an Ascension Core.</div>`;}
+function powerWire(){document.querySelectorAll('[data-ar]').forEach(s=>s.onchange=()=>{S.armour[s.dataset.ar]=+s.value;save();route(true);});}
+
+function pgGear(){return `<h2>Gear tiers</h2><p class="sub">Each region has a tier of gear for each style. Make the next region's set before you go, or at least by the time you meet its boss.</p>
+<div class="card tbl"><table><tr><th class="n">PL</th><th>Region</th><th>Melee</th><th>Ranged</th><th>Magic</th><th>Key materials</th></tr>${GEAR.map(g=>`<tr><td class="n"><span class="pl">${g.pl}</span></td><td>${mark(g.conf)} ${esc(g.reg)}</td><td>${esc(g.mel)}</td><td>${esc(g.rng)}</td><td>${esc(g.mag)}</td><td class="dim">${esc(g.mat)}</td></tr>`).join('')}</table></div>
+<h3>Tools by region</h3><div class="card tbl"><table><tr><th>Region</th><th>Fishing rod</th><th>Farm plot</th><th>Pickaxe / axe</th></tr>${TOOLS.map(t=>`<tr>${t.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</table></div>
+<h3>Benches</h3><div class="card"><ul class="mech"><li><b>Early</b>: Crafting Table, Campfire, Kiln, Furnace, Pottery Wheel, Brewing Cauldron, Rune Altar.</li><li><b>After your first bronze bar</b>: Loom, Sawmill, Tanner's Kit, Blacksmith's Bench, Armour Bench (○).</li><li><b>Since Umbral Sands</b>, gear is split across specialist benches: Blacksmith's Bench (weapons), Fletching Bench (bows), Armour Bench and the <b>Mystic Forge</b> (magic and Ascension Cores).</li></ul></div>
+<div class="tip">Sidegrades: Paladin's matches Iron, Black Knight matches Mithril, Obsidian matches Adamant. They're alternatives, not upgrades.</div>
+<div class="note">Dragon gear at power level 9 (from Kuldra) is reported by one guide only ○. Ranged dragonhide colours by tier also vary between sources.</div>`;}
+
+function pgFood(){return `<h2>Food and potions</h2><p class="sub">Food fills sustenance and heals; the best meals add a perk. Potions are brewed in the Brewing Cauldron in a Clay Vessel (from the Kiln) with charcoal for fuel.</p>
+<h3>Meals</h3><div class="card tbl"><table><tr><th>Meal</th><th class="n">Health</th><th class="n">Sustenance</th><th>Perk</th><th>Ingredients</th></tr>${FOOD.map(f=>`<tr><td>${mark(f.conf)} <b>${esc(f.n)}</b>${f.note?`<div class="dim">${esc(f.note)}</div>`:''}</td><td class="n">${f.hp||'—'}</td><td class="n">${f.sus||'—'}</td><td>${esc(f.perk)||'<span class="dim">—</span>'}</td><td class="dim">${esc(f.ing)}</td></tr>`).join('')}</table></div>
+<h3>What to eat for</h3><div class="card tbl"><table><tr><th>Threat</th><th>Answer</th></tr><tr><td>Poison (Velgar, Bloodblight Swamp, Kuldra's heart)</td><td>Antipoison potion, Kebab, Fortifying Stew</td></tr><tr><td>Shock (Stormtouched Highlands)</td><td>Wild Pie</td></tr><tr><td>Bleeding (Garou Hunters)</td><td>Meat Pizza</td></tr><tr><td>Long gathering trips</td><td>Lumberjack and Quarrymaster potions</td></tr><tr><td>Levelling</td><td>Focused potions</td></tr></table></div>
+<h3>Potions</h3><div class="card tbl"><table><tr><th>Potion</th><th>Ingredients (plus a Clay Vessel)</th><th>Effect</th></tr>${POTIONS.map(p=>`<tr><td>${mark(p.conf)} <b>${esc(p.n)}</b></td><td>${esc(p.ing)}</td><td class="dim">${esc(p.eff)}</td></tr>`).join('')}</table></div>
+<div class="note">Food values were rebalanced during Early Access (health was added to every food). Older recipe lists are out of date; check the Cooking Range for the current numbers.</div>`;}
+
+function pgRunecraft(){const e=+S.rcE||100;
+  const M=[['Attune','Up to 10 per essence','Full XP; a two-phase minigame at the Rune Altar',10],['Auto Craft','5 per essence','25% XP; instant',5],['Anima vent','Up to 30 per essence','Less XP, no level needed; Law and Nature early',30]];
+  return `<h2>Runecrafting</h2><p class="sub">Turn rune essence into runes. Pick a method; the ratios are the post-0.11.0 ones.</p>
+<div class="card"><div class="row"><label>Rune essence <input type="number" min="0" id="rce" value="${e}"></label><label>Runes you need <input type="number" min="0" id="rcn" value="${+S.rcN||0}"></label></div>
+<div class="tbl"><table><tr><th>Method</th><th>Ratio</th><th class="n">Runes from your essence</th><th class="n">Essence for what you need</th><th>Notes</th></tr>${M.map(m=>`<tr><td><b>${m[0]}</b></td><td>${m[1]}</td><td class="n">${(e*m[3]).toLocaleString()}</td><td class="n">${Math.ceil((+S.rcN||0)/m[3]).toLocaleString()}</td><td class="dim">${m[2]}</td></tr>`).join('')}</table></div></div>
+<h3>Rune unlocks</h3><div class="card tbl"><table><tr><th>Rune</th><th class="n">Runecrafting level</th><th>Used for</th></tr>
+<tr><td>Air</td><td class="n">1</td><td>Tempest Shield, Enchant Weapon: Air, Axtral Projection</td></tr><tr><td>Astral</td><td class="n">3</td><td>Enchants, Enfeeble, Vengeance, Axtral Projection</td></tr><tr><td>Water</td><td class="n">11</td><td>Enfeeble; the Titan, Fuzan and KotHaar</td></tr><tr><td>Earth</td><td class="n">15</td><td>Rocksplosion, Vengeance, Magical Mending, Bark to Bones</td></tr><tr><td>Fire</td><td class="n">25</td><td>Enchant Weapon: Fire, Rocksplosion</td></tr><tr><td>Nature</td><td class="n">38</td><td>Magical Mending, Bark to Bones</td></tr><tr><td>Law</td><td class="n">50</td><td>Teleports (○)</td></tr></table></div>
+<div class="tip">Essence: knock down the floating rocks over glowing geysers, then mine them. It also drops from goblin and Garou packs and vault guardians. Mining essence no longer gives Runecrafting XP. The Rune Altar costs 12 stone and 4 essence.</div>
+<div class="note">Rune unlock levels are from one guide ○. Attune's 1:10 is a ceiling: a sloppy minigame gives less.</div>`;}
+function rcWire(){$('rce').onchange=e=>{S.rcE=Math.max(0,+e.target.value||0);save();route(true);};$('rcn').onchange=e=>{S.rcN=Math.max(0,+e.target.value||0);save();route(true);};}
+
+function pgFishing(){return `<h2>Fishing</h2><p class="sub">Start with Shrimp Catcher: craft a Coarse Net and talk to the Wise Old Man. Nets work only at net spots, rods only at rod spots.</p>
+<div class="card tbl"><table><tr><th>Region</th><th>PL</th><th>Fish</th><th>Spots</th><th>Best rod</th></tr>${FISH.map(f=>`<tr><td><b>${esc(f.r)}</b></td><td>${esc(f.pl)}</td><td>${esc(f.fish)}</td><td class="dim">${esc(f.spots)}</td><td>${esc(f.rod)}</td></tr>`).join('')}</table></div>
+<div class="card"><h3 style="margin-top:0">How it works</h3><ul class="mech"><li>Rods open at Fishing 3. Cast, fight, reel: strafe the way the fish pulls.</li><li>Bait decides the fish (Shrimp bait, Lobster bait, Monkfish bait…). No bait means more junk.</li><li>Fishing Frenzy (10) enchants a spot for an extra catch.</li><li>Net catch chance improves a lot at 49.</li></ul></div>
+<div class="note">Guides disagree on whether rods are made at the Crafting Table or the Fletching Bench, and on the number of baits. Umbral Sands fish are partly guesses ○.</div>`;}
+
+function pgFarming(){const today=+S.day||1;
+  return `<h2>Farming</h2><p class="sub">Keep track of your plots. Bump the in-game day each morning and the log shows which plots are thirsty and which are ready (about two in-game days).</p>
+<div class="card"><div class="row"><span class="dim">In-game day</span><span class="big2">${today}</span><button id="dnext" class="pri">Next day</button><button id="dprev">Back</button></div></div>
+<div class="card"><form class="row" id="plf"><input id="pln" type="text" style="width:160px" placeholder="Plot (e.g. Home east)"><input id="plc" type="text" style="width:140px" placeholder="Crop"><select id="plt">${['Ash','Oak','Willow','Yew'].map(x=>`<option>${x}</option>`).join('')}</select><label class="chk"><input type="checkbox" id="plk"> Composted</label><button class="pri">Plant</button></form></div>
+<div class="card tbl"><table><tr><th>Plot</th><th>Crop</th><th>Planted</th><th>Status</th><th>Water</th><th></th></tr>${S.plots.map((p,i)=>{const age=today-p.day,ready=age>=2,wet=p.watered===today;return `<tr><td><b>${esc(p.n)}</b> <span class="tag">${esc(p.t)}</span>${p.k?' <span class="tag g">compost</span>':''}</td><td>${esc(p.c)}</td><td>Day ${p.day}</td><td>${ready?'<span class="ok">Ready to harvest</span>':`Growing (${age} of 2 days)`}</td><td>${ready?'—':wet?'<span class="ok">Watered</span>':`<button data-wat="${i}">Water</button>`}</td><td><button data-pdel="${i}" title="Harvested / remove">✕</button></td></tr>`;}).join('')||'<tr><td colspan="6" class="dim">No plots yet.</td></tr>'}</table></div>
+<div class="card"><h3 style="margin-top:0">The loop</h3><ol class="mech"><li>Weed the plot</li><li>Sow a seed that matches the plot tier</li><li>Fertilise with compost (bin at 10) or super compost (60)</li><li>Water with clean water every day</li><li>Cure disease if it shows</li><li>Harvest (Iron Secateurs at 42 add yield)</li></ol></div>
+<div class="note">Growth time per crop isn't published; two days is the general rule ○. Magic tree seeds are rumoured for 1.0.1.</div>`;}
+function farmWire(){
+  $('dnext').onclick=()=>{S.day=(+S.day||1)+1;save();route(true);};$('dprev').onclick=()=>{S.day=Math.max(1,(+S.day||1)-1);save();route(true);};
+  $('plf').onsubmit=e=>{e.preventDefault();const n=$('pln').value.trim()||'Plot '+(S.plots.length+1);S.plots.push({n,c:$('plc').value.trim(),t:$('plt').value,k:$('plk').checked,day:+S.day||1,watered:0});save();route(true);};
+  document.querySelectorAll('[data-wat]').forEach(b=>b.onclick=()=>{S.plots[+b.dataset.wat].watered=+S.day||1;save();route(true);});
+  document.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=()=>{S.plots.splice(+b.dataset.pdel,1);save();route(true);});
+}
+
+function pgProgress(){const done=PROG.filter((_,i)=>S.prog[i]).length,groups=[...new Set(PROG.map(p=>p[0]))];
+  return `<h2>Progression</h2><p class="sub">From Temple Woods to Kuldra. Tick things off as you go.</p>
+<div class="dim" id="pdone">${done} of ${PROG.length} done</div><div class="bar"><i id="pbar" style="width:${done/PROG.length*100}%"></i></div>
+${groups.map(g=>`<h3>${g}</h3><div class="card">${PROG.map((p,i)=>p[0]===g?`<label class="chk"><input type="checkbox" data-p="${i}"${S.prog[i]?' checked':''}> ${esc(p[1])}</label>`:'').join('')}</div>`).join('')}
+<button onclick="if(confirm('Clear all progression ticks?')){S.prog={};save();route()}">Reset</button>`;}
+
+function pgLodes(){return `<h2>Lodestone log</h2><p class="sub">Lodestones are fast travel. They're built with Vault cores, and you need at least two. Log each one so you know where you can jump.</p>
+<div class="card"><form class="row" id="lf"><input id="ln" type="text" style="width:160px" placeholder="Name (e.g. Hope's Fall)"><select id="lr">${REGIONS.map(r=>`<option>${esc(r.n)}</option>`).join('')}</select><input id="lnote" type="text" style="width:220px" placeholder="Note (e.g. outside the tower)"><button class="pri">Add</button></form></div>
+<div class="card tbl"><table><tr><th>Lodestone</th><th>Region</th><th>Note</th><th></th></tr>${S.lodes.map((l,i)=>`<tr><td><b>${esc(l.n)}</b></td><td>${esc(l.r)}</td><td><input type="text" data-le="${i}" value="${esc(l.note||'')}" style="width:220px"></td><td><button data-ldel="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="4" class="dim">No lodestones yet.</td></tr>'}</table></div>
+<h3>Worth a lodestone</h3><div class="card"><ul class="mech">${["Your main base","Velgar's Rise (Fractured Plains)","Outside Hope's Fall (Imaru)","The Bastion approach (Black Knight Titan)","Each Moon Garou camp (Umbral Sands)","The Burning Spire (Fuzan)","Rasthin's Rest (Scorned Wilderness)"].map(x=>`<li>${esc(x)} ${S.lodes.some(l=>x.toLowerCase().includes(l.n.toLowerCase())&&l.n.length>3)?'<span class="ok">✔</span>':''}</li>`).join('')}</ul></div>`;}
+function lodeWire(){
+  $('lf').onsubmit=e=>{e.preventDefault();const n=$('ln').value.trim();if(!n)return;S.lodes.push({n,r:$('lr').value,note:$('lnote').value.trim()});save();route(true);};
+  document.querySelectorAll('[data-le]').forEach(i=>i.oninput=()=>{S.lodes[+i.dataset.le].note=i.value;save();});
+  document.querySelectorAll('[data-ldel]').forEach(b=>b.onclick=()=>{if(confirm('Remove '+S.lodes[+b.dataset.ldel].n+'?')){S.lodes.splice(+b.dataset.ldel,1);save();route(true);}});
+}
+
+function pgTimers(){const now=Date.now();
+  return `<h2>Timers</h2><p class="sub">Real-time timers for cooldowns, food perks and crops. They keep running when you close the page.</p>
+<div class="card"><form id="tf"><div class="row"><label>What <input id="tn" type="text" style="width:200px" placeholder="e.g. Wild Pie perk"></label><label>Minutes <input id="tm" type="number" min="0.1" step="0.1" value="15" style="width:80px"></label><button class="pri">Start</button></div>
+<div class="chips">${TPRESETS.map(([n,m,c],i)=>`<button type="button" data-tp="${i}" title="${c?'Known value':'Approximate; set it to your world'}">${esc(n)}${c?'':' ○'}</button>`).join('')}</div></form></div>
+<div id="tl">${S.timers.length?S.timers.map((t,i)=>{const left=t.end-now;return `<div class="card timer"><div><b>${esc(t.n||'Timer')}</b><div class="dim">Started ${new Date(t.start).toLocaleTimeString([],{timeStyle:'short'})} · done at ${new Date(t.end).toLocaleTimeString([],{timeStyle:'short'})}</div><div class="bar" style="width:220px"><i data-tb="${i}" style="width:${Math.min(100,(now-t.start)/(t.end-t.start)*100)}%"></i></div></div>
+<div class="row"><span class="t ${left<=0?'ok':''}" data-tt="${i}">${left<=0?'Done':dur(left)}</span><button data-tr="${i}" title="Restart">↻</button><button data-tdel="${i}" title="Remove">✕</button></div></div>`;}).join(''):'<div class="dim">No timers. Start one above.</div>'}</div>
+<div class="note">The length of an in-game day isn't published, so the crop preset is a guess ○. Time a day in your world once and edit it.</div>`;}
+let tickTimer=0;
+function timerWire(){
+  document.querySelectorAll('[data-tp]').forEach(b=>b.onclick=()=>{const p=TPRESETS[+b.dataset.tp];$('tn').value=p[0];$('tm').value=p[1];});
+  $('tf').onsubmit=e=>{e.preventDefault();const m=Math.max(0.1,+$('tm').value||1),now=Date.now();S.timers.push({n:$('tn').value.trim(),start:now,end:now+m*6e4});save();route();};
+  document.querySelectorAll('[data-tdel]').forEach(b=>b.onclick=()=>{S.timers.splice(+b.dataset.tdel,1);save();route();});
+  document.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>{const t=S.timers[+b.dataset.tr],len=t.end-t.start,now=Date.now();t.start=now;t.end=now+len;save();route();});
+  clearInterval(tickTimer);tickTimer=setInterval(()=>{
+    if(!$('tl')){clearInterval(tickTimer);return;}
+    const now=Date.now();let redraw=false;
+    S.timers.forEach((t,i)=>{const el=document.querySelector(`[data-tt="${i}"]`),bar=document.querySelector(`[data-tb="${i}"]`);if(!el)return;
+      if(t.end<=now&&el.textContent!=='Done'){redraw=true;return;}
+      if(t.end>now)el.textContent=dur(t.end-now);if(bar)bar.style.width=Math.min(100,(now-t.start)/(t.end-t.start)*100)+'%';});
+    if(redraw)route(true);},1000);
+}
+
+function pgUpdates(){const today=new Date().toISOString().slice(0,10);
+  return `<h2>Updates and roadmap</h2><p class="sub">From Early Access to the planned skills. Dates in the future are Jagex's plans and can slip.</p>
+<div class="card tbl"><table><tr><th>When</th><th>Update</th><th>What's in it</th></tr>${TIMELINE.map(([d,n,t,c])=>`<tr${d>today?' class="dim"':''}><td style="white-space:nowrap">${esc(d)}</td><td>${mark(c)} <b>${esc(n)}</b>${d>today?' <span class="tag">planned</span>':''}</td><td>${esc(t)}</td></tr>`).join('')}</table></div>
+<div class="note">Roadmap details come from Jagex's announcements as reported by the press and wikis. Some sources disagree on when Farming arrived and when Hunter is due.</div>`;}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="World name, where the anima vents are, which vault still has a guardian, server address...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+function route(keepScroll){
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=REAL.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main'),top=m.scrollTop;
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),regions:()=>pgRegions(sub),quests:pgQuests,bosses:()=>pgBosses(sub),creatures:pgCreatures,skills:pgSkills,spells:pgSpells,power:pgPower,gear:pgGear,food:pgFood,runecraft:pgRunecraft,fishing:pgFishing,farming:pgFarming,progress:pgProgress,lodestones:pgLodes,timers:pgTimers,updates:pgUpdates,notes:pgNotes})[page]();
+  m.scrollTop=keepScroll===true?top:0;
+  m.querySelectorAll('input[type=checkbox][data-p]').forEach(cb=>{cb.onchange=()=>{S.prog[cb.dataset.p]=cb.checked;save();const d=PROG.filter((_,i)=>S.prog[i]).length;$('pdone').textContent=d+' of '+PROG.length+' done';$('pbar').style.width=d/PROG.length*100+'%';};});
+  if(page==='quests')questWire();
+  if(page==='bosses'&&sub)bossWire(sub);
+  if(page==='creatures')creatureWire();
+  if(page==='skills')skillWire();
+  if(page==='spells')spellWire();
+  if(page==='power')powerWire();
+  if(page==='runecraft')rcWire();
+  if(page==='farming')farmWire();
+  if(page==='lodestones')lodeWire();
+  if(page==='timers')timerWire();
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',()=>route());
+route();
+</script>
+</body>
+</html>
