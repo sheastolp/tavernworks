@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Valheim Assistant · Tavernworks</title>
+<meta name="description" content="Valheim Assistant: every biome from the Meadows to the Deep North, all eight bosses with summons and prep checklists, a bestiary, a food planner with live food timers, meads, gear and pickaxe tiers, a materials finder, a smelting calculator, a comfort and rested calculator, raids, skills, a portal network log, progression and notes. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪓</text></svg>">
+<style>
+:root{--bg:#0d1114;--panel:#151b20;--panel2:#1d252c;--line:#2c3842;--tx:#e9eef0;--dim:#93a3ad;--acc:#e3b04b;--acc-ink:#231800;--acc2:#8fc3d6;--ok:#8fcf7a;--warn:#f2c14e;--err:#ff7a6b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:7px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#nav .grp{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:12px 10px 2px}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#nav .grp{display:none}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#080b0d;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number],input[type=search]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.tag.w{background:#2c1f14;color:#f0b783}.tag.r{background:#14232c;color:#9cc9dc}.tag.i{background:#2b1418;color:#ff9b9b}
+.note{border-left:3px solid var(--warn);background:#24210f;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.stat .big{font:600 20px/1.2 Consolas,"Cascadia Mono",monospace}
+.mech li{margin:4px 0}
+.stars{color:var(--acc);letter-spacing:1px}
+.slot{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.slot select{width:100%}
+.slot .t{font:600 18px/1.2 Consolas,"Cascadia Mono",monospace}
+.fbar{display:flex;height:22px;border-radius:5px;overflow:hidden;margin:6px 0;background:var(--panel2);border:1px solid var(--line)}
+.fbar i{display:block;height:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--dim)}
+.legend b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.timer{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.timer .t{font:600 22px/1.1 Consolas,"Cascadia Mono",monospace}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chips button{border-radius:999px;padding:3px 11px;font-size:13px}
+.chips button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.cf{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.cf label{display:flex;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.cf label.best{border-color:var(--acc)}
+.cf label small{margin-left:auto;color:var(--dim)}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js?v=2" data-track="vh_state"></script>
+<script src="/assistants/art.js"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   conf: true  = from the Valheim wiki, Iron Gate's patch notes or several agreeing guides.
+   conf: false = player reports, a single source, or numbers that moved in a rebalance; check in-game.
+   Written against Valheim 1.0 (September 2026), which added the Deep North. Everything
+   from the Meadows to the Ashlands has been stable for a long time; the Deep North is
+   only weeks old and its numbers are still settling, so most of it is marked ○. */
+
+/* Biomes in the order you'll take them on. box places the zone on the schematic map. */
+const BIOMES=[
+{id:'meadows',n:'Meadows',stars:1,conf:true,col:'#7fae4f',boss:'eikthyr',
+ d:'Where you arrive. Gentle rolling grass, birch and oak, and the only enemies that won\'t kill a careful new player.',
+ foes:['Greyling','Boar','Neck','Deer'],
+ res:['Wood, stone and flint (beaches and rivers)','Raspberries, mushrooms and dandelions','Raw meat and leather scraps from boars','Deer hide and venison','Honey from beehives in abandoned houses','Feathers from birds'],
+ tips:['Build your first base here. Nothing that spawns in the Meadows can break a wooden wall quickly.','Kill deer for hides and two Deer trophies, then summon Eikthyr.','Tame boars with mushrooms, berries or carrots for a steady meat supply.','Pick up every flint you see on the shore. You need it for the first tools and arrows.']},
+{id:'blackforest',n:'Black Forest',stars:2,conf:true,col:'#335a3e',boss:'elder',
+ d:'Dark pine and fir forest. Greydwarves, trolls and burial chambers full of skeletons, plus copper and tin, the start of the Bronze Age.',
+ foes:['Greydwarf','Greydwarf Brute','Greydwarf Shaman','Troll','Skeleton','Ghost','Rancid Remains','Bjørn'],
+ res:['Copper deposits (big orange-veined boulders)','Tin on the shoreline','Core wood from pine trees','Blueberries, thistle and carrot seeds','Surtling cores and bone fragments in burial chambers','Troll hide','Ancient seeds from Greydwarf nests'],
+ tips:['Carry the Antler pickaxe from Eikthyr: it mines copper and tin.','Burial chambers hold surtling cores, which you need for the smelter and kiln.','Trolls are slow. Kite them with a bow or fight them between trees they can\'t swing through.','Destroy Greydwarf nests: they keep spawning Greydwarves until they\'re gone.']},
+{id:'swamp',n:'Swamp',stars:3,conf:true,col:'#5c5a3a',boss:'bonemass',
+ d:'Flooded, poisonous and dark even at noon. The Sunken Crypts here hold scrap iron.',
+ foes:['Draugr','Draugr Elite','Blob','Oozer','Leech','Wraith','Surtling','Abomination','Skeleton'],
+ res:['Scrap iron from muddy scrap piles in Sunken Crypts','Ancient bark from the giant trees','Guck from sacks high on swamp trees','Entrails, bloodbags, chain and ooze','Turnip seeds','Withered bone for Bonemass'],
+ tips:['You need the Swamp key (from The Elder) to open Sunken Crypts.','Bring a poison resistance mead. Blobs and leeches stack poison fast.','Raise your path with the hoe or build a raised walkway: leeches live in the water.','The iron here unlocks the Iron Age: iron pickaxe, iron armour and the Banded shield.']},
+{id:'mountain',n:'Mountain',stars:4,conf:true,col:'#b9c7cf',fg:'#122028',boss:'moder',
+ d:'Snow, cliffs and constant cold. Silver veins hide under the snow, and Frost Caves hold the Fenring cultists.',
+ foes:['Wolf','Drake','Stone Golem','Fenring','Cultist','Ulv','Bat'],
+ res:['Silver (find it with the Wishbone from Bonemass)','Obsidian','Wolf pelt and fang','Freeze glands from drakes','Crystal from golems and crystal formations','Dragon eggs for Moder','Onion seeds'],
+ tips:['You will freeze without protection. Wear the Wolf fur cape or drink Frost resistance mead.','Wolves come in packs. Fight with your back to a rock.','Frost Caves (dungeons in the mountain side) drop Fenris armour and the hair for it.','Tame wolves with raw meat: they make good base guards.']},
+{id:'plains',n:'Plains',stars:5,conf:true,col:'#c7b45a',fg:'#2a2306',boss:'yagluth',
+ d:'Wide, bright golden fields. Looks peaceful; is the most dangerous place you\'ve been yet. Fuling villages hold black metal.',
+ foes:['Fuling','Fuling Berserker','Fuling Shaman','Deathsquito','Lox','Growth','Vile'],
+ res:['Black metal scrap from Fulings and village chests','Barley and flax (plant the seeds you find in Fuling villages)','Cloudberries','Needles from Deathsquitos','Lox meat and pelt','Tar from tar pits','Fine wood from birch'],
+ tips:['Deathsquitos one-shot weak players. Block them with a shield or shoot them.','Lox are tameable with barley, flax or cloudberries and can be ridden.','Grow barley and flax here (you can only plant them in the Plains) for bread and linen.','Raid Fuling villages from range first. Shamans shield other Fulings.']},
+{id:'ocean',n:'Ocean',stars:4,conf:true,col:'#2c5876',boss:null,
+ d:'Everything between the islands. Calm by the shore; serpents and storms out deep.',
+ foes:['Serpent','Leviathan','Bonemaw Serpent (near the Ashlands)'],
+ res:['Fish (any fishing rod and bait)','Serpent meat, scales and trophy','Chitin from Leviathans','Leviathans: giant whale-like islands you mine for chitin'],
+ tips:['Serpents spawn in deep water during storms. Raise your shield and shoot harpoons or arrows from the Longship.','A Karve or Longship holds more and handles wind better than the Raft.','Leviathans look like islands. Mine the chitin before they dive.']},
+{id:'mistlands',n:'Mistlands',stars:5,conf:true,col:'#55485e',boss:'queen',
+ d:'Giant roots and jagged cliffs under a thick magic mist. Home of the Seekers and the Dvergr, and the start of eitr magic.',
+ foes:['Seeker','Seeker Soldier','Seeker Brood','Gjall','Tick','Dvergr (neutral unless you anger them)','Hare'],
+ res:['Yggdrasil wood','Black marble','Black cores, soft tissue and Dvergr extractors in Infested Mines','Sap from ancient roots','Carapace, mandibles and royal jelly from Seekers','Jotun puffs and magecap','Refined eitr (soft tissue plus sap in an Eitr refinery)'],
+ tips:['Craft a Wisplight (Torn spirit from Yagluth) to push the mist back.','Bring a feather cape (or plenty of stamina) for the cliffs.','Don\'t loot Dvergr camps in front of them unless you want a fight.','Infested Mines hold the black cores and Sealbreaker fragments that lead to The Queen.']},
+{id:'ashlands',n:'Ashlands',stars:5,conf:true,col:'#7c2b1c',boss:'fader',
+ d:'The burning continent at the southern edge. Lava, ash storms and the undead Charred army. Usually reached by ship.',
+ foes:['Charred Warrior','Charred Marksman','Charred Twitcher','Charred Warlock','Morgen','Fallen Valkyrie','Asksvin','Volture','Bonemaw Serpent'],
+ res:['Flametal ore','Ashwood and grausten','Sulfur','Asksvin hide and meat','Bell fragments (towards Fader)','Charcoal resin and other Charred drops'],
+ tips:['Bring Fire resistance barley wine and heat-proof armour. Lava kills in seconds.','Build a Shield generator before you build a real base here: the Charred lay siege.','Tame Asksvin (they\'re the Ashlands\' mounts and livestock).','The sea around it is full of Bonemaw serpents. Land fast.']},
+{id:'deepnorth',n:'Deep North',stars:5,conf:false,col:'#d8e8f2',fg:'#0e1d27',boss:'kall',
+ d:'The final biome, added in Valheim 1.0. Frozen wastes at the northern edge of the world, the Mörkhalla dungeons and the Jotun.',
+ foes:['Elaking','Barka','Gammeltroll','Hexen','Krigen','Eyeless One','Fallen Warrior','Pulp (several kinds)','Moose (rideable)','Seal'],
+ res:['Ice (into Liquid Frost at the Frigid Kiln)','Petrified tissue from Gammeltroll statues (into Bloodgold)','Moose meat and hide','Kale, oats, poteitr and timberwood','Moulds for the new armour sets'],
+ tips:['Most creatures here resist frost and take extra fire damage. Leave the frost staff at home.','A Gammeltroll shrugs off weapons. Kill it with Ember Charges, then blast its statue for petrified tissue.','Older cold gear isn\'t enough: the Deep North adds frostbite on top of Freezing. Bring new frost gear or mead.','Each Mörkhalla ends in Malice Ice. Breaking it starts a Jotun invasion that gives one Malicious Blood.']}
+];
+
+/* Bosses. Health, weak/resists from the wiki; powers are the post-Call to Arms numbers. */
+const BOSSES=[
+{id:'eikthyr',n:'Eikthyr',biome:'Meadows',conf:true,hp:500,
+ summon:'2 Deer trophies at the Mystical Altar',find:'Usually close to your spawn. The Eikthyr runestone at the starting stones marks it.',
+ attacks:['Antler charge and stomp','Lightning bolt from the antlers (ranged)','A lightning area burst around him'],
+ weak:['Pierce (arrows)'],res:['Lightning (immune)'],
+ drop:'Hard antler ×3 (the Antler pickaxe), Eikthyr trophy',
+ power:'Run, jump and swim stamina cost reduced by 60%.',
+ prep:['A Crude or Wood bow with 100+ flint or wood arrows','Leather or Rag armour and a wood shield','Cooked meat, raspberries and mushrooms','Sleep first to get Rested','Clear the trees around the altar'],
+ tip:'Strafe sideways and shoot. His charge is easy to sidestep, and when he stomps, step back out of the ring.'},
+{id:'elder',n:'The Elder',biome:'Black Forest',conf:true,hp:2500,
+ summon:'3 Ancient seeds at the Ancient Altar',find:'Find a Vegvisir in a Burial Chamber or Greydwarf area; it marks the altar on your map.',
+ attacks:['Stomp that knocks you back','Vines that grab and hold you','A root summon that spawns roots out of the ground','Ranged vine shot'],
+ weak:['Fire (fire arrows)','Slash'],res:['Pierce','Poison (immune)'],
+ drop:'Swamp key, Elder trophy',
+ power:'+60% chop and pickaxe damage, +30% health regeneration.',
+ prep:['Fire arrows (resin + feathers + wood) and a Finewood bow','Troll or Bronze armour','Deer stew, Queen\'s jam, carrot soup','Minor healing meads','Build a fire or workbench near the altar for a quick respawn spot'],
+ tip:'Burn him with fire arrows from behind the stone pillars. Kill the roots first, or they\'ll surround you.'},
+{id:'bonemass',n:'Bonemass',biome:'Swamp',conf:true,hp:5000,
+ summon:'10 Withered bones at the Bonemass altar',find:'A Vegvisir in a Sunken Crypt marks the altar.',
+ attacks:['Poison cloud vomit','Heavy slam','Summons Skeletons and Blobs'],
+ weak:['Blunt (maces, Frostner)','Spirit'],res:['Pierce','Slash','Poison (immune)'],
+ drop:'Wishbone (finds silver, buried chests and more), Bonemass trophy',
+ power:'+25% resistance to blunt, slash and pierce, blocking costs no stamina and gives 5 back.',
+ prep:['Poison resistance mead (one per minute or so of fight)','An Iron sledge, Iron mace or Frostner','Iron armour','Sausages, turnip stew, black soup','Medium healing meads','Clear the swamp around the altar; raise the ground with the hoe'],
+ tip:'Drink Poison resistance before you summon. Fight up close with blunt weapons and back off when he vomits.'},
+{id:'moder',n:'Moder',biome:'Mountain',conf:true,hp:7500,
+ summon:'3 Dragon eggs at Moder\'s altar',find:'A Vegvisir in a Mountain or Frost Cave marks it. Eggs sit on peaks; they\'re heavy and can\'t go through portals.',
+ attacks:['Frost breath on the ground','Ice shards from above','Claw and tail sweeps when she lands'],
+ weak:['Pierce (arrows, while she flies)'],res:['Frost (immune)'],
+ drop:'Dragon tears ×3 (the Artisan table), Moder trophy',
+ power:'A constant tailwind when sailing, +300 carry weight, +10% movement speed, 50% frost resistance.',
+ prep:['Frost resistance mead or the Wolf fur cape','A Draugr Fang or Huntsman bow with Obsidian or Needle arrows','Wolf armour','Wolf skewers, onion soup, eyescream','Medium healing and stamina meads','Build a covered shelter with a fire near the altar'],
+ tip:'Shoot her in the air. When she lands, keep moving; a roof gives cover from the shards.'},
+{id:'yagluth',n:'Yagluth',biome:'Plains',conf:true,hp:10000,
+ summon:'5 Fuling totems at Yagluth\'s altar',find:'A Vegvisir in a Fuling village marks it.',
+ attacks:['Meteor rain','A fire beam from his hand','A ground slam that sends a shock wave'],
+ weak:['Spirit','Silver arrows'],res:['Fire (immune)','Poison (immune)'],
+ drop:'Torn spirit ×3 (Wisplights for the Mistlands), Yagluth trophy',
+ power:'50% lightning resistance, +25 Farming skill, +10% damage.',
+ prep:['Fire resistance barley wine','Silver arrows, a Frostner or Spinesnap, or Porcupine','Padded armour','Lox meat pie, fish wraps, bread or blood pudding','Medium healing meads'],
+ tip:'Stay close and to his side: the meteors and beam are far easier to dodge than to tank. Silver and spirit damage hurt him most.'},
+{id:'queen',n:'The Queen',biome:'Mistlands',conf:true,hp:12500,
+ summon:'Break into the Infested Citadel with a Sealbreaker. She waits inside.',find:'The Infested Citadel is a huge black-stone building. The Sealbreaker is built from fragments found in Infested Mines.',
+ attacks:['Acid spit','Charges and tail sweeps','Grab-and-bite','Summons Seekers and broods'],
+ weak:['Pierce'],res:['Poison'],
+ drop:'Queen drop, Queen trophy, Ashlands-era unlocks',
+ power:'Eitr regeneration +100%, sneaking costs nothing, 50% poison resistance.',
+ prep:['Carapace armour (or Eitr-weave for mages)','An Arbalest with bolts, a Spinesnap bow, or a Staff of Embers','Misthare supreme, meat platter, honey glazed chicken','Medium or Major healing meads','Kill everything in the arena first'],
+ tip:'Watch her tail and keep to the sides. Pierce damage (bolts, spears) is the classic answer.'},
+{id:'fader',n:'Fader',biome:'Ashlands',conf:false,hp:null,
+ summon:'Bell fragments at Fader\'s altar in an Ashlands coliseum',find:'A Vegvisir in a Charred Fortress marks the altar.',
+ attacks:['Rings of fire','Meteors','Fire breath','A roar that calls Charred warriors and marksmen'],
+ weak:['Frost'],res:['Fire'],
+ drop:'Fader trophy and Fader\'s relics',
+ power:'+100% adrenaline, 50% less stagger build-up, 50% fire resistance.',
+ prep:['Fire resistance barley wine','Flametal armour','A frost weapon or staff','Piquant pie, fiery svinstew','Lingering healing and stamina meads'],
+ tip:'Treat it like Moder with fire: keep moving, and don\'t stand in what it breathes on.'},
+{id:'kall',n:'Kall Fimbulbringer',biome:'Deep North',conf:false,hp:null,
+ summon:'3 Malicious Blood at the Strange Bowl in the Aesir Passage',find:'A Vegvisir inside a Mörkhalla points you to the Aesir Passage. Each Mörkhalla\'s Malice Ice starts a Jotun invasion that gives one Malicious Blood.',
+ attacks:['A three-phase fight','Spirit versions of earlier bosses join in','Frost attacks'],
+ weak:['Blunt','Slash'],res:['Fire','Frost'],
+ drop:'Sacrificial blood and a Crown Jewel',
+ power:'Not confirmed yet. Read the altar tooltip.',
+ prep:['Deep North armour (Protector, Vanguard or Caller)','Frost resistance','The best food you can make','Healing meads, and the Forsaken power you like best ready to cast'],
+ tip:'The newest fight in the game. Guides still disagree on details, so watch the first phase before committing.'}
+];
+
+/* Creatures. w = weak to, r = resists, i = immune to. tame: how to tame, or '' */
+const CREATURES=[
+['Meadows','Greyling','','','','Resin','','Weak little Greydwarf. Easy XP for clubs.'],
+['Meadows','Boar','','','','Raw meat, leather scraps','Mushrooms, raspberries, blueberries, carrots','Charges in a straight line. Step aside.'],
+['Meadows','Deer','','','','Deer hide, venison, Deer trophy','','Runs. Crouch, approach from behind and shoot.'],
+['Meadows','Neck','','','','Neck tail','','Lives by water. Harmless with a shield up.'],
+['Black Forest','Greydwarf','Fire','','','Wood, stone, resin, Greydwarf eye','','Throws rocks. Spawns from nests until you break them.'],
+['Black Forest','Greydwarf Brute','Fire','','','Ancient seed, Greydwarf eye','','Hits hard. Parry it.'],
+['Black Forest','Greydwarf Shaman','Fire','','Poison','Resin, Greydwarf eye','','Heals other Greydwarves. Kill it first.'],
+['Black Forest','Troll','Pierce','','','Troll hide, coins','','Huge swings that wreck buildings. Kite it and shoot.'],
+['Black Forest','Skeleton','Blunt, fire, spirit','Slash, pierce','Poison','Bone fragments','','Use a club. Archers hide in Burial Chambers.'],
+['Black Forest','Ghost','Spirit','Physical','','—','','Floats through walls in burial chambers.'],
+['Black Forest','Rancid Remains','Blunt, fire, spirit','Slash, pierce','Poison','Iron mace (rare)','','Mini-boss skeleton. Bring a club.'],
+['Black Forest','Bjørn','Fire','','','Bjørn hide, meat','','A bear added in the Bog Witch update. Very tanky.'],
+['Swamp','Draugr','Fire, spirit','','','Entrails','','Undead viking. Parry and riposte.'],
+['Swamp','Draugr Elite','Fire, spirit','','','Entrails, trophy','','Stronger Draugr. Don\'t fight two at once.'],
+['Swamp','Blob','','','Poison','Ooze','','Explodes into poison. Fight at range.'],
+['Swamp','Oozer','','','Poison','Ooze','','Big blob that splits into Blobs.'],
+['Swamp','Leech','','','','Bloodbag','','In the water. Stay on dry ground.'],
+['Swamp','Wraith','Spirit','Physical','','Chain','','Comes out at night. Silver or spirit damage.'],
+['Swamp','Surtling','Water (rain)','','Fire','Surtling core, coal','','Spawns at fire geysers. Dies in rain.'],
+['Swamp','Abomination','Fire, slash','Pierce','Poison','Root','','A tree that wakes up. Fire arrows and an axe.'],
+['Mountain','Wolf','Fire','','','Wolf pelt, wolf fang, raw meat','Raw meat, sausages, any meat','Packs at night. Stand against a rock.'],
+['Mountain','Drake','Fire','','Frost','Freeze gland, trophy','','Flies and spits ice. Fire arrows.'],
+['Mountain','Stone Golem','Blunt, pickaxe','Slash, pierce','Poison','Crystal, stone, silver necklace (rare)','','Slow. Mace and dodge its double slam.'],
+['Mountain','Fenring','Fire, silver','','','Fenring claw, trophy','','Leaps fast. Comes out at night.'],
+['Mountain','Cultist','','','Fire','Fenring hair, trophy','','Frost Cave spellcaster. Breaks line of sight.'],
+['Mountain','Ulv','Fire','','','Ulv fur','','Frost Cave wolf-thing that comes in pairs.'],
+['Mountain','Bat','','','','—','','Swarms in Frost Caves. Easy kills.'],
+['Plains','Fuling','Spirit','','','Black metal scrap, coins','','The Plains goblin. Usually in groups.'],
+['Plains','Fuling Berserker','Spirit','','','Black metal scrap, coins, trophy','','Big axe. Dodge the overhead slam.'],
+['Plains','Fuling Shaman','Spirit','Fire','','Black metal scrap','','Shields other Fulings. Kill first.'],
+['Plains','Deathsquito','','','','Needle','','Very fast, very deadly. Shield up or one arrow.'],
+['Plains','Lox','','','','Lox meat, lox pelt','Barley, flax, cloudberries','Peaceful until hit. Tame and ride it.'],
+['Plains','Growth','Fire, spirit','Physical','','Tar','','Spits tar. Fire works best.'],
+['Plains','Vile','','','','—','','Bog Witch-era Plains pest.'],
+['Ocean','Serpent','Pierce','','','Serpent meat, serpent scale','','Storms only. Harpoon or arrows from the boat.'],
+['Ocean','Leviathan','','','','Chitin (mine it)','','Not an enemy: a whale-island that dives if you take too long.'],
+['Mistlands','Seeker','Pierce','','','Carapace, mandible, royal jelly','','Fast bug. Spears and crossbows.'],
+['Mistlands','Seeker Soldier','Pierce','Slash, blunt','','Carapace, trophy','','Heavily armoured. Pierce only, and dodge the charge.'],
+['Mistlands','Seeker Brood','','','','—','','Tiny bugs in Infested Mines. Swipe them away.'],
+['Mistlands','Gjall','Pierce','','','Bilebag, trophy','','Flying artillery that drops Ticks. Shoot it.'],
+['Mistlands','Tick','','','','—','','Sucks your blood. Kill fast.'],
+['Mistlands','Dvergr','','','','Dvergr extractor, black core, staves','','Neutral. Don\'t steal near them.'],
+['Mistlands','Hare','','','','Misthare meat, scale hide','','Quick to flee.'],
+['Ashlands','Charred Warrior','Blunt, spirit','','','Charred bone, Ashlands gear parts','','Undead soldier. Shield and parry.'],
+['Ashlands','Charred Marksman','Blunt, spirit','','','Charred bone','','Archer. Close the gap fast.'],
+['Ashlands','Charred Twitcher','Blunt, spirit','','','Charred bone','','Small and quick.'],
+['Ashlands','Charred Warlock','Blunt, spirit','','','Charred bone','','Spellcaster. Priority target.'],
+['Ashlands','Morgen','Pierce','','','Morgen sinew, Morgen heart','','A brute that sleeps in ruins. Don\'t wake it unprepared.'],
+['Ashlands','Fallen Valkyrie','Frost','Fire','','Celestial feather','','Flying, aggressive mini-boss.'],
+['Ashlands','Asksvin','','','','Asksvin hide, meat, carapace','Fiddlehead, vineberries','Tameable and rideable.'],
+['Ashlands','Volture','Pierce','','','Volture egg, meat','','Bird that dives on you. Shoot it.'],
+['Ashlands','Bonemaw Serpent','Pierce','','','Bonemaw meat, tooth','','The Ashlands sea serpent. Rams boats.'],
+['Deep North','Elaking','Fire','Frost','','Moose antler parts','','Huge elk. Fire weapons.'],
+['Deep North','Barka','Fire','Frost','','Hide','','Hits hard and resists cold.'],
+['Deep North','Gammeltroll','Explosives (Ember Charges)','Almost everything','','Petrified statue → petrified tissue','','Don\'t melee it. Ember Charges, then blast the statue.'],
+['Deep North','Hexen','','','','Moulds for the Caller set','','Sorceress that comes with Jotun invasions.'],
+['Deep North','Krigen','','','','—','','Jotun warrior in Mörkhalla.'],
+['Deep North','Moose','Fire','Frost','','Moose meat, moose hide','Tameable','Rideable. A Moose Hide Cape comes from its hide.'],
+['Deep North','Seal','Fire','Frost','','Seal meat, blubber','','Harmless. Food.']
+].map(([b,n,w,r,i,drops,tame,d])=>({b,n,w,r,i,drops,tame,d,conf:!/Ashlands|Deep North/.test(b)&&!/Bjørn|Vile|Fenring/.test(n)}));
+
+/* Food. hp, st (stamina), ei (eitr), heal (HP per tick), dur (minutes). tier = biome you can first make it in. */
+const FOOD=[
+['Raspberries','Meadows',7,20,0,1,10,'Picked','Raw',true],
+['Mushroom','Meadows',15,15,0,1,15,'Picked','Raw',true],
+['Honey','Meadows',8,35,0,1,15,'Beehive','Raw',true],
+['Cooked meat','Meadows',30,10,0,2,20,'Boar meat on a Cooking station','Cooked',true],
+['Grilled neck tail','Meadows',25,8,0,2,20,'Neck tail on a Cooking station','Cooked',true],
+['Cooked deer meat','Meadows',35,12,0,2,20,'Venison on a Cooking station','Cooked',true],
+['Cooked fish','Meadows',45,15,0,2,20,'Any fish on a Cooking station','Cooked',true],
+['Boar jerky','Meadows',23,23,0,2,30,'Boar meat, honey (Cauldron)','Cauldron',true],
+['Blueberries','Black Forest',8,25,0,1,10,'Picked','Raw',true],
+['Yellow mushroom','Black Forest',10,30,0,1,10,'Burial chambers and caves','Raw',true],
+['Carrot','Black Forest',10,32,0,1,15,'Farmed','Raw',true],
+['Queen\'s jam','Black Forest',14,40,0,2,20,'Raspberries, blueberries (Cauldron)','Cauldron',true],
+['Carrot soup','Black Forest',15,45,0,2,25,'Mushroom, carrots (Cauldron)','Cauldron',true],
+['Deer stew','Black Forest',45,15,0,3,25,'Blueberries, carrot, cooked deer meat','Cauldron',true],
+['Minced meat sauce','Black Forest',40,13,0,3,25,'Boar meat, neck tail, carrot','Cauldron',true],
+['Turnip stew','Swamp',18,55,0,2,25,'Cooked meat, turnips','Cauldron',true],
+['Sausages','Swamp',55,18,0,3,25,'Entrails, raw meat, thistle','Cauldron',true],
+['Black soup','Swamp',50,17,0,3,20,'Bloodbag, honey, turnip','Cauldron',true],
+['Muckshake','Swamp',16,50,0,1,20,'Ooze, raspberries, blueberries','Cauldron',false],
+['Onion','Mountain',13,40,0,1,15,'Farmed','Raw',true],
+['Onion soup','Mountain',20,60,0,1,25,'Onions','Cauldron',true],
+['Eyescream','Mountain',21,65,0,1,25,'Greydwarf eye, freeze gland','Cauldron',true],
+['Wolf jerky','Mountain',33,33,0,3,30,'Wolf meat, honey','Cauldron',true],
+['Wolf skewer','Mountain',65,21,0,3,25,'Wolf meat, mushroom, onion','Cauldron',true],
+['Cooked serpent meat','Ocean',70,23,0,3,25,'Serpent meat on an Iron cooking station','Cooked',false],
+['Serpent stew','Ocean',80,26,0,4,30,'Mushroom, cooked serpent meat, honey','Cauldron',true],
+['Cloudberries','Plains',13,40,0,1,15,'Picked','Raw',true],
+['Cooked lox meat','Plains',50,16,0,4,20,'Lox meat on an Iron cooking station','Cooked',true],
+['Bread','Plains',23,70,0,2,25,'Bread dough in a Stone oven','Oven',true],
+['Fish wraps','Plains',70,23,0,4,25,'Cooked fish, barley flour','Cauldron',true],
+['Lox meat pie','Plains',75,24,0,4,30,'Uncooked pie (cloudberries, lox meat, barley flour) in the oven','Oven',true],
+['Blood pudding','Plains',25,75,0,2,30,'Thistle, bloodbag, barley flour','Cauldron',true],
+['Salad','Mistlands',26,80,0,3,25,'Jotun puffs, onion, cloudberries','Cauldron',true],
+['Misthare supreme','Mistlands',85,28,0,5,25,'Uncooked dish in the oven','Oven',true],
+['Meat platter','Mistlands',80,26,0,5,30,'Uncooked dish in the oven','Oven',true],
+['Honey glazed chicken','Mistlands',80,26,0,5,25,'Uncooked chicken dish in the oven','Oven',true],
+['Mushroom omelette','Mistlands',28,85,0,3,25,'Chicken egg, Jotun puffs','Cauldron',false],
+['Seeker aspic','Mistlands',28,85,0,3,25,'Seeker jelly dish','Cauldron',false],
+['Yggdrasil porridge','Mistlands',27,13,80,3,25,'Sap, barley, royal jelly','Cauldron',false],
+['Magically stuffed shroom','Mistlands',25,12,60,3,25,'Magecap dish in the oven','Oven',false],
+['Piquant pie','Ashlands',105,35,0,6,30,'Ashlands pie in the oven','Oven',false],
+['Fiery svinstew','Ashlands',95,32,0,6,30,'Asksvin stew','Cauldron',false],
+['Spicy marmalade','Ashlands',30,90,0,4,30,'Vineberries and fiddlehead','Cauldron',false],
+['Scorching medley','Ashlands',32,95,0,4,30,'Fiddlehead mix','Cauldron',false],
+['Smoked moose meat','Deep North',105,35,0,6,25,'Moose meat, kale','Cauldron',false],
+['Oatmeal','Deep North',39,115,85,4,30,'Oats, lingonberries, oat milk','Cauldron',false],
+['Fish soup','Deep North',37,18,105,4,30,'Fish, kale','Cauldron',false],
+['Meatballs and poteitr','Deep North',35,18,105,4,30,'Meat, poteitr','Cauldron',false]
+].map(([n,b,hp,st,ei,heal,dur,how,kind,conf])=>({n,b,hp,st,ei,heal,dur,how,kind,conf}));
+const BASE_HP=25,BASE_ST=50;
+
+/* Meads: brew a base at the Cauldron, put it in a Fermenter, collect 6 meads. */
+const MEADS=[
+{n:'Minor healing mead',b:'Black Forest',conf:true,e:'Heals 50 HP over 10 s. 2-minute cooldown shared with other healing meads.',base:'Honey, blueberries, raspberries, dandelion'},
+{n:'Medium healing mead',b:'Swamp',conf:true,e:'Heals 75 HP over 10 s.',base:'Honey, bloodbag, raspberries, dandelion'},
+{n:'Major healing mead',b:'Mistlands',conf:false,e:'Heals a large amount instantly-ish. The Mistlands tier.',base:'Honey, blood clot, royal jelly, ...'},
+{n:'Lingering healing mead',b:'Ashlands',conf:false,e:'Healing over a long time rather than in one burst.',base:'Ashlands ingredients'},
+{n:'Minor stamina mead',b:'Black Forest',conf:true,e:'Restores 80 stamina. 2-minute cooldown shared with other stamina meads.',base:'Honey, raspberries, yellow mushroom'},
+{n:'Medium stamina mead',b:'Mountain',conf:true,e:'Restores 160 stamina.',base:'Honey, cloudberries, yellow mushroom'},
+{n:'Lingering stamina mead',b:'Mistlands',conf:false,e:'Stamina regeneration boost for minutes rather than a burst.',base:'Mistlands ingredients'},
+{n:'Minor eitr mead',b:'Mistlands',conf:true,e:'Restores eitr for mages.',base:'Honey, sap, magecap, ...'},
+{n:'Medium eitr mead',b:'Mistlands',conf:false,e:'Restores more eitr.',base:'Later Mistlands ingredients'},
+{n:'Poison resistance mead',b:'Swamp',conf:true,e:'Poison resistant for 10 minutes. Bring it to Bonemass.',base:'Honey, coal, thistle, neck tail'},
+{n:'Frost resistance mead',b:'Mountain',conf:true,e:'Frost resistant, and stops Freezing in the Mountains, for 10 minutes.',base:'Honey, thistle, bloodbag, greydwarf eye'},
+{n:'Fire resistance barley wine',b:'Plains',conf:true,e:'Fire resistant for 10 minutes. Essential for Yagluth and the Ashlands.',base:'Barley, cloudberries'},
+{n:'Tasty mead',b:'Meadows',conf:false,e:'A Bog Witch-era mead with a small regen buff.',base:'Honey, raspberries, ...'},
+{n:'Lightfoot mead',b:'Black Forest',conf:false,e:'Lighter jumps and less stamina for jumping.',base:'Bog Witch ingredients'},
+{n:'Strength mead',b:'Mountain',conf:false,e:'More carry weight for a while.',base:'Bog Witch ingredients'},
+{n:'Frost resistance (Deep North)',b:'Deep North',conf:false,e:'The Deep North adds frostbite on top of Freezing; check whether your mead covers it.',base:'—'}
+];
+
+/* Gear by biome. */
+const GEAR=[
+{b:'Meadows',st:'Workbench',arm:'Rag armour, then Leather armour (deer hide)',wep:'Club, Flint axe, Flint knife, Flint spear, Crude bow, Wood shield',tool:'Stone axe, Flint axe, Hammer, Hoe, Antler pickaxe (Eikthyr)',key:'Deer hide, flint, wood, leather scraps',conf:true},
+{b:'Black Forest',st:'Forge, Smelter, Charcoal kiln',arm:'Troll leather armour, then Bronze armour',wep:'Bronze sword, Bronze mace, Bronze axe, Bronze atgeir, Finewood bow, Bronze buckler',tool:'Bronze pickaxe, Cultivator',key:'Copper, tin, bronze, troll hide, core wood, fine wood',conf:true},
+{b:'Swamp',st:'Forge upgrades',arm:'Iron armour (iron + deer hide + chain), Root armour (ancient root)',wep:'Iron sword, Iron mace, Iron sledge, Iron axe, Iron atgeir, Huntsman bow, Banded shield',tool:'Iron pickaxe (mines silver)',key:'Iron, ancient bark, chain, guck',conf:true},
+{b:'Mountain',st:'Forge, Stonecutter',arm:'Wolf armour (silver, wolf pelt), Fenris armour (Frost Caves)',wep:'Silver sword, Frostner, Draugr fang bow, Silver shield, Obsidian arrows',tool:'—',key:'Silver, wolf pelt, obsidian, freeze glands, crystal',conf:true},
+{b:'Plains',st:'Artisan table (Moder), Spinning wheel, Windmill, Blast furnace',arm:'Padded armour (linen + iron), Lox cape',wep:'Black metal sword, Black metal axe, Black metal atgeir, Porcupine, Black metal shield, Needle arrows',tool:'Black metal pickaxe',key:'Black metal, linen, lox pelt, needles',conf:true},
+{b:'Mistlands',st:'Black forge, Galdr table, Eitr refinery',arm:'Carapace armour (warrior), Eitr-weave robes (mage), Feather cape',wep:'Mistwalker, Jotun bane, Arbalest, Spinesnap, Staff of embers, Staff of frost, Staff of protection, Dead raiser',tool:'Wisplight (clears mist)',key:'Carapace, black marble, eitr, Yggdrasil wood, Dvergr extractors',conf:true},
+{b:'Ashlands',st:'Shield generator, Ballista, upgraded Black forge and Galdr table',arm:'Flametal armour (warrior), Embla robes (mage), Ask armour (archer)',wep:'Flametal weapons (Dyrnwyn and friends), Ashlands bows, staffs and crossbows',tool:'—',key:'Flametal, ashwood, grausten, Asksvin hide, Bell fragments',conf:false},
+{b:'Deep North',st:'Frost Foundry, Frigid Kiln, Galdr table level 3',arm:'Protector (heavy, 44 armour per piece), Vanguard (medium, piercing bonus), Caller (mage, big eitr regen)',wep:'Nord weapons',tool:'Ember Charges for Gammeltrolls',key:'Bloodgold (petrified tissue), Liquid Frost, moulds',conf:false}
+];
+
+/* What each pickaxe can mine. */
+const PICKS=[
+['Antler pickaxe','Copper, tin, rock, scrap piles (slowly)','From Eikthyr\'s Hard antler'],
+['Bronze pickaxe','Everything the Antler mines, faster; scrap iron, obsidian','Black Forest'],
+['Iron pickaxe','Silver, obsidian and everything below; black marble','The Swamp. The last pickaxe you strictly need for a long time.'],
+['Black metal pickaxe','Faster on everything; flametal ore','Plains and later'],
+['Ember Charges','Gammeltroll statues (Deep North)','Not a pickaxe: an explosive. ○']
+];
+
+/* Where things come from. [name, biome, how, tool/needs, used for] */
+const MATS=[
+['Wood','Meadows','Any tree or log','Any axe','Almost everything'],
+['Stone','Meadows','Rocks, boulders','Pickaxe, or pick up loose stones','Building, stonecutting'],
+['Flint','Meadows','Shores and riverbeds','By hand','Flint tools, arrows'],
+['Resin','Meadows','Greylings, Greydwarves, trees','—','Torches, fire arrows, sap seals'],
+['Leather scraps','Meadows','Boars, abandoned houses','—','Leather armour, many recipes'],
+['Deer hide','Meadows','Deer','—','Leather armour, Iron armour'],
+['Feathers','Meadows','Birds (shoot them)','—','Arrows'],
+['Honey','Meadows','Beehives; take a Queen bee to build your own','—','Food, meads'],
+['Fine wood','Meadows','Birch and oak trees','Bronze axe or better','Finewood bow, many furniture pieces, Karve'],
+['Core wood','Black Forest','Pine trees','Any axe','Core wood arrows, Karve, beams and poles'],
+['Copper','Black Forest','Copper deposits','Antler pickaxe','Bronze, Forge'],
+['Tin','Black Forest','Shorelines and streams','Antler pickaxe','Bronze'],
+['Surtling core','Black Forest','Burial Chambers, Surtlings in the Swamp','—','Smelter, kiln, portal'],
+['Troll hide','Black Forest','Trolls','—','Troll armour'],
+['Bone fragments','Black Forest','Skeletons','—','Bone arrows, Bone Bonfire, Dead raiser'],
+['Ancient seed','Black Forest','Greydwarf nests, Brutes','—','Summon The Elder'],
+['Coal','Black Forest','Charcoal kiln (wood → coal), Surtlings','—','Smelting'],
+['Greydwarf eye','Black Forest','Greydwarves','—','Portal, Eyescream, meads'],
+['Thistle','Black Forest','Glowing blue flower in the forest','By hand','Sausages, meads'],
+['Ancient bark','Swamp','Giant swamp trees and their logs','Iron axe (or bronze axe on logs)','Longship, ancient bark spears, building pieces'],
+['Scrap iron','Swamp','Muddy scrap piles in Sunken Crypts','Antler or better pickaxe','Iron'],
+['Guck','Swamp','Green sacks high up on swamp trees','Shoot or pick them','Iron gates, Banded shield, Root armour'],
+['Chain','Swamp','Wraiths, Sunken Crypts','—','Iron armour, Iron gate'],
+['Entrails','Swamp','Draugr','—','Sausages'],
+['Bloodbag','Swamp','Leeches','—','Black soup, Medium healing mead'],
+['Ooze','Swamp','Blobs and Oozers','—','Muckshake, lanterns'],
+['Withered bone','Swamp','Sunken Crypt chests','—','Summon Bonemass'],
+['Silver','Mountain','Silver veins under the snow (Wishbone finds them)','Iron pickaxe','Wolf armour, Frostner, silver arrows'],
+['Obsidian','Mountain','Obsidian deposits','Bronze pickaxe or better','Obsidian arrows, Artisan stuff'],
+['Wolf pelt','Mountain','Wolves','—','Wolf armour, Wolf fur cape'],
+['Freeze gland','Mountain','Drakes','—','Frostner, Eyescream, frost arrows'],
+['Crystal','Mountain','Stone golems, crystal formations','Pickaxe','Crystal walls, Frostner'],
+['Dragon egg','Mountain','Nests on peaks (heavy, no portals)','—','Summon Moder'],
+['Black metal scrap','Plains','Fulings, village chests','—','Black metal (Blast furnace)'],
+['Barley','Plains','Plant seeds from Fuling villages (Plains only)','Cultivator','Bread, barley flour, barley wine'],
+['Flax','Plains','Plant seeds from Fuling villages (Plains only)','Cultivator','Linen thread (Spinning wheel)'],
+['Needle','Plains','Deathsquitos','—','Needle arrows, Porcupine'],
+['Lox pelt','Plains','Lox','—','Lox cape, Lox rug, saddle'],
+['Tar','Plains','Tar pits and Growths','—','Black metal gear, tar-roofed buildings, Drakkar'],
+['Fuling totem','Plains','Fuling villages (Shamans)','—','Summon Yagluth'],
+['Yggdrasil wood','Mistlands','Yggdrasil branches lying around','Black metal axe or better','Mistlands stations, staves'],
+['Black marble','Mistlands','Ruins and black marble rocks','Iron pickaxe or better','Black marble building pieces'],
+['Black core','Mistlands','Infested Mines','—','Galdr table, Staff of Embers'],
+['Sap','Mistlands','Sap extractor on an ancient root','Build a Sap extractor','Refined eitr'],
+['Soft tissue','Mistlands','Infested Mines (mine the soft tissue walls)','Pickaxe','Refined eitr'],
+['Refined eitr','Mistlands','Eitr refinery (soft tissue + sap)','Eitr refinery','Magic gear, staves'],
+['Carapace','Mistlands','Seekers','—','Carapace armour, Arbalest'],
+['Dvergr extractor','Mistlands','Dvergr ruins and camps','—','Black forge, Galdr table'],
+['Flametal ore','Ashlands','Flametal veins in lava fields','Pickaxe; watch the lava','Flametal (Blast furnace)'],
+['Ashwood','Ashlands','Ashlands trees','A late-game axe','Ashlands building and gear'],
+['Grausten','Ashlands','Grausten rocks and ruins','Pickaxe','Ashlands building'],
+['Bell fragment','Ashlands','Charred Fortresses','—','Summon Fader'],
+['Ice','Deep North','Ice formations','Pickaxe','Liquid Frost (Frigid Kiln)'],
+['Petrified tissue','Deep North','Blast a Gammeltroll\'s statue','Ember Charges','Bloodgold'],
+['Malicious Blood','Deep North','Win a Jotun invasion (break Malice Ice in a Mörkhalla)','—','Summon Kall Fimbulbringer']
+].map(([n,b,how,tool,use])=>({n,b,how,tool,use,conf:!/Ashlands|Deep North/.test(b)}));
+
+/* Ores and bars for the smelting calculator. */
+const ORES=[
+{k:'copper',n:'Copper ore',bar:'Copper',st:'Smelter',coal:2,conf:true},
+{k:'tin',n:'Tin ore',bar:'Tin',st:'Smelter',coal:2,conf:true},
+{k:'iron',n:'Scrap iron',bar:'Iron',st:'Smelter',coal:2,conf:true},
+{k:'silver',n:'Silver ore',bar:'Silver',st:'Smelter',coal:2,conf:true},
+{k:'black',n:'Black metal scrap',bar:'Black metal',st:'Blast furnace',coal:2,conf:true},
+{k:'flametal',n:'Flametal ore',bar:'Flametal',st:'Blast furnace',coal:2,conf:false}
+];
+const SMELT_SECS=30, SMELT_CAP=10;
+
+/* Comfort pieces. g = group: only the best piece in each group counts. */
+const COMFORT=[
+['fire','Campfire',1],['fire','Hearth',2],
+['bed','Bed',1],['bed','Dragon bed',2],
+['seat','Stool',1],['seat','Wooden chair',1],['seat','Bench',1],['seat','Stone throne',1],['seat','Raven throne',3],
+['table','Wood table',1],['table','Long heavy table',2],['table','Dark wood table',2],['table','Black marble table',2],
+['banner','Any banner',1],['rug','Any rug (deer, wolf, lox...)',1],['trophy','Any trophy on the wall',1],
+['tub','Hot tub',1],['tree','Yule tree',1],['maypole','Maypole',1],['tapestry','Ancient tapestry',1],['stand','Armour stand',1]
+];
+const COMF_GROUP={fire:'Fire',bed:'Bed',seat:'Seat',table:'Table',banner:'Banner',rug:'Rug',trophy:'Trophy',tub:'Hot tub',tree:'Yule tree',maypole:'Maypole',tapestry:'Tapestry',stand:'Armour stand'};
+
+/* Raids. Which ones can hit depends on the bosses the players nearby have killed. */
+const RAIDS=[
+{m:'Eikthyr rallies the creatures of the forest',f:'Boars and Necks',req:'Always possible',conf:true},
+{m:'The forest is moving...',f:'Greydwarves, Brutes and Shamans',req:'Eikthyr defeated',conf:true},
+{m:'The ground is shaking',f:'Trolls',req:'The Elder defeated',conf:true},
+{m:'A foul smell from the swamp',f:'Draugr and Skeletons',req:'The Elder defeated',conf:true},
+{m:'There\'s a smell of sulfur in the air',f:'Surtlings',req:'The Elder defeated',conf:false},
+{m:'You are being hunted',f:'Wolves (at night)',req:'Bonemass defeated',conf:true},
+{m:'A cold wind blows from the mountains',f:'Drakes',req:'Bonemass defeated',conf:true},
+{m:'The horde is attacking',f:'Fulings',req:'Moder defeated',conf:true},
+{m:'You stirred the cauldron',f:'Seekers, Gjall, Ticks',req:'Yagluth or The Queen defeated',conf:false},
+{m:'The dead are rising / an army marches',f:'Charred and other Ashlands creatures',req:'The Queen or Fader defeated',conf:false},
+{m:'A Jotun invasion',f:'Jotun, Hexen and Deep North creatures',req:'Breaking Malice Ice in a Mörkhalla (Deep North)',conf:false}
+];
+
+/* Skills. */
+const SKILLS=[
+['Combat','Swords','Hitting things with swords. More damage, cheaper attacks.'],['Combat','Knives','Daggers and knives; also the backstab.'],
+['Combat','Clubs','Maces, clubs, sledges.'],['Combat','Polearms','Atgeirs.'],['Combat','Spears','Spears, thrown or stabbed.'],
+['Combat','Axes','Battleaxes and one-handed axes in combat.'],['Combat','Bows','Damage, draw speed and less stamina while drawing.'],
+['Combat','Crossbows','Arbalest and later crossbows.'],['Combat','Unarmed','Fists.'],['Combat','Blocking','Bigger block, lower stamina cost, better parry.'],
+['Magic','Elemental magic','Fire and frost staves.'],['Magic','Blood magic','Staff of protection, Dead raiser; costs health as well as eitr.'],
+['Gathering','Woodcutting','Chopping damage.'],['Gathering','Pickaxes','Mining damage.'],['Gathering','Fishing','Fewer escapes, cheaper reeling.'],['Gathering','Farming','Planting with the Cultivator; better yields.'],
+['Movement','Run','Run stamina cost and speed.'],['Movement','Jump','Jump height and cost.'],['Movement','Swim','Swim speed and stamina.'],['Movement','Sneak','Quieter and cheaper crouching.'],['Movement','Ride','Riding Lox, Asksvin and Moose.'],
+['Crafting','Cooking','Better food from cooking stations and cauldrons (Bog Witch update).'],['Crafting','Crafting','Faster and better crafting (Bog Witch update).']
+];
+
+/* Portals: things you can't take through (default world settings). */
+const NOPORT=['Copper ore and bars','Tin ore and bars','Bronze','Scrap iron and iron','Silver ore and bars','Black metal scrap and bars','Flametal ore and bars','Dragon eggs','Most Deep North metals (Bloodgold)'];
+
+/* Progression milestones, roughly in order. */
+const PROG=[
+['Meadows','Craft a stone axe, club, hammer and workbench'],['Meadows','Build a shelter with a bed and a fire (you\'re Rested)'],
+['Meadows','Make leather armour and a Crude bow'],['Meadows','Get 2 Deer trophies and kill Eikthyr'],['Meadows','Hang Eikthyr\'s trophy at the Sacrificial stones'],
+['Black Forest','Mine copper and tin with the Antler pickaxe'],['Black Forest','Build a Smelter, Charcoal kiln and Forge'],['Black Forest','Make bronze tools and armour'],
+['Black Forest','Build your first portal (fine wood, surtling cores, Greydwarf eyes)'],['Black Forest','Build a Karve'],['Black Forest','Kill The Elder'],
+['Swamp','Open a Sunken Crypt with the Swamp key'],['Swamp','Smelt iron; craft an Iron pickaxe'],['Swamp','Make Iron armour and a Banded shield'],
+['Swamp','Brew Poison resistance mead'],['Swamp','Kill Bonemass'],
+['Mountain','Find silver with the Wishbone'],['Mountain','Make Wolf armour and a Frostner'],['Mountain','Build a Longship'],['Mountain','Kill Moder'],
+['Plains','Plant barley and flax'],['Plains','Build an Artisan table, Spinning wheel and Windmill'],['Plains','Make Padded armour and black metal weapons'],['Plains','Tame Lox'],['Plains','Kill Yagluth'],
+['Mistlands','Craft a Wisplight'],['Mistlands','Build a Black forge and Galdr table'],['Mistlands','Make Carapace armour or Eitr-weave robes'],['Mistlands','Build a Sealbreaker'],['Mistlands','Kill The Queen'],
+['Ashlands','Sail to the Ashlands and set up a Shield generator'],['Ashlands','Smelt flametal'],['Ashlands','Kill Fader'],
+['Deep North','Survive the frostbite: get Deep North cold gear'],['Deep North','Smelt your first Bloodgold'],['Deep North','Clear three Mörkhallas'],['Deep North','Kill Kall Fimbulbringer']
+];
+
+/* Timer presets in minutes. Real time; game days are about 30 minutes. */
+const TPRESETS=[['Fermenter (mead)',40,false],['Smelter batch of 10',5,true],['Charcoal kiln (25 wood)',6,false],['Crops (carrots, turnips, onions...)',75,false],['Chicken egg hatching',30,false],['Bread / pie in the oven',1,false],['Night falls in',15,false]];
+
+const GUIDES=[
+{id:'firstday',title:'Your first day',blurb:'From the Sacrificial stones to a warm bed.',body:`
+<p>A raven called Hugin greets you at the Sacrificial stones. He pops up with tips as you go; read them.</p>
+<label class="chk"><input type="checkbox" data-k="f1"> Pick up branches, stones and flint (shores and rivers). Punch or pick berries and mushrooms.</label>
+<label class="chk"><input type="checkbox" data-k="f2"> Craft a Stone axe and a Club, then a Hammer.</label>
+<label class="chk"><input type="checkbox" data-k="f3"> Build a Workbench. Everything you craft needs it in range, and building does too.</label>
+<label class="chk"><input type="checkbox" data-k="f4"> Chop trees and kill boars and deer. Craft a Flint axe and a Crude bow.</label>
+<label class="chk"><input type="checkbox" data-k="f5"> Build a small hut: walls, a roof, a Campfire inside (leave a gap or a hole for smoke) and a Bed.</label>
+<label class="chk"><input type="checkbox" data-k="f6"> Sleep in the bed at night. Your bed is now your spawn point.</label>
+<label class="chk"><input type="checkbox" data-k="f7"> Always eat three different foods. Your health and stamina come from food.</label>
+<label class="chk"><input type="checkbox" data-k="f8"> Look at the stones around the spawn: the Eikthyr runestone marks his altar on the map.</label>
+<div class="tip">When you die you drop everything in a tombstone. Go back for it quickly and carry spare gear in a chest at home.</div>`},
+{id:'combat',title:'How combat works',blurb:'Parry, stagger, backstab, damage types.',body:`
+<ul class="mech"><li><b>Block</b> soaks damage up to your block power. <b>Parry</b>: block just as the hit lands, and the attacker is staggered. Bucklers and round shields parry far better than tower shields.</li>
+<li><b>Stagger</b>: hit an enemy enough and it reels; staggered enemies take double damage.</li>
+<li><b>Sneak attacks</b>: hit an unaware enemy from behind for big bonus damage (huge with knives).</li>
+<li>Every weapon does one or more <b>damage types</b>: blunt, slash, pierce, fire, frost, lightning, poison, spirit. Creatures are weak, resistant or immune to different types. See the <a href="#creatures">Bestiary</a>.</li>
+<li>Dodge rolls give you a short window of invulnerability. They cost stamina and get worse in heavy armour.</li>
+<li>The secondary attack (middle mouse) is different per weapon: a sword stab, an axe spin, a mace slam, an atgeir sweep.</li>
+<li>Your stamina is your real health bar in a fight. Don't empty it.</li></ul>
+<div class="tip">Fight next to your home. A death far away is a long naked walk back.</div>`},
+{id:'rested',title:'Rested, comfort and food',blurb:'Why your stamina is always short.',body:`
+<ul class="mech"><li>You can eat <b>three different foods</b> at a time. Each adds health, stamina and sometimes eitr, and fades over its duration.</li>
+<li>Base health is ${BASE_HP} and base stamina is ${BASE_ST}. Everything else comes from food. Use the <a href="#food">Food planner</a>.</li>
+<li>Health foods (meat) and stamina foods (berries, soups, bread) are different. Most players eat two health and one stamina, or the reverse for building and exploring.</li>
+<li><b>Rested</b> speeds up stamina regeneration a lot and raises skill gain. You get it by sitting or sleeping near a fire, under a roof.</li>
+<li>The length of Rested depends on your <b>comfort</b>: each kind of furniture near you adds to it, but only the best piece of each kind counts. Try the <a href="#comfort">Comfort calculator</a>.</li></ul>`},
+{id:'building',title:'Building',blurb:'Structure, smoke and the weather.',body:`
+<ul class="mech"><li>Pieces show their stability as a colour when you aim at them: <b style="color:#6db3ff">blue</b> on the ground, <b style="color:#79d36b">green</b> strong, <b style="color:#e6d34a">yellow</b>, <b style="color:#f19a3e">orange</b>, <b style="color:#e8574b">red</b> about to fail.</li>
+<li>Wood supports less than core wood beams, which support less than stone and iron. Big halls need pillars to the ground.</li>
+<li>Fires make smoke. Without a gap in the roof (or a Hearth with a chimney) the room fills and you choke.</li>
+<li>Rain wears down wooden pieces that aren\'t under a roof. Roofs are worth it.</li>
+<li>Build on raised ground near water. Greydwarves and trolls walk the forest edges.</li>
+<li>Your workbench and fire scare away spawns nearby, but raids still come for you.</li></ul>
+<div class="tip">Put a <b>Ward</b> down on multiplayer servers to keep other players from opening your doors and chests.</div>`},
+{id:'skills',title:'Skills and death',blurb:'How skills grow and what you lose.',body:`
+<ul class="mech"><li>Skills go from 0 to 100 by doing the thing: swinging swords raises Swords, running raises Run.</li>
+<li>Rested raises skill gain. Some meads and the Bog Witch's food buffs raise it further.</li>
+<li>Dying costs you a share of every skill (5% on default settings). After you respawn, a <b>No Skill Drain</b> buff stops you losing more for a while.</li>
+<li>World modifiers can change the death penalty, from none at all to losing everything.</li></ul>
+<div class="note">The exact penalty changed in a few updates. Check your world's settings in the world-modifier screen.</div>`},
+{id:'sailing',title:'Sailing and portals',blurb:'Boats, wind and what won\'t teleport.',body:`
+<ul class="mech"><li>Boats: <b>Raft</b> (slow, Meadows), <b>Karve</b> (fast, small hold), <b>Longship</b> (big hold, ancient bark), <b>Drakkar</b> (the Ashlands longship).</li>
+<li>Sail with the wind behind or to the side. Half sail is safer; full sail is faster. Moder\'s power gives you a constant tailwind.</li>
+<li>Serpents come in storms. Stay near land, or shoot them from the boat.</li>
+<li><b>Portals</b> link in pairs by name. Name both the same and they connect.</li>
+<li>You <b>can\'t</b> portal metals or ores. Ship them home or build a forge and smelter where you mine. See the <a href="#portals">Portal log</a>.</li>
+<li>World modifiers can allow all items through portals.</li></ul>`},
+{id:'taming',title:'Taming and breeding',blurb:'Wolves, boars, lox, Asksvin and more.',body:`
+<ul class="mech"><li>Drop the creature\'s food near it and stay close but hidden. Hearts appear when it eats, and a tame bar fills.</li>
+<li>Tameable: <b>Boar</b>, <b>Wolf</b>, <b>Lox</b>, <b>Hen</b> (from eggs), <b>Asksvin</b>, <b>Moose</b> (Deep North). See the <a href="#creatures">Bestiary</a> for what each eats.</li>
+<li>Fed tame animals breed. Keep them in a pen: more than a few in one place and they stop.</li>
+<li>Lox, Asksvin and Moose can be ridden with a saddle.</li>
+<li>Tame wolves follow you if you tell them to, and fight for you. A wolf pack at home is a great guard.</li></ul>`},
+{id:'farming',title:'Farming',blurb:'Cultivator, seeds and the right biome.',body:`
+<ul class="mech"><li>Craft a <b>Cultivator</b> (bronze) to till soil and plant.</li>
+<li>Carrots, turnips and onions come from seeds you find. Plant seeds to grow the vegetable; let one go to seed to get more seeds.</li>
+<li>Barley and flax only grow in the <b>Plains</b>. Deep North crops need the Deep North.</li>
+<li>Plants need space around them and open sky. A red or blue warning on a sapling means it is too close or covered.</li>
+<li>Saplings: plant pine cones, birch and beech seeds for a renewable wood farm.</li></ul>`},
+{id:'dungeons',title:'Dungeons and Vegvisirs',blurb:'Burial Chambers to Mörkhalla.',body:`
+<ul class="mech"><li><b>Burial Chambers</b> (Black Forest): skeletons, surtling cores, bone fragments.</li>
+<li><b>Troll caves</b> (Black Forest): one or two trolls and good chests.</li>
+<li><b>Sunken Crypts</b> (Swamp): need the Swamp key. Scrap iron, withered bone.</li>
+<li><b>Frost Caves</b> (Mountain): cultists, Ulv, Fenring gear.</li>
+<li><b>Infested Mines</b> (Mistlands): black cores, soft tissue, Sealbreaker fragments.</li>
+<li><b>Charred Fortresses</b> (Ashlands): sieges with a ballista, Bell fragments, Fader\'s Vegvisir.</li>
+<li><b>Mörkhalla</b> (Deep North): ends in Malice Ice and a Jotun invasion.</li>
+<li><b>Vegvisirs</b> are glowing runestones. Read one to mark a boss altar on your map.</li></ul>`},
+{id:'magic',title:'Eitr and magic',blurb:'Staves, eitr food and the Galdr table.',body:`
+<ul class="mech"><li>Mages need <b>eitr</b>: you only have it if you\'ve eaten an eitr food (Yggdrasil porridge and friends).</li>
+<li>Staves come from the Galdr table: the <b>Staff of Embers</b> (fire balls), <b>Staff of Frost</b>, <b>Staff of Protection</b> (bubble shield for your group) and <b>Dead raiser</b> (summons skeletons).</li>
+<li>Elemental magic covers the attack staves, Blood magic the support staves, which also cost health.</li>
+<li>Eitr-weave robes, the Embla set (Ashlands) and the Caller set (Deep North) add eitr regeneration.</li></ul>
+<div class="tip">Mix: one eitr food, one health food, one stamina food is a common mage plate.</div>`},
+{id:'ashlands',title:'Surviving the Ashlands',blurb:'Fire, sieges and a long sail.',body:`
+<ul class="mech"><li>It is far south. Bring a Longship or Drakkar and a portal kit.</li>
+<li>Land quickly: Bonemaw serpents ram boats near the shore.</li>
+<li>Drink Fire resistance barley wine. Stay off the lava and the hot rocks.</li>
+<li>Build a <b>Shield generator</b> before anything else. Charred armies attack Ashlands bases regularly.</li>
+<li>Charred fortresses are built to be sieged: build a ballista or a battering ram.</li></ul>`},
+{id:'deepnorth',title:'Surviving the Deep North',blurb:'Frostbite, Gammeltrolls and Mörkhalla.',body:`
+<ul class="mech"><li>Take frost resistance <b>and</b> new Deep North cold gear: frostbite stacks on top of the old Freezing.</li>
+<li>Most creatures here resist frost and take extra fire damage.</li>
+<li>Gammeltrolls resist nearly every weapon. Kill them with <b>Ember Charges</b>, then blast the statue for petrified tissue.</li>
+<li>Smelt and harden the new armour with the <b>Frost Foundry</b> and <b>Frigid Kiln</b>. Moulds come from dungeons and Hexen.</li>
+<li>Break the Malice Ice at the end of a Mörkhalla to start a Jotun invasion. Each one won gives one Malicious Blood; three summon Kall.</li></ul>
+<div class="note">The Deep North arrived with 1.0 in September 2026. Details here come from early guides and are still settling.</div>`}
+];
+
+/* ================= STATE ================= */
+let S={checks:{},prog:{},bossDone:{},bossPrep:{},plate:['','',''],ate:[0,0,0],comfort:{},portals:[],timers:[],notes:'',smelt:{}};
+try{const x=JSON.parse(localStorage.getItem('vh_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('vh_state',JSON.stringify(S));}catch(e){}};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const mark=c=>c?'<span class="conf" title="Wiki, patch notes or several agreeing guides">●</span>':'<span class="unv" title="Single source, a recent rebalance, or the new Deep North; check in-game">○</span>';
+const stars=n=>'<span class="stars">'+'★'.repeat(n)+'</span>';
+const BIOME_ORDER=BIOMES.map(b=>b.n);
+const bossOf=id=>BOSSES.find(b=>b.id===id);
+function dur(ms){const s=Math.max(0,Math.round(ms/1e3)),h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+'h ':'')+String(m).padStart(h?2:1,'0')+'m '+String(x).padStart(2,'0')+'s';}
+const tags=(s,c)=>s?s.split(/,\s*/).map(x=>`<span class="tag ${c}" style="margin:0 4px 2px 0">${esc(x)}</span>`).join(''):'';
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Home'],
+ ['_','World'],['guides','Guides'],['biomes','Biomes'],['bosses','Bosses'],['creatures','Bestiary'],['raids','Raids'],
+ ['_','Survival'],['food','Food planner'],['meads','Meads'],['comfort','Comfort and rest'],['skills','Skills'],
+ ['_','Crafting'],['gear','Gear by biome'],['materials','Materials finder'],['smelting','Smelting calculator'],
+ ['_','Your world'],['progress','Progression'],['portals','Portal log'],['timers','Timers'],['notes','My Notes']];
+const GROUPS=['World','Survival','Crafting','Your world'];
+function buildNav(cur){let gi=0;$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>VALHEIM<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>id==='_'?`<div class="grp">${GROUPS[gi++]}</div>`:`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+const REAL=PAGES.filter(p=>p[0]!=='_');
+
+const TILE={guides:'First day, combat, rest, building, sailing, taming, farming, dungeons, magic, Ashlands and Deep North',biomes:'All nine biomes with a world map',bosses:'All eight, with summons, weaknesses, powers and prep lists',creatures:'Weaknesses, resistances, drops and taming',raids:'What attacks your base and why',food:'Pick three foods, see your totals, and run food timers',meads:'Every mead and what it does',comfort:'Work out your comfort and how long Rested lasts',skills:'Every skill and the death penalty',gear:'Armour, weapons, stations and pickaxe tiers',materials:'Where every material comes from',smelting:'Coal, wood and time for a pile of ore',progress:'Meadows to the Deep North, ticked off',portals:'Name, place and purpose of every portal',timers:'Fermenters, crops, smelters, eggs',notes:'Your own notes'};
+function pgHome(){
+  const done=PROG.filter((_,i)=>S.prog[i]).length,bosses=BOSSES.filter(b=>S.bossDone[b.id]).length,now=Date.now();
+  const fed=S.plate.filter((f,i)=>f&&S.ate[i]&&now-S.ate[i]<(foodBy(f)||{dur:0}).dur*6e4).length;
+  const next=BOSSES.find(b=>!S.bossDone[b.id]);
+  return `${TWArt.hero(892970,'Valheim')}<h2>Valheim Assistant</h2><p class="sub">A companion for <i>Valheim</i>, from the Meadows to the Deep North. Your checklists, food plate, portals, timers and notes are saved on this device.</p>
+<div class="stats"><div class="stat"><small>Bosses down</small><a class="mob big" href="#bosses">${bosses} / ${BOSSES.length}</a></div><div class="stat"><small>Next boss</small>${next?`<a class="mob" href="#bosses/${next.id}">${esc(next.n)}</a>`:'<span class="ok">All done. Skål!</span>'}</div><div class="stat"><small>Progression</small><a class="mob" href="#progress">${done} of ${PROG.length}</a></div><div class="stat"><small>Foods active</small><a class="mob" href="#food">${fed} / 3</a></div><div class="stat"><small>Portals logged</small><a class="mob" href="#portals">${S.portals.length}</a></div><div class="stat"><small>Timers running</small><a class="mob" href="#timers">${S.timers.filter(t=>t.end>now).length}</a></div></div>
+<div class="grid">${REAL.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> come from the Valheim wiki, Iron Gate's patch notes or several guides that agree. Facts marked <span class="unv">○</span> come from a single source, changed in a recent rebalance, or are about the Deep North, which is only weeks old. World modifiers change many numbers, so trust what you see in-game first.</div>`;}
+
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div>`;}
+  return `<h2>Guides</h2><p class="sub">Checkboxes are saved on this device.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
+}
+
+/* Schematic world: biomes appear in rings by distance from the centre, Ashlands at the south rim, Deep North at the north rim. */
+const MAPBLOBS={meadows:[[300,215,52,40]],blackforest:[[220,170,40,30],[380,250,42,30],[300,290,34,22]],swamp:[[230,265,30,22],[385,165,30,22]],mountain:[[300,135,36,26],[195,225,26,30],[420,215,24,26]],plains:[[140,170,34,26],[455,280,36,26],[250,345,30,20]],mistlands:[[110,270,32,28],[462,160,28,24],[370,355,30,20]],ocean:[],ashlands:[],deepnorth:[]};
+function worldMap(){
+  const blob=(b,[x,y,rx,ry])=>`<ellipse class="hit" cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${b.col}" stroke="#0d1114" stroke-width="2"/>`;
+  const lab=(b,x,y)=>`<text class="lbl" x="${x}" y="${y}" text-anchor="middle" font-size="12" font-weight="700" fill="${b.fg||'#fff'}" style="stroke:${b.fg?'#ffffffaa':'#0d1114'}">${esc(b.n)}</text>`;
+  const g=id=>BIOMES.find(b=>b.id===id);
+  let z='';
+  for(const b of BIOMES){const bl=MAPBLOBS[b.id];if(!bl||!bl.length)continue;
+    z+=`<a href="#biomes/${b.id}" aria-label="${esc(b.n)}"><title>${esc(b.n)}</title>${bl.map(p=>blob(b,p)).join('')}${lab(b,bl[0][0],bl[0][1]+4)}</a>`;}
+  const dn=g('deepnorth'),as=g('ashlands'),oc=g('ocean');
+  return `<svg class="tw-map" viewBox="0 0 600 440" style="max-width:640px" role="img" aria-label="Schematic of a Valheim world">
+<rect width="600" height="440" fill="#0a1218"/>
+<a href="#biomes/ocean" aria-label="Ocean"><title>Ocean</title><circle class="hit" cx="300" cy="220" r="205" fill="${oc.col}" stroke="#0d1114" stroke-width="2"/></a>
+<circle cx="300" cy="220" r="175" fill="none" stroke="#ffffff22" stroke-dasharray="4 5"/><circle cx="300" cy="220" r="115" fill="none" stroke="#ffffff22" stroke-dasharray="4 5"/>
+<a href="#biomes/deepnorth" aria-label="Deep North"><title>Deep North</title><path class="hit" d="M150 82 A205 205 0 0 1 450 82 L420 108 A170 170 0 0 0 180 108 Z" fill="${dn.col}" stroke="#0d1114" stroke-width="2"/>${lab(dn,300,80)}</a>
+<a href="#biomes/ashlands" aria-label="Ashlands"><title>Ashlands</title><path class="hit" d="M150 358 A205 205 0 0 0 450 358 L420 332 A170 170 0 0 1 180 332 Z" fill="${as.col}" stroke="#0d1114" stroke-width="2"/>${lab(as,300,372)}</a>
+${z}
+<text x="20" y="420" font-size="11" fill="#9fb3bf">Inner ring: Meadows, Black Forest</text>
+<text x="20" y="20" font-size="11" fill="#9fb3bf">Outer rings: Plains, Mistlands</text>
+<text x="580" y="30" font-size="14" fill="#e6d8c4" text-anchor="middle">N</text><path d="M580 34 L580 56" stroke="#e6d8c4" stroke-width="2" marker-start="url(#ar)"/>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#e6d8c4"/></marker></defs></svg>`;
+}
+function pgBiomes(sub){
+  const b=sub&&BIOMES.find(x=>x.id===sub);
+  if(b){const boss=b.boss&&bossOf(b.boss),i=BIOMES.indexOf(b),prev=BIOMES[i-1],nxt=BIOMES[i+1];
+    const foes=CREATURES.filter(c=>c.b===b.n),gi=GEAR.findIndex(g=>g.b===b.n),arrive=gi>0?GEAR[gi-1]:null;
+    return `<p><a href="#biomes">&larr; All biomes</a></p>
+<h2>${mark(b.conf)} ${esc(b.n)} ${stars(b.stars)}</h2><p class="sub">${esc(b.d)}</p>
+<div class="stats">${boss?`<div class="stat"><small>Boss</small><a class="mob" href="#bosses/${boss.id}">${esc(boss.n)}</a></div>`:''}${arrive?`<div class="stat"><small>Arrive wearing</small><a class="mob" href="#gear">${esc(arrive.arm.split(/,| then /)[0])}</a></div>`:''}<div class="stat"><small>Food here</small><a class="mob" href="#food">${FOOD.filter(f=>f.b===b.n).length} foods</a></div></div>
+<div class="card"><h3 style="margin-top:0">Creatures</h3>${foes.length?`<div class="tbl"><table><tr><th>Creature</th><th>Weak to</th><th>Resists / immune</th><th>Drops</th></tr>${foes.map(c=>`<tr><td>${mark(c.conf)} <b>${esc(c.n)}</b>${c.tame?' <span class="tag">tameable</span>':''}</td><td>${tags(c.w,'w')}</td><td>${tags(c.r,'r')}${tags(c.i,'i')}</td><td>${esc(c.drops)}</td></tr>`).join('')}</table></div>`:b.foes.map(esc).join(', ')}</div>
+<div class="card"><h3 style="margin-top:0">Resources</h3><ul class="mech">${b.res.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>
+<div class="tip"><b>Tips:</b><ul class="mech" style="margin:4px 0 0">${b.tips.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>
+<div class="row">${prev?`<a class="mob" href="#biomes/${prev.id}">&larr; ${esc(prev.n)}</a>`:''}<span style="flex:1"></span>${nxt?`<a class="mob" href="#biomes/${nxt.id}">${esc(nxt.n)} &rarr;</a>`:''}</div>`;}
+  return `<h2>Biomes</h2><p class="sub">Every Valheim world is generated from a seed, but the pattern is always the same: the Meadows in the middle, tougher biomes further out, the Ashlands along the south rim and the Deep North along the north rim. Tap a biome.</p>
+${worldMap()}<p class="tw-cap">Schematic, not a real seed. Black Forest, Swamp and Mountain mix in the middle distances; Plains and Mistlands sit further out.</p>
+<div class="grid">${BIOMES.map(b=>`<div class="tile" onclick="location.hash='biomes/${b.id}'"><b>${esc(b.n)}</b> ${stars(b.stars)}${b.conf?'':' <span class="unv">○</span>'}<div class="dim">${esc(b.d)}</div></div>`).join('')}</div>`;
+}
+
+function pgBosses(sub){
+  const b=sub&&bossOf(sub);
+  if(b){const i=BOSSES.indexOf(b),prep=S.bossPrep[b.id]||{},bm=BIOMES.find(x=>x.n===b.biome);
+    return `<p><a href="#bosses">&larr; All bosses</a></p>
+<h2>${mark(b.conf)} ${esc(b.n)} <span class="tag">Boss ${i+1} of ${BOSSES.length}</span> <span class="tag">${esc(b.biome)}</span></h2>
+<label class="chk" style="margin:6px 0 12px"><input type="checkbox" id="bdone"${S.bossDone[b.id]?' checked':''}> I've beaten ${esc(b.n)}</label>
+<div class="stats">${b.hp?`<div class="stat"><small>Health</small><span class="big">${b.hp.toLocaleString()}</span></div>`:''}<div class="stat"><small>Weak to</small>${tags(b.weak.join(', '),'w')}</div><div class="stat"><small>Resists</small>${tags(b.res.join(', '),'r')}</div></div>
+<div class="card"><h3 style="margin-top:0">Summon</h3><p style="margin:0 0 6px"><b>${esc(b.summon)}</b></p><p class="dim" style="margin:0">${esc(b.find)}</p></div>
+<div class="card"><h3 style="margin-top:0">Attacks</h3><ul class="mech">${b.attacks.map(a=>`<li>${esc(a)}</li>`).join('')}</ul><div class="tip">${esc(b.tip)}</div></div>
+<div class="card"><h3 style="margin-top:0">Prep checklist</h3>${b.prep.map((p,j)=>`<label class="chk"><input type="checkbox" data-bp="${j}"${prep[j]?' checked':''}> ${esc(p)}</label>`).join('')}<button id="bpclear" style="margin-top:6px">Clear</button></div>
+<div class="card"><h3 style="margin-top:0">Reward</h3><p style="margin:0 0 6px">${esc(b.drop)}</p><p style="margin:0"><b>Forsaken power</b> ${mark(false)}: ${esc(b.power)}</p><p class="dim" style="margin:6px 0 0">Hang the trophy on its stone at the Sacrificial stones to take the power. Every power lasts 5 minutes and they share a 20-minute cooldown.</p></div>
+<div class="row">${i?`<a class="mob" href="#bosses/${BOSSES[i-1].id}">&larr; ${esc(BOSSES[i-1].n)}</a>`:''}<span style="flex:1"></span>${bm?`<a class="mob" href="#biomes/${bm.id}">The ${esc(bm.n)}</a>`:''}<span style="flex:1"></span>${BOSSES[i+1]?`<a class="mob" href="#bosses/${BOSSES[i+1].id}">${esc(BOSSES[i+1].n)} &rarr;</a>`:''}</div>`;}
+  return `<h2>Bosses</h2><p class="sub">The Forsaken, in order. Each one drops the item that opens up the next stage of the game. Tap one for its summon, attacks and a prep checklist.</p>
+<div class="card tbl"><table><tr><th></th><th>Boss</th><th>Biome</th><th>Summon</th><th>Weak to</th><th>Unlocks</th></tr>${BOSSES.map((b,i)=>`<tr><td>${S.bossDone[b.id]?'<span class="ok" title="Beaten">✔</span>':i+1}</td><td>${mark(b.conf)} <a class="mob" href="#bosses/${b.id}">${esc(b.n)}</a></td><td>${esc(b.biome)}</td><td>${esc(b.summon)}</td><td>${tags(b.weak.join(', '),'w')}</td><td>${esc(b.drop)}</td></tr>`).join('')}</table></div>
+<h3>Forsaken powers</h3><div class="card tbl"><table><tr><th>Power</th><th>Effect</th></tr>${BOSSES.map(b=>`<tr><td><b>${esc(b.n)}</b></td><td>${esc(b.power)}</td></tr>`).join('')}</table></div>
+<div class="note">The powers were rebalanced in the Call to Arms update (2025). Guides from before then list older effects. Every power lasts 5 minutes, all share a 20-minute cooldown, and they buff everyone within about 10 metres.</div>`;}
+function bossWire(sub){const b=bossOf(sub);if(!b)return;
+  $('bdone').onchange=e=>{S.bossDone[b.id]=e.target.checked;save();};
+  document.querySelectorAll('[data-bp]').forEach(cb=>cb.onchange=()=>{(S.bossPrep[b.id]=S.bossPrep[b.id]||{})[cb.dataset.bp]=cb.checked;save();});
+  $('bpclear').onclick=()=>{S.bossPrep[b.id]={};save();route(true);};
+}
+
+let crFilter={q:'',b:''};
+function pgCreatures(){
+  return `<h2>Bestiary</h2><p class="sub">What each creature is weak to, what it shrugs off, what it drops and whether you can tame it.</p>
+<div class="row"><input type="search" id="cq" placeholder="Search creatures or drops" style="width:240px" value="${esc(crFilter.q)}"></div>
+<div class="chips" id="cb"><button data-b="" class="${crFilter.b?'':'on'}">All</button>${BIOME_ORDER.map(b=>`<button data-b="${esc(b)}" class="${crFilter.b===b?'on':''}">${esc(b)}</button>`).join('')}</div>
+<div class="legend"><span><b style="background:#f0b783"></b>Weak to</span><span><b style="background:#9cc9dc"></b>Resists</span><span><b style="background:#ff9b9b"></b>Immune</span></div>
+<div class="card tbl" style="margin-top:8px"><table id="ct"></table></div>
+<div class="note">Weaknesses come from the wiki for the older biomes. Ashlands and Deep North entries come from early guides and are marked ○.</div>`;}
+function creatureWire(){
+  const draw=()=>{const q=crFilter.q.toLowerCase();const rows=CREATURES.filter(c=>(!crFilter.b||c.b===crFilter.b)&&(!q||(c.n+' '+c.drops+' '+c.d+' '+c.b).toLowerCase().includes(q)));
+    $('ct').innerHTML=`<tr><th>Creature</th><th>Biome</th><th>Weak / resists</th><th>Drops</th><th>Tame with</th><th>How to fight</th></tr>`+(rows.map(c=>`<tr><td>${mark(c.conf)} <b>${esc(c.n)}</b></td><td>${esc(c.b)}</td><td>${tags(c.w,'w')}${tags(c.r,'r')}${tags(c.i,'i')}</td><td>${esc(c.drops)}</td><td>${esc(c.tame)||'<span class="dim">—</span>'}</td><td class="dim">${esc(c.d)}</td></tr>`).join('')||'<tr><td colspan="6" class="dim">Nothing matches.</td></tr>');};
+  $('cq').oninput=e=>{crFilter.q=e.target.value;draw();};
+  document.querySelectorAll('#cb button').forEach(b=>b.onclick=()=>{crFilter.b=b.dataset.b;document.querySelectorAll('#cb button').forEach(x=>x.classList.toggle('on',x===b));draw();});
+  draw();
+}
+
+function pgRaids(){return `<h2>Raids</h2><p class="sub">Every so often an event spawns enemies around a base you're in. Which raids can happen depends on which bosses the players nearby have killed. Survive or wait it out; most end after a few minutes.</p>
+<div class="card tbl"><table><tr><th>Message</th><th>What comes</th><th>Can happen after</th></tr>${RAIDS.map(r=>`<tr><td>${mark(r.conf)} <b>${esc(r.m)}</b></td><td>${esc(r.f)}</td><td>${esc(r.req)}</td></tr>`).join('')}</table></div>
+<div class="tip"><ul class="mech" style="margin:0"><li>Raids only target bases: places with enough player-built pieces like beds, workbenches and fires.</li><li>Walls with a trench (dig with the pickaxe), stakewalls and a moat stop most early raids.</li><li>If you can\'t win, leave: raids end on their own, and buildings on raised ground suffer less.</li><li>World modifiers can turn raids off or make them more common.</li></ul></div>`;}
+
+/* ================= FOOD ================= */
+const foodBy=n=>FOOD.find(f=>f.n===n);
+let foodSort={k:'hp',d:-1},foodBiome='';
+function pgFood(){const p=S.plate.map(foodBy);
+  const tot=k=>p.reduce((s,f)=>s+(f?f[k]:0),0),hp=BASE_HP+tot('hp'),st=BASE_ST+tot('st'),ei=tot('ei');
+  const MAX=Math.max(hp,st,ei,200);
+  return `<h2>Food planner</h2><p class="sub">Pick three different foods to see your health, stamina and eitr. Tap <b>Eat</b> when you eat in-game to start a timer for that slot.</p>
+<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">${[0,1,2].map(i=>{const f=p[i];return `<div class="slot"><small class="dim">Slot ${i+1}</small><select data-slot="${i}"><option value="">— choose —</option>${BIOME_ORDER.map(b=>{const fs=FOOD.filter(x=>x.b===b);return fs.length?`<optgroup label="${esc(b)}">${fs.map(x=>`<option${x.n===S.plate[i]?' selected':''}>${esc(x.n)}</option>`).join('')}</optgroup>`:'';}).join('')}</select>
+${f?`<div class="dim" style="font-size:12px;margin:4px 0">${f.hp} HP · ${f.st} stamina${f.ei?` · ${f.ei} eitr`:''} · ${f.dur} min</div><div class="row"><span class="t" data-ft="${i}">${foodLeft(i)}</span><button data-eat="${i}" class="pri">Eat</button></div>`:''}</div>`;}).join('')}</div>
+<div class="stats"><div class="stat"><small>Health</small><span class="big">${hp}</span></div><div class="stat"><small>Stamina</small><span class="big">${st}</span></div><div class="stat"><small>Eitr</small><span class="big">${ei}</span></div><div class="stat"><small>Healing / tick</small><span class="big">${tot('heal')}</span></div></div>
+<div class="fbar" title="Health"><i style="width:${hp/MAX*100}%;background:#d0574b"></i></div><div class="fbar" title="Stamina"><i style="width:${st/MAX*100}%;background:#e3b04b"></i></div><div class="fbar" title="Eitr"><i style="width:${ei/MAX*100}%;background:#8a6fd6"></i></div>
+<div class="legend"><span><b style="background:#d0574b"></b>Health</span><span><b style="background:#e3b04b"></b>Stamina</span><span><b style="background:#8a6fd6"></b>Eitr</span><span>Includes your base ${BASE_HP} health and ${BASE_ST} stamina.</span></div>
+${new Set(S.plate.filter(Boolean)).size<S.plate.filter(Boolean).length?'<div class="note">You can\'t eat the same food twice. Pick three different ones.</div>':''}
+<h3>Suggested plates</h3><div class="grid" id="presets">${PLATES.map((pl,i)=>`<div class="tile" data-plate="${i}"><b>${esc(pl[0])}</b><div class="dim">${pl[1].join(', ')}</div></div>`).join('')}</div>
+<h3>All foods</h3><div class="chips" id="fb"><button data-b="" class="${foodBiome?'':'on'}">All</button>${BIOME_ORDER.filter(b=>FOOD.some(f=>f.b===b)).map(b=>`<button data-b="${esc(b)}" class="${foodBiome===b?'on':''}">${esc(b)}</button>`).join('')}</div>
+<div class="card tbl"><table id="ftab"></table></div>
+<div class="note">Food fades over its duration: the full value lasts most of the time, then drops off towards the end, and you can eat the same food again once it starts to fade. Numbers for the Mistlands eitr foods, the Ashlands and the Deep North are marked ○: they come from early guides or moved in a rebalance.</div>`;}
+const PLATES=[
+['Meadows starter',['Cooked deer meat','Cooked meat','Raspberries']],
+['Black Forest fighting',['Deer stew','Minced meat sauce','Queen\'s jam']],
+['Swamp',['Sausages','Black soup','Turnip stew']],
+['Mountain',['Wolf skewer','Wolf jerky','Onion soup']],
+['Plains fighter',['Lox meat pie','Fish wraps','Bread']],
+['Plains builder / explorer',['Blood pudding','Bread','Lox meat pie']],
+['Mistlands warrior',['Misthare supreme','Meat platter','Salad']],
+['Mistlands mage',['Yggdrasil porridge','Misthare supreme','Salad']],
+['Ashlands',['Piquant pie','Fiery svinstew','Scorching medley']],
+['Deep North',['Smoked moose meat','Oatmeal','Piquant pie']]];
+function foodLeft(i){const f=foodBy(S.plate[i]);if(!f||!S.ate[i])return 'Not eaten';const left=S.ate[i]+f.dur*6e4-Date.now();return left>0?dur(left):'Hungry';}
+let foodTimer=0;
+function foodWire(){
+  document.querySelectorAll('[data-slot]').forEach(s=>s.onchange=()=>{const i=+s.dataset.slot;S.plate[i]=s.value;S.ate[i]=0;save();route(true);});
+  document.querySelectorAll('[data-eat]').forEach(b=>b.onclick=()=>{S.ate[+b.dataset.eat]=Date.now();save();route(true);});
+  document.querySelectorAll('[data-plate]').forEach(t=>t.onclick=()=>{S.plate=PLATES[+t.dataset.plate][1].slice();S.ate=[0,0,0];save();route(true);});
+  const draw=()=>{const rows=FOOD.filter(f=>!foodBiome||f.b===foodBiome).slice().sort((a,b)=>{const k=foodSort.k;const x=a[k],y=b[k];return (typeof x==='string'?x.localeCompare(y):x-y)*foodSort.d;});
+    const th=(k,n,cls)=>`<th class="${cls||''}" data-sort="${k}" style="cursor:pointer">${n}${foodSort.k===k?(foodSort.d<0?' ▾':' ▴'):''}</th>`;
+    $('ftab').innerHTML=`<tr>${th('n','Food')}${th('b','Biome')}${th('hp','Health','n')}${th('st','Stamina','n')}${th('ei','Eitr','n')}${th('heal','Heal','n')}${th('dur','Min','n')}<th>How</th></tr>`+rows.map(f=>`<tr><td>${mark(f.conf)} <b>${esc(f.n)}</b></td><td>${esc(f.b)}</td><td class="n">${f.hp}</td><td class="n">${f.st}</td><td class="n">${f.ei||''}</td><td class="n">${f.heal}</td><td class="n">${f.dur}</td><td class="dim">${esc(f.how)}</td></tr>`).join('');
+    document.querySelectorAll('[data-sort]').forEach(h=>h.onclick=()=>{const k=h.dataset.sort;foodSort=foodSort.k===k?{k,d:-foodSort.d}:{k,d:typeof FOOD[0][k]==='string'?1:-1};draw();});};
+  document.querySelectorAll('#fb button').forEach(b=>b.onclick=()=>{foodBiome=b.dataset.b;document.querySelectorAll('#fb button').forEach(x=>x.classList.toggle('on',x===b));draw();});
+  draw();
+  clearInterval(foodTimer);foodTimer=setInterval(()=>{if(!$('ftab')){clearInterval(foodTimer);return;}document.querySelectorAll('[data-ft]').forEach(el=>{el.textContent=foodLeft(+el.dataset.ft);el.className='t '+(el.textContent==='Hungry'?'bad':'');});},1000);
+}
+
+function pgMeads(){return `<h2>Meads</h2><p class="sub">Brew a mead base in the <b>Cauldron</b>, put it in a <b>Fermenter</b> under a roof, and come back about two in-game days later for <b>6 meads</b>.</p>
+<div class="card tbl"><table><tr><th>Mead</th><th>From</th><th>Effect</th><th>Base ingredients</th></tr>${BIOME_ORDER.flatMap(b=>MEADS.filter(m=>m.b===b)).map(m=>`<tr><td>${mark(m.conf)} <b>${esc(m.n)}</b></td><td>${esc(m.b)}</td><td>${esc(m.e)}</td><td class="dim">${esc(m.base)}</td></tr>`).join('')}</table></div>
+<div class="tip"><ul class="mech" style="margin:0"><li>Healing meads share one cooldown, stamina meads another, and eitr meads a third. You can drink one of each.</li><li>Resistance meads stack with resistance from armour.</li><li>The Fermenter has to be under a roof to work. Start a <a href="#timers">timer</a> so you don\'t forget it.</li></ul></div>
+<div class="note">Healing and stamina amounts for the later meads, and the Bog Witch meads, changed between updates. Read the tooltip in-game.</div>`;}
+
+/* ================= COMFORT ================= */
+function comfortCalc(){const best={};COMFORT.forEach(([g,n,v],i)=>{if(S.comfort[i]&&(!best[g]||v>best[g].v))best[g]={i,v};});
+  const c=1+Object.values(best).reduce((s,b)=>s+b.v,0);return {c,best,mins:8+(c-1)};}
+function pgComfort(){const {c,best,mins}=comfortCalc();
+  return `<h2>Comfort and rest</h2><p class="sub">Tick what's within about 10 metres of where you sit or sleep. Only the best piece of each kind counts, so a second bed or a second banner adds nothing.</p>
+<div class="stats"><div class="stat"><small>Comfort</small><span class="big">${c}</span></div><div class="stat"><small>Rested lasts</small><span class="big">${mins} min</span></div><div class="stat"><small>Kinds counted</small><span class="big">${Object.keys(best).length}</span></div></div>
+${Object.keys(COMF_GROUP).map(g=>`<h3>${COMF_GROUP[g]}</h3><div class="cf">${COMFORT.map(([gg,n,v],i)=>gg!==g?'':`<label class="${best[g]&&best[g].i===i?'best':''}"><input type="checkbox" data-cf="${i}"${S.comfort[i]?' checked':''}> ${esc(n)}<small>+${v}</small></label>`).join('')}</div>`).join('')}
+<div class="row" style="margin-top:14px"><button id="cfclear">Clear</button></div>
+<div class="tip"><ul class="mech" style="margin:0"><li>To get Rested you need to be <b>sheltered</b> and near a <b>fire</b>. Then sit or sleep.</li><li>Rested speeds up stamina regeneration and raises how fast you learn skills.</li><li>Rested time counts from when the buff starts; sitting longer doesn't add more.</li></ul></div>
+<div class="note">Comfort values for individual pieces come from the wiki, but newer furniture (Mistlands, Ashlands, Deep North and the Bog Witch) adds more. ○ The Rested formula used here is 8 minutes plus 1 minute per comfort level above 1.</div>`;}
+function comfortWire(){
+  document.querySelectorAll('[data-cf]').forEach(cb=>cb.onchange=()=>{S.comfort[cb.dataset.cf]=cb.checked;save();route(true);});
+  $('cfclear').onclick=()=>{S.comfort={};save();route(true);};
+}
+
+function pgSkills(){const groups=[...new Set(SKILLS.map(s=>s[0]))];
+  return `<h2>Skills</h2><p class="sub">Every skill rises from 0 to 100 by doing it. Higher skill means more damage, lower stamina cost, or better results.</p>
+${groups.map(g=>`<h3>${g}</h3><div class="card tbl"><table>${SKILLS.filter(s=>s[0]===g).map(s=>`<tr><td style="width:180px"><b>${esc(s[1])}</b></td><td>${esc(s[2])}</td></tr>`).join('')}</table></div>`).join('')}
+<h3>Death penalty calculator</h3><div class="card"><div class="row"><label>Skill level <input type="number" id="sk" min="0" max="100" step="0.1" value="50" style="width:80px"></label><label>Loss per death <input type="number" id="sp" min="0" max="100" step="1" value="5" style="width:70px"> %</label></div><div id="skout" class="dim"></div></div>
+<div class="note">5% of each skill per death is the default. World modifiers change it. Skill drain doesn't apply for a while after respawning (the "No Skill Drain" buff).</div>`;}
+function skillWire(){const calc=()=>{const v=Math.min(100,Math.max(0,+$('sk').value||0)),p=Math.min(100,Math.max(0,+$('sp').value||0))/100;let x=v,out=[];for(let i=1;i<=5;i++){x=x*(1-p);out.push(`${i}: <b>${x.toFixed(1)}</b>`);}
+  $('skout').innerHTML=`One death takes <b>${(v*p).toFixed(1)}</b> levels. After deaths ${out.join(' · ')}`;};['sk','sp'].forEach(id=>$(id).oninput=calc);calc();}
+
+function pgGear(){return `<h2>Gear by biome</h2><p class="sub">What to craft as you move up. Each biome's gear is what you want <i>before</i> you go to the next one.</p>
+<div class="card tbl"><table><tr><th>Biome</th><th>Stations</th><th>Armour</th><th>Weapons</th><th>Tools</th><th>Key materials</th></tr>${GEAR.map(g=>`<tr><td>${mark(g.conf)} <b>${esc(g.b)}</b></td><td>${esc(g.st)}</td><td>${esc(g.arm)}</td><td>${esc(g.wep)}</td><td>${esc(g.tool)}</td><td class="dim">${esc(g.key)}</td></tr>`).join('')}</table></div>
+<h3>Pickaxe tiers</h3><div class="card tbl"><table><tr><th>Pickaxe</th><th>Mines</th><th>Where it comes from</th></tr>${PICKS.map(p=>`<tr><td><b>${esc(p[0])}</b></td><td>${esc(p[1])}</td><td class="dim">${esc(p[2])}</td></tr>`).join('')}</table></div>
+<h3>Upgrading</h3><div class="card"><ul class="mech"><li>Each item can be upgraded at its station, usually up to quality 4. Higher station levels unlock higher qualities.</li><li>Stations level up by building extensions next to them: a chopping block and tanning rack for the Workbench, an anvil and bellows for the Forge, and so on.</li><li>Upgrading armour beats crafting the next tier only at the very start of a biome: a fresh set from the next biome is usually better.</li><li>Repair at the station that made the item. It costs nothing.</li></ul></div>
+<div class="note">Ashlands and Deep North gear names come from early guides and are marked ○. The rest is from the wiki.</div>`;}
+
+let matQ='';
+function pgMaterials(){return `<h2>Materials finder</h2><p class="sub">Where every important material comes from, what you need to gather it, and what it's for.</p>
+<div class="row"><input type="search" id="mq" placeholder="e.g. silver, tar, sap" style="width:260px" value="${esc(matQ)}"></div>
+<div class="card tbl" style="margin-top:8px"><table id="mt"></table></div>`;}
+function matWire(){const draw=()=>{const q=matQ.toLowerCase();const rows=MATS.filter(m=>!q||(m.n+' '+m.b+' '+m.how+' '+m.use).toLowerCase().includes(q));
+  $('mt').innerHTML=`<tr><th>Material</th><th>Biome</th><th>Where</th><th>Need</th><th>Used for</th></tr>`+(rows.map(m=>`<tr><td>${mark(m.conf)} <b>${esc(m.n)}</b></td><td>${esc(m.b)}</td><td>${esc(m.how)}</td><td>${esc(m.tool)}</td><td class="dim">${esc(m.use)}</td></tr>`).join('')||'<tr><td colspan="5" class="dim">Nothing matches.</td></tr>');};
+  $('mq').oninput=e=>{matQ=e.target.value;draw();};draw();}
+
+/* ================= SMELTING ================= */
+function pgSmelting(){const sm=S.smelt;
+  return `<h2>Smelting calculator</h2><p class="sub">Enter what you're carrying home. You'll see the coal you need, the wood to make that coal, and how long it takes.</p>
+<div class="card"><div class="tbl"><table><tr><th>Ore</th><th>Station</th><th class="n">Amount</th></tr>${ORES.map(o=>`<tr><td>${mark(o.conf)} ${esc(o.n)}</td><td class="dim">${o.st}</td><td class="n"><input type="number" min="0" data-ore="${o.k}" value="${sm[o.k]||''}" style="width:90px"></td></tr>`).join('')}</table></div>
+<div class="row" style="margin-top:8px"><label>Coal you already have <input type="number" min="0" id="coalhave" value="${sm.coal||''}" style="width:90px"></label><label>Smelters running <input type="number" min="1" id="nsm" value="${sm.n||1}" style="width:60px"></label><label>Blast furnaces <input type="number" min="1" id="nbf" value="${sm.nb||1}" style="width:60px"></label></div></div>
+<div id="smout"></div>
+<h3>Bronze</h3><div class="card"><div class="row"><label>Bronze bars wanted <input type="number" min="0" id="bz" value="${sm.bz||''}" style="width:90px"></label><span id="bzout" class="dim"></span></div></div>
+<div class="tip"><ul class="mech" style="margin:0"><li>Smelter and Blast furnace take 2 coal per ore and hold ${SMELT_CAP} ore at a time; about ${SMELT_SECS} seconds per bar.</li><li>The Charcoal kiln turns 1 wood into 1 coal, about 15 seconds each ○. Any wood works; use the plain stuff.</li><li>Ore can't go through portals, so a smelter at a mining outpost saves trips (bars can't either).</li><li>Bronze is 2 copper + 1 tin at the Forge.</li></ul></div>
+<div class="note">Flametal numbers are marked ○: check the station in-game.</div>`;}
+function smeltWire(){
+  const calc=()=>{let coal=0,smOre=0,bfOre=0;const bars=[];
+    ORES.forEach(o=>{const n=Math.max(0,+S.smelt[o.k]||0);if(!n)return;coal+=n*o.coal;if(o.st==='Smelter')smOre+=n;else bfOre+=n;bars.push(`${n} ${o.bar}`);});
+    const have=Math.max(0,+S.smelt.coal||0),need=Math.max(0,coal-have),ns=Math.max(1,+S.smelt.n||1),nb=Math.max(1,+S.smelt.nb||1);
+    const t=Math.max(Math.ceil(smOre/ns),Math.ceil(bfOre/nb))*SMELT_SECS*1e3;
+    $('smout').innerHTML=bars.length?`<div class="stats"><div class="stat"><small>Coal needed</small><span class="big">${coal}</span></div><div class="stat"><small>Still to make</small><span class="big ${need?'':'ok'}">${need}</span></div><div class="stat"><small>Wood for that coal</small><span class="big">${need}</span></div><div class="stat"><small>Time</small><span class="big">${dur(t)}</span></div><div class="stat"><small>Kiln time</small><span class="big">${dur(need*15e3)}</span></div></div><div class="dim">You'll get ${bars.join(', ')}. Load ${SMELT_CAP} ore and ${SMELT_CAP*2} coal at a time.</div>`:'<div class="dim">Enter some ore above.</div>';
+    const bz=Math.max(0,+S.smelt.bz||0);$('bzout').innerHTML=bz?`Smelt <b>${bz*2} copper</b> and <b>${bz} tin</b> (${bz*6} coal).`:'';};
+  document.querySelectorAll('[data-ore]').forEach(i=>i.oninput=()=>{S.smelt[i.dataset.ore]=+i.value||0;save();calc();});
+  [['coalhave','coal'],['nsm','n'],['nbf','nb'],['bz','bz']].forEach(([id,k])=>$(id).oninput=e=>{S.smelt[k]=+e.target.value||0;save();calc();});
+  calc();
+}
+
+function pgProgress(){const done=PROG.filter((_,i)=>S.prog[i]).length,groups=[...new Set(PROG.map(p=>p[0]))];
+  return `<h2>Progression</h2><p class="sub">The road from the Meadows to the Deep North. Tick things off as you go.</p>
+<div class="dim" id="pdone">${done} of ${PROG.length} done</div><div class="bar"><i id="pbar" style="width:${done/PROG.length*100}%"></i></div>
+${groups.map(g=>`<h3>${g}</h3><div class="card">${PROG.map((p,i)=>p[0]===g?`<label class="chk"><input type="checkbox" data-p="${i}"${S.prog[i]?' checked':''}> ${esc(p[1])}</label>`:'').join('')}</div>`).join('')}
+<button onclick="if(confirm('Clear all progression ticks?')){S.prog={};save();route()}">Reset</button>`;}
+
+function pgPortals(){return `<h2>Portal log</h2><p class="sub">Portals connect in pairs by name. Keep track of every tag, where each end is, and what it's for, so you never build a third with the same name.</p>
+<div class="card"><form class="row" id="pf"><input id="pn" type="text" style="width:150px" placeholder="Tag (e.g. swamp1)"><input id="pa" type="text" style="width:170px" placeholder="End A (e.g. Home)"><input id="pb" type="text" style="width:170px" placeholder="End B (e.g. Swamp crypts)"><input id="pnote" type="text" style="width:200px" placeholder="Note"><button class="pri">Add</button></form></div>
+<div class="card tbl"><table><tr><th>Tag</th><th>End A</th><th>End B</th><th>Note</th><th></th></tr>${S.portals.map((p,i)=>{const dup=S.portals.filter(q=>q.t.toLowerCase()===p.t.toLowerCase()).length>1;return `<tr><td><b>${esc(p.t)}</b>${dup?' <span class="tag i">duplicate tag</span>':''}</td><td><input type="text" data-pe="${i}:a" value="${esc(p.a)}" style="width:150px"></td><td><input type="text" data-pe="${i}:b" value="${esc(p.b)}" style="width:150px"></td><td><input type="text" data-pe="${i}:n" value="${esc(p.n||'')}" style="width:180px"></td><td><button data-pdel="${i}" title="Delete">✕</button></td></tr>`;}).join('')||'<tr><td colspan="5" class="dim">No portals yet.</td></tr>'}</table></div>
+<h3>Can't go through a portal</h3><div class="card"><ul class="mech">${NOPORT.map(x=>`<li>${esc(x)}</li>`).join('')}</ul><div class="dim">On default world settings. The "Portals" world modifier can allow everything, or block more.</div></div>
+<div class="tip">A portal costs fine wood, surtling cores and Greydwarf eyes. Build one by every dungeon cluster and one home hub with a portal per destination. A Stone portal (Ashlands) can carry metals.</div>`;}
+function portalWire(){
+  $('pf').onsubmit=e=>{e.preventDefault();const t=$('pn').value.trim();if(!t)return;S.portals.push({t,a:$('pa').value.trim(),b:$('pb').value.trim(),n:$('pnote').value.trim()});save();route();};
+  document.querySelectorAll('[data-pe]').forEach(i=>i.oninput=()=>{const [ix,k]=i.dataset.pe.split(':');S.portals[+ix][k]=i.value;save();});
+  document.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=()=>{if(confirm('Remove portal '+S.portals[+b.dataset.pdel].t+'?')){S.portals.splice(+b.dataset.pdel,1);save();route();}});
+}
+
+/* ================= TIMERS ================= */
+function pgTimers(){const now=Date.now();
+  return `<h2>Timers</h2><p class="sub">Real-time timers for things that take a while in-game. They keep running when you close the page. A full day in Valheim is about 30 minutes.</p>
+<div class="card"><form id="tf"><div class="row"><label>What <input id="tn" type="text" style="width:200px" placeholder="e.g. Fermenter by the hall"></label><label>Minutes <input id="tm" type="number" min="0.1" step="0.1" value="40" style="width:80px"></label><button class="pri">Start</button></div>
+<div class="chips">${TPRESETS.map(([n,m,c],i)=>`<button type="button" data-tp="${i}" title="${c?'Wiki value':'Approximate; varies'}">${esc(n)} · ${m} min</button>`).join('')}</div></form></div>
+<div id="tl">${S.timers.length?S.timers.map((t,i)=>{const left=t.end-now;return `<div class="card timer"><div><b>${esc(t.n||'Timer')}</b><div class="dim">Started ${new Date(t.start).toLocaleTimeString([],{timeStyle:'short'})} · done at ${new Date(t.end).toLocaleTimeString([],{timeStyle:'short'})}</div><div class="bar" style="width:220px"><i data-tb="${i}" style="width:${Math.min(100,(now-t.start)/(t.end-t.start)*100)}%"></i></div></div>
+<div class="row"><span class="t ${left<=0?'ok':''}" data-tt="${i}">${left<=0?'Done':dur(left)}</span><button data-tr="${i}" title="Restart">↻</button><button data-tdel="${i}" title="Remove">✕</button></div></div>`;}).join(''):'<div class="dim">No timers. Start one above.</div>'}</div>
+<div class="note">Preset times are approximate (○) unless marked otherwise: crop growth is random within a range, and game time pauses when everyone on a server is asleep or the game is paused. Edit the minutes to match your world.</div>`;}
+let tickTimer=0;
+function timerWire(){
+  document.querySelectorAll('[data-tp]').forEach(b=>b.onclick=()=>{const p=TPRESETS[+b.dataset.tp];$('tn').value=p[0];$('tm').value=p[1];});
+  $('tf').onsubmit=e=>{e.preventDefault();const m=Math.max(0.1,+$('tm').value||1),now=Date.now();S.timers.push({n:$('tn').value.trim(),start:now,end:now+m*6e4});save();route();};
+  document.querySelectorAll('[data-tdel]').forEach(b=>b.onclick=()=>{S.timers.splice(+b.dataset.tdel,1);save();route();});
+  document.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>{const t=S.timers[+b.dataset.tr],len=t.end-t.start,now=Date.now();t.start=now;t.end=now+len;save();route();});
+  clearInterval(tickTimer);tickTimer=setInterval(()=>{
+    if(!$('tl')){clearInterval(tickTimer);return;}
+    const now=Date.now();let redraw=false;
+    S.timers.forEach((t,i)=>{const el=document.querySelector(`[data-tt="${i}"]`),bar=document.querySelector(`[data-tb="${i}"]`);if(!el)return;
+      if(t.end<=now&&el.textContent!=='Done'){redraw=true;return;}
+      if(t.end>now)el.textContent=dur(t.end-now);if(bar)bar.style.width=Math.min(100,(now-t.start)/(t.end-t.start)*100)+'%';});
+    if(redraw)route(true);},1000);
+}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="World seed, base coordinates, where you saw that Fuling village, the Vegvisir you haven't read yet...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+function route(keepScroll){
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=REAL.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main'),top=m.scrollTop;
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),biomes:()=>pgBiomes(sub),bosses:()=>pgBosses(sub),creatures:pgCreatures,raids:pgRaids,food:pgFood,meads:pgMeads,comfort:pgComfort,skills:pgSkills,gear:pgGear,materials:pgMaterials,smelting:pgSmelting,progress:pgProgress,portals:pgPortals,timers:pgTimers,notes:pgNotes})[page]();
+  m.scrollTop=keepScroll===true?top:0;
+  m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
+  m.querySelectorAll('input[type=checkbox][data-p]').forEach(cb=>{cb.onchange=()=>{S.prog[cb.dataset.p]=cb.checked;save();const d=PROG.filter((_,i)=>S.prog[i]).length;$('pdone').textContent=d+' of '+PROG.length+' done';$('pbar').style.width=d/PROG.length*100+'%';};});
+  if(page==='bosses'&&sub)bossWire(sub);
+  if(page==='creatures')creatureWire();
+  if(page==='food')foodWire();
+  if(page==='comfort')comfortWire();
+  if(page==='skills')skillWire();
+  if(page==='materials')matWire();
+  if(page==='smelting')smeltWire();
+  if(page==='portals')portalWire();
+  if(page==='timers')timerWire();
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',()=>route());
+route();
+</script>
+</body>
+</html>
