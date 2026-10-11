@@ -1,0 +1,1266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stellaris Assistant · Tavernworks</title>
+<meta name="description" content="Stellaris Assistant: beginner to expert guides, every origin, an empire builder that checks your ethics, authority, civics and origin, species traits with a trait-point builder, planets and a habitability checker, the economy, technology, traditions and an ascension perk planner, leaders and policies, diplomacy and the Galactic Community, a megastructure and relic tracker, leviathans, fallen empires and crises with prep checklists, weapons and defenses with a fleet counter finder, ships, war goals, DLC, a campaign tracker, a galactic log, console commands and notes. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
+<style>
+:root{--bg:#0a0e16;--panel:#111827;--panel2:#1a2234;--line:#2a3550;--tx:#e6ecf5;--dim:#8f9bb3;--acc:#5cc8f0;--acc-ink:#03202b;--acc2:#b9a3f0;--ok:#7fd8a0;--warn:#f2c14e;--err:#ff7a6b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:225px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:7px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#nav .grp{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:12px 10px 2px}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#nav .grp{display:none}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#070a10;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number],input[type=search]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin:1px 0 1px 6px}
+.tag.w{background:#16291f;color:#9fe0b4}.tag.r{background:#2c1716;color:#ff9b8f}.tag.i{background:#13243a;color:#9cc9f0}.tag.g{background:#2c2410;color:#efcd7a}.tag.v{background:#241a3a;color:#c9b4f5}
+.note{border-left:3px solid var(--warn);background:#221d0e;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}.wrn{color:var(--warn)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.stat .big{font:600 20px/1.2 Consolas,"Cascadia Mono",monospace}
+.mech li{margin:4px 0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chips button{border-radius:999px;padding:3px 11px;font-size:13px}
+.chips button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.chips button.off{opacity:.45}
+.chips button.fan{background:var(--acc2);color:#1a1030;border-color:var(--acc2)}
+.chk-list div{margin:3px 0}
+.pill{display:inline-block;min-width:26px;text-align:center;font:600 12px/20px Consolas,monospace;border-radius:5px;padding:0 6px;background:var(--panel2);border:1px solid var(--line)}
+.pill.pos{color:var(--ok)}.pill.neg{color:var(--err)}
+.hab{display:inline-block;min-width:52px;text-align:center;font:600 12px/20px Consolas,monospace;border-radius:5px;color:#08121a}
+.timeline{position:relative;margin:10px 0 18px;padding-left:22px;border-left:2px solid var(--line)}
+.timeline .ev{position:relative;margin:0 0 12px}
+.timeline .ev:before{content:"";position:absolute;left:-29px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--panel2);border:2px solid var(--line)}
+.timeline .ev.past:before{background:var(--acc);border-color:var(--acc)}
+.timeline .ev.now:before{background:var(--warn);border-color:var(--warn);box-shadow:0 0 0 4px #f2c14e33}
+.timeline .yr{font:600 13px Consolas,monospace;color:var(--acc)}
+.slot{background:var(--panel2);border:1px dashed var(--line);border-radius:8px;padding:8px 10px;min-height:42px}
+.slot.full{border-style:solid;border-color:var(--acc)}
+.perks{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:10px 0}
+.verdict{border-radius:8px;padding:10px 12px;margin:8px 0;border:1px solid var(--line);background:var(--panel2)}
+.verdict.good{border-color:#2f6a46}.verdict.badv{border-color:#7a2f2a}
+kbd,code{font:12px Consolas,"Cascadia Mono",monospace;background:#070a10;border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js?v=2" data-track="stel_state"></script>
+<script src="/assistants/art.js"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   conf: true  = long-standing mechanics from the Stellaris wiki, Paradox dev diaries or several agreeing guides.
+   conf: false = exact numbers that moved between patches, DLC details, or single-source claims; check the tooltip.
+   Written against the 4.x versions (2025 to 2026). Version 4.0 ("Phoenix") reworked pops into pop groups,
+   jobs into workforce and districts into zones, so exact outputs from older guides are often wrong now;
+   anything with a number in it is marked ○ unless it has stayed put for years. Stellaris shows the real
+   value of almost everything in a tooltip: trust that first. */
+
+/* Ethics. id, name, opposite id, short effect, playstyle. f=fanatic doubles the effect and costs 2 points. */
+const ETHICS=[
+{id:'aut',n:'Authoritarian',opp:'ega',eff:'More influence; slavery allowed; worker stratum happier with order',play:'Stable, tall or slaving empires. Unlocks Imperial authority and the Slaver Guilds and Imperial Cult civics.',conf:true},
+{id:'ega',n:'Egalitarian',opp:'aut',eff:'Better specialist output and faction influence; no slavery',play:'Democracies, research and unity from happy specialists.',conf:true},
+{id:'xph',n:'Xenophobe',opp:'xpl',eff:'Faster pop growth, cheaper outposts; dislikes other species',play:'Claim space fast; fanatic + militarist or spiritualist unlocks Fanatic Purifiers.',conf:true},
+{id:'xpl',n:'Xenophile',opp:'xph',eff:'Better trade and diplomacy, more envoys; likes aliens',play:'Federations, migration treaties and a multi-species empire.',conf:true},
+{id:'mil',n:'Militarist',opp:'pac',eff:'Faster fire rate and cheaper claims',play:'Early conquest. Warrior Culture, Distinguished Admiralty and Nationalistic Zeal want it.',conf:true},
+{id:'pac',n:'Pacifist',opp:'mil',eff:'More stability; limits on aggressive wars',play:'Tall builders. Agrarian Idyll and Inwards Perfection.',conf:true},
+{id:'spi',n:'Spiritualist',opp:'mat',eff:'More unity and stability; Psionic ascension is natural',play:'Unity-heavy builds, Exalted Priesthood, Psionics.',conf:true},
+{id:'mat',n:'Materialist',opp:'spi',eff:'More research; robots earlier and happier',play:'Tech rush, Technocracy, Synthetic ascension.',conf:true},
+{id:'ges',n:'Gestalt Consciousness',opp:'',eff:'One mind: no factions, no ethics drift, no happiness. Takes all three points.',play:'Hive Mind or Machine Intelligence. A very different game.',conf:true}
+];
+const ETHN=Object.fromEntries(ETHICS.map(e=>[e.id,e.n]));
+
+/* Authorities. ban: ethics it can't be taken with ('f' prefix = only the fanatic version is banned). */
+const AUTH=[
+{id:'dem',n:'Democratic',ban:['aut'],eff:'Elections every 10 years; the ruler gets a mandate to fulfil for a reward. More leader options.',tip:'Great for Egalitarian builds. Mandates are free unity and influence if you plan for them.',conf:true},
+{id:'oli',n:'Oligarchic',ban:['fega','faut'],eff:'Elections every 20 years; agenda costs less.',tip:'The flexible middle ground. Works with almost every civic.',conf:false},
+{id:'dic',n:'Dictatorial',ban:['ega'],eff:'Ruler for life; ruler gets more leader traits.',tip:'Pair with Philosopher King or Exalted Priesthood.',conf:true},
+{id:'imp',n:'Imperial',ban:['ega'],eff:'Ruler for life with an heir from the same family.',tip:'Unlocks Imperial Cult (with Spiritualist and Authoritarian). Strong stability.',conf:true},
+{id:'cor',n:'Corporate',ban:[],dlc:'MegaCorp',eff:'Branch offices on other empires\' planets; corporate civics; trade focus.',tip:'Plays like Oligarchic with a commercial twist. Criminal Heritage changes how branch offices work.',conf:false},
+{id:'hive',n:'Hive Mind',gestalt:'hive',ban:[],dlc:'Utopia',eff:'One organic mind. Drones, no consumer goods, no factions.',tip:'Devouring Swarm and Tree of Life are the famous builds.',conf:true},
+{id:'mac',n:'Machine Intelligence',gestalt:'mac',ban:[],dlc:'Synthetic Dawn',eff:'One machine mind. Robots instead of pops, no food unless you have organics.',tip:'Determined Exterminator, Driven Assimilator and Rogue Servitor are the special builds.',conf:true}
+];
+
+/* Civics. a: who can take it ('reg' = Democratic, Oligarchic, Dictatorial, Imperial; 'cor' = Corporate;
+   'hive'; 'mac'). auth: narrows the authority. req: ethics needed ('mil' = militarist or fanatic militarist,
+   'fxph' = fanatic only, 'mil|spi' = either). ban: ethics it can't have. x: civics it can't be combined with. */
+const CIVICS=[
+{n:'Efficient Bureaucracy',a:'reg',eff:'More administrative capacity (fewer sprawl penalties).',r:'S',conf:false},
+{n:'Technocracy',a:'reg',ban:['fspi'],eff:'Research costs less unity pressure; scientists get an extra edge and researchers make unity.',r:'S',conf:false},
+{n:'Meritocracy',a:'reg',auth:['dem','oli'],eff:'Specialist output up; leaders cap higher.',r:'A',conf:true},
+{n:'Masterful Crafters',a:'reg',eff:'Artisans make more consumer goods and some trade/unity.',r:'A',conf:false},
+{n:'Mining Guilds',a:'reg',eff:'Miners make more minerals.',r:'B',conf:true},
+{n:'Functional Architecture',a:'reg',eff:'Extra building slot on each colony; cheaper buildings.',r:'B',conf:false},
+{n:'Aristocratic Elite',a:'reg',auth:['oli','imp'],ban:['ega'],eff:'Noble jobs, more governors, better leaders; elite stratum stays happy.',r:'A',conf:true},
+{n:'Exalted Priesthood',a:'reg',auth:['oli','dic'],req:['spi'],eff:'Priests make more unity and influence; high priests run the state.',r:'A',conf:true},
+{n:'Philosopher King',a:'reg',auth:['dic','imp'],eff:'The ruler gets more skill and a stronger agenda.',r:'B',conf:true},
+{n:'Parliamentary System',a:'reg',auth:['dem'],eff:'Factions give more influence; extra envoy or influence boost from politics.',r:'B',conf:false},
+{n:'Beacon of Liberty',a:'reg',auth:['dem'],req:['ega'],ban:['xph'],eff:'More unity; migrants and refugees love you.',r:'B',conf:false},
+{n:'Idealistic Foundation',a:'reg',req:['ega'],eff:'Happier pops; more stability.',r:'B',conf:true},
+{n:'Shared Burdens',a:'reg',req:['fega'],ban:['aut'],eff:'One stratum for everyone: no rulers vs workers; consumer-goods heavy.',r:'B',dlc:'Utopia',conf:false},
+{n:'Imperial Cult',a:'reg',auth:['imp'],req:['aut','spi'],eff:'The ruler is divine: big unity and influence from priests.',r:'A',conf:true},
+{n:'Slaver Guilds',a:'reg',req:['aut'],eff:'A share of every planet is enslaved and works harder.',r:'B',conf:true},
+{n:'Police State',a:'reg',eff:'Enforcers add stability and unity.',r:'C',conf:false},
+{n:'Feudal Society',a:'reg',auth:['imp'],eff:'Subjects get extra free starbase capacity and are happier; good with lots of vassals.',r:'C',conf:false},
+{n:'Warrior Culture',a:'reg',req:['mil'],eff:'Duelling arenas replace entertainers; army damage up.',r:'B',conf:true},
+{n:'Distinguished Admiralty',a:'reg',eff:'Admirals start higher; more naval capacity and fire rate.',r:'B',conf:false},
+{n:'Nationalistic Zeal',a:'reg',req:['mil'],eff:'Cheaper claims; war goals get you more.',r:'B',conf:true},
+{n:'Citizen Service',a:'reg',auth:['dem','oli'],req:['mil'],ban:['fpac'],eff:'Only those who serve vote: soldiers make unity.',r:'B',conf:false},
+{n:'Agrarian Idyll',a:'reg',req:['pac'],eff:'Farmers make amenities and unity; fewer urban districts.',r:'B',conf:true},
+{n:'Inwards Perfection',a:'reg',req:['pac','xph'],x:['Diplomatic Corps','Free Haven'],eff:'Big unity and stability; can\'t do most diplomacy.',r:'A',conf:true},
+{n:'Diplomatic Corps',a:'reg',x:['Inwards Perfection','Fanatic Purifiers'],eff:'More envoys and diplomatic weight.',r:'B',conf:false},
+{n:'Free Haven',a:'reg',req:['xpl'],x:['Inwards Perfection'],eff:'Faster migration, more pop growth from immigration.',r:'B',conf:true},
+{n:'Pompous Purists',a:'reg',req:['xph'],eff:'More influence; a proud, inward-looking diplomacy ○.',r:'C',conf:false},
+{n:'Environmentalist',a:'reg',ban:['fmat'],eff:'Pops use fewer consumer goods; happier.',r:'C',conf:false},
+{n:'Pleasure Seekers',a:'reg',eff:'Servants jobs, decadent lifestyle; amenities and happiness.',r:'C',conf:false},
+{n:'Death Cult',a:'reg',req:['spi'],dlc:'Necroids',eff:'Mortal initiates and sacrifice edicts for big temporary bonuses.',r:'B',conf:false},
+{n:'Reanimators',a:'reg',ban:['fspi'],dlc:'Necroids',eff:'Dead pops and armies rise as undead armies.',r:'C',conf:false},
+{n:'Memorialists',a:'reg',dlc:'Necroids',eff:'Memorials give unity and stability.',r:'C',conf:false},
+{n:'Fanatic Purifiers',a:'reg',req:['fxph','mil|spi'],x:['Diplomatic Corps','Barbaric Despoilers'],eff:'Total war on all aliens. Huge combat bonuses. Nobody will ever like you.',r:'A',conf:true},
+{n:'Barbaric Despoilers',a:'reg',req:['aut','mil'],ban:['xpl','pac'],x:['Fanatic Purifiers'],dlc:'Apocalypse',eff:'Raid planets for pops and resources with special war goals.',r:'B',conf:false},
+{n:'Catalytic Processing',a:'reg',dlc:'Plantoids',eff:'Alloy foundries use food instead of minerals.',r:'B',conf:false},
+{n:'Byzantine Bureaucracy',a:'reg',ban:['ges'],eff:'Bureaucrats make stability; gets better with more of them.',r:'C',conf:false},
+{n:'Cutthroat Politics',a:'reg',eff:'Leaders gain experience faster; more scandals.',r:'C',conf:false},
+/* Corporate */
+{n:'Criminal Heritage',a:'cor',eff:'Branch offices are criminal syndicates: they work anywhere, even without a treaty.',r:'A',dlc:'MegaCorp',conf:true},
+{n:'Free Traders',a:'cor',eff:'More trade value; trade policies stronger.',r:'B',dlc:'MegaCorp',conf:false},
+{n:'Gospel of the Masses',a:'cor',req:['spi'],eff:'Spiritualist pops make trade.',r:'B',dlc:'MegaCorp',conf:true},
+{n:'Indentured Assets',a:'cor',req:['aut'],eff:'Corporate slavery: indentured servitude.',r:'B',dlc:'MegaCorp',conf:true},
+{n:'Media Conglomerate',a:'cor',eff:'Branch offices and culture workers make unity.',r:'C',dlc:'MegaCorp',conf:false},
+{n:'Naval Contractors',a:'cor',eff:'More naval capacity; shipbuilding branch buildings.',r:'B',dlc:'MegaCorp',conf:false},
+{n:'Private Prospectors',a:'cor',eff:'Cheaper outposts.',r:'C',dlc:'MegaCorp',conf:false},
+{n:'Ruthless Competition',a:'cor',eff:'Leaders are better and level faster.',r:'C',dlc:'MegaCorp',conf:false},
+{n:'Trading Posts',a:'cor',eff:'Cheaper outposts in systems with trade.',r:'C',dlc:'MegaCorp',conf:false},
+{n:'Franchising',a:'cor',eff:'Subjects pay you more; extra branch office value.',r:'C',dlc:'MegaCorp',conf:false},
+{n:'Brand Loyalty',a:'cor',eff:'More unity from branch offices.',r:'C',dlc:'MegaCorp',conf:false},
+/* Hive */
+{n:'Devouring Swarm',a:'hive',x:['Empath'],eff:'Eats other species. Total war, strong early fleets, hates everyone.',r:'A',conf:true},
+{n:'Terravore',a:'hive',x:['Devouring Swarm','Empath'],dlc:'Lithoids',eff:'Eats planets (lithoid): consume worlds into minerals and alloys.',r:'B',conf:false},
+{n:'Ascetic',a:'hive',eff:'Fewer amenities needed; stability up.',r:'B',conf:true},
+{n:'Divided Attention',a:'hive',eff:'More administrative capacity from synapse drones.',r:'B',conf:false},
+{n:'Empath',a:'hive',x:['Devouring Swarm','Terravore'],dlc:'Federations',eff:'Can do diplomacy normally; trust and opinion bonuses.',r:'B',conf:false},
+{n:'Pooled Knowledge',a:'hive',eff:'Leaders gain more experience; drones make research.',r:'B',conf:false},
+{n:'Strength of Legions',a:'hive',eff:'Stronger armies.',r:'C',conf:true},
+{n:'Subsumed Will',a:'hive',eff:'Fewer amenities; more stability.',r:'C',conf:false},
+{n:'One Mind',a:'hive',eff:'Unity from the hive\'s ruler; extra stability.',r:'B',conf:false},
+{n:'Natural Neural Network',a:'hive',eff:'Research from brain drones.',r:'B',conf:false},
+{n:'Catalytic Processing',a:'hive',dlc:'Plantoids',eff:'Alloys from food.',r:'B',conf:false,key:'Catalytic Processing (hive)'},
+/* Machine */
+{n:'Determined Exterminator',a:'mac',x:['Driven Assimilator','Rogue Servitor'],eff:'Kills all organics. Total war, huge combat bonuses.',r:'A',conf:true},
+{n:'Driven Assimilator',a:'mac',x:['Determined Exterminator','Rogue Servitor'],eff:'Turns organics into cyborgs who join the network.',r:'A',conf:true},
+{n:'Rogue Servitor',a:'mac',x:['Determined Exterminator','Driven Assimilator'],eff:'Keeps organics as pampered bio-trophies for unity.',r:'A',conf:true},
+{n:'Built to Last',a:'mac',eff:'Robots age slower; less repair cost.',r:'C',conf:false},
+{n:'Constructobot',a:'mac',eff:'Cheaper districts and buildings.',r:'B',conf:false},
+{n:'Factory Overclocking',a:'mac',eff:'Faster ship and building production.',r:'B',conf:false},
+{n:'Introspective',a:'mac',eff:'More research.',r:'B',conf:false},
+{n:'Maintenance Protocols',a:'mac',eff:'Maintenance drones make unity.',r:'B',conf:false},
+{n:'OTA Updates',a:'mac',eff:'Robots get upgrades for free with research.',r:'B',conf:false},
+{n:'Rapid Replicator',a:'mac',eff:'Faster drone assembly.',r:'B',conf:false},
+{n:'Static Research Analysis',a:'mac',eff:'More research from analysing what you already know ○.',r:'C',conf:false},
+{n:'Unitary Cohesion',a:'mac',eff:'More unity.',r:'B',conf:false},
+{n:'Zero-Waste Protocols',a:'mac',eff:'Less upkeep for buildings and pops.',r:'B',conf:false},
+{n:'Warbots',a:'mac',eff:'Stronger armies.',r:'C',conf:false},
+{n:'Catalytic Processing',a:'mac',dlc:'Plantoids',eff:'Alloys from food.',r:'C',conf:false,key:'Catalytic Processing (machine)'}
+];
+CIVICS.forEach(c=>{if(!c.key)c.key=c.n;});
+
+/* Origins. d: difficulty 1-5. req: a short requirement string shown to the player; chk: machine-checked
+   requirements for the empire builder (gestalt: only gestalt / 'no' = not gestalt; auth; req ethics). */
+const ORIGINS=[
+{n:'Prosperous Unification',d:1,dlc:'',eff:'A strong capital and a few years of bonus output.',tip:'The safest start. Best for your first game.',chk:{},conf:true},
+{n:'Galactic Doorstep',d:2,dlc:'',eff:'A dormant gateway in your home system.',tip:'A gateway network early if you research it; otherwise similar to Prosperous Unification.',chk:{},conf:true},
+{n:'Lost Colony',d:2,dlc:'',eff:'You\'re a colony of a more advanced parent empire that appears nearby.',tip:'Good diplomacy start; the parent empire is often friendly.',chk:{},conf:true},
+{n:'Remnants',d:2,dlc:'Ancient Relics',eff:'Home world is a Relic World with an ancient arcology.',tip:'Lots of unity and research; relic worlds have different districts.',chk:{},conf:true},
+{n:'Shattered Ring',d:3,dlc:'Federations',eff:'You live on a broken ring world segment.',tip:'Strong once you repair the segments; slow first decades.',chk:{},conf:true},
+{n:'Void Dwellers',d:3,dlc:'Federations',eff:'You start on habitats, not a planet.',tip:'Tall research empire. Planets are miserable for you at first.',chk:{},conf:true},
+{n:'Life-Seeded',d:2,dlc:'Federations',eff:'A size 25 Gaia world, but your species only likes Gaia worlds.',tip:'Huge home world; expansion relies on terraforming and gene modding.',chk:{gestalt:'notmac'},conf:true},
+{n:'Post-Apocalyptic',d:3,dlc:'Federations',eff:'A tomb world home, survivor species, radiation-proof.',tip:'You can colonise tomb worlds well; nobody else wants them.',chk:{gestalt:'notmac'},conf:true},
+{n:'Syncretic Evolution',d:2,dlc:'Federations',eff:'A second, servile species shares your home world.',tip:'Free extra worker species with strong traits.',chk:{gestalt:'notmac'},conf:true},
+{n:'Mechanist',d:1,dlc:'Federations',eff:'Start with robot pops and robot assembly.',tip:'Easy robot workers from day one.',chk:{gestalt:'no',req:['mat']},conf:true},
+{n:'Common Ground',d:2,dlc:'Federations',eff:'Start in a federation with two other new empires.',tip:'Learn federations with friends from day one.',chk:{gestalt:'no',ban:['xph']},conf:false},
+{n:'Hegemon',d:2,dlc:'Federations',eff:'Lead a Hegemony federation with two lesser empires.',tip:'You lead; the members follow.',chk:{gestalt:'no',ban:['ega']},conf:false},
+{n:'Doomsday',d:4,dlc:'Federations',eff:'Your home world will explode in a few decades.',tip:'Expand fast. The planet does blow up.',chk:{},conf:true},
+{n:'Scion',d:2,dlc:'Federations',eff:'A fallen empire is your patron.',tip:'Protection and gifts; you\'re dragged into their wars.',chk:{},conf:true},
+{n:'On the Shoulders of Giants',d:2,dlc:'Federations',eff:'A precursor story: dig up your past.',tip:'Archaeology chain with a big payoff.',chk:{},conf:true},
+{n:'Resource Consolidation',d:3,dlc:'Synthetic Dawn',eff:'Machine world home; most other worlds are barren.',tip:'Machine Intelligence only.',chk:{gestalt:'mac'},conf:true},
+{n:'Tree of Life',d:3,dlc:'Utopia',eff:'Hive with a Tree of Life: colonies need saplings or they suffer.',tip:'Hive Mind only. Tall and stable.',chk:{gestalt:'hive'},conf:false},
+{n:'Necrophage',d:4,dlc:'Necroids',eff:'Your species eats others to make more of itself.',tip:'Prepatent pops become your species.',chk:{ban:['xpl']},conf:false},
+{n:'Clone Army',d:3,dlc:'Humanoids',eff:'Ancient clone vats; your pops can\'t reproduce normally.',tip:'Strong early military, then a cliff.',chk:{gestalt:'no'},conf:false},
+{n:'Here Be Dragons',d:3,dlc:'Distant Stars',eff:'A Sky Dragon guards your home system.',tip:'Weak neighbours won\'t attack you. The dragon is yours to wake.',chk:{},conf:true},
+{n:'Ocean Paradise',d:1,dlc:'Aquatics',eff:'A size 30 ocean home world.',tip:'Massive home world.',chk:{},conf:true},
+{n:'Calamitous Birth',d:3,dlc:'Lithoids',eff:'Lithoid. Meteors seed your colonies.',tip:'Lithoid species only.',chk:{},conf:true},
+{n:'Fear of the Dark',d:2,dlc:'First Contact',eff:'You fear other empires; first contact is scary.',tip:'Inwards-looking start.',chk:{},conf:false},
+{n:'Slingshot to the Stars',d:2,dlc:'Overlord',eff:'A broken Quantum Catapult in your home system.',tip:'Launch fleets across the galaxy later.',chk:{},conf:true},
+{n:'Imperial Fiefdom',d:2,dlc:'Overlord',eff:'You start as a subject of a bigger empire.',tip:'Protection; you\'ll want independence later.',chk:{},conf:true},
+{n:'Teachers of the Shroud',d:3,dlc:'Overlord',eff:'Psionic; a pact with the Shroud.',tip:'Spiritualist only; fast Psionics.',chk:{req:['spi']},conf:true},
+{n:'Under One Rule',d:3,dlc:'Overlord',eff:'A Luminary leader ruled your unification.',tip:'Strong ruler; dictatorial or imperial.',chk:{gestalt:'no',auth:['dic','imp']},conf:false},
+{n:'Subterranean',d:2,dlc:'Overlord',eff:'Underground civilization.',tip:'Harder to invade, slower to build.',chk:{},conf:false},
+{n:'Payback',d:3,dlc:'First Contact',eff:'Aliens once took your people; you rebuilt with their tech.',tip:'Bonuses vs the empire that wronged you.',chk:{},conf:false},
+{n:'Knights of the Toxic God',d:4,dlc:'Toxoids',eff:'A knightly order questing for a Toxic God.',tip:'Story-heavy and fun; slow.',chk:{gestalt:'no'},conf:false},
+{n:'Overtuned',d:3,dlc:'Toxoids',eff:'Gene-tuned pops: strong but short-lived.',tip:'Organic only.',chk:{gestalt:'notmac'},conf:false},
+{n:'Riftworld',d:3,dlc:'Astral Planes',eff:'Home world sits on an astral rift.',tip:'Astral Threads and rifts.',chk:{},conf:false},
+{n:'Cybernetic Creed',d:2,dlc:'The Machine Age',eff:'A cyborg church: start on the cybernetic path.',tip:'Spiritualist; cybernetic ascension.',chk:{gestalt:'no',req:['spi']},conf:false},
+{n:'Synthetic Fertility',d:4,dlc:'The Machine Age',eff:'Organics can\'t reproduce; you must go synthetic.',tip:'Race to synthetic ascension.',chk:{gestalt:'no'},conf:false},
+{n:'Arc Welders',d:3,dlc:'The Machine Age',eff:'Industrial machine origin built on forges.',tip:'Alloy-heavy start.',chk:{},conf:false},
+{n:'Storm Chasers',d:3,dlc:'Cosmic Storms',eff:'You chase and use cosmic storms.',tip:'Weather-like events across the galaxy.',chk:{},conf:false},
+{n:'Wilderness',d:3,dlc:'BioGenesis',eff:'Hive whose home world itself is alive.',tip:'BioGenesis; very different growth.',chk:{gestalt:'hive'},conf:false}
+];
+
+/* Species traits (organic). c: cost in trait points (negative traits give points back); opp: can't be taken together. */
+const TRAITS=[
+{n:'Intelligent',c:2,eff:'+ research from jobs',g:'Research',opp:[],conf:true},
+{n:'Natural Engineers',c:1,eff:'+ engineering research',g:'Research',opp:['Natural Physicists','Natural Sociologists'],conf:true},
+{n:'Natural Physicists',c:1,eff:'+ physics research',g:'Research',opp:['Natural Engineers','Natural Sociologists'],conf:true},
+{n:'Natural Sociologists',c:1,eff:'+ society research',g:'Research',opp:['Natural Engineers','Natural Physicists'],conf:true},
+{n:'Industrious',c:2,eff:'+ minerals from jobs',g:'Economy',opp:[],conf:true},
+{n:'Agrarian',c:2,eff:'+ food from jobs',g:'Economy',opp:[],conf:true},
+{n:'Ingenious',c:2,eff:'+ energy from jobs',g:'Economy',opp:[],conf:true},
+{n:'Thrifty',c:2,eff:'+ trade',g:'Economy',opp:[],conf:false},
+{n:'Strong',c:1,eff:'+ army damage, + worker output',g:'Body',opp:['Very Strong','Weak'],conf:true},
+{n:'Very Strong',c:3,eff:'++ army damage, + worker output',g:'Body',opp:['Strong','Weak'],conf:true},
+{n:'Weak',c:-1,eff:'− army damage, − worker output',g:'Body',opp:['Strong','Very Strong'],conf:true},
+{n:'Rapid Breeders',c:2,eff:'+ pop growth',g:'Growth',opp:['Slow Breeders'],conf:true},
+{n:'Slow Breeders',c:-1,eff:'− pop growth',g:'Growth',opp:['Rapid Breeders'],conf:true},
+{n:'Adaptive',c:2,eff:'+ habitability',g:'Growth',opp:['Extremely Adaptive','Nonadaptive'],conf:true},
+{n:'Extremely Adaptive',c:4,eff:'++ habitability',g:'Growth',opp:['Adaptive','Nonadaptive'],conf:true},
+{n:'Nonadaptive',c:-2,eff:'− habitability',g:'Growth',opp:['Adaptive','Extremely Adaptive'],conf:true},
+{n:'Communal',c:1,eff:'Less housing used',g:'Society',opp:['Solitary'],conf:true},
+{n:'Solitary',c:-1,eff:'More housing used',g:'Society',opp:['Communal'],conf:true},
+{n:'Charismatic',c:1,eff:'+ amenities from your pops',g:'Society',opp:['Repugnant'],conf:true},
+{n:'Repugnant',c:-1,eff:'− amenities',g:'Society',opp:['Charismatic'],conf:true},
+{n:'Traditional',c:1,eff:'+ unity',g:'Society',opp:['Quarrelsome'],conf:true},
+{n:'Quarrelsome',c:-1,eff:'− unity',g:'Society',opp:['Traditional'],conf:true},
+{n:'Conformists',c:2,eff:'+ governing ethics attraction',g:'Society',opp:['Deviants'],conf:true},
+{n:'Deviants',c:-1,eff:'− governing ethics attraction',g:'Society',opp:['Conformists'],conf:true},
+{n:'Docile',c:2,eff:'Cheaper to keep happy; − upkeep/amenity needs',g:'Society',opp:['Unruly'],conf:false},
+{n:'Unruly',c:-2,eff:'Uses more amenities',g:'Society',opp:['Docile'],conf:false},
+{n:'Resilient',c:1,eff:'+ defensive army strength',g:'Body',opp:[],conf:true},
+{n:'Nomadic',c:1,eff:'Faster resettlement and migration',g:'Growth',opp:['Sedentary'],conf:true},
+{n:'Sedentary',c:-1,eff:'Slower resettlement and migration',g:'Growth',opp:['Nomadic'],conf:true},
+{n:'Talented',c:1,eff:'Leaders start with an extra trait',g:'Leaders',opp:[],conf:true},
+{n:'Quick Learners',c:1,eff:'Leaders gain experience faster',g:'Leaders',opp:['Slow Learners'],conf:true},
+{n:'Slow Learners',c:-1,eff:'Leaders gain experience slower',g:'Leaders',opp:['Quick Learners'],conf:true},
+{n:'Enduring',c:1,eff:'Leaders live longer',g:'Leaders',opp:['Venerable','Fleeting'],conf:true},
+{n:'Venerable',c:4,eff:'Leaders live much longer',g:'Leaders',opp:['Enduring','Fleeting'],conf:true},
+{n:'Fleeting',c:-1,eff:'Leaders die sooner',g:'Leaders',opp:['Enduring','Venerable'],conf:true},
+{n:'Decadent',c:-1,eff:'Unhappy without enough slaves or servants',g:'Society',opp:[],conf:true},
+{n:'Wasteful',c:-1,eff:'More consumer goods used',g:'Economy',opp:[],conf:true},
+{n:'Clone Soldier',c:0,eff:'Clone Army origin only',g:'Origin',opp:[],conf:false,hidden:true}
+];
+const TRAIT_BASE=2,TRAIT_PICKS=5;
+const TRAIT_COMBOS=[
+['Research tall',['Intelligent','Natural Engineers','Traditional','Sedentary','Repugnant'],'Research everything, play tall, fight later.'],
+['Classic economy',['Industrious','Intelligent','Sedentary','Weak'],'Minerals and research: a strong all-rounder.'],
+['Wide expansion',['Rapid Breeders','Adaptive','Sedentary','Repugnant'],'Grow and colonise as much as you can.'],
+['Unity builder',['Traditional','Intelligent','Charismatic','Deviants','Fleeting'],'For Exalted Priesthood or Spiritualist unity builds.'],
+['War machine',['Very Strong','Rapid Breeders','Slow Learners','Quarrelsome','Sedentary'],'Armies and pop growth for an early conquest.']
+];
+
+/* Planet classes. cl: climate group. */
+const PCLASS=[
+{id:'continental',n:'Continental',cl:'wet'},{id:'ocean',n:'Ocean',cl:'wet'},{id:'tropical',n:'Tropical',cl:'wet'},
+{id:'arid',n:'Arid',cl:'dry'},{id:'desert',n:'Desert',cl:'dry'},{id:'savanna',n:'Savanna',cl:'dry'},
+{id:'alpine',n:'Alpine',cl:'cold'},{id:'arctic',n:'Arctic',cl:'cold'},{id:'tundra',n:'Tundra',cl:'cold'}
+];
+const SPECIAL_PLANETS=[
+['Gaia World','100% for every species. Rare; terraform into one late with the right tech or Life-Seeded.',true],
+['Tomb World','Nuked. 0% unless the species has the Survivor trait (Post-Apocalyptic) ○; can be terraformed.',true],
+['Relic World','Ancient ruins. Remnants origin home; different districts.',true],
+['Machine World','Machine Intelligence ideal world; organics can\'t live there.',true],
+['Hive World','Hive Mind ideal world (Utopia ascension perk).',true],
+['Ecumenopolis','A planet-wide city (Arcology Project). Huge industry, no farms or mines.',true],
+['Habitat','Orbital station you build (Voidborne). Fixed habitability, small.',true],
+['Ring World','Megastructure segments with huge city districts; 100% for every species.',true],
+['Barren / Molten / Toxic / Frozen','Not habitable by default. Lithoids like some; terraforming and Terraforming Gases can help.',false],
+['Shattered World / Asteroid','Mining stations only (or Terravore food).',true],
+['Nuked / Cracked worlds','Story outcomes. Check the planet tooltip.',false]
+];
+const HABV={own:80,group:60,other:20};
+
+/* Resources. */
+const RES=[
+['Energy credits','Basic','Pays upkeep for buildings, districts, ships and starbases. The currency.','Technicians (generator districts), trade.'],
+['Minerals','Basic','Builds districts, buildings, colony ships; feeds alloy foundries and civilian industries.','Miners (mining districts), mining stations.'],
+['Food','Basic','Feeds organic pops; surplus boosts growth.','Farmers (agriculture districts).'],
+['Trade','Basic','Since 4.0 a resource of its own: converts to energy and other goods by policy ○.','Clerks, merchants, trade buildings ○'],
+['Alloys','Advanced','Ships, starbases, megastructures. The war resource.','Metallurgists (foundries).'],
+['Consumer goods','Advanced','Upkeep for specialists and ruler jobs; researchers need them.','Artisans (civilian industries).'],
+['Physics / Society / Engineering','Research','Your three research tracks.','Researchers, research stations.'],
+['Unity','Abstract','Buys traditions, edicts, leader recruitment and ascension.','Bureaucrats, priests, culture workers, monuments.'],
+['Influence','Abstract','Outposts, claims, diplomacy, some edicts. Capped.','Your ethics, factions, envoys, some civics.'],
+['Amenities','Planet','Keep a planet stable; too few means unhappy pops.','Entertainers, maintenance drones, holo-theatres.'],
+['Stability','Planet','Above 50 is fine; higher gives bonuses; below 25 is trouble.','Amenities, enforcers, policies.'],
+['Exotic Gases / Rare Crystals / Volatile Motes','Strategic','Advanced buildings and ship components.','Deposits, refineries, the market.'],
+['Zro / Dark Matter / Living Metal / Nanites','Rare strategic','Late-game components, psionic and synthetic tech.','Special deposits, events, the Shroud.']
+];
+const STRATA=[
+['Ruler','Administrators, nobles, high priests','Highest upkeep; most influence and unity.'],
+['Specialist','Researchers, metallurgists, artisans, bureaucrats, priests','Turn basic resources into advanced ones. Need consumer goods.'],
+['Worker','Miners, farmers, technicians, soldiers','Make basic resources.'],
+['Slave','Enslaved pops on worker jobs','Cheap and hard working; only Authoritarian empires.'],
+['Complex drone','Gestalt specialists','Synapse drones, brain drones, coordinators.'],
+['Menial drone','Gestalt workers','Mining, farming and maintenance drones.']
+];
+const DESIGNATIONS=[
+['Capital','Your home world. Bonuses to everything; build anything.'],
+['Mining world','More minerals from miners.'],['Agri world','More food from farmers.'],['Generator world','More energy from technicians.'],
+['Forge world','More alloys; best paired with a few mining worlds.'],['Factory world','More consumer goods.'],['Refinery world','Strategic resource output.'],
+['Research world','Needs research buildings; best on a big planet with good habitability.'],['Unity world','Bureaucrats, priests or culture workers.'],
+['Trade world','More trade value ○ (moved with 4.0).'],['Fortress world','Soldiers and fortresses on a border chokepoint.'],
+['Resort world','Big amenities across the empire, but nothing else can be built there.'],['Penal colony','Takes your criminals and unstable pops.'],
+['Thrall world','Slave housing for other planets (Authoritarian).'],['Urban / Ecumenopolis','Specialists only.']
+];
+
+/* Technology. Research options are drawn from a weighted deck, so you won't see every tech every time. */
+const TECHS=[
+{n:'Automated Exploration',f:'Engineering',w:'Early',why:'Science ships survey on their own. Saves hours of clicking.',conf:true},
+{n:'Colonial Centralization',f:'Society',w:'Early',why:'Unlocks extra colony options and stability; part of the expansion chain.',conf:false},
+{n:'Eco-Simulation / Hydroponics',f:'Society',w:'Early',why:'Food and agriculture boosts; hydroponics bays on starbases.',conf:false},
+{n:'Genome Mapping',f:'Society',w:'Early',why:'Leads to gene modding and Gene Clinics.',conf:true},
+{n:'Planetary Unification',f:'Society',w:'Early',why:'Leads to administrative capacity techs and more civic slots ○.',conf:false},
+{n:'Mineral / Energy grid techs',f:'Engineering / Physics',w:'Early',why:'Flat boosts to basic resources. Always take them.',conf:true},
+{n:'Starbase upgrades',f:'Engineering',w:'Early',why:'Starports for shipyards and anchorages; needed for naval capacity.',conf:true},
+{n:'Robotic Workers',f:'Engineering',w:'Early',why:'Robots that fill worker jobs; Materialist empires love them.',conf:true},
+{n:'Xeno-Compatibility research',f:'Society',w:'Mid',why:'Cross-species pops (needs the ascension perk too).',conf:false},
+{n:'Gene Tailoring / Glandular Acclimation',f:'Society',w:'Mid',why:'More gene modding points and habitability.',conf:true},
+{n:'Terraforming',f:'Society',w:'Mid',why:'Change planet classes to match your species.',conf:true},
+{n:'Gateway Construction',f:'Engineering',w:'Mid',why:'Build and repair gateways; big for logistics.',conf:true},
+{n:'Jump Drive / Psi Jump Drive',f:'Physics',w:'Late',why:'Skip hyperlanes. Psi Jump Drive is the psionic version.',conf:true},
+{n:'Repeatables',f:'All',w:'Late',why:'Endless small boosts to weapons, armor, resources. Your late-game research goal.',conf:true},
+{n:'Dark Matter / Zero-point tech',f:'Physics',w:'Late',why:'Dark matter reactors, shields and deflectors.',conf:true},
+{n:'Titans and Juggernaut',f:'Engineering',w:'Late',why:'Capital ships with fleet-wide auras.',conf:true},
+{n:'Galactic Wonders / megastructure techs',f:'Engineering',w:'Late',why:'With the ascension perk, unlock the big projects.',conf:true}
+];
+const RARE_TECH=[
+['Psionic Theory','Spiritualist or psionic path; Shroud access.'],['Positronic AI','Synthetic leaders and AI research.'],['Zero-Point Power','Huge energy and better reactors.'],['Dark Matter Power','Rare; needs dark matter.'],['Jump Drive','Long-range FTL.'],['Titanic Life / Cloning','Biological ship and pop options ○ (BioGenesis).'],['Mega-Engineering','Unlocks megastructure repair and construction.'],['Matter Decompressor / Dyson techs','Megastructure techs once you have Galactic Wonders.']
+];
+
+/* Tradition trees. */
+const TRADS=[
+['Discovery','Research, surveys, anomaly speed. A strong first pick for everyone.',true],
+['Expansion','More colony ships, cheaper outposts, growth. Strong for wide empires.',true],
+['Prosperity','Cheaper buildings and districts, more resources.',true],
+['Supremacy','Fleets: naval capacity, fire rate and bigger starbases.',true],
+['Domination','Subjects and vassals; also better slaves.',true],
+['Harmony','Stability and amenities. Gestalts get Synchronicity instead.',true],
+['Diplomacy','Federations, envoys and trust.',true],
+['Mercantile','Trade and commercial pacts. Required by some trade builds.',false],
+['Politics / Statecraft','Councillors, agenda and edict capacity ○.',false],
+['Aptitude','Leader traits and experience (Galactic Paragons).',false],
+['Unyielding','Defensive starbases and fortress worlds.',false],
+['Enmity / Subterfuge','Espionage and intelligence (First Contact).',false],
+['Adaptability / Versatility','Habitability and flexibility ○.',false],
+['Archivism','Relics and archaeology (The Grand Archive) ○.',false]
+];
+const PATHS=[
+{n:'Genetic',col:'#7fd8a0',ap:'Engineered Evolution / Genetic tree',what:'Modify species templates: more trait points and powerful traits like Erudite and Fertile. Bio-ships with BioGenesis ○.',best:'Multi-species empires, organic purists, tall research.',conf:false},
+{n:'Psionic',col:'#c9b4f5',ap:'Mind over Matter, then Transcendence',what:'Psionic pops, the Shroud, Psionic shields and the Psi Jump Drive. A Shroud patron gives big bonuses (and risks).',best:'Spiritualist empires. Unity and stability.',conf:true},
+{n:'Cybernetic',col:'#5cc8f0',ap:'The Flesh is Weak',what:'Cyborg pops with better worker output and assimilation options.',best:'Industrial empires; Cybernetic Creed.',conf:false},
+{n:'Synthetic',col:'#f2c14e',ap:'Synthetic Evolution / Synthetic Age',what:'Your whole species becomes robots: no food, much easier modification, and machine bonuses.',best:'Materialist empires; Synthetic Fertility.',conf:false},
+{n:'Machine paths',col:'#ff9b8f',ap:'Machine ascension perks (The Machine Age)',what:'Machine Intelligence gets its own paths: Modularity, Nanotech and Virtuality.',best:'Machine empires.',conf:false}
+];
+
+/* Ascension perks. pre: what you need first. kind: econ / mil / mega / path / misc. */
+const PERKS=[
+{n:'Technological Ascendancy',k:'econ',pre:'',eff:'More research and more chance of rare techs.',r:'S',conf:true},
+{n:'Interstellar Dominion',k:'econ',pre:'',eff:'Cheaper outposts and more border range. Good first pick for wide.',r:'A',conf:true},
+{n:'One Vision',k:'econ',pre:'',eff:'Unity, stability and ethics attraction.',r:'B',conf:true},
+{n:'Executive Vigor',k:'econ',pre:'',eff:'More edict capacity.',r:'B',conf:false},
+{n:'Transcendent Learning',k:'econ',pre:'',eff:'Leaders level faster; more research from scientists ○.',r:'B',conf:false},
+{n:'Imperial Prerogative',k:'econ',pre:'',eff:'More administrative capacity.',r:'B',conf:false},
+{n:'Shared Destiny',k:'econ',pre:'',eff:'Better subjects and vassals.',r:'C',conf:true},
+{n:'Xeno-Compatibility',k:'econ',pre:'',eff:'Cross-species pops with mixed traits.',r:'C',conf:true},
+{n:'Enigmatic Engineering',k:'misc',pre:'',eff:'Others can\'t reverse-engineer your ships.',r:'C',conf:true},
+{n:'Eternal Vigilance',k:'mil',pre:'',eff:'Stronger starbases and defense platforms.',r:'C',conf:true},
+{n:'Mastery of Nature',k:'econ',pre:'',eff:'Cheaper blocker clearing; more district slots.',r:'B',conf:true},
+{n:'Hydrocentric',k:'econ',pre:'Aquatics DLC',eff:'Ocean worlds and water planets get stronger.',r:'B',conf:false},
+{n:'Voidborne',k:'mega',pre:'',eff:'Build habitats on almost any planet.',r:'A',conf:true},
+{n:'Master Builders',k:'mega',pre:'',eff:'Build megastructures faster; more at once.',r:'A',conf:true},
+{n:'Galactic Wonders',k:'mega',pre:'',eff:'Unlocks Dyson Sphere, Science Nexus, Sentry Array, Ring Worlds, Matter Decompressor and more.',r:'S',conf:true},
+{n:'Arcology Project',k:'mega',pre:'Utopia; needs the tech',eff:'Turn planets into Ecumenopoleis.',r:'A',conf:false},
+{n:'World Shaper',k:'econ',pre:'',eff:'Cheaper terraforming; Gaia worlds.',r:'C',conf:true},
+{n:'Galactic Force Projection',k:'mil',pre:'',eff:'More naval capacity and command limit.',r:'A',conf:true},
+{n:'Colossus Project',k:'mil',pre:'Apocalypse DLC',eff:'Build a Colossus: a planet killer.',r:'B',conf:true},
+{n:'Defender of the Galaxy',k:'mil',pre:'Usually after the crisis appears ○',eff:'Damage bonus against crisis factions.',r:'B',conf:false},
+{n:'Galactic Contender',k:'mil',pre:'After meeting fallen empires ○',eff:'Damage bonus against fallen and awakened empires.',r:'C',conf:false},
+{n:'Become the Crisis',k:'mil',pre:'Nemesis DLC; not Pacifist',eff:'Become the endgame crisis yourself.',r:'B',conf:true},
+{n:'Universal Transactions',k:'econ',pre:'MegaCorp DLC',eff:'Branch offices on more empires.',r:'B',conf:true},
+{n:'Genetic ascension',k:'path',pre:'',eff:'Unlocks the Genetic path.',r:'A',conf:false},
+{n:'Psionic ascension',k:'path',pre:'',eff:'Unlocks the Psionic path.',r:'A',conf:false},
+{n:'Cybernetic ascension',k:'path',pre:'',eff:'Unlocks the Cybernetic path.',r:'A',conf:false},
+{n:'Synthetic ascension',k:'path',pre:'',eff:'Unlocks the Synthetic path.',r:'A',conf:false}
+];
+const PERK_PATHS=['Genetic ascension','Psionic ascension','Cybernetic ascension','Synthetic ascension'];
+
+/* Leaders, council and policies. */
+const LEADERS=[
+['Scientist','Surveys, research and anomalies; leads a research field on the council.'],
+['Commander','Admirals and generals in one class since Galactic Paragons ○: fleets and armies.'],
+['Official','Governs sectors and planets; sits on the council.'],
+['Ruler','Your head of state. Their agenda and traits shape the empire.'],
+['Envoy','Improves relations, builds trust, joins federations, works in the Galactic Community.'],
+['Paragons','Named, powerful leaders from events and the Galactic Paragons DLC.']
+];
+const POLICIES=[
+['Economic Policy','Civilian economy, militarized economy or mixed. Militarized means more alloys and fewer goods.'],
+['War Philosophy','Unrestricted wars, liberation wars only, or no wars of aggression. Pacifists are limited.'],
+['Orbital Bombardment','Selective, indiscriminate or armageddon. Harsher kills pops faster.'],
+['Diplomatic Stance','Cooperative, expansionist, belligerent, isolationist, hegemonic and more.'],
+['First Contact Protocol','Proactive, cautious or aggressive.'],
+['Pre-FTL Interference','Leave primitives alone or uplift / enlighten them.'],
+['Robotic Workers','Outlawed or allowed; AI rights come later.'],
+['Slavery / Purge / Xenophobic policies','Species rights per species: citizen, residence, slave, undesirable.']
+];
+const EDICTS=[
+['Capacity Subsidies','Energy toward jobs that need it ○'],['Research Subsidies','More research for energy ○'],['Mining Subsidies','More minerals ○'],['Industrial Subsidies','More alloys and goods ○'],['Map the Stars','Faster surveying early.'],['Encourage Political Thought','Faction influence ○'],['Fortify the Border','Better starbase defense'],['Recycling Campaign','Cheaper consumer goods'],['Education Campaign','Faster leader experience']
+];
+
+/* Diplomacy. */
+const FEDS=[
+{n:'Galactic Union',eff:'Balanced: diplomacy and stability perks. The default federation.',who:'Anyone',conf:true},
+{n:'Trade League',eff:'Trade value and shared trade policies.',who:'Xenophiles, MegaCorps',conf:true},
+{n:'Research Cooperative',eff:'Shared research and tech progress.',who:'Materialists, tall research empires',conf:true},
+{n:'Martial Alliance',eff:'Fleet bonuses, shared military, bigger federation fleet.',who:'Militarists',conf:true},
+{n:'Holy Covenant',eff:'Unity and faith; Spiritualist bonuses.',who:'Spiritualists',conf:true},
+{n:'Hegemony',eff:'One leader who never rotates; the members are almost subjects.',who:'Authoritarians, Hegemon origin',conf:true}
+];
+const SUBJECTS=[
+['Vassal','Pays a small tax and joins your wars. The default.'],['Tributary','Pays more, joins fewer wars.'],['Protectorate','A small empire you protect; becomes a vassal later.'],['Bulwark','Gets defensive bonuses, guards your border.'],['Prospectorium','Mines and pays in minerals and strategic resources.'],['Scholarium','Pays in research.'],['Custom terms (Overlord)','Overlord lets you negotiate exactly what a subject owes.']
+];
+const DIPLO=[
+['Opinion','How much they like you. Ethics, borders, actions and envoys all move it.'],
+['Trust','Grows slowly with pacts and envoys. Needed for alliances and federations.'],
+['Envoys','Assign them to improve or harm relations, or to a federation or the Galactic Community.'],
+['Pacts','Non-aggression, defensive, migration, commercial and research pacts.'],
+['Rivalry','Influence and unity, but they will hate you.'],
+['Claims','Spend influence to claim enemy systems; you need claims to take territory in war.'],
+['Diplomatic weight','Your voting power in the Galactic Community; from economy, fleets and pops.']
+];
+const RESOLUTIONS=[
+['Galactic Market','Founding a market gives everyone access to buy and sell.',true],['Council and Custodian','The council gets veto and emergency power; a custodian rules for a while; an Imperium can follow.',true],['Sanctions and Denouncements','Hurt a rule-breaker\'s economy.',true],['Crisis resolutions','Pool the galaxy against the endgame crisis.',true],['Ecology and Industry resolutions','Trade amenities against output.',false],['Ban on AI / slavery / purging','Rule-breakers face sanctions.',true]
+];
+
+/* Megastructures. ap: ascension perk needed. */
+const MEGAS=[
+{id:'dyson',n:'Dyson Sphere',ap:'Galactic Wonders',eff:'Massive energy credits; makes the system uninhabitable.',where:'Any star; best in a system with no colonies.',conf:true},
+{id:'decomp',n:'Matter Decompressor',ap:'Galactic Wonders',eff:'Huge minerals from a black hole.',where:'A black hole.',conf:true},
+{id:'nexus',n:'Science Nexus',ap:'Galactic Wonders',eff:'Research of all three types.',where:'Anywhere.',conf:true},
+{id:'sentry',n:'Sentry Array',ap:'Galactic Wonders',eff:'Shows the whole galaxy (sensor range).',where:'Anywhere.',conf:true},
+{id:'ring',n:'Ring World',ap:'Galactic Wonders',eff:'Four huge habitable segments with 100% habitability.',where:'A star without planets you want.',conf:true},
+{id:'art',n:'Mega Art Installation',ap:'Galactic Wonders',eff:'Unity and amenities.',where:'Anywhere.',conf:false},
+{id:'assembly',n:'Interstellar Assembly',ap:'Galactic Wonders',eff:'Diplomatic weight and envoys.',where:'Anywhere.',conf:false},
+{id:'shipyard',n:'Mega Shipyard',ap:'Galactic Force Projection',eff:'Builds ships fast; can build Juggernauts.',where:'Anywhere.',conf:true},
+{id:'scc',n:'Strategic Coordination Center',ap:'Galactic Force Projection',eff:'More naval capacity, starbase capacity and fleet speed.',where:'Your capital system.',conf:true},
+{id:'gateway',n:'Gateway',ap:'(Tech: Gateway Construction)',eff:'Instant travel between gateways.',where:'Your borders.',conf:true},
+{id:'relay',n:'Hyper Relay',ap:'(Tech, Overlord)',eff:'Fast hyperlane movement along relay chains.',where:'Chains of systems.',conf:true},
+{id:'catapult',n:'Quantum Catapult',ap:'(Overlord)',eff:'Fling fleets across the galaxy.',where:'Around a neutron star or pulsar.',conf:true},
+{id:'habitat',n:'Orbital Habitat',ap:'Voidborne',eff:'A small colony on any planet orbit.',where:'Over planets.',conf:true},
+{id:'swarm',n:'Dyson Swarm',ap:'(The Machine Age)',eff:'Early energy megastructure, weaker than a sphere.',where:'Any star.',conf:false},
+{id:'arc',n:'Arc Furnace',ap:'(Overlord)',eff:'Minerals and strategic resources from a molten world.',where:'A molten world.',conf:false},
+{id:'aether',n:'Aetherophasic Engine',ap:'(Become the Crisis / The Machine Age)',eff:'Win-the-game crisis project ○.',where:'Your territory.',conf:false}
+];
+const RELICS=[
+['Galatron','Prestige and a huge boost to diplomatic weight. Caravaneers lottery.',true],
+['Surveyor','Reveals the galaxy ○.',false],
+['Extradimensional Weapon','From the Unbidden or Aetherophasic events; boosts the fleet.',false],
+['Contingency Core','From defeating the Contingency.',true],
+['Prethoryn Brood-Queen','From defeating the Prethoryn Scourge.',true],
+['Blade of the Huntress','Archaeology: big ship damage boost ○.',false],
+['Rubricator','From the First League arc: research and unity ○.',false],
+['Miniature Galaxy','From the Enigmatic Fortress ○.',false],
+['Cracked Orb','Archaeology: unity ○.',false],
+['Severed Head','Archaeology: research ○.',false],
+['Javorian Tutelary','Archaeology: unity ○.',false],
+['Reliquary of the Ancients / Zro Shard','Psionic relics ○.',false]
+];
+
+/* Leviathans and guardians. */
+const GUARDS=[
+{n:'Ether Drake',where:'Its own system with a hoard',kill:'Strong armor; bring energy weapons and a big fleet.',get:'Dragon Hoard (alloys and minerals) and a big Prestige moment; the Hoard can grow',conf:true},
+{n:'Dimensional Horror',where:'A rift system',kill:'Very high damage; heavy shields help.',get:'Research and a unique tech',conf:false},
+{n:'Stellarite Devourer',where:'Eats a star; hostile',kill:'Lots of hull and armor; energy weapons.',get:'Research and a stellarite tech',conf:false},
+{n:'Spectral Wraith',where:'Wraith system',kill:'Shield-heavy; kinetics and torpedoes; never fight it early.',get:'Research',conf:false},
+{n:'Automated Dreadnought',where:'Ancient shipyard',kill:'Strong; or repair it and make it yours with an event.',get:'A free Dreadnought if you repair it',conf:true},
+{n:'Enigmatic Fortress',where:'A puzzle fortress',kill:'Destroy it and solve the puzzle event.',get:'Research and the Miniature Galaxy relic ○',conf:false},
+{n:'Infinity Machine',where:'Black hole',kill:'Don\'t kill it; talk to it for better outcomes.',get:'Research or a lot of energy',conf:true},
+{n:'Sentinel Ship / Scavenger Bot',where:'Scattered (Distant Stars)',kill:'Medium.',get:'Alloys and tech ○',conf:false},
+{n:'Tiyanki Matriarch',where:'Wanders with the Tiyanki',kill:'Peaceful unless attacked.',get:'Research and food',conf:false},
+{n:'Voidspawn',where:'A cocoon that hatches',kill:'Hatch and kill it before it grows.',get:'Research',conf:false},
+{n:'Sky Dragon',where:'Story event, Here Be Dragons origin',kill:'Heavy armor and hull.',get:'Story rewards',conf:false}
+];
+const FES=[
+{n:'Holy Guardians',eth:'Spiritualist',ang:'Colonising or terraforming their holy worlds (pre-sapient Gaia worlds). Leave them alone.',tip:'Don\'t settle holy worlds. They demand you leave them in peace.',conf:true},
+{n:'Enigmatic Observers',eth:'Xenophile',ang:'Purging or enslaving pre-FTL species; mistreating aliens.',tip:'Generous patrons if you keep primitives safe.',conf:true},
+{n:'Keepers of Knowledge',eth:'Materialist',ang:'Researching dangerous tech; they hold the galaxy\'s secrets.',tip:'Will sometimes demand tech or stop you researching.',conf:false},
+{n:'Militant Isolationists',eth:'Xenophobe',ang:'Your borders touching theirs; expanding near them.',tip:'Give them buffer space. Never sit on their border.',conf:true},
+{n:'Ancient Caretakers',eth:'Machine',ang:'Rarely angry; they wake up during the endgame crisis.',tip:'They often help fight the crisis when they wake.',conf:true}
+];
+const CRISES=[
+{id:'prethoryn',n:'Prethoryn Scourge',w:'Endgame',from:'Arrive from the edge of the galaxy and eat planets.',def:'Very high armor and hull, little or no shield',atk:'Swarming strike craft and missiles',bring:'Energy weapons and torpedoes; point defense and flak against their swarms; armor',conf:false},
+{id:'contingency',n:'The Contingency',w:'Endgame',from:'Machine worlds appear all over the galaxy at once.',def:'Balanced shields and armor',atk:'Energy and kinetic mix; very strong',bring:'A balanced fleet; you need to hit hub worlds across the galaxy',conf:false},
+{id:'unbidden',n:'The Unbidden',w:'Endgame',from:'Extradimensional invaders through a portal. Sometimes followed by rivals.',def:'Very high shields',atk:'Weapons that skip shields',bring:'Kinetic weapons against their shields; stack armor because their guns ignore shields; Unbidden take extra damage from Jump drive users ○',conf:false},
+{id:'tempest',n:'Gray Tempest',w:'Endgame',from:'A nanite storm crisis (The Machine Age / Cosmic Storms) ○.',def:'Nanite ships ○',atk:'Strong mixed weapons ○',bring:'Check the crisis tooltip; balanced fleets',conf:false},
+{id:'cetana',n:'Cetana',w:'Endgame',from:'Machine Age endgame crisis that drains stars ○.',def:'Heavy armor ○',atk:'Energy ○',bring:'Check the crisis tooltip',conf:false},
+{id:'player',n:'Player as the crisis',w:'Endgame',from:'Become the Crisis (Nemesis): you are the threat.',def:'—',atk:'—',bring:'The galaxy may form a Galactic Custodian and fight you',conf:true},
+{id:'khan',n:'The Great Khan',w:'Mid-game',from:'Marauders unite under a Khan and invade.',def:'Balanced; big fleets',atk:'Mixed',bring:'Defensive starbases at chokepoints; you can also pay tribute and become a satrapy',conf:true},
+{id:'wih',n:'War in Heaven',w:'Mid-game',from:'Two awakened fallen empires fight and drag everyone in.',def:'Very heavy (fallen empire tech)',atk:'Very strong energy weapons',bring:'Join the League of Non-Aligned Powers, or pick a side',conf:true}
+];
+
+/* Weapons. vs: what it's good against / bad against. */
+const WEAPONS=[
+{id:'kin',n:'Kinetic',ex:'Mass drivers, railguns, coilguns, kinetic artillery, Giga Cannon',good:'shield',bad:'armor',eff:'Strong vs shields, weak vs armor.',conf:true},
+{id:'en',n:'Energy',ex:'Lasers, plasma, lances, Perdition Beam',good:'armor',bad:'shield',eff:'Strong vs armor, weak vs shields.',conf:true},
+{id:'mis',n:'Missiles and torpedoes',ex:'Missiles, swarmer missiles, torpedoes, Devastator torpedoes',good:'shield',bad:'pd',eff:'Skip shields (torpedoes also hit armor hard); shot down by point defense and flak.',conf:false},
+{id:'sc',n:'Strike craft',ex:'Hangars on carriers',good:'shield',bad:'flak',eff:'Skip shields; shot down by flak and enemy strike craft.',conf:true},
+{id:'dis',n:'Disruptors and Arc Emitters',ex:'Disruptors, Arc Emitters, Cloud Lightning',good:'armor',bad:'hull',eff:'Skip shields and armor, hit hull directly; low damage.',conf:true},
+{id:'ac',n:'Autocannons and flak',ex:'Autocannons, flak batteries, point defense',good:'small',bad:'armor',eff:'Kinetic for small slots; flak and PD shoot down missiles and craft.',conf:false}
+];
+const DEFENSES=[
+{id:'shield',n:'Shields',eff:'Absorb damage first and regenerate. Countered by kinetics.',conf:true},
+{id:'armor',n:'Armor',eff:'Second layer; slow repair. Countered by energy weapons and torpedoes.',conf:true},
+{id:'hull',n:'Hull',eff:'The last layer. When it\'s gone the ship dies. Disruptors hit it directly.',conf:true},
+{id:'pd',n:'Point defense',eff:'Shoots down missiles and torpedoes.',conf:true},
+{id:'flak',n:'Flak',eff:'Shoots down strike craft (and missiles).',conf:true},
+{id:'evasion',n:'Evasion',eff:'Small ships dodge; large weapons miss small ships.',conf:true}
+];
+/* Counter finder questions: what is the enemy fleet like? */
+const FOE=[
+{id:'shield',n:'Heavy shields',bring:['kin','mis','sc'],avoid:['en'],def:[]},
+{id:'armor',n:'Heavy armor',bring:['en','mis'],avoid:['kin','ac'],def:[]},
+{id:'hull',n:'Mostly hull, little defense',bring:['dis','kin','en'],avoid:[],def:[]},
+{id:'pd',n:'Lots of point defense / flak',bring:['kin','en','dis'],avoid:['mis','sc'],def:[]},
+{id:'wmis',n:'They fire missiles or torpedoes',bring:[],avoid:[],def:['pd','armor']},
+{id:'wsc',n:'They use strike craft',bring:['sc'],avoid:[],def:['flak','armor']},
+{id:'wen',n:'They use energy weapons',bring:[],avoid:[],def:['shield']},
+{id:'wkin',n:'They use kinetic weapons',bring:[],avoid:[],def:['armor']},
+{id:'small',n:'Swarm of small ships (corvettes)',bring:['ac','dis','sc'],avoid:[],def:['evasion'],note:'Small, fast-tracking weapons and strike craft hit evasive ships; XL weapons mostly miss.'},
+{id:'big',n:'Battleships and titans',bring:['en','mis'],avoid:['ac'],def:['armor'],note:'Large and X-slot weapons. Long-range artillery and an artillery computer.'},
+{id:'fe',n:'A fallen or awakened empire',bring:['en','kin'],avoid:[],def:['shield','armor'],note:'Fallen empires use top-tier energy weapons and heavy shields. Wait for repeatables, or fight them in your own fortified chokepoint.'}
+];
+const SHIPS=[
+{n:'Corvette',sz:'S',role:'Fast, evasive, cheap. Early game and screening.',slots:'Small weapons, evasion',conf:true},
+{n:'Frigate',sz:'S/T',role:'Torpedo boat with small hull ○.',slots:'Torpedoes ○',conf:false},
+{n:'Destroyer',sz:'M',role:'Pickets: point defense and flak against missiles and strike craft.',slots:'Small and medium, utility',conf:true},
+{n:'Cruiser',sz:'L',role:'Line ship: torpedoes, hangars or medium artillery.',slots:'Mixed sections',conf:true},
+{n:'Battleship',sz:'XL',role:'Artillery; carries the X-slot spinal weapons (Giga Cannon, Neutron Launcher, Tachyon Lance).',slots:'Large and X',conf:true},
+{n:'Titan',sz:'T',role:'Fleet aura; Perdition Beam. One per fleet.',slots:'T slot',conf:true},
+{n:'Juggernaut',sz:'—',role:'A mobile shipyard and starbase. One per empire.',slots:'Very large',conf:true},
+{n:'Colossus',sz:'—',role:'Planet killer (Colossus Project).',slots:'Planet-cracker / shield / neutron sweep',conf:true},
+{n:'Star-Eater',sz:'—',role:'Become the Crisis endgame weapon.',slots:'—',conf:true}
+];
+const COMPUTERS=[
+['Swarm','Corvettes: close in fast and dodge.'],['Picket','Destroyers: stay close, shoot missiles and craft.'],['Line','Cruisers and short-range battleships: close in and brawl.'],['Artillery','Battleships: stay far back with long range.'],['Carrier','Ships with hangars: keep distance and launch craft.']
+];
+const WARGOALS=[
+['Conquer (claims)','Take the systems you have claims on.',true],['Subjugate','Make them your vassal.',true],['Humiliate','Influence and opinion loss for them.',true],['Ideology','Force your ethics and government on them.',true],['Independence','Break free from your overlord.',true],['Plunder / Despoil','Barbaric Despoilers raid pops and resources.',false],['Containment','Galactic Community war against a rule-breaker.',false],['Total war','Purifiers, Exterminators, Devouring Swarms and crises: no claims needed, no peace.',true],['Bring into fold / Hegemony','Subject or federation war goals ○.',false]
+];
+const WARTIPS=[
+'War exhaustion grows with losses and time. At 100% the enemy can force a status quo peace.',
+'Occupy planets (armies) and starbases to raise war score. Systems without claims are given back.',
+'Claims cost influence: claim before declaring, and claim systems with planets first.',
+'Defend chokepoints with starbases: guns, hangars and defense platforms buy time.',
+'Fleets out of supply (outside your borders and allies\') heal slowly. Use mobile repair from Juggernauts or Titans.',
+'Emergency FTL saves a fleet but costs hull and makes the ship jump home. Use the retreat button early, not late.',
+'Upgrade ship designs after each weapon or armor tech: auto-upgrade usually works.',
+'Bombard planets to soften armies: harsher policies are faster but can hurt opinion.'
+];
+
+/* Galaxy timeline (default game settings; every year can be changed when you create a galaxy). */
+const TIMELINE=[
+{y:2200,n:'Game start',d:'Survey, claim space, build outposts. Fill your science and construction ships.',conf:true},
+{y:2210,n:'First colonies',d:'Colonise the best two or three planets near you. Meet your neighbours.',conf:false},
+{y:2220,n:'First contact and borders',d:'Borders close. Grab chokepoints before the AI does.',conf:false},
+{y:2230,n:'Early economy',d:'Second and third tradition trees; first ascension perk. Specialise planets.',conf:false},
+{y:2250,n:'Marauders and the Galactic Community',d:'Marauders may raid; the Galactic Community usually forms around now ○.',conf:false},
+{y:2275,n:'Mid-game approaches',d:'Pick an ascension path. Start a megastructure if you have Galactic Wonders.',conf:false},
+{y:2300,n:'Mid-game year',d:'Mid-game crises can start: the Great Khan, a War in Heaven, fallen empires awakening. The AI gets its mid-game boost.',conf:true},
+{y:2350,n:'Late build-up',d:'Repeatables, titans and battleships. Fortify chokepoints. Read the crisis prep checklist.',conf:false},
+{y:2400,n:'End-game year',d:'The endgame crisis can appear from now on. The Ancient Caretakers wake. Defender of the Galaxy becomes available ○.',conf:true},
+{y:2450,n:'Crisis war',d:'Beat the crisis or survive it. The Galactic Community can name a Custodian.',conf:false},
+{y:2500,n:'Victory year',d:'The game scores the empires. You can keep playing.',conf:true}
+];
+
+const DLC=[
+{n:'Utopia',y:2017,r:'Essential',eff:'Ascension perks, habitats, megastructures, hive minds, the Shroud and the slave and purge options.',conf:true},
+{n:'Federations',y:2020,r:'Essential',eff:'Federation levels, the Galactic Community, origins, Juggernauts, envoys.',conf:true},
+{n:'Overlord',y:2022,r:'Essential',eff:'Specialist subjects, hyper relays, the Quantum Catapult, new origins.',conf:true},
+{n:'MegaCorp',y:2018,r:'Great',eff:'Corporate empires, branch offices, ecumenopoleis, the Galactic Market and caravaneers.',conf:true},
+{n:'Apocalypse',y:2018,r:'Great',eff:'Titans, Colossi, Marauders and the Great Khan.',conf:true},
+{n:'Synthetic Dawn',y:2017,r:'Great',eff:'Machine Intelligence empires.',conf:true},
+{n:'Nemesis',y:2021,r:'Great',eff:'Espionage, Become the Crisis and the Galactic Custodian.',conf:true},
+{n:'Ancient Relics',y:2019,r:'Good',eff:'Archaeology, relics, relic worlds.',conf:true},
+{n:'Distant Stars',y:2018,r:'Good',eff:'L-Gates, the L-Cluster, more leviathans and anomalies.',conf:true},
+{n:'Leviathans',y:2016,r:'Good',eff:'Guardians, fallen empire War in Heaven, enclaves.',conf:true},
+{n:'Galactic Paragons',y:2023,r:'Great',eff:'Leader rework, the council, renowned leaders.',conf:true},
+{n:'First Contact',y:2022,r:'Good',eff:'First contact rework, cloaking, new origins.',conf:true},
+{n:'The Machine Age',y:2024,r:'Great',eff:'Machine paths, Cetana and Arc Welders, new crises, ascension rework.',conf:false},
+{n:'Astral Planes',y:2023,r:'Good',eff:'Astral rifts and Astral Threads.',conf:false},
+{n:'Cosmic Storms',y:2024,r:'Okay',eff:'Galaxy-wide storms that hit fleets and planets.',conf:false},
+{n:'The Grand Archive',y:2024,r:'Okay',eff:'A space zoo: collect and display creatures and relics.',conf:false},
+{n:'BioGenesis',y:2025,r:'Great',eff:'Genetic path rework, bio-ships and new origins ○.',conf:false},
+{n:'Lithoids / Necroids / Aquatics / Toxoids',y:2019,r:'Good',eff:'Species packs: portraits, civics and origins.',conf:true},
+{n:'Plantoids / Humanoids',y:2016,r:'Cosmetic',eff:'Portraits and a few civics.',conf:true}
+];
+
+const CONSOLE=[
+['cash 10000','Adds energy credits.',true],['minerals 10000','Adds minerals.',true],['food 10000','Adds food.',true],['alloys 10000','Adds alloys.',true],['influence 1000','Adds influence.',true],['unity 10000','Adds unity.',true],['engineering 10000','Adds engineering research (also physics, society).',true],
+['resource rare_crystals 1000','Any resource by its key: exotic_gases, volatile_motes, sr_dark_matter, sr_zro, sr_living_metal, nanites ○.',false],
+['research_all_technologies','Researches everything (some techs need a second run).',true],['finish_research','Finishes current research.',true],['instant_build','Toggles instant construction.',true],['ftl','Toggles FTL restrictions.',true],['instant_move','Ships move instantly.',true],
+['debugtooltip','Shows IDs in tooltips: find planet and empire IDs.',true],['observe','Switch to observer mode (no return to your empire in Ironman).',true],['play 1','Play as another empire by its ID.',true],
+['surveyall','Surveys every system ○.',false],['contactall','Meets every empire ○.',false],['invincible','Your ships take no damage ○.',false],['own <planet id>','Gives you a planet ○.',false],['event <event id>','Fires an event by its ID.',true],['effect <effect>','Runs any script effect by its game name.',true],['help','Lists all commands in your version.',true]
+];
+
+const GLOSS=[
+['Pop / pop group','People living on a planet. Since 4.0, pops of the same species, strata and ethics are grouped into pop groups ○.'],
+['Job','Work a pop does on a planet: miner, researcher, clerk. Districts and buildings create jobs.'],
+['Workforce','Since 4.0 jobs are filled by workforce rather than single pops ○.'],
+['District','The big building blocks of a planet: city, industry, mining, generator and agriculture districts.'],
+['Zone','4.0 district specialisations ○.'],
+['Building slot','Unlocked by city districts and pops. Buildings add jobs or bonuses.'],
+['Designation','A planet\'s specialisation; gives output bonuses to matching jobs.'],
+['Sprawl / Administrative capacity','Your empire\'s size penalty: more planets and pops raise costs of tech and traditions.'],
+['Naval capacity','How many ships you can maintain before upkeep spikes.'],
+['Command limit','How big one fleet can be.'],
+['Fleet power','A rough measure of a fleet\'s strength. Composition and counters matter more.'],
+['Chokepoint','A system that blocks access to many others. Hold these with starbases.'],
+['Outpost / Starbase','Claims a system. Upgrade it into a starport, star hold, fortress or citadel.'],
+['Influence','Spent on outposts, claims and diplomacy. Capped; never let it sit at the cap.'],
+['Unity','Buys traditions and ascension perks; also edicts and leaders.'],
+['Tradition tree','A set of empire bonuses bought with unity. Finishing trees gives ascension perk slots.'],
+['Ascension perk','Big permanent empire bonuses; one is spent on an ascension path.'],
+['Ascension path','Genetic, Psionic, Cybernetic or Synthetic (and machine paths): the late-game transformation of your species.'],
+['Gestalt','A Hive Mind or Machine Intelligence: one mind, no factions.'],
+['Fallen empire','An ancient, powerful but static empire. Can awaken.'],
+['Awakened empire','A fallen empire that woke up. Very dangerous; may start a War in Heaven.'],
+['Marauders','Raiders who can unite as the Great Khan.'],
+['Crisis','An endgame threat that attacks the whole galaxy.'],
+['Leviathan / Guardian','Unique powerful space monsters guarding systems.'],
+['Anomaly','A survey finding that a scientist can research for rewards.'],
+['Archaeology site','A multi-chapter dig that a scientist explores; often gives relics.'],
+['Relic','A unique artefact with a passive bonus and an active triumph.'],
+['L-Gate','A gate to the L-Cluster (Distant Stars). Nanites or Gray Tempest beyond.'],
+['Shroud','A psionic realm. Psionic empires can reach it; it holds patrons and danger.'],
+['Gene modding','Changing species traits with the Genetic tech line.'],
+['Habitability','How well a species lives on a planet. Low habitability hurts output and growth.'],
+['Stability','Planet happiness. Above 50 is fine.'],
+['Amenities','Planet comfort; too few lowers stability.'],
+['Crime','Rises with unemployment and low stability; enforcers fight it.'],
+['Faction','A political group of pops (not for gestalts). Happy factions give influence.'],
+['Edict','A temporary or permanent empire bonus costing unity or energy.'],
+['Policy','Your empire\'s rules: war philosophy, slavery, economy.'],
+['Casus belli / War goal','The reason for a war and what you get if you win.'],
+['War exhaustion','Grows with losses. At 100% a status quo peace can be forced.'],
+['Galactic Community','The galaxy\'s parliament: resolutions, sanctions and the council.'],
+['Custodian / Imperium','The Galactic Community\'s emergency leader and what it can become (Nemesis).'],
+['Federation','An alliance with shared laws, levels and a federation fleet.'],
+['Subject','A vassal, tributary, protectorate or specialist subject.'],
+['Pre-FTL','Primitive civilisations. Observe, uplift, invade or leave them alone.'],
+['Repeatable','An endlessly repeatable tech with small bonuses; late-game research goal.'],
+['Ironman','Single autosave mode required for achievements.']
+];
+
+const MISTAKES=[
+['Leaving influence at the cap','Spend it on outposts and claims. Every month at the cap is wasted.'],
+['Unemployment and empty jobs','Check the planet view: build districts for jobs before pops arrive, and don\'t build jobs nobody can fill.'],
+['Building too many fleets early','Fleets cost alloys and energy every month. Build when needed and keep naval capacity under the cap.'],
+['Ignoring amenities and stability','Low stability cuts output and causes revolts. Entertainers and holo-theatres fix it.'],
+['Not upgrading starbases','Shipyards, anchorages and trade hubs need starbase upgrades.'],
+['Ignoring sprawl','Administrative capacity matters: more planets mean pricier tech and traditions.'],
+['Fighting a fallen empire early','They have endgame tech from day one. Wait.'],
+['Attacking a guardian with a weak fleet','Check fleet power and the guardian\'s defenses first.'],
+['Researching everything','Specialise: pick techs that match your plan and skip dead-end options.'],
+['Forgetting to upgrade designs','Auto-upgrade ships after weapon and armor techs.'],
+['Ignoring the crisis prep','The endgame crisis is not optional. Start preparing 50 years before the end-game year.'],
+['Not claiming chokepoints','A starbase at a chokepoint saves you three wars.']
+];
+
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const mark=c=>c?'<span class="conf" title="Wiki, dev diaries or several agreeing guides">●</span>':'<span class="unv" title="Exact numbers moved between patches, DLC details, or a single source; check the tooltip">○</span>';
+const ck=(k,t)=>`<label class="chk"><input type="checkbox" data-k="${k}"> <span>${t}</span></label>`;
+
+const GUIDES=[
+{id:'first',title:'Your first game',blurb:'Make an empire, read the screen, survive the first twenty years.',body:`
+<p>Stellaris is a 4X game: you <b>explore</b>, <b>expand</b>, <b>exploit</b> and <b>exterminate</b> (or not). The game runs in real time with pause. Pause often: <kbd>Space</kbd>.</p>
+${ck('f1','Pick a <b>pre-made empire</b> (the United Nations of Earth is a gentle start) or make your own with <b>Prosperous Unification</b>. See the <a href="#builder">Empire builder</a>.')}
+${ck('f2','Galaxy: <b>small or medium</b>, 4 to 6 AI empires, difficulty <b>Ensign or Captain</b>. Leave crises on, but set the end-game year to 2400 if you want time.')}
+${ck('f3','Send your <b>science ship</b> to survey nearby systems. Research <a href="#tech">Automated Exploration</a> as soon as it shows up.')}
+${ck('f4','Send your <b>construction ship</b> to build outposts on systems with resources or habitable planets. Keep making construction ships.')}
+${ck('f5','Pick research: one of each type. Prefer resource, colony and starbase techs.')}
+${ck('f6','Pick your first <b>tradition tree</b> (Discovery or Expansion) when you have enough unity.')}
+${ck('f7','On your capital, build <b>districts</b> before buildings, and keep an eye on unemployment.')}
+${ck('f8','Colonise your first planet with good habitability (60% or higher). See <a href="#habitability">Planets</a>.')}
+${ck('f9','Build a second science ship. Research <b>anomalies</b> as you find them.')}
+${ck('f10','Never leave <b>influence</b> at its cap: spend it on outposts.')}
+<div class="tip">The top bar shows every resource. Red numbers mean a deficit. Hover anything for a tooltip.</div>`},
+{id:'opening',title:'The opening: 2200 to 2230',blurb:'A build order that works in almost every empire.',body:`
+<p>The first 30 years decide most games. Your goals: <b>claim space</b>, <b>grow research and alloys</b>, and <b>avoid deficits</b>.</p>
+${ck('o1','Month 1: queue a construction ship and a science ship. Set the existing science ship to survey.')}
+${ck('o2','Set an <b>economic policy</b> and an edict if you have spare energy (Map the Stars early).')}
+${ck('o3','Build outposts toward chokepoints and resource-rich systems first.')}
+${ck('o4','Capital: build a mining district and a generator district first, then a research building.')}
+${ck('o5','Tradition: <b>Discovery</b> (research) or <b>Expansion</b> (wide). Gestalts often start with Expansion.')}
+${ck('o6','Colonise two planets by 2220 if you can. Use the colony ship from the colony tech.')}
+${ck('o7','Build an <b>alloy foundry</b> (or the gestalt version) by 2215: alloys build everything.')}
+${ck('o8','Upgrade your capital starbase to a <b>Starport</b> and add a shipyard and anchorages.')}
+${ck('o9','Make a small fleet: 6 to 10 corvettes to kill pirates and space critters.')}
+${ck('o10','Pick your first <b>ascension perk</b> when it unlocks: Technological Ascendancy, Interstellar Dominion or a path.')}
+<div class="note">Exact build orders changed with 4.0 (pop groups and district zones) ○. The priorities above haven't.</div>`},
+{id:'economy',title:'Economy that works',blurb:'Jobs, districts, specialisation and the market.',body:`
+<p>Stellaris economy is <b>pops → jobs → resources</b>. Districts and buildings create jobs; pops fill them; jobs make resources.</p>
+${ck('e1','Give each planet a <b>designation</b>: mining, agri, generator, forge, factory, research. One planet doing one thing is stronger. See <a href="#economy">Economy</a>.')}
+${ck('e2','Watch <b>unemployment</b> and <b>free jobs</b>: build ahead of growth by one district.')}
+${ck('e3','Balance <b>consumer goods</b>: specialists eat them. Build civilian industries or buy on the market.')}
+${ck('e4','Don\'t chase a huge surplus: a small positive income of each resource is enough. Spend the rest.')}
+${ck('e5','Use the <b>Galactic Market</b> to fix shortages. Buying a little is fine; selling surplus minerals early is common.')}
+${ck('e6','Plan <b>alloys</b>: aim for 20 to 30 per month by 2230 and 100 or more by 2300 ○.')}
+${ck('e7','Research matters most: researchers on a strong research world, plus research buildings.')}
+${ck('e8','Use <b>edicts</b> for your biggest need, and swap them as needs change.')}
+<div class="tip">Version 4.0 reworked trade into its own resource with clerk and merchant jobs, and pop growth into pop groups. Old guides about trade routes and piracy may be out of date ○.</div>`},
+{id:'expansion',title:'Expansion and colonies',blurb:'Outposts, colony targets, habitability and sprawl.',body:`
+${ck('x1','Outpost every useful system you can reach. Prioritise chokepoints and systems with habitable planets.')}
+${ck('x2','Colonise planets with <b>60% habitability or better</b> first, bigger planets first. See <a href="#habitability">the checker</a>.')}
+${ck('x3','Use <b>Expansion</b> traditions and <b>Interstellar Dominion</b> for a wide game.')}
+${ck('x4','Gene-mod or ask aliens to join you: a second species with a different climate doubles your options.')}
+${ck('x5','Watch <b>administrative capacity</b> (sprawl). Expanding past it raises tech and tradition costs, but it\'s usually still worth it.')}
+${ck('x6','Plan habitats (Voidborne) and terraforming for later. Ring Worlds are the best real estate.')}
+<div class="tip">Wide vs tall: wide empires get more of everything but pay sprawl; tall empires stack bonuses on a few strong worlds. Both work; Stellaris tends to reward more pops.</div>`},
+{id:'research',title:'Research',blurb:'What to research, rare techs and the tech deck.',body:`
+<p>Three fields: <b>Physics</b> (energy, shields, lasers), <b>Society</b> (food, colonies, gene modding) and <b>Engineering</b> (minerals, ships, armor).</p>
+${ck('r1','Take <a href="#tech">resource techs</a> as soon as they show up.')}
+${ck('r2','Take colony and habitability techs early in a wide game.')}
+${ck('r3','Take weapon and armor upgrades for one weapon type; don\'t spread across all.')}
+${ck('r4','Rare techs (purple cards) are worth it. Don\'t skip them.')}
+${ck('r5','Science ships with high-level scientists research faster on the council.')}
+${ck('r6','Late game: repeatables. Weapon damage, armor and resource repeatables decide crisis fights.')}
+<div class="tip">You don\'t see every tech. The game draws three options per field from a weighted deck. Technological Ascendancy and some traditions add a fourth option ○.</div>`},
+{id:'unity',title:'Unity, traditions and ascension',blurb:'Pick tradition trees and ascension perks in a smart order.',body:`
+${ck('u1','First tree: <b>Discovery</b> or <b>Expansion</b>. Second: Prosperity or Harmony / Synchronicity.')}
+${ck('u2','Use the <a href="#traditions">ascension planner</a> to plan your perks.')}
+${ck('u3','First perk: Technological Ascendancy, Interstellar Dominion or One Vision.')}
+${ck('u4','Second or third perk: start your <b>ascension path</b>.')}
+${ck('u5','Mid-game: Galactic Wonders or Master Builders for megastructures; Galactic Force Projection for war.')}
+${ck('u6','Build unity: bureaucrats, priests, monuments. Unity also buys edicts and leaders.')}`},
+{id:'fleets',title:'Fleets and combat',blurb:'Ship designs, counters and how battles work.',body:`
+<p>Battles are automatic. You win them before they start: with <b>composition</b>, <b>counters</b>, <b>tech</b> and <b>numbers</b>.</p>
+${ck('fl1','Pick one weapon family to research deeply. Mix kinetic and energy until you see the enemy.')}
+${ck('fl2','Check the enemy fleet\'s shields and armor (click the fleet) and use the <a href="#combat">counter finder</a>.')}
+${ck('fl3','Early: corvettes with mixed weapons. Mid: destroyers as pickets and cruisers. Late: artillery battleships and a titan.')}
+${ck('fl4','Use the right combat computer: artillery for battleships, swarm for corvettes, picket for destroyers.')}
+${ck('fl5','Keep fleets under command limit and total ships under naval capacity.')}
+${ck('fl6','Merge fleets before big battles; fight at your own starbases when you can.')}
+${ck('fl7','Admirals matter: pick traits that boost fire rate or evasion.')}
+<div class="tip">Fleet power is a rough guide. A fleet with the right counters can beat one with 1.5× the power.</div>`},
+{id:'defense',title:'Starbases and defense',blurb:'Chokepoints, starbase builds and fortress worlds.',body:`
+${ck('d1','Find your chokepoints: systems that every invader must go through.')}
+${ck('d2','Upgrade chokepoint starbases to Star Hold or Fortress and add <b>defense platforms</b>, gun batteries and hangar bays.')}
+${ck('d3','Use a Fortress world or Unyielding tradition for real fortresses.')}
+${ck('d4','Keep your fleet nearby; starbases buy time but rarely win alone.')}
+${ck('d5','Ion cannons and Eternal Vigilance make starbases scary late.')}`},
+{id:'diplomacy',title:'Diplomacy and federations',blurb:'Opinion, trust, pacts, the Galactic Community and federations.',body:`
+${ck('dp1','Send envoys to improve relations with neighbours you want as friends.')}
+${ck('dp2','Sign research and commercial pacts: free bonuses.')}
+${ck('dp3','A defensive pact with a strong neighbour stops a lot of wars.')}
+${ck('dp4','Found or join a <a href="#diplomacy">federation</a> that matches your ethics.')}
+${ck('dp5','In the Galactic Community, vote for resolutions that help you and against sanctions on you.')}
+${ck('dp6','Rivalries give influence and unity; one rival at a time is plenty.')}`},
+{id:'gestalt',title:'Playing a gestalt',blurb:'Hive Minds and Machine Intelligences play differently.',body:`
+<ul class="mech"><li>No factions, no happiness, no consumer goods (mostly). Stability comes from amenities and policies.</li><li>Drones fill jobs: menial drones (workers) and complex drones (specialists).</li><li>Machines need no food (unless they keep organics); hives need food but no goods.</li><li>Gestalts have their own tradition (Synchronicity) and their own civics.</li><li>Devouring Swarm and Determined Exterminator are total-war empires: everyone hates you, and you get combat bonuses.</li><li>Driven Assimilators turn organics into cyborgs; Rogue Servitors keep bio-trophies for unity.</li></ul>
+${ck('g1','Use Expansion early: gestalts expand fast.')}
+${ck('g2','Keep amenities up: maintenance drones are your entertainers.')}
+${ck('g3','Exterminators and swarms: build fleets early. You will be at war with everyone.')}`},
+{id:'megacorp',title:'Playing a MegaCorp',blurb:'Branch offices, trade and commercial pacts.',body:`
+<ul class="mech"><li>Corporate authority (MegaCorp DLC). Sign commercial pacts with neighbours, then build <b>branch offices</b> on their planets for income.</li><li>Criminal Heritage needs no pacts: your offices are crime syndicates.</li><li>Universal Transactions (ascension perk) opens more empires.</li><li>Trade matters more for you; check how 4.0 trade works in the tooltip ○.</li></ul>
+${ck('m1','Commercial pact with every neighbour.')}
+${ck('m2','Branch office on the biggest planets you can reach.')}`},
+{id:'genocide',title:'Genocidal empires',blurb:'Fanatic Purifiers, Exterminators and Devouring Swarms.',body:`
+<ul class="mech"><li>Every other empire hates you forever. You can\'t do diplomacy.</li><li>You get big combat and bombardment bonuses, and no claims are needed: you take systems when you win.</li><li>Purge the pops on the planets you take, or use them while they last.</li><li>Your early fleet decides the game. Rush a neighbour before 2230.</li></ul>
+${ck('gc1','Build a fleet early: two shipyards, alloys first.')}
+${ck('gc2','Attack the weakest neighbour first; avoid fallen empires.')}
+${ck('gc3','Plan defense: every AI will gang up on you.')}`},
+{id:'crisis',title:'Crises and the endgame',blurb:'Prepare 50 years before the end-game year.',body:`
+<p>The endgame crisis is designed to beat unprepared players. See <a href="#threats">Threats</a> for each crisis and its counters.</p>
+${ck('cr1','By 2350: alloys income of 200 or more, research going into repeatables ○.')}
+${ck('cr2','Titans, battleships and a Juggernaut or Mega Shipyard.')}
+${ck('cr3','Starbase fortresses on your chokepoints.')}
+${ck('cr4','Defender of the Galaxy or Galactic Force Projection ascension perks.')}
+${ck('cr5','Federation or allies: a crisis is easier together.')}
+${ck('cr6','When it appears: check its shields and armor, refit your designs, and strike before it grows.')}`},
+{id:'ascension',title:'Ascension paths',blurb:'Genetic, Psionic, Cybernetic, Synthetic and machine paths.',body:`
+<p>Your ascension path changes your species for the late game. In recent versions each path is a tradition tree unlocked by an ascension perk ○.</p>
+<ul class="mech">${PATHS.map(p=>`<li><b style="color:${p.col}">${p.n}</b>: ${p.what} <span class="dim">Best for: ${p.best}</span></li>`).join('')}</ul>
+${ck('as1','Pick a path by 2260 or so, ideally as your second or third perk.')}
+${ck('as2','Psionic: watch Shroud events. Some patrons have a price.')}
+${ck('as3','Synthetic: robots don\'t need food; rebuild your economy around it.')}`},
+{id:'ironman',title:'Ironman and achievements',blurb:'Settings, saves and the difficulty jump.',body:`
+<ul class="mech"><li>Ironman saves to one file automatically; you can\'t load an older save.</li><li>Achievements need Ironman and an unmodified game (checksum).</li><li>Difficulties: Ensign, Captain, Commodore, Admiral, Grand Admiral. Commodore and up give the AI bonuses; set scaling difficulty to ramp them over time.</li><li>Crisis strength can be raised to 25× ○: the AI scales too.</li></ul>`},
+{id:'mistakes',title:'Common mistakes',blurb:'What new players do wrong (and how to fix it).',body:`<ul class="mech">${MISTAKES.map(m=>`<li><b>${m[0]}</b>: ${m[1]}</li>`).join('')}</ul>`}
+];
+
+/* ================= STATE ================= */
+let S={checks:{},game:{empire:'',species:'',origin:'',year:'2200',diff:'',size:'',iron:false},goals:[],log:[],mega:{},relics:{},build:{eth:{},auth:'',civ:[],origin:''},traits:[],climate:'continental',habMod:0,foe:[],perks:[],perkSlots:8,notes:''};
+try{const x=JSON.parse(localStorage.getItem('stel_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('stel_state',JSON.stringify(S));}catch(e){}};
+const diff=n=>'<span title="Difficulty" style="color:var(--acc)">'+'●'.repeat(n)+'<span class="dim">'+'●'.repeat(5-n)+'</span></span>';
+const rate=r=>`<span class="tag ${r==='S'?'v':r==='A'?'w':r==='B'?'i':''}" title="Rough strength rating">${r}</span>`;
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Home'],
+ ['_'],['guides','Guides'],['origins','Origins'],['timeline','Galaxy timeline'],['glossary','Glossary'],
+ ['_'],['builder','Empire builder'],['ethics','Ethics and authority'],['civics','Civics'],['traits','Species traits'],['habitability','Planets and habitability'],
+ ['_'],['economy','Economy and jobs'],['tech','Technology'],['traditions','Traditions and ascension'],['leaders','Leaders and policies'],
+ ['_'],['diplomacy','Diplomacy and federations'],['megas','Megastructures'],['threats','Threats and crises'],['exploration','Exploration and relics'],
+ ['_'],['combat','Weapons and counters'],['ships','Ships and fleets'],['war','War and war goals'],
+ ['_'],['dlc','DLC guide'],['campaign','Campaign and goals'],['log','Galactic log'],['console','Console commands'],['notes','My Notes']];
+const GROUPS=['Learn','Your empire','Growing','The galaxy','War','Your game'];
+function buildNav(cur){let gi=0;$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>STELLARIS<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>id==='_'?`<div class="grp">${GROUPS[gi++]}</div>`:`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+const REAL=PAGES.filter(p=>p[0]!=='_');
+
+const TILE={guides:'First game, the opening, economy, expansion, research, unity, fleets, defense, diplomacy, gestalts, MegaCorps, genocidal empires, crises, ascension, Ironman, mistakes',origins:'Every origin with difficulty, DLC and requirements',timeline:'What happens when, from 2200 to 2500',glossary:'Every Stellaris term in plain words',builder:'Pick ethics, authority, civics and origin, and see what\'s allowed',ethics:'The nine ethics and seven authorities',civics:'Every civic, filterable, with requirements and ratings',traits:'Every species trait and a trait-point builder',habitability:'Planet classes, special worlds and a habitability checker',economy:'Resources, strata, jobs and planet designations',tech:'Key technologies and rare techs',traditions:'Tradition trees, ascension paths and an ascension perk planner',leaders:'Leader classes, policies and edicts',diplomacy:'Opinion, trust, pacts, federations, subjects and the Galactic Community',megas:'Every megastructure with a build tracker',threats:'Leviathans, fallen empires and every crisis with counters',exploration:'Surveying, anomalies, archaeology and a relic tracker',combat:'Weapons, defenses and a fleet counter finder',ships:'Ship classes, combat computers and fleet compositions',war:'War goals, claims, war exhaustion and tips',dlc:'Every DLC and whether it\'s worth it',campaign:'Your current game and goals',log:'A log of your galaxy\'s history',console:'Commands, with copy buttons',notes:'Your own notes'};
+function crisisPrep(){const ks=['cr1','cr2','cr3','cr4','cr5','cr6','cp1','cp2','cp3','cp4','cp5','cp6'];return Math.round(ks.filter(k=>S.checks[k]).length/ks.length*100);}
+function pgHome(){
+  const g=S.game,gd=S.goals.filter(x=>x.done).length,mb=Object.values(S.mega).filter(v=>v==='built').length;
+  return `${TWArt.hero(281990,'Stellaris')}<h2>Stellaris Assistant</h2><p class="sub">A companion for <i>Stellaris</i>, from your first outpost to the endgame crisis. Your empire design, campaign, goals, galactic log, megastructures, relics and notes are saved on this device.</p>
+<div class="stats"><div class="stat"><small>Empire</small>${g.empire?`<a class="mob" href="#campaign">${esc(g.empire)}</a>`:'<a class="mob" href="#campaign">Set up a game</a>'}</div><div class="stat"><small>Year</small><a class="mob big" href="#timeline">${esc(g.year||'—')}</a></div><div class="stat"><small>Goals done</small><a class="mob big" href="#campaign">${gd} / ${S.goals.length}</a></div><div class="stat"><small>Log entries</small><a class="mob big" href="#log">${S.log.length}</a></div><div class="stat"><small>Megastructures</small><a class="mob big" href="#megas">${mb} / ${MEGAS.length}</a></div><div class="stat"><small>Ascension perks</small><a class="mob big" href="#traditions">${S.perks.length} / ${S.perkSlots}</a></div><div class="stat"><small>Crisis prep</small><a class="mob big" href="#threats">${crisisPrep()}%</a></div></div>
+${nextMilestone()}
+<div class="grid">${REAL.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> are long-standing mechanics from the Stellaris wiki, Paradox's dev diaries or several guides that agree. Facts marked <span class="unv">○</span> are exact numbers that moved between patches, DLC details, or come from one source. Written against the 4.x versions (2025 and 2026); 4.0 reworked pops, jobs and trade, so older guides' numbers are often wrong. Stellaris explains almost every number in a tooltip: trust what you see in-game first.</div>`;}
+function nextMilestone(){const y=+S.game.year;if(!y)return '';const n=TIMELINE.find(t=>t.y>y);return n?`<div class="tip"><b>Next milestone:</b> ${n.y} (${n.y-y} years away): <b>${esc(n.n)}</b>. ${esc(n.d)} <a href="#timeline">Timeline</a></div>`:'';}
+
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g){const i=GUIDES.indexOf(g);return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div><div class="row">${i?`<a class="mob" href="#guides/${GUIDES[i-1].id}">&larr; ${GUIDES[i-1].title}</a>`:''}<span style="flex:1"></span>${GUIDES[i+1]?`<a class="mob" href="#guides/${GUIDES[i+1].id}">${GUIDES[i+1].title} &rarr;</a>`:''}</div>`;}}
+  return `<h2>Guides</h2><p class="sub">From your first outpost to the endgame crisis. Checkboxes are saved on this device.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
+}
+
+/* ================= ORIGINS ================= */
+let orD=0,orQ='';
+function originReq(o){const c=o.chk,r=[];if(c.gestalt==='no')r.push('Not gestalt');if(c.gestalt==='hive')r.push('Hive Mind');if(c.gestalt==='mac')r.push('Machine Intelligence');if(c.gestalt==='notmac')r.push('Not Machine');(c.req||[]).forEach(e=>r.push(ethLabel(e)));(c.ban||[]).forEach(e=>r.push('Not '+ethLabel(e)));if(c.auth)r.push(c.auth.map(a=>AUTH.find(x=>x.id===a).n).join(' or '));return r.join(', ')||'Anyone';}
+function ethLabel(e){return e.split('|').map(x=>x[0]==='f'&&ETHN[x.slice(1)]?'Fanatic '+ETHN[x.slice(1)]:ETHN[x]||x).join(' or ');}
+function pgOrigins(){return `<h2>Origins</h2><p class="sub">Your origin is your empire's backstory, and it shapes the first decades a lot. Prosperous Unification is the safe choice; the rest trade safety for a story or a twist.</p>
+<div class="chips" id="ord">${[0,1,2,3,4].map(d=>`<button data-d="${d}" class="${orD===d?'on':''}">${d?'Difficulty '+d:'Any difficulty'}</button>`).join('')}</div>
+<div class="row"><input type="search" id="orq" placeholder="Search origins or DLC" style="width:240px" value="${esc(orQ)}"></div>
+<div class="card tbl"><table id="ort"></table></div>
+<div class="note">Requirements and difficulty are a rough guide ○. Some origins need a specific species type (Lithoid, Aquatic, Toxoid). The empire creator greys out anything you can't pick and says why.</div>`;}
+function originsWire(){const draw=()=>{const q=orQ.toLowerCase(),r=ORIGINS.filter(o=>(!orD||o.d===orD)&&(!q||(o.n+' '+o.dlc+' '+o.eff).toLowerCase().includes(q)));
+  $('ort').innerHTML='<tr><th>Origin</th><th>Difficulty</th><th>What it does</th><th>Needs</th><th>DLC</th></tr>'+(r.map(o=>`<tr><td>${mark(o.conf)} <b>${esc(o.n)}</b></td><td>${diff(o.d)}</td><td>${esc(o.eff)}<div class="dim">${esc(o.tip)}</div></td><td class="dim">${esc(originReq(o))}</td><td>${o.dlc?`<span class="tag g">${esc(o.dlc)}</span>`:'<span class="dim">Base game</span>'}</td></tr>`).join('')||'<tr><td colspan="5" class="dim">Nothing matches.</td></tr>');};
+  document.querySelectorAll('#ord button').forEach(b=>b.onclick=()=>{orD=+b.dataset.d;document.querySelectorAll('#ord button').forEach(x=>x.classList.toggle('on',x===b));draw();});
+  $('orq').oninput=e=>{orQ=e.target.value;draw();};draw();}
+
+/* ================= TIMELINE ================= */
+function pgTimeline(){const y=+S.game.year||0;let nowDone=false;
+  return `<h2>Galaxy timeline</h2><p class="sub">What usually happens when, with default settings. Mid-game, end-game and victory years can all be changed when you set up a galaxy.</p>
+<div class="card"><div class="row"><label>Current year <input type="number" id="ty" value="${esc(S.game.year)}" style="width:100px"></label><span class="dim">Saved with your campaign.</span></div></div>
+<div class="timeline">${TIMELINE.map(t=>{let cls='';if(y){if(t.y<=y)cls='past';else if(!nowDone){cls='now';nowDone=true;}}return `<div class="ev ${cls}"><span class="yr">${t.y}</span> ${mark(t.conf)} <b>${esc(t.n)}</b>${cls==='now'?' <span class="tag g">next</span>':''}<div class="dim">${esc(t.d)}</div></div>`;}).join('')}</div>
+<div class="note">Crises and fallen empire awakenings can fire later than the listed year (they have a chance each year after it), or not at all if you turn them off.</div>`;}
+function timelineWire(){$('ty').onchange=e=>{S.game.year=e.target.value;save();route(true);};}
+
+let glQ='';
+function pgGlossary(){return `<h2>Glossary</h2><p class="sub">Stellaris has a lot of words. Here's what they mean.</p><div class="row"><input type="search" id="gq" placeholder="Search terms" style="width:240px" value="${esc(glQ)}"></div><div class="card tbl" style="margin-top:8px"><table id="gt"></table></div>`;}
+function glossWire(){const draw=()=>{const q=glQ.toLowerCase();const r=GLOSS.filter(g=>!q||(g[0]+' '+g[1]).toLowerCase().includes(q));$('gt').innerHTML=r.map(g=>`<tr><td style="width:190px"><b>${esc(g[0])}</b></td><td>${esc(g[1])}</td></tr>`).join('')||'<tr><td class="dim">Nothing matches.</td></tr>';};$('gq').oninput=e=>{glQ=e.target.value;draw();};draw();}
+
+/* ================= EMPIRE BUILDER ================= */
+const B=()=>S.build;
+const has=e=>(B().eth[e]||0)>0, fan=e=>B().eth[e]===2;
+const ethOk=cond=>cond.split('|').some(x=>x[0]==='f'&&ETHN[x.slice(1)]?fan(x.slice(1)):has(x));
+const ethBanned=b=>b[0]==='f'&&ETHN[b.slice(1)]?fan(b.slice(1)):has(b);
+const ethPts=()=>Object.entries(B().eth).reduce((s,[k,v])=>s+(k==='ges'?(v?3:0):v),0);
+const authGroup=a=>a==='hive'?'hive':a==='mac'?'mac':a==='cor'?'cor':a?'reg':'';
+function authProblems(a){const A=AUTH.find(x=>x.id===a);if(!A)return [];const p=[];
+  if(has('ges')&&!A.gestalt)p.push(A.n+' needs a non-gestalt empire');
+  if(!has('ges')&&A.gestalt)p.push(A.n+' needs Gestalt Consciousness');
+  A.ban.forEach(b=>{if(ethBanned(b))p.push(A.n+' can\'t be '+ethLabel(b));});return p;}
+function civicProblems(c){const p=[],a=B().auth,g=authGroup(a);
+  if(g&&c.a!==g&&!(g==='cor'&&c.a==='reg'))p.push(c.a==='hive'?'Hive Mind only':c.a==='mac'?'Machine Intelligence only':c.a==='cor'?'Corporate only':'Not for gestalts');
+  if(c.auth&&a&&!c.auth.includes(a))p.push('Needs '+c.auth.map(x=>AUTH.find(y=>y.id===x).n).join(' or '));
+  (c.req||[]).forEach(r=>{if(!ethOk(r))p.push('Needs '+ethLabel(r));});
+  (c.ban||[]).forEach(b=>{if(ethBanned(b))p.push('Can\'t be '+ethLabel(b));});
+  (c.x||[]).forEach(x=>{if(B().civ.includes(x)&&x!==c.key)p.push('Not with '+x);});
+  return p;}
+function originProblems(o){const c=o.chk,p=[],a=B().auth;
+  if(c.gestalt==='no'&&has('ges'))p.push('Not for gestalts');
+  if(c.gestalt==='hive'&&a!=='hive')p.push('Hive Mind only');
+  if(c.gestalt==='mac'&&a!=='mac')p.push('Machine Intelligence only');
+  if(c.gestalt==='notmac'&&a==='mac')p.push('Not for machines');
+  (c.req||[]).forEach(r=>{if(!ethOk(r))p.push('Needs '+ethLabel(r));});
+  (c.ban||[]).forEach(b=>{if(ethBanned(b))p.push('Can\'t be '+ethLabel(b));});
+  if(c.auth&&!c.auth.includes(a))p.push('Needs '+c.auth.map(x=>AUTH.find(y=>y.id===x).n).join(' or '));
+  return p;}
+function buildVerdict(){const b=B(),err=[],warn=[],pts=ethPts();
+  if(has('ges')){if(Object.keys(b.eth).some(k=>k!=='ges'&&b.eth[k]))err.push('Gestalt Consciousness takes all three ethic points: drop the others.');}
+  else if(pts<3)err.push(`Use all three ethic points (${pts} of 3 used). A fanatic ethic costs 2.`);
+  else if(pts>3)err.push(`Too many ethic points (${pts} of 3).`);
+  ETHICS.forEach(e=>{if(e.opp&&has(e.id)&&has(e.opp)&&e.id<e.opp)err.push(`${e.n} and ${ETHN[e.opp]} are opposites.`);});
+  if(!b.auth)err.push('Pick an authority.');else err.push(...authProblems(b.auth));
+  const civs=b.civ.map(k=>CIVICS.find(c=>c.key===k)).filter(Boolean);
+  civs.forEach(c=>{const p=civicProblems(c);if(p.length)err.push(`${c.n}: ${p.join('; ')}.`);if(b.auth==='cor'&&c.a==='reg')warn.push(`${c.n}: MegaCorps can take some regular civics but not all ○. Check in the empire creator.`);});
+  if(civs.length<2)warn.push(`You start with two civic slots (${civs.length} picked).`);
+  if(civs.length>2)err.push(`Only two civics at the start (${civs.length} picked). More slots unlock later ○.`);
+  if(!b.origin)warn.push('Pick an origin (Prosperous Unification if unsure).');
+  else{const o=ORIGINS.find(x=>x.n===b.origin);if(o){const p=originProblems(o);if(p.length)err.push(`${o.n}: ${p.join('; ')}.`);if(o.dlc)warn.push(`${o.n} needs ${o.dlc}.`);}}
+  civs.forEach(c=>{if(c.dlc)warn.push(`${c.n} needs ${c.dlc}.`);});
+  const A=AUTH.find(x=>x.id===b.auth);if(A&&A.dlc)warn.push(`${A.n} needs ${A.dlc}.`);
+  return {err,warn};}
+const BUILDS=[
+{n:'Tech rush',d:'Classic research empire. Strong in every phase.',eth:{mat:2,ega:1},auth:'dem',civ:['Technocracy','Meritocracy'],origin:'Prosperous Unification'},
+{n:'Spiritual unity',d:'Priests and a philosopher ruler; heads for Psionics.',eth:{spi:2,aut:1},auth:'dic',civ:['Exalted Priesthood','Philosopher King'],origin:'Teachers of the Shroud'},
+{n:'Xenophile federation',d:'Friends everywhere, migrants pour in.',eth:{xpl:2,ega:1},auth:'dem',civ:['Beacon of Liberty','Free Haven'],origin:'Common Ground'},
+{n:'Inwards Perfection',d:'Tall, isolated, huge unity.',eth:{pac:1,xph:1,mat:1},auth:'dic',civ:['Inwards Perfection','Technocracy'],origin:'Void Dwellers'},
+{n:'Imperial Cult',d:'A god-emperor. Stable, unity-rich, slaves optional.',eth:{spi:1,aut:2},auth:'imp',civ:['Imperial Cult','Aristocratic Elite'],origin:'Prosperous Unification'},
+{n:'Fanatic Purifiers',d:'Total war on everyone else.',eth:{xph:2,mil:1},auth:'dic',civ:['Fanatic Purifiers','Nationalistic Zeal'],origin:'Prosperous Unification'},
+{n:'Criminal MegaCorp',d:'Crime syndicates on every planet in the galaxy.',eth:{xpl:1,mat:1,ega:1},auth:'cor',civ:['Criminal Heritage','Free Traders'],origin:'Prosperous Unification'},
+{n:'Devouring Swarm',d:'A hive that eats the galaxy.',eth:{ges:1},auth:'hive',civ:['Devouring Swarm','Strength of Legions'],origin:'Prosperous Unification'},
+{n:'Determined Exterminator',d:'Machines that end organic life.',eth:{ges:1},auth:'mac',civ:['Determined Exterminator','Rapid Replicator'],origin:'Resource Consolidation'},
+{n:'Rogue Servitor',d:'Machines that pamper organics for unity.',eth:{ges:1},auth:'mac',civ:['Rogue Servitor','Maintenance Protocols'],origin:'Prosperous Unification'}
+];
+function pgBuilder(){const b=B(),g=authGroup(b.auth),pts=ethPts(),v=buildVerdict();
+  const ethBtn=e=>{const lv=b.eth[e.id]||0;return `<button data-eth="${e.id}" class="${lv===2?'fan':lv?'on':''}" title="${esc(e.eff)}">${lv===2&&e.id!=='ges'?'Fanatic ':''}${e.n}</button>`;};
+  return `<h2>Empire builder</h2><p class="sub">Plan an empire before you open the creator. Pick ethics, an authority, two civics and an origin; the checker tells you what clashes. Tap an ethic once for normal, again for fanatic, again to remove it.</p>
+<div class="card"><h3 style="margin-top:0">Ethics <span class="dim" style="font-size:13px">(${has('ges')?'Gestalt':pts+' of 3 points'})</span></h3>
+<div class="chips" id="eth">${ETHICS.map(ethBtn).join('')}</div>
+<h3>Authority</h3><div class="chips" id="auth">${AUTH.map(a=>{const p=authProblems(a.id);return `<button data-auth="${a.id}" class="${b.auth===a.id?'on':p.length?'off':''}" title="${esc(p.join('; ')||a.eff)}">${a.n}</button>`;}).join('')}</div>
+<h3>Civics <span class="dim" style="font-size:13px">(${b.civ.length} of 2)</span></h3>
+<div class="chips" id="civ">${(g?CIVICS.filter(c=>c.a===g||b.civ.includes(c.key)):CIVICS.filter(c=>c.a==='reg')).map(c=>{const p=civicProblems(c),on=b.civ.includes(c.key);return `<button data-civ="${esc(c.key)}" class="${on?'on':p.length?'off':''}" title="${esc((p.length?p.join('; ')+' — ':'')+c.eff)}">${esc(c.n)}</button>`;}).join('')}</div>
+${g==='cor'?'<div class="dim">MegaCorps also get some regular civics; this list shows the corporate ones ○.</div>':''}
+<h3>Origin</h3><select id="borig"><option value="">Choose an origin</option>${ORIGINS.map(o=>{const p=originProblems(o);return `<option${b.origin===o.n?' selected':''} value="${esc(o.n)}">${esc(o.n)}${p.length?' (✕ '+esc(p[0])+')':''}${o.dlc?' · '+esc(o.dlc):''}</option>`;}).join('')}</select>
+<div class="row" style="margin-top:12px"><button id="bclear">Clear</button><button id="bsend">Use in my campaign</button></div></div>
+<div class="verdict ${v.err.length?'badv':'good'}">${v.err.length?`<b class="bad">Won't work yet</b><ul class="mech">${v.err.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<b class="ok">✓ This empire is valid.</b>'}${v.warn.length?`<ul class="mech wrn">${v.warn.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}</div>
+${b.civ.length?`<h3>Your civics</h3><div class="card tbl"><table>${b.civ.map(k=>{const c=CIVICS.find(x=>x.key===k);return c?`<tr><td style="width:200px">${mark(c.conf)} <b>${esc(c.n)}</b></td><td>${esc(c.eff)}</td></tr>`:'';}).join('')}</table></div>`:''}
+<h3>Popular builds</h3><div class="grid">${BUILDS.map((x,i)=>`<div class="tile" data-build="${i}"><b>${esc(x.n)}</b><div class="dim">${esc(x.d)}</div><div style="margin-top:6px;font-size:12px">${Object.entries(x.eth).map(([k,v])=>(v===2?'Fanatic ':'')+ETHN[k]).join(', ')} · ${AUTH.find(a=>a.id===x.auth).n} · ${x.civ.join(', ')} · ${x.origin}</div></div>`).join('')}</div>
+<div class="note">The checker covers the common rules. A few civics also need a species type, a DLC or a game rule ○. The in-game creator is the final word: it greys out anything that won't work.</div>`;}
+function builderWire(){const b=B();
+  document.querySelectorAll('[data-eth]').forEach(x=>x.onclick=()=>{const id=x.dataset.eth;
+    if(id==='ges'){b.eth=b.eth.ges?{}:{ges:1};if(b.auth&&!AUTH.find(a=>a.id===b.auth).gestalt)b.auth='';}
+    else{delete b.eth.ges;if(b.auth==='hive'||b.auth==='mac')b.auth='';const lv=b.eth[id]||0;const e=ETHICS.find(z=>z.id===id);if(e.opp)delete b.eth[e.opp];b.eth[id]=(lv+1)%3;if(!b.eth[id])delete b.eth[id];}
+    save();route(true);});
+  document.querySelectorAll('[data-auth]').forEach(x=>x.onclick=()=>{const a=x.dataset.auth;b.auth=b.auth===a?'':a;const g=authGroup(b.auth);if(g)b.civ=b.civ.filter(k=>{const c=CIVICS.find(z=>z.key===k);return c&&(c.a===g||(g==='cor'&&c.a==='reg'));});save();route(true);});
+  document.querySelectorAll('[data-civ]').forEach(x=>x.onclick=()=>{const k=x.dataset.civ;b.civ=b.civ.includes(k)?b.civ.filter(z=>z!==k):b.civ.concat(k);save();route(true);});
+  $('borig').onchange=e=>{b.origin=e.target.value;save();route(true);};
+  $('bclear').onclick=()=>{S.build={eth:{},auth:'',civ:[],origin:''};save();route(true);};
+  $('bsend').onclick=()=>{S.game.origin=b.origin;save();location.hash='campaign';};
+  document.querySelectorAll('[data-build]').forEach(t=>t.onclick=()=>{const x=BUILDS[+t.dataset.build];S.build={eth:Object.assign({},x.eth),auth:x.auth,civ:x.civ.slice(),origin:x.origin};save();route(true);});}
+
+function pgEthics(){return `<h2>Ethics and authority</h2><p class="sub">Your empire has three ethic points. A normal ethic costs one, a fanatic one costs two (and doubles the effect). Opposite ethics can't be combined. Your pops also have ethics and form factions around them.</p>
+<div class="card tbl"><table><tr><th>Ethic</th><th>Opposite</th><th>Effect</th><th>Plays well as</th></tr>${ETHICS.map(e=>`<tr><td>${mark(e.conf)} <b>${e.n}</b></td><td>${e.opp?ETHN[e.opp]:'—'}</td><td>${esc(e.eff)}</td><td class="dim">${esc(e.play)}</td></tr>`).join('')}</table></div>
+<h3>Authorities</h3><div class="card tbl"><table><tr><th>Authority</th><th>Can't be</th><th>How it works</th><th>Tip</th></tr>${AUTH.map(a=>`<tr><td>${mark(a.conf)} <b>${a.n}</b>${a.dlc?`<span class="tag g">${a.dlc}</span>`:''}</td><td class="dim">${a.gestalt?'Needs Gestalt Consciousness':a.ban.length?a.ban.map(ethLabel).join(', '):'—'}</td><td>${esc(a.eff)}</td><td class="dim">${esc(a.tip)}</td></tr>`).join('')}</table></div>
+<div class="tip">Ethics drift over time: pops pick up ethics from their living conditions and your policies. Change your government ethics later through the Government screen (it costs influence and needs the matching faction to be big enough ○).</div>
+<p><a class="mob" href="#builder">Try combinations in the Empire builder &rarr;</a></p>`;}
+
+let cvG='all',cvQ='';
+function pgCivics(){return `<h2>Civics</h2><p class="sub">Two civics at the start; more slots unlock with techs and traditions ○. Ratings are a rough community view of strength (S best), not a rule.</p>
+<div class="chips" id="cvg">${[['all','All'],['reg','Regular'],['cor','Corporate'],['hive','Hive Mind'],['mac','Machine']].map(([k,n])=>`<button data-g="${k}" class="${cvG===k?'on':''}">${n}</button>`).join('')}</div>
+<div class="row"><input type="search" id="cvq" placeholder="Search civics" style="width:240px" value="${esc(cvQ)}"></div>
+<div class="card tbl"><table id="cvt"></table></div>
+<div class="note">Requirements are the common ones ○; some civics also need a species type or a DLC. Many civic effects were rebalanced in 4.0, so check the numbers in-game.</div>`;}
+function civicReqText(c){const r=[];if(c.auth)r.push(c.auth.map(x=>AUTH.find(y=>y.id===x).n).join(' or '));(c.req||[]).forEach(x=>r.push(ethLabel(x)));(c.ban||[]).forEach(x=>r.push('not '+ethLabel(x)));(c.x||[]).forEach(x=>r.push('not with '+x));return r.join(', ')||'—';}
+function civicsWire(){const G={reg:'Regular',cor:'Corporate',hive:'Hive Mind',mac:'Machine'};const draw=()=>{const q=cvQ.toLowerCase(),r=CIVICS.filter(c=>(cvG==='all'||c.a===cvG)&&(!q||(c.n+' '+c.eff).toLowerCase().includes(q)));
+  $('cvt').innerHTML='<tr><th>Civic</th><th>For</th><th>Effect</th><th>Needs</th><th>Rating</th></tr>'+(r.map(c=>`<tr><td>${mark(c.conf)} <b>${esc(c.n)}</b>${c.dlc?`<span class="tag g">${c.dlc}</span>`:''}</td><td class="dim">${G[c.a]}</td><td>${esc(c.eff)}</td><td class="dim">${esc(civicReqText(c))}</td><td>${rate(c.r)}</td></tr>`).join('')||'<tr><td colspan="5" class="dim">Nothing matches.</td></tr>');};
+  document.querySelectorAll('#cvg button').forEach(b=>b.onclick=()=>{cvG=b.dataset.g;document.querySelectorAll('#cvg button').forEach(x=>x.classList.toggle('on',x===b));draw();});
+  $('cvq').oninput=e=>{cvQ=e.target.value;draw();};draw();}
+
+/* ================= SPECIES TRAITS ================= */
+const TN=n=>TRAITS.find(t=>t.n===n);
+function traitState(){const picks=S.traits.map(TN).filter(Boolean),spent=picks.reduce((s,t)=>s+t.c,0);return {picks,spent,left:TRAIT_BASE-spent};}
+function traitBlock(t){const st=traitState();if(S.traits.includes(t.n))return '';const clash=t.opp.find(o=>S.traits.includes(o));if(clash)return 'Opposite of '+clash;if(st.picks.length>=TRAIT_PICKS)return 'Five traits at most';if(t.c>0&&t.c>st.left)return 'Not enough points';return '';}
+function pgTraits(){const st=traitState(),groups=[...new Set(TRAITS.filter(t=>!t.hidden).map(t=>t.g))];
+  return `<h2>Species traits</h2><p class="sub">An organic species starts with ${TRAIT_BASE} trait points and up to ${TRAIT_PICKS} traits. Positive traits cost points; negative traits give points back. Opposite traits can't be combined.</p>
+<div class="card"><div class="stats"><div class="stat"><small>Points left</small><span class="big ${st.left<0?'bad':st.left===0?'ok':''}">${st.left}</span></div><div class="stat"><small>Traits</small><span class="big">${st.picks.length} / ${TRAIT_PICKS}</span></div></div>
+<div id="trpick">${st.picks.length?st.picks.map(t=>`<button data-tr="${esc(t.n)}" class="on" title="Remove">${esc(t.n)} <span class="pill ${t.c>0?'neg':'pos'}">${t.c>0?'−'+t.c:'+'+(-t.c)}</span></button>`).join(' '):'<span class="dim">Tap traits below to add them.</span>'}</div>
+${st.left<0?'<div class="bad" style="margin-top:6px">You\'re over budget: add a negative trait or drop a positive one.</div>':''}
+${groups.map(g=>`<h3>${g}</h3><div class="chips">${TRAITS.filter(t=>t.g===g&&!t.hidden).map(t=>{const bl=traitBlock(t),on=S.traits.includes(t.n);return `<button data-tr="${esc(t.n)}" class="${on?'on':bl?'off':''}" title="${esc((bl?bl+' — ':'')+t.eff)}">${esc(t.n)} <span class="pill ${t.c>0?'neg':'pos'}">${t.c>0?t.c:'+'+(-t.c)}</span></button>`;}).join('')}</div>`).join('')}
+<div class="row" style="margin-top:10px"><button id="trclear">Clear</button></div></div>
+<h3>Proven combinations</h3><div class="grid">${TRAIT_COMBOS.map((c,i)=>`<div class="tile" data-combo="${i}"><b>${esc(c[0])}</b><div class="dim">${esc(c[2])}</div><div style="font-size:12px;margin-top:6px">${c[1].join(', ')}</div></div>`).join('')}</div>
+<h3>All traits</h3><div class="card tbl"><table><tr><th>Trait</th><th class="n">Cost</th><th>Effect</th><th>Opposite</th></tr>${TRAITS.filter(t=>!t.hidden).map(t=>`<tr><td>${mark(t.conf)} <b>${esc(t.n)}</b></td><td class="n">${t.c}</td><td>${esc(t.eff)}</td><td class="dim">${t.opp.join(', ')||'—'}</td></tr>`).join('')}</table></div>
+<div class="note">Costs above are the long-standing ones; exact effects were rebalanced in 4.0 ○. Lithoids, plantoids, machines and robots have extra or different traits. Gene modding (Genetic path) and the Genetic ascension add powerful traits later: Erudite, Fertile, Robust, Psionic, Cybernetic and more.</div>`;}
+function traitsWire(){
+  document.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>{const n=b.dataset.tr;if(S.traits.includes(n))S.traits=S.traits.filter(x=>x!==n);else{if(traitBlock(TN(n)))return;S.traits.push(n);}save();route(true);});
+  $('trclear').onclick=()=>{S.traits=[];save();route(true);};
+  document.querySelectorAll('[data-combo]').forEach(t=>t.onclick=()=>{S.traits=TRAIT_COMBOS[+t.dataset.combo][1].slice();save();route(true);});}
+
+/* ================= PLANETS ================= */
+const habCol=v=>v>=80?'#7fd8a0':v>=60?'#b7e08a':v>=40?'#f2c14e':v>=20?'#f0a060':'#ff7a6b';
+function habOf(pref,pc){const P=PCLASS.find(x=>x.id===pref);if(!P)return 0;return pc.id===P.id?HABV.own:pc.cl===P.cl?HABV.group:HABV.other;}
+function pgHabitability(){const pref=S.climate,mod=+S.habMod||0,P=PCLASS.find(x=>x.id===pref);
+  const rows=PCLASS.map(pc=>{const base=habOf(pref,pc),v=Math.max(0,Math.min(100,base+mod));return {pc,base,v};}).sort((a,b)=>b.v-a.v);
+  return `<h2>Planets and habitability</h2><p class="sub">Each organic species prefers one planet class. Its own class is ${HABV.own}% habitable, the other two in the same climate ${HABV.group}%, and the other six ${HABV.other}%. Low habitability cuts output and growth.</p>
+<div class="card"><div class="row"><label>My species prefers <select id="hp">${['wet','dry','cold'].map(cl=>`<optgroup label="${cl==='wet'?'Wet':cl==='dry'?'Dry':'Cold'}">${PCLASS.filter(p=>p.cl===cl).map(p=>`<option value="${p.id}"${pref===p.id?' selected':''}>${p.n}</option>`).join('')}</optgroup>`).join('')}</select></label>
+<label>Traits and tech <select id="hm">${[[0,'None'],[10,'Adaptive (+10%) ○'],[20,'Extremely Adaptive (+20%) ○'],[-10,'Nonadaptive (−10%) ○'],[15,'Adaptive + habitability techs ○'],[30,'Extremely Adaptive + techs ○']].map(([v,n])=>`<option value="${v}"${mod===v?' selected':''}>${n}</option>`).join('')}</select></label></div>
+<div class="tbl"><table><tr><th>Planet class</th><th>Climate</th><th>Habitability</th><th>Worth colonising?</th></tr>${rows.map(r=>`<tr><td><b>${r.pc.n}</b>${r.pc.id===pref?' <span class="tag w">your home class</span>':''}</td><td class="dim">${r.pc.cl==='wet'?'Wet':r.pc.cl==='dry'?'Dry':'Cold'}</td><td><span class="hab" style="background:${habCol(r.v)}">${r.v}%</span></td><td class="dim">${r.v>=60?'Yes: colonise early':r.v>=40?'Later, or with a second species':'Only for strategy, or after terraforming or gene modding'}</td></tr>`).join('')}
+<tr><td><b>Gaia World</b></td><td class="dim">Special</td><td><span class="hab" style="background:${habCol(100)}">100%</span></td><td class="dim">Always.</td></tr></table></div></div>
+<h3>Special worlds</h3><div class="card tbl"><table>${SPECIAL_PLANETS.map(p=>`<tr><td style="width:220px">${mark(p[2])} <b>${esc(p[0])}</b></td><td>${esc(p[1])}</td></tr>`).join('')}</table></div>
+<h3>Raising habitability</h3><div class="card"><ul class="mech"><li><b>Gene modding</b>: change a species' preferred class or add Adaptive traits (Genetic path).</li><li><b>Terraforming</b>: turn a planet into a class you like, and eventually a Gaia world (World Shaper helps).</li><li><b>A second species</b>: aliens who join you (or that you uplift) like different climates. Migration treaties help.</li><li><b>Habitability techs and buildings</b>: small boosts; Hydrocentric does more for ocean species ○.</li><li><b>Robots and machines</b> don't care about habitability much ○.</li></ul></div>
+<h3>Planet designations</h3><div class="card tbl"><table>${DESIGNATIONS.map(d=>`<tr><td style="width:200px"><b>${esc(d[0])}</b></td><td>${esc(d[1])}</td></tr>`).join('')}</table></div>
+<div class="note">The ${HABV.own} / ${HABV.group} / ${HABV.other} split is long-standing; trait bonuses and how habitability affects output changed with patches ○.</div>`;}
+function habWire(){$('hp').onchange=e=>{S.climate=e.target.value;save();route(true);};$('hm').onchange=e=>{S.habMod=+e.target.value;save();route(true);};}
+
+/* ================= ECONOMY / TECH ================= */
+function pgEconomy(){return `<h2>Economy and jobs</h2><p class="sub">Pops work jobs; jobs make resources; districts and buildings create jobs. Basic resources (energy, minerals, food) feed advanced ones (alloys, consumer goods), which build fleets and keep specialists happy.</p>
+<div class="card tbl"><table><tr><th>Resource</th><th>Kind</th><th>Used for</th><th>Made by</th></tr>${RES.map(r=>`<tr><td><b>${esc(r[0])}</b></td><td class="dim">${r[1]}</td><td>${esc(r[2])}</td><td class="dim">${esc(r[3])}</td></tr>`).join('')}</table></div>
+<h3>Strata</h3><div class="card tbl"><table>${STRATA.map(s=>`<tr><td style="width:150px"><b>${s[0]}</b></td><td class="dim">${esc(s[1])}</td><td>${esc(s[2])}</td></tr>`).join('')}</table></div>
+<h3>Rules of thumb</h3><div class="card"><ul class="mech">
+<li>Build <b>districts first</b>: they add jobs and housing. Buildings come once city districts add slots.</li>
+<li>One planet, one job: a <b>designation</b> plus matching buildings beats a mixed planet.</li>
+<li>Keep every resource a little positive. A stockpile is wasted potential; spend it.</li>
+<li>Alloys and research are what win. Energy, minerals and food only need to keep up.</li>
+<li>Specialist jobs need <b>consumer goods</b>; plan one factory planet or a few civilian industries.</li>
+<li>Keep <b>stability above 50</b>: amenities, entertainers, enforcers and the right policies.</li>
+<li>Unemployed pops cause crime and drift. Resettle them or build jobs.</li>
+<li>Sell surplus minerals early and buy strategic resources on the market.</li></ul></div>
+<div class="note">Version 4.0 ("Phoenix") grouped pops into pop groups, measured jobs in workforce and gave districts zones; trade became its own resource ○. The broad rules above still hold; exact outputs per job don't match older guides.</div>`;}
+let tcW='';
+function pgTech(){return `<h2>Technology</h2><p class="sub">Three fields, each showing three cards from a weighted deck. The ones below are worth taking whenever they appear.</p>
+<div class="chips" id="tcw">${['','Early','Mid','Late'].map(w=>`<button data-w="${w}" class="${tcW===w?'on':''}">${w||'All'}</button>`).join('')}</div>
+<div class="card tbl"><table><tr><th>Tech</th><th>Field</th><th>When</th><th>Why</th></tr>${TECHS.filter(t=>!tcW||t.w===tcW).map(t=>`<tr><td>${mark(t.conf)} <b>${esc(t.n)}</b></td><td class="dim">${t.f}</td><td>${t.w}</td><td>${esc(t.why)}</td></tr>`).join('')}</table></div>
+<h3>Rare technologies</h3><div class="card tbl"><table>${RARE_TECH.map(r=>`<tr><td style="width:220px"><b>${esc(r[0])}</b></td><td>${esc(r[1])}</td></tr>`).join('')}</table></div>
+<h3>Research tips</h3><div class="card"><ul class="mech"><li>Research cost rises with empire size (sprawl). Research per pop matters more than research total.</li><li>Scientists on the council add speed to their field; level them with Quick Learners and traits.</li><li>Debris from battles you win can give tech progress; so can studying other empires (espionage) ○.</li><li>Don't research every weapon. Pick kinetic or energy (plus missiles, strike craft or disruptors) and go deep.</li><li>Repeatables start in the late game. Damage, armor, shields and resource output repeatables decide crisis fights.</li></ul></div>`;}
+function techWire(){document.querySelectorAll('#tcw button').forEach(b=>b.onclick=()=>{tcW=b.dataset.w;route(true);});}
+
+/* ================= TRADITIONS & ASCENSION ================= */
+const PK=n=>PERKS.find(p=>p.n===n);
+function perkWarnings(){const w=[],P=S.perks,paths=P.filter(n=>PERK_PATHS.includes(n));
+  if(paths.length>1)w.push('Only one ascension path per empire: pick one of '+paths.join(', ')+'.');
+  if(paths.length&&P.indexOf(paths[0])>3)w.push('Ascension paths take decades to pay off. Take yours earlier (second to fourth slot).');
+  if(!paths.length&&P.length>=3)w.push('No ascension path yet. Most strong builds take one by the third or fourth perk.');
+  ['Galactic Wonders','Master Builders','Arcology Project','Colossus Project','Defender of the Galaxy','Become the Crisis','Galactic Contender'].forEach(n=>{const i=P.indexOf(n);if(i>-1&&i<2)w.push(n+' in slot '+(i+1)+' is very early: its payoff (or its unlock) comes mid to late game.');});
+  if(P.includes('Become the Crisis')&&has('pac'))w.push('Become the Crisis can\'t be taken by Pacifists (your Empire builder has Pacifist).');
+  if(P.includes('Universal Transactions')&&B().auth&&B().auth!=='cor')w.push('Universal Transactions is for MegaCorps.');
+  if(P.length>S.perkSlots)w.push(`You've planned ${P.length} perks but have ${S.perkSlots} slots.`);
+  return w;}
+function pgTraditions(){const w=perkWarnings();
+  return `<h2>Traditions and ascension</h2><p class="sub">Unity buys tradition trees. Finishing trees (and some techs) gives ascension perk slots. Ascension perks are the biggest permanent bonuses in the game, and one of them starts your ascension path.</p>
+<div class="card tbl"><table><tr><th>Tradition tree</th><th>What it does</th></tr>${TRADS.map(t=>`<tr><td style="width:200px">${mark(t[2])} <b>${t[0]}</b></td><td>${esc(t[1])}</td></tr>`).join('')}</table></div>
+<div class="tip"><b>A safe order:</b> Discovery → Expansion or Prosperity → Harmony or Synchronicity → your ascension path tree → Supremacy or Diplomacy. Wide empires swap the first two.</div>
+<h3>Ascension paths</h3><div class="grid">${PATHS.map(p=>`<div class="card" style="border-color:${p.col};margin:0"><b style="color:${p.col}">${mark(p.conf)} ${p.n}</b><div class="dim" style="font-size:12px">${esc(p.ap)}</div><p style="margin:6px 0">${esc(p.what)}</p><div class="dim">Best for: ${esc(p.best)}</div></div>`).join('')}</div>
+<h3>Ascension perk planner</h3><div class="card"><div class="row"><label>Slots <select id="pks">${[4,5,6,7,8,9,10].map(n=>`<option${S.perkSlots===n?' selected':''}>${n}</option>`).join('')}</select></label><span class="dim">Plan the order. Tap a perk to add it; use the arrows to reorder.</span></div>
+<div class="perks">${Array.from({length:S.perkSlots},(_,i)=>{const n=S.perks[i];return `<div class="slot ${n?'full':''}"><span class="dim" style="font-size:11px">Slot ${i+1}</span><br>${n?`<b>${esc(n)}</b><div class="row" style="margin:4px 0 0">${i?`<button data-pu="${i}" title="Earlier">↑</button>`:''}${i<S.perks.length-1?`<button data-pd="${i}" title="Later">↓</button>`:''}<button data-pr="${i}" title="Remove">✕</button></div>`:'<span class="dim">—</span>'}</div>`;}).join('')}</div>
+${w.length?`<ul class="mech wrn">${w.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:S.perks.length?'<div class="ok">✓ Looks like a sound plan.</div>':''}
+${['econ','mega','mil','path','misc'].map(k=>`<div class="dim" style="margin-top:8px">${{econ:'Economy and empire',mega:'Megastructures',mil:'Military',path:'Ascension paths',misc:'Other'}[k]}</div><div class="chips">${PERKS.filter(p=>p.k===k).map(p=>`<button data-pk="${esc(p.n)}" class="${S.perks.includes(p.n)?'on':''}" title="${esc(p.eff+(p.pre?' — Needs: '+p.pre:''))}">${esc(p.n)}</button>`).join('')}</div>`).join('')}
+<div class="row" style="margin-top:8px"><button id="pkclear">Clear plan</button></div></div>
+<h3>All ascension perks</h3><div class="card tbl"><table><tr><th>Perk</th><th>Effect</th><th>Needs</th><th>Rating</th></tr>${PERKS.map(p=>`<tr><td>${mark(p.conf)} <b>${esc(p.n)}</b></td><td>${esc(p.eff)}</td><td class="dim">${esc(p.pre||'—')}</td><td>${rate(p.r)}</td></tr>`).join('')}</table></div>
+<div class="note">The Machine Age (3.12) turned the ascension paths into tradition trees unlocked by a perk, and later versions and BioGenesis reworked them again ○. Exact perk names and prerequisites are worth checking in the tooltip.</div>`;}
+function tradWire(){
+  $('pks').onchange=e=>{S.perkSlots=+e.target.value;save();route(true);};
+  document.querySelectorAll('[data-pk]').forEach(b=>b.onclick=()=>{const n=b.dataset.pk;S.perks=S.perks.includes(n)?S.perks.filter(x=>x!==n):S.perks.concat(n);save();route(true);});
+  const mv=(i,d)=>{const a=S.perks;[a[i],a[i+d]]=[a[i+d],a[i]];save();route(true);};
+  document.querySelectorAll('[data-pu]').forEach(b=>b.onclick=()=>mv(+b.dataset.pu,-1));
+  document.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>mv(+b.dataset.pd,1));
+  document.querySelectorAll('[data-pr]').forEach(b=>b.onclick=()=>{S.perks.splice(+b.dataset.pr,1);save();route(true);});
+  $('pkclear').onclick=()=>{S.perks=[];save();route(true);};}
+
+function pgLeaders(){return `<h2>Leaders and policies</h2><p class="sub">Leaders run your fleets, research and planets. Policies and edicts set how your empire behaves.</p>
+<div class="card tbl"><table>${LEADERS.map(l=>`<tr><td style="width:150px"><b>${l[0]}</b></td><td>${esc(l[1])}</td></tr>`).join('')}</table></div>
+<div class="tip">Leaders level up with experience and pick up traits. Recruiting costs unity. Galactic Paragons added the <b>council</b>: your ruler and key leaders sit on it and give empire-wide bonuses based on their skill and traits ○.</div>
+<h3>Policies</h3><div class="card tbl"><table>${POLICIES.map(p=>`<tr><td style="width:200px"><b>${esc(p[0])}</b></td><td>${esc(p[1])}</td></tr>`).join('')}</table></div>
+<h3>Edicts worth knowing</h3><div class="card tbl"><table>${EDICTS.map(e=>`<tr><td style="width:200px"><b>${esc(e[0])}</b></td><td>${esc(e[1])}</td></tr>`).join('')}</table></div>
+<h3>Factions</h3><div class="card"><ul class="mech"><li>Pops join factions that match their ethics. Each faction has demands; meeting them raises approval.</li><li>Happy, big factions give influence. Unhappy ones lower stability.</li><li>You can suppress or promote a faction (costs influence).</li><li>Gestalts have no factions.</li></ul></div>`;}
+
+/* ================= GALAXY ================= */
+function pgDiplomacy(){return `<h2>Diplomacy and federations</h2><p class="sub">Most empires can't win alone. Friends, pacts and the Galactic Community decide the mid-game.</p>
+<div class="card tbl"><table>${DIPLO.map(d=>`<tr><td style="width:180px"><b>${esc(d[0])}</b></td><td>${esc(d[1])}</td></tr>`).join('')}</table></div>
+<h3>Federation types</h3><div class="card tbl"><table><tr><th>Type</th><th>What it does</th><th>Who likes it</th></tr>${FEDS.map(f=>`<tr><td>${mark(f.conf)} <b>${esc(f.n)}</b></td><td>${esc(f.eff)}</td><td class="dim">${esc(f.who)}</td></tr>`).join('')}</table></div>
+<div class="tip">Federations level up over time with cohesion. Higher levels unlock better perks and a bigger federation fleet. Federation laws decide succession, voting and who builds the fleet (Federations DLC).</div>
+<h3>Subjects</h3><div class="card tbl"><table>${SUBJECTS.map(s=>`<tr><td style="width:180px"><b>${esc(s[0])}</b></td><td>${esc(s[1])}</td></tr>`).join('')}</table></div>
+<h3>The Galactic Community</h3><div class="card tbl"><table>${RESOLUTIONS.map(r=>`<tr><td style="width:220px">${mark(r[2])} <b>${esc(r[0])}</b></td><td>${esc(r[1])}</td></tr>`).join('')}</table></div>
+<div class="card"><ul class="mech"><li>Join when invited; outsiders can't vote and get no say over sanctions.</li><li>Your <b>diplomatic weight</b> decides your vote. Economy, fleets and pops raise it.</li><li>Envoys in the Community boost your favours; use favours to swing votes.</li><li>If you plan to break a rule (slavery, purging, AI), vote against the ban, or accept the sanctions.</li></ul></div>`;}
+
+function pgMegas(){const st=S.mega,cnt=k=>Object.values(st).filter(v=>v===k).length;
+  return `<h2>Megastructures</h2><p class="sub">Huge projects that take decades and a lot of alloys. Most need an ascension perk and a tech. Track yours here.</p>
+<div class="stats"><div class="stat"><small>Built</small><span class="big">${cnt('built')}</span></div><div class="stat"><small>Building</small><span class="big">${cnt('building')}</span></div><div class="stat"><small>Planned</small><span class="big">${cnt('planned')}</span></div></div>
+<div class="card tbl"><table><tr><th>Megastructure</th><th>Needs</th><th>What it does</th><th>Where</th><th>Status</th></tr>${MEGAS.map(m=>`<tr><td>${mark(m.conf)} <b>${esc(m.n)}</b></td><td class="dim">${esc(m.ap)}</td><td>${esc(m.eff)}</td><td class="dim">${esc(m.where)}</td><td><select data-mg="${m.id}">${[['','—'],['planned','Planned'],['building','Building'],['built','Built']].map(([v,n])=>`<option value="${v}"${(st[m.id]||'')===v?' selected':''}>${n}</option>`).join('')}</select></td></tr>`).join('')}</table></div>
+<div class="tip">Order of value for most empires: Science Nexus or Dyson Sphere first, then Matter Decompressor and Ring World, then a Mega Shipyard or Strategic Coordination Center before the crisis. Master Builders lets you build more at once and faster.</div>
+<div class="note">Which perk unlocks which project has shifted a little between versions ○. Ruined megastructures found while exploring can be repaired with the Mega-Engineering tech, often without the perk.</div>`;}
+function megaWire(){document.querySelectorAll('[data-mg]').forEach(s=>s.onchange=()=>{if(s.value)S.mega[s.dataset.mg]=s.value;else delete S.mega[s.dataset.mg];save();route(true);});}
+
+function pgThreats(){const pct=crisisPrep();
+  return `<h2>Threats and crises</h2><p class="sub">Leviathans guard rich systems. Fallen empires sleep on huge power. Crises come for everyone.</p>
+<h3>Leviathans and guardians</h3><div class="card tbl"><table><tr><th>Guardian</th><th>Where</th><th>How to fight it</th><th>Reward</th></tr>${GUARDS.map(g=>`<tr><td>${mark(g.conf)} <b>${esc(g.n)}</b></td><td class="dim">${esc(g.where)}</td><td>${esc(g.kill)}</td><td class="dim">${esc(g.get)}</td></tr>`).join('')}</table></div>
+<div class="tip">Check a guardian's fleet power and defenses before you attack. Most need a mid-game fleet of 20k–40k power or more ○. Killing one gives a big opinion boost from others and often a unique tech.</div>
+<h3>Fallen empires</h3><div class="card tbl"><table><tr><th>Type</th><th>Ethic</th><th>What angers them</th><th>Tip</th></tr>${FES.map(f=>`<tr><td>${mark(f.conf)} <b>${esc(f.n)}</b></td><td class="dim">${esc(f.eth)}</td><td>${esc(f.ang)}</td><td class="dim">${esc(f.tip)}</td></tr>`).join('')}</table></div>
+<h3>Crises</h3><div class="card tbl"><table><tr><th>Crisis</th><th>When</th><th>What happens</th><th>Their defenses</th><th>Their weapons</th><th>Bring</th><th></th></tr>${CRISES.map(c=>`<tr><td>${mark(c.conf)} <b>${esc(c.n)}</b></td><td class="dim">${c.w}</td><td>${esc(c.from)}</td><td>${esc(c.def)}</td><td>${esc(c.atk)}</td><td>${esc(c.bring)}</td><td>${CRISIS_FOE[c.id]?`<button data-cf="${c.id}">Counter finder</button>`:''}</td></tr>`).join('')}</table></div>
+<h3>Crisis prep checklist <span class="dim" style="font-size:13px">${pct}% ready</span></h3><div class="bar"><i style="width:${pct}%"></i></div>
+<div class="card">
+${ck('cp1','Know your end-game year (Galaxy settings) and set a reminder in <a href="#campaign">goals</a>.')}
+${ck('cp2','Weapons and armor repeatables running for 30+ years.')}
+${ck('cp3','Two full doomstacks at command limit, with refit designs ready.')}
+${ck('cp4','Chokepoint citadels with defense platforms and hangars.')}
+${ck('cp5','Planetary shields and fortresses on core worlds ○.')}
+${ck('cp6','Allies or a federation; Defender of the Galaxy ready to pick.')}
+${ck('cr1','Alloys income of 200 or more ○.')}
+${ck('cr2','Titans, battleships and a Juggernaut or Mega Shipyard.')}
+${ck('cr3','Starbase fortresses on your chokepoints.')}
+${ck('cr4','Defender of the Galaxy or Galactic Force Projection planned.')}
+${ck('cr5','Federation or allies: a crisis is easier together.')}
+${ck('cr6','A plan for when it appears: scout it, refit, and strike before it spreads.')}
+</div>
+<div class="note">Crisis defenses and weapons are the community's long-standing picture; the exact numbers depend on crisis strength (up to 25× in game rules) and on version ○. Click their fleet in-game to see shields, armor and weapon types.</div>`;}
+const CRISIS_FOE={prethoryn:['armor','wmis','wsc'],contingency:['shield','armor','wen','wkin'],unbidden:['shield','wen'],wih:['fe'],khan:['big']};
+function threatsWire(){document.querySelectorAll('[data-cf]').forEach(b=>b.onclick=()=>{S.foe=CRISIS_FOE[b.dataset.cf].slice();save();location.hash='combat';});}
+
+function pgExploration(){const got=Object.values(S.relics).filter(Boolean).length;
+  return `<h2>Exploration and relics</h2><p class="sub">Surveying finds resources, anomalies and story chains. Archaeology sites and events give relics.</p>
+<div class="card"><ul class="mech">
+<li><b>Survey</b> every system nearby; it reveals resources and habitable planets for your outposts.</li>
+<li><b>Anomalies</b>: a scientist researches them for rewards. Higher-level scientists fail less; failing can still give a later chance.</li>
+<li><b>Archaeology sites</b> have several chapters. Each chapter is a dice roll helped by scientist skill.</li>
+<li><b>Special projects</b> show in the Situation Log. Some time out; check it every few years.</li>
+<li><b>Pre-FTL civilisations</b>: observation posts give research and later uplift or invasion options.</li>
+<li><b>Precursors</b>: one of the precursor chains (Cybrex, First League, Irassian, Vultaumar, Yuht, Zroni, Baol ○) appears per galaxy. Finish it for a home world and a relic.</li>
+<li><b>L-Gates</b> (Distant Stars): open them late, and only if you're ready for what's inside.</li>
+<li><b>Caravaneers</b> (MegaCorp): their lottery can give the Galatron.</li></ul></div>
+<h3>Relics <span class="dim" style="font-size:13px">${got} found</span></h3><div class="card tbl"><table><tr><th>Found</th><th>Relic</th><th>How and what</th></tr>${RELICS.map((r,i)=>`<tr><td><input type="checkbox" data-rl="${i}"${S.relics[i]?' checked':''}></td><td>${mark(r[2])} <b>${esc(r[0])}</b></td><td>${esc(r[1])}</td></tr>`).join('')}</table></div>
+<div class="tip">Every relic has a passive bonus and a <b>triumph</b>: an active effect that costs influence (or unity) and has a long cooldown. Relics need the Ancient Relics DLC.</div>`;}
+function explWire(){document.querySelectorAll('[data-rl]').forEach(c=>c.onchange=()=>{S.relics[c.dataset.rl]=c.checked;save();});}
+
+/* ================= WAR ================= */
+const WN=id=>WEAPONS.find(w=>w.id===id).n, DN=id=>DEFENSES.find(d=>d.id===id).n;
+function pgCombat(){return `<h2>Weapons and counters</h2><p class="sub">Damage hits shields first, then armor, then hull. Each weapon type is strong against one layer and weak against another, so the right mix beats raw fleet power.</p>
+<div class="card tbl"><table><tr><th>Weapon type</th><th>Examples</th><th>Effect</th><th>Strong vs</th><th>Weak vs</th></tr>${WEAPONS.map(w=>`<tr><td>${mark(w.conf)} <b>${w.n}</b></td><td class="dim">${esc(w.ex)}</td><td>${esc(w.eff)}</td><td><span class="tag w">${w.good==='small'?'Small ships':DN(w.good)}</span></td><td><span class="tag r">${DN(w.bad)}</span></td></tr>`).join('')}</table></div>
+<h3>Defenses</h3><div class="card tbl"><table>${DEFENSES.map(d=>`<tr><td style="width:150px">${mark(d.conf)} <b>${d.n}</b></td><td>${esc(d.eff)}</td></tr>`).join('')}</table></div>
+<h3>Fleet counter finder</h3><div class="card"><div class="dim">Click an enemy fleet in-game and look at its shields, armor and weapons. What do you see?</div>
+<div class="chips" id="foe">${FOE.map(f=>`<button data-foe="${f.id}" class="${S.foe.includes(f.id)?'on':''}">${esc(f.n)}</button>`).join('')}</div>
+<div class="row"><span class="dim">Crisis presets:</span>${Object.keys(CRISIS_FOE).map(k=>`<button data-cfp="${k}">${esc(CRISES.find(c=>c.id===k).n)}</button>`).join('')}<button id="foeclr">Clear</button></div>
+<div id="foeout"></div></div>
+<div class="tip">Ship designs: a common all-rounder is half kinetic, half energy until you see the enemy, then refit. Shields and armor in a 50/50 mix until you know their weapons. Upgrading a design and letting fleets refit in a starport is cheap.</div>
+<div class="note">The strong / weak pattern is long-standing; exact percentages have changed between versions ○. Weapon tooltips show the current bonus against shields, armor and hull.</div>`;}
+function combatWire(){const draw=()=>{const foes=S.foe.map(id=>FOE.find(f=>f.id===id)).filter(Boolean);if(!foes.length){$('foeout').innerHTML='';return;}
+  const sc={};WEAPONS.forEach(w=>sc[w.id]=0);const def=new Set(),notes=[];
+  foes.forEach(f=>{f.bring.forEach(b=>sc[b]+=1);f.avoid.forEach(a=>sc[a]-=1);f.def.forEach(d=>def.add(d));if(f.note)notes.push(f.note);});
+  const best=WEAPONS.filter(w=>sc[w.id]>0).sort((a,b)=>sc[b.id]-sc[a.id]),bad=WEAPONS.filter(w=>sc[w.id]<0);
+  $('foeout').innerHTML=`<p style="margin:8px 0 4px"><b>Weapons:</b> ${best.map(w=>`<span class="tag w">${w.n}</span>`).join('')||'<span class="dim">no clear counter: a balanced mix and more tech</span>'}</p>
+<p style="margin:4px 0"><b>Avoid:</b> ${bad.map(w=>`<span class="tag r">${w.n}</span>`).join('')||'<span class="dim">nothing in particular</span>'}</p>
+<p style="margin:4px 0"><b>Defenses and utilities:</b> ${[...def].map(d=>`<span class="tag i">${DN(d)}</span>`).join('')||'<span class="dim">a balanced shield and armor mix</span>'}</p>${notes.map(n=>`<div class="dim">${esc(n)}</div>`).join('')}`;};
+  document.querySelectorAll('#foe button').forEach(b=>b.onclick=()=>{const id=b.dataset.foe;S.foe=S.foe.includes(id)?S.foe.filter(x=>x!==id):S.foe.concat(id);b.classList.toggle('on');save();draw();});
+  document.querySelectorAll('[data-cfp]').forEach(b=>b.onclick=()=>{S.foe=CRISIS_FOE[b.dataset.cfp].slice();save();route(true);});
+  $('foeclr').onclick=()=>{S.foe=[];save();route(true);};draw();}
+
+function pgShips(){return `<h2>Ships and fleets</h2><p class="sub">Bigger ships carry bigger weapons; smaller ships dodge. A fleet is a mix of roles, set by its combat computers.</p>
+<div class="card tbl"><table><tr><th>Class</th><th>Size</th><th>Role</th><th>Slots</th></tr>${SHIPS.map(s=>`<tr><td>${mark(s.conf)} <b>${s.n}</b></td><td>${s.sz}</td><td>${esc(s.role)}</td><td class="dim">${esc(s.slots)}</td></tr>`).join('')}</table></div>
+<h3>Combat computers</h3><div class="card tbl"><table>${COMPUTERS.map(c=>`<tr><td style="width:120px"><b>${c[0]}</b></td><td>${esc(c[1])}</td></tr>`).join('')}</table></div>
+<h3>Fleet compositions</h3><div class="grid">
+<div class="card" style="margin:0"><b>Early (2200–2250)</b><ul class="mech"><li>Corvettes with mixed small weapons and a torpedo variant.</li><li>Swarm computer.</li><li>Enough to beat pirates, critters and the AI's first fleet.</li></ul></div>
+<div class="card" style="margin:0"><b>Mid (2250–2330)</b><ul class="mech"><li>Destroyers as pickets (point defense and flak).</li><li>Cruisers with torpedoes or medium guns, or hangars.</li><li>First battleships as artillery once you have X-slot weapons.</li></ul></div>
+<div class="card" style="margin:0"><b>Late (2330+)</b><ul class="mech"><li>Artillery battleships with X-slot and large weapons.</li><li>A titan for its aura in each doomstack.</li><li>Some destroyers or cruisers to screen and soak.</li><li>A Juggernaut for repair and resupply.</li></ul></div></div>
+<h3>Fleet rules</h3><div class="card"><ul class="mech"><li><b>Naval capacity</b>: ships above it cost much more upkeep.</li><li><b>Command limit</b>: ships above it in one fleet fight worse.</li><li>Upgrade designs after every weapon, armor or shield tech; refit at a starport.</li><li>Keep fleets docked at a starport with anchorages to reduce upkeep in peace ○.</li><li>Admirals: pick traits for fire rate, evasion or speed.</li></ul></div>`;}
+
+function pgWar(){return `<h2>War and war goals</h2><p class="sub">You need a war goal to declare war. Claims decide which systems you can take; war score decides whether you win them.</p>
+<div class="card tbl"><table><tr><th>War goal</th><th>What you get</th></tr>${WARGOALS.map(w=>`<tr><td style="width:200px">${mark(w[2])} <b>${esc(w[0])}</b></td><td>${esc(w[1])}</td></tr>`).join('')}</table></div>
+<h3>How to win wars</h3><div class="card"><ul class="mech">${WARTIPS.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>
+<h3>Before you declare</h3><div class="card">
+${ck('w1','Claims on the systems you want (influence).')}
+${ck('w2','Your fleet power beats theirs plus their allies and defensive pacts.')}
+${ck('w3','Armies: 2 or 3 assault armies per planet you want to invade.')}
+${ck('w4','Alloys stockpiled to rebuild losses.')}
+${ck('w5','Your own chokepoints are defended.')}
+${ck('w6','You checked the enemy fleet in the <a href="#combat">counter finder</a> and refit.')}</div>`;}
+
+/* ================= YOUR GAME ================= */
+function pgDlc(){const rk={Essential:'v',Great:'w',Good:'i',Okay:'',Cosmetic:''};
+  return `<h2>DLC guide</h2><p class="sub">What each piece adds and whether it's worth it. Free patches come with every DLC release, so the base game keeps growing too.</p>
+<div class="card tbl"><table><tr><th>DLC</th><th>Year</th><th>Verdict</th><th>What it adds</th></tr>${DLC.map(d=>`<tr><td>${mark(d.conf)} <b>${esc(d.n)}</b></td><td class="dim">${d.y}</td><td><span class="tag ${rk[d.r]}">${d.r}</span></td><td>${esc(d.eff)}</td></tr>`).join('')}</table></div>
+<div class="tip"><b>If you buy only three:</b> Utopia, Federations and Overlord. Then MegaCorp, Apocalypse, Nemesis and Galactic Paragons. The subscription (Expansion Subscription) is a cheap way to try them all.</div>
+<div class="note">Newer packs and story packs may be missing or described from early information ○. The store page is the final word.</div>`;}
+
+const GOALSUG=['Claim every chokepoint near my capital','Five colonies by 2230','First ascension perk','Pick an ascension path','Found a federation','Build a Science Nexus','Build a Dyson Sphere','Build a Ring World','Kill a leviathan','Get the Galatron','Become Galactic Custodian','Beat the endgame crisis','Restore an Imperium','Reach 2500 alive'];
+function pgCampaign(){const g=S.game,done=S.goals.filter(x=>x.done).length;
+  return `<h2>Campaign and goals</h2><p class="sub">Keep track of your current game and what you're aiming for.</p>
+<div class="card"><div class="row"><label>Empire <input type="text" id="ge" value="${esc(g.empire)}" style="width:200px" placeholder="e.g. United Nations of Earth"></label>
+<label>Species <input type="text" id="gsp" value="${esc(g.species)}" style="width:140px" placeholder="e.g. Human"></label>
+<label>Origin <select id="go"><option value=""></option>${ORIGINS.map(o=>`<option${g.origin===o.n?' selected':''}>${esc(o.n)}</option>`).join('')}</select></label></div>
+<div class="row"><label>Year <input type="number" id="gy" value="${esc(g.year)}" style="width:90px"></label>
+<label>Difficulty <select id="gd">${['','Ensign','Captain','Commodore','Admiral','Grand Admiral'].map(d=>`<option${g.diff===d?' selected':''}>${d}</option>`).join('')}</select></label>
+<label>Galaxy <select id="gz">${['','Tiny','Small','Medium','Large','Huge'].map(d=>`<option${g.size===d?' selected':''}>${d}</option>`).join('')}</select></label>
+<label class="chk" style="margin:0"><input type="checkbox" id="gi"${g.iron?' checked':''}> Ironman</label></div>
+${S.build.auth?`<div class="dim" style="margin-top:6px">Empire design: ${Object.entries(S.build.eth).filter(([,v])=>v).map(([k,v])=>(v===2?'Fanatic ':'')+ETHN[k]).join(', ')} · ${AUTH.find(a=>a.id===S.build.auth).n} · ${S.build.civ.map(esc).join(', ')||'no civics'} <a href="#builder">edit</a></div>`:''}</div>
+${nextMilestone()}
+<h3>Goals</h3><div class="dim">${done} of ${S.goals.length} done</div><div class="bar"><i style="width:${S.goals.length?done/S.goals.length*100:0}%"></i></div>
+<div class="card"><form class="row" id="gf"><input type="text" id="gn" style="width:300px" placeholder="A goal, e.g. Take the Sol chokepoint"><button class="pri">Add</button></form>
+<div class="chips">${GOALSUG.map((s,i)=>`<button type="button" data-gsug="${i}">+ ${esc(s)}</button>`).join('')}</div>
+${S.goals.map((x,i)=>`<div class="row"><label class="chk" style="flex:1;margin:0"><input type="checkbox" data-gdone="${i}"${x.done?' checked':''}> <span class="${x.done?'dim':''}">${esc(x.n)}</span></label><button data-gdel="${i}" title="Remove">✕</button></div>`).join('')||'<div class="dim">No goals yet.</div>'}</div>
+${S.goals.length?'<button id="gclear">Remove finished goals</button>':''}`;}
+function campWire(){const g=S.game;
+  $('ge').oninput=e=>{g.empire=e.target.value;save();};$('gsp').oninput=e=>{g.species=e.target.value;save();};$('go').onchange=e=>{g.origin=e.target.value;save();};
+  $('gy').onchange=e=>{g.year=e.target.value;save();route(true);};$('gd').onchange=e=>{g.diff=e.target.value;save();};$('gz').onchange=e=>{g.size=e.target.value;save();};$('gi').onchange=e=>{g.iron=e.target.checked;save();};
+  $('gf').onsubmit=e=>{e.preventDefault();const n=$('gn').value.trim();if(!n)return;S.goals.push({n,done:false});save();route(true);};
+  document.querySelectorAll('[data-gsug]').forEach(b=>b.onclick=()=>{S.goals.push({n:GOALSUG[+b.dataset.gsug],done:false});save();route(true);});
+  document.querySelectorAll('[data-gdone]').forEach(c=>c.onchange=()=>{S.goals[+c.dataset.gdone].done=c.checked;save();route(true);});
+  document.querySelectorAll('[data-gdel]').forEach(b=>b.onclick=()=>{S.goals.splice(+b.dataset.gdel,1);save();route(true);});
+  if($('gclear'))$('gclear').onclick=()=>{S.goals=S.goals.filter(x=>!x.done);save();route(true);};}
+
+const LOGK=[['contact','📡 First contact'],['colony','🌍 Colony'],['war','⚔️ War'],['peace','🕊️ Peace'],['tech','🔬 Breakthrough'],['ascend','✨ Ascension'],['mega','🏗️ Megastructure'],['crisis','☄️ Crisis'],['other','📜 Other']];
+let lgF='';
+function pgLog(){const L=S.log.map((e,i)=>Object.assign({i},e)).filter(e=>!lgF||e.k===lgF).sort((a,b)=>(+a.y||0)-(+b.y||0));
+  return `<h2>Galactic log</h2><p class="sub">The history of your galaxy as you play it: first contacts, wars, colonies, ascensions and crises.</p>
+<div class="card"><form class="row" id="lf"><input type="number" id="ly" style="width:90px" placeholder="Year" value="${esc(S.game.year)}"><select id="lk">${LOGK.map(([k,n])=>`<option value="${k}">${n}</option>`).join('')}</select><input type="text" id="lt" style="width:340px" placeholder="What happened, e.g. Met the Blorg Commonality"><button class="pri">Add</button></form></div>
+<div class="chips" id="lgf"><button data-lf="" class="${lgF?'':'on'}">All (${S.log.length})</button>${LOGK.map(([k,n])=>{const c=S.log.filter(e=>e.k===k).length;return c?`<button data-lf="${k}" class="${lgF===k?'on':''}">${n} (${c})</button>`:'';}).join('')}</div>
+<div class="card tbl"><table><tr><th>Year</th><th>Type</th><th>Entry</th><th></th></tr>${L.map(e=>`<tr><td><input type="number" data-le="${e.i}:y" value="${esc(e.y)}" style="width:80px"></td><td>${(LOGK.find(k=>k[0]===e.k)||LOGK[8])[1]}</td><td><input type="text" data-le="${e.i}:t" value="${esc(e.t)}" style="width:100%;min-width:220px"></td><td><button data-ldel="${e.i}" title="Remove">✕</button></td></tr>`).join('')||'<tr><td colspan="4" class="dim">Nothing logged yet. Start with your first contact.</td></tr>'}</table></div>`;}
+function logWire(){
+  $('lf').onsubmit=e=>{e.preventDefault();const t=$('lt').value.trim();if(!t)return;S.log.push({y:$('ly').value,k:$('lk').value,t});save();route(true);};
+  document.querySelectorAll('[data-lf]').forEach(b=>b.onclick=()=>{lgF=b.dataset.lf;route(true);});
+  document.querySelectorAll('[data-le]').forEach(i=>i.onchange=()=>{const [ix,k]=i.dataset.le.split(':');S.log[+ix][k]=i.value;save();});
+  document.querySelectorAll('[data-ldel]').forEach(b=>b.onclick=()=>{if(confirm('Remove this entry?')){S.log.splice(+b.dataset.ldel,1);save();route(true);}});}
+
+function pgConsole(){return `<h2>Console commands</h2><p class="sub">For testing, fixing a broken save, or just having fun. Not available in Ironman, and they turn off achievements for that game.</p>
+<div class="card"><ol class="mech"><li>Load a non-Ironman game.</li><li>Press <kbd>\`</kbd> or <kbd>~</kbd> (the key under Esc; on some keyboards <kbd>Alt</kbd>+<kbd>2</kbd>+<kbd>1</kbd> or <kbd>Shift</kbd>+<kbd>3</kbd>) to open the console. No launch option needed.</li><li>Type <code>help</code> for every command in your version.</li><li><code>debugtooltip</code> shows planet, empire and fleet IDs in tooltips: you need them for commands that take an ID.</li></ol></div>
+<div class="card tbl"><table><tr><th>Command</th><th>What it does</th><th></th></tr>${CONSOLE.map(c=>`<tr><td>${mark(c[2])} <code>${esc(c[0])}</code></td><td>${esc(c[1])}</td><td><button data-copy="${esc(c[0])}" title="Copy">Copy</button></td></tr>`).join('')}</table></div>
+<div class="note">Command names change now and then. If one doesn't work, <code>help</code> lists the current ones.</div>`;}
+function consoleWire(){document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{try{navigator.clipboard.writeText(b.dataset.copy);b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1200);}catch(e){}});}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Which neighbour to befriend, the chokepoint to fortify, the design that beat the Prethoryn, when the end-game year is...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+const RENDER={home:pgHome,guides:null,origins:pgOrigins,timeline:pgTimeline,glossary:pgGlossary,builder:pgBuilder,ethics:pgEthics,civics:pgCivics,traits:pgTraits,habitability:pgHabitability,economy:pgEconomy,tech:pgTech,traditions:pgTraditions,leaders:pgLeaders,diplomacy:pgDiplomacy,megas:pgMegas,threats:pgThreats,exploration:pgExploration,combat:pgCombat,ships:pgShips,war:pgWar,dlc:pgDlc,campaign:pgCampaign,log:pgLog,console:pgConsole,notes:pgNotes};
+const WIRE={origins:originsWire,timeline:timelineWire,glossary:glossWire,builder:builderWire,civics:civicsWire,traits:traitsWire,habitability:habWire,tech:techWire,traditions:tradWire,megas:megaWire,threats:threatsWire,exploration:explWire,combat:combatWire,campaign:campWire,log:logWire,console:consoleWire,notes:()=>{$('nt').oninput=e=>{S.notes=e.target.value;save();};}};
+function route(keepScroll){
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=REAL.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main'),top=m.scrollTop;
+  m.innerHTML=page==='guides'?pgGuides(sub):RENDER[page]();
+  m.scrollTop=keepScroll===true?top:0;
+  m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();if(page==='threats')route(true);};});
+  if(WIRE[page])WIRE[page]();
+}
+window.addEventListener('hashchange',()=>route());
+route();
+</script>
+</body>
+</html>

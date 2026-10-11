@@ -32,6 +32,7 @@
     { re: /^conanexiles/, href: '/assistants/conan-exiles/', icon: '⚔️' },
     { re: /^valheim/, href: '/assistants/valheim/', icon: '🪓' },
     { re: /^crusaderkings(iii|3)/, href: '/assistants/crusader-kings-3/', icon: '👑' },
+    { re: /^stellaris/, href: '/assistants/stellaris/', icon: '🪐' },
     { re: /^minecraft(launcher|forwindows|uwp|javaedition|bedrock(edition)?)?$/, href: '/assistants/minecraft/', icon: '⛏️' },
   ];
 
