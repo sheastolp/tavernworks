@@ -137,11 +137,6 @@ const ITEMS=[
 {n:'Antidote',c:'Medical',conf:true,d:'Removes 35 Poison.'},
 {n:'Cure-All',c:'Medical',conf:true,d:'Removes 35 each of Poison, Injury, Drowsy, Cold and Heat, 20 Hunger and 5 Curse.'},
 {n:'Sunscreen',c:'Medical',conf:true,d:'Protects you from the Mesa sun\'s heat.'},
-{n:'Energy Drink',c:'Food',conf:false,d:'A burst of stamina for a hard section.'},
-{n:'Marshmallow',c:'Food',conf:true,d:'Roast at a campfire. A big hunger refill.'},
-{n:'Red Clusterberry',c:'Food',conf:true,d:'Heals 20 Injury.'},
-{n:'Bugle Shroom',c:'Food',conf:true,d:'Poisonous: about 20 Poison over a few seconds after a delay. Don\'t eat it.'},
-{n:'Granola Bar',c:'Food',conf:false,d:'Light, filling and safe.'},
 {n:'Lantern',c:'Tool',conf:true,d:'Light for dark climbs. Keeps you warm too.'},
 {n:'Flare',c:'Tool',conf:true,d:'Fire it at the Peak to call the helicopter. There are none at the top from Ascent 4 on, so carry one up.'},
 {n:'Compass',c:'Tool',conf:true,d:'Points up the mountain.'},
@@ -153,6 +148,33 @@ const ITEMS=[
 {n:'Cursed Skull',c:'Mystic',conf:false,d:'Powerful, but it Curses you.'},
 {n:'Bing Bong',c:'Mystic',conf:true,d:'The mascot. Carry him to the top.'}
 ];
+
+/* Food. safe: yes | no (poisonous) | look (depends on how it looks).
+   Cooking at a campfire or Portable Stove roughly doubles the hunger a food restores. */
+const FOOD=[
+{n:'Marshmallow',w:'Luggage',safe:'yes',conf:true,d:'Roast it at a campfire for a big hunger refill.'},
+{n:'Airline Food',w:'Luggage',safe:'yes',conf:false,d:'A big hunger refill and some stamina.'},
+{n:'Granola Bar',w:'Luggage',safe:'yes',conf:false,d:'Refills hunger and gives a little extra stamina. Light to carry.'},
+{n:'Trail Mix',w:'Luggage',safe:'yes',conf:false,d:'Refills hunger and gives a little extra stamina.'},
+{n:'Energy Drink',w:'Luggage',safe:'yes',conf:false,d:'A burst of stamina for a hard section.'},
+{n:'Big Lollipop',w:'Luggage',safe:'yes',conf:false,d:'Unlimited stamina for a short time, then you\'re worn out. Save it for the hardest wall.'},
+{n:'Coconut',w:'Palm trees on the Shore',safe:'yes',conf:true,d:'Throw it to crack it open, then eat the halves. Cook the halves for more.'},
+{n:'Honeycomb',w:'Beehives in the treetops',safe:'yes',conf:true,d:'Restores a lot of stamina and gives bonus stamina. The bees sting, so grab it and go.'},
+{n:'Red Crispberry',w:'Bushes on the Shore and in the Tropics',safe:'yes',conf:true,d:'Safe to eat. A small hunger refill.'},
+{n:'Green Crispberry',w:'Bushes on the Shore and in the Tropics',safe:'no',conf:true,d:'Poisonous. Leave it.'},
+{n:'Red Clusterberry',w:'Bushes',safe:'yes',conf:true,d:'Heals 20 Injury.'},
+{n:'Purple Kingberry',w:'Trees in the Tropics',safe:'yes',conf:false,d:'A large hunger refill and extra stamina.'},
+{n:'Yellow Kingberry',w:'Trees in the Tropics',safe:'no',conf:false,d:'Fills you up but poisons you (about 25 Poison raw).'},
+{n:'Green Kingberry',w:'Trees in the Tropics',safe:'no',conf:false,d:'Fills you up but poisons you.'},
+{n:'Orange Winterberry',w:'Trees in the Alpine',safe:'yes',conf:false,d:'Safe to eat. Refills hunger.'},
+{n:'Yellow Winterberry',w:'The Alpine',safe:'yes',conf:false,d:'A large hunger refill, extra stamina, and it heals Injury and stops burning.'},
+{n:'Button Shroom',w:'The ground, lower biomes',safe:'look',conf:false,d:'Safe if its cap has an X on it. Spotty with no X means poison.'},
+{n:'Cluster Shroom',w:'The ground, lower biomes',safe:'look',conf:false,d:'Safe if the stalk is smooth. A frilly stalk means poison.'},
+{n:'Chubby Shroom',w:'The ground, lower biomes',safe:'yes',conf:false,d:'No poisonous version known.'},
+{n:'Bugle Shroom',w:'The ground, lower biomes',safe:'no',conf:true,d:'Poisonous: about 20 Poison over a few seconds after a delay. Don\'t eat it.'}
+];
+ITEMS.push(...FOOD.map(f=>({n:f.n,c:'Food',conf:f.conf,d:f.d})));
+const SAFE={yes:'<span class="ok">Safe</span>',no:'<span class="bad">Poison</span>',look:'<span style="color:var(--warn)">Check it</span>'};
 
 /* Ascents. Each one keeps every modifier below it. */
 const ASCENTS=[
@@ -204,10 +226,10 @@ const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 const mark=c=>c?'<span class="conf" title="Wiki or published guides">●</span>':'<span class="unv" title="Player reports; check in-game">○</span>';
 
 /* ================= PAGES ================= */
-const PAGES=[['home','Home'],['today',"Today's Mountain"],['guides','Guides'],['biomes','Biomes'],['afflictions','Afflictions'],['items','Items'],['ascents','Ascents'],['prep','Pre-climb Checklist'],['runs','Run Log'],['notes','My Notes']];
+const PAGES=[['home','Home'],['today',"Today's Mountain"],['guides','Guides'],['biomes','Biomes'],['afflictions','Afflictions'],['items','Items'],['food','Food'],['ascents','Ascents'],['prep','Pre-climb Checklist'],['runs','Run Log'],['notes','My Notes']];
 function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>PEAK<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
 
-const TILE={today:'Which biomes are on the mountain today. Report what you see',guides:'Climbing, teamwork, campfires and what to carry',biomes:'Every level from the Shore to the Peak, with hazards',afflictions:'What eats your stamina, and what cures it',items:'Climbing gear, food, medicine and mystic items',ascents:'What each difficulty adds',prep:'Run through it at the plane crash',runs:'Log your attempts and your best climb',notes:'Your own notes'};
+const TILE={today:'Which biomes are on the mountain today. Report what you see',guides:'Climbing, teamwork, campfires and what to carry',biomes:'Every level from the Shore to the Peak, with hazards',afflictions:'What eats your stamina, and what cures it',items:'Climbing gear, food, medicine and mystic items',food:'What\'s safe to eat, what poisons you, and cooking',ascents:'What each difficulty adds',prep:'Run through it at the plane crash',runs:'Log your attempts and your best climb',notes:'Your own notes'};
 function pgHome(){const wins=S.runs.filter(r=>r.top===6).length;
 return `${TWArt.hero(3527290,'PEAK')}<h2>PEAK Assistant</h2><p class="sub">A companion for <i>PEAK</i>, the co-op climbing game. Your checklists, runs and notes are saved on this device.</p>
 <div class="stats"><div class="stat"><small>Today's mountain</small>${todaySummary()}</div><div class="stat"><small>Runs logged</small>${S.runs.length}</div><div class="stat"><small>Summits</small>${wins}</div><div class="stat"><small>Highest Ascent summited</small>${bestAscent()}</div></div>
@@ -325,7 +347,20 @@ const CAT=['Climbing','Medical','Food','Tool','Mystic'];
 function pgItems(){return `<h2>Items</h2><p class="sub">Found in luggage on the way up. Search or filter by kind.</p>
 <div class="row"><input id="iq" type="text" style="width:260px" placeholder="Search (e.g. poison, rope)"><select id="ic"><option value="">All kinds</option>${CAT.map(c=>`<option>${c}</option>`).join('')}</select><span class="dim" id="icn"></span></div>
 <div class="card tbl"><table><thead><tr><th>Item</th><th>Kind</th><th>What it does</th></tr></thead><tbody id="il"></tbody></table></div>
-<div class="note">There are well over a hundred items. This list covers the ones that matter most on a run.</div>`;}
+<div class="note">There are well over a hundred items. This list covers the ones that matter most on a run. See <a href="#food">Food</a> for what's safe to eat.</div>`;}
+function pgFood(){return `<h2>Food</h2><p class="sub">Hunger takes a slice of your stamina bar. Eat before it gets big.</p>
+<div class="card"><ul style="margin:0;padding-left:20px"><li>Cook food at a campfire or a Portable Stove. Cooking roughly doubles the hunger it restores.</li>
+<li>Not sure about a berry or mushroom? Leave it, or let one scout with an Antidote try it.</li>
+<li>Nothing grows in the Kiln. Carry spare food up from below.</li><li>From Ascent 2, hunger grows 60% faster. Pack more.</li></ul></div>
+<div class="row"><input id="fq" type="text" style="width:260px" placeholder="Search (e.g. berry, Alpine)"><select id="fs"><option value="">Safe or not</option><option value="yes">Safe</option><option value="no">Poison</option><option value="look">Check it</option></select><span class="dim" id="fcn"></span></div>
+<div class="card tbl"><table><thead><tr><th>Food</th><th>Eat it?</th><th>Where</th><th>What it does</th></tr></thead><tbody id="fl"></tbody></table></div>
+<div class="note">Food stats change between patches and guides disagree on some berries. Trust what you see in-game first.</div>`;}
+function foodRender(){
+  const q=$('fq').value.toLowerCase(),sf=$('fs').value;
+  const r=FOOD.filter(f=>(!sf||f.safe===sf)&&(!q||[f.n,f.w,f.d].join(' ').toLowerCase().includes(q)));
+  $('fcn').textContent=r.length+' food'+(r.length===1?'':'s');
+  $('fl').innerHTML=r.map(f=>`<tr><td>${mark(f.conf)} <b>${esc(f.n)}</b></td><td>${SAFE[f.safe]}</td><td>${esc(f.w)}</td><td>${esc(f.d)}</td></tr>`).join('')||'<tr><td colspan="4" class="dim">Nothing matches.</td></tr>';
+}
 function itemsRender(){
   const q=$('iq').value.toLowerCase(),c=$('ic').value;
   const r=ITEMS.filter(i=>(!c||i.c===c)&&(!q||[i.n,i.c,i.d].join(' ').toLowerCase().includes(q)));
@@ -357,12 +392,13 @@ function route(){
   const page=PAGES.some(p=>p[0]===pg)?pg:'home';
   buildNav(page);
   const m=$('main');
-  m.innerHTML=({home:pgHome,today:pgToday,guides:()=>pgGuides(sub),biomes:()=>pgBiomes(sub),afflictions:pgAfflictions,items:pgItems,ascents:pgAscents,prep:pgPrep,runs:pgRuns,notes:pgNotes})[page]();
+  m.innerHTML=({home:pgHome,today:pgToday,guides:()=>pgGuides(sub),biomes:()=>pgBiomes(sub),afflictions:pgAfflictions,items:pgItems,food:pgFood,ascents:pgAscents,prep:pgPrep,runs:pgRuns,notes:pgNotes})[page]();
   m.scrollTop=0;
   m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
   m.querySelectorAll('input[type=checkbox][data-l]').forEach(cb=>{cb.onchange=()=>{S.prep[cb.dataset.l]=cb.checked;save();const d=PREP.filter((_,i)=>S.prep[i]).length;$('ldone').textContent=d+' of '+PREP.length+' ready';$('lbar').style.width=d/PREP.length*100+'%';};});
   if(page==='today')todayWire(m);
   if(page==='items'){$('iq').oninput=itemsRender;$('ic').onchange=itemsRender;itemsRender();}
+  if(page==='food'){$('fq').oninput=foodRender;$('fs').onchange=foodRender;foodRender();}
   if(page==='runs'){
     if(S.lastAsc)$('ra').value=S.lastAsc;
     $('rf').onsubmit=e=>{e.preventDefault();S.lastAsc=$('ra').value;const tb=todayRep();S.runs.push({asc:S.lastAsc,top:+$('rt').value,note:$('rn').value.trim(),at:new Date().toISOString(),biomes:tb?SWAP.map(l=>tb[l]).filter(Boolean):[]});save();route();};
