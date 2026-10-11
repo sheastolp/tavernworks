@@ -24,8 +24,8 @@
   const API = "https://www.googleapis.com/drive/v3", UP = "https://www.googleapis.com/upload/drive/v3/files";
   const FILE = "assistants.json", FORMAT = "tavernworks-assistants-sync";
   const KEY = "tw.sync", TOKEN_KEY = "tw.sync.token";
-  // The assistants' saved data: library, companions, Stationeers, Oddsparks, Icarus, How to Fish, Raft, PEAK, Conan Exiles, Valheim, Crusader Kings III, Stellaris, Dragonwilds, Minecraft.
-  const BUILT_IN = /^(tw\.library|tw\.companion\..+|sa_state|osa_state|ica_state|htf_state|raft_state|peak_state|ce_state|vh_state|ck3_state|stel_state|dw_state|mca_[a-z]+)$/;
+  // The assistants' saved data: library, companions, Stationeers, Oddsparks, Icarus, How to Fish, Raft, PEAK, Conan Exiles, Valheim, Crusader Kings III, Stellaris, Dragonwilds, Hollow Knight, Silksong, Minecraft.
+  const BUILT_IN = /^(tw\.library|tw\.companion\..+|sa_state|osa_state|ica_state|htf_state|raft_state|peak_state|ce_state|vh_state|ck3_state|stel_state|dw_state|hk_state|ss_state|mca_[a-z]+)$/;
   // A page can name its own keys too (<script src=sync.js data-track="a_state b_state">), so a
   // new assistant syncs even before this list learns about it.
   const EXTRA = new Set(((document.currentScript && document.currentScript.dataset.track) || "").split(/[\s,]+/).filter(Boolean));

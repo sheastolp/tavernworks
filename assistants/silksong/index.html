@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Silksong Assistant · Tavernworks</title>
+<meta name="description" content="Hollow Knight: Silksong Assistant: Pharloom region by region on a map, bosses across all three acts with prep checklists, how to reach Act 2 and Act 3, all five endings, crests, Ancestral Arts and Silk Skills, a tool tracker by colour, needle upgrades and Pale Oil, mask shards and spool fragments, a flea tracker, a wish log, a rosary shopping list, updates and Sea of Sorrow, progression and notes. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧵</text></svg>">
+<style>
+:root{--bg:#120a0c;--panel:#1c1114;--panel2:#271619;--line:#40252a;--tx:#f3e6e6;--dim:#b0959a;--acc:#e0464f;--acc-ink:#fff5f5;--acc2:#e9b07a;--ok:#8fcf9a;--warn:#f2c14e;--err:#ff8a7a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:215px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:7px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#nav .grp{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:12px 10px 2px}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#nav .grp{display:none}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#0b0607;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number],input[type=search]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.tag.red{background:#3a1418;color:#ff9b9b}.tag.blue{background:#14232c;color:#9cc9dc}.tag.yellow{background:#2c2614;color:#f0d583}.tag.white{background:#2a2a2e;color:#e8e8ee}
+.note{border-left:3px solid var(--warn);background:#221d0f;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+a.mob{font-weight:600;color:var(--acc2);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.stat .big{font:600 20px/1.2 Consolas,"Cascadia Mono",monospace}
+.mech li{margin:4px 0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chips button{border-radius:999px;padding:3px 11px;font-size:13px}
+.chips button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.big2{font:600 26px/1.2 Consolas,"Cascadia Mono",monospace;color:var(--acc2)}
+.pips{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}
+.pip{width:16px;height:16px;border-radius:50%;border:2px solid var(--acc);background:transparent}
+.pip.f{background:var(--acc)}
+.cnt{display:inline-flex;align-items:center;gap:6px}
+.cnt b{min-width:52px;text-align:center;font:600 18px Consolas,monospace}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js?v=2" data-track="ss_state"></script>
+<script src="/assistants/art.js"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   conf: true  = Team Cherry's patch notes and announcements, or several guides and the wiki agree.
+   conf: false = guides disagree, a single source, or the exact spot is fuzzy; check in-game.
+   Written against the 1.0 release (4 September 2025) and its patches up to spring 2026.
+   Silksong is big and guides still disagree on boss order, crest routes and tool colours,
+   so a lot here is marked ○. Sea of Sorrow, the free expansion, isn't out as of writing. */
+
+/* Regions of Pharloom. act = when you first get in. x,y place them on the map (south is down). */
+const REGIONS=[
+{id:'moss',n:'Moss Grotto',act:1,x:60,y:420,col:'#5f8a4a',conf:true,d:"Where Hornet wakes. A short, mossy tutorial area with the first boss.",boss:['mossmother'],
+ tips:["Learn to bind (heal) with a full silk spool: it restores three masks at once.","Break everything; shell shards refill your tools at benches."]},
+{id:'marrow',n:'The Marrow',act:1,x:170,y:410,col:'#a8977a',conf:true,d:"Bone-strewn caverns east of Moss Grotto. The Bell Beast blocks the way and Bone Bottom, the first village, sits nearby.",boss:['bellbeast','skulltyrant'],
+ tips:["Beating the Bell Beast opens the Bellways, Pharloom's fast travel.","Bone Bottom has a shop and a bench; buy a map from Shakra when you hear her humming."]},
+{id:'bonebottom',n:'Bone Bottom',act:1,x:110,y:330,col:'#c9b48a',fg:'#1c1114',conf:true,d:"The first village: a bench, a shop and the way up to Mosshome, where the Silkspear waits.",items:['Silkspear (top of Mosshome)'],tips:["Come back here between trips; the shop stock grows."]},
+{id:'docks',n:'Deep Docks',act:1,x:270,y:445,col:'#8a5a3a',conf:true,d:"Hot, lava-lit docks. Lace's first fight and Swift Step (the dash).",boss:['lace1'],items:['Swift Step'],
+ tips:["Swift Step is in the east of the Docks, past a lever and a hot-coal jumping section.","The Forebrothers Signis and Gron are here too (optional, Act 2)."]},
+{id:'farfields',n:'Far Fields',act:1,x:50,y:245,col:'#b8a050',fg:'#1c1114',conf:true,d:"Windy fields on Pharloom's west side. The Fourth Chorus wakes here.",boss:['fourthchorus'],
+ tips:["The Fourth Chorus fight uses moving platforms; don't chase it."]},
+{id:'greymoor',n:'Greymoor',act:1,x:300,y:250,col:'#6f7480',conf:true,d:"A grey, rainy marsh in the middle of Pharloom. Moorwing, the Reaper chapel and Halfway Home.",boss:['moorwing'],items:['Reaper Crest (chapel in the far west)'],
+ tips:["The Reaper chapel needs some easy platforming to reach.","Team Cherry made Moorwing a little easier in an early patch."]},
+{id:'shellwood',n:'Shellwood',act:1,x:170,y:180,col:'#5a9a7a',conf:true,d:"A forest of hollow shells. Sister Splinter guards it and Cling Grip lies past her.",boss:['splinter','seth'],items:['Cling Grip (wall jump)'],
+ tips:["Splinter was made a little easier in the first patch.","In Act 3 Shrine Guardian Seth waits here (○)."]},
+{id:'bellhart',n:'Bellhart',act:1,x:290,y:175,col:'#c7704f',conf:true,d:"A town of bells under siege by the Widow. Beat her for the Needolin. Later it becomes a hub with a home you can unlock.",boss:['widow'],items:['Needolin','Pinmaster Plinney (needle upgrades)'],
+ tips:["Plinney sharpens your needle for free once Bellhart is freed.","The Bellhart wishwall is where the Silk and Soul wish appears."]},
+{id:'hunters',n:'Hunter\'s March',act:1,x:370,y:330,col:'#7a5a3a',conf:true,d:"A hunting ground full of aggressive bugs. The Chapel of the Beast holds the Savage Beastfly and the Beast Crest.",boss:['beastfly','karmelita'],items:['Beast Crest'],
+ tips:["Many enemies here hit hard; bring tools."]},
+{id:'wormways',n:'Wormways',act:1,x:235,y:330,col:'#6a4e5a',conf:false,d:"Twisting tunnels under Greymoor and the Marrow. Mostly a connector.",tips:["Map it out with Shakra's map; it's easy to get turned around."]},
+{id:'blasted',n:'Blasted Steps',act:1,x:470,y:250,col:'#c9a070',fg:'#1c1114',conf:true,d:"Sun-blasted steps on the east side that lead up to the Grand Gate. The Last Judge guards the way to the Citadel.",boss:['lastjudge'],
+ tips:["The Last Judge ends Act 1. Stock up on tools first.","The Pinstress teaches Needle Strike in the area (○)."]},
+{id:'sinners',n:'Sinner\'s Road',act:1,x:400,y:400,col:'#5a4a6e',conf:false,d:"A grim road to the south-east, towards Bilewater.",tips:["Acid and traps; watch your step."]},
+{id:'bilewater',n:'Bilewater',act:1,x:520,y:410,col:'#5a7a3a',conf:true,d:"A foul swamp. Groal the Great lurks here, and the Twisted Bud, which starts the Witch Crest route.",boss:['groal'],
+ tips:["Bilewater is famously unpleasant. Many players leave it for later.","The Twisted Bud leads to the Twisted Child ending. It must be done before Act 3."]},
+{id:'slab',n:'The Slab',act:2,x:60,y:140,col:'#4a4f5c',conf:true,d:"A prison in the north-west. The First Sinner waits at its heart and gives Rune Rage.",boss:['sinner'],items:['Rune Rage'],
+ tips:["Getting to the First Sinner needs the Faydown Cloak and the Apostate's Key from the Putrified Ducts (○)."]},
+{id:'fay',n:'Mount Fay',act:2,x:220,y:95,col:'#b8c8d8',fg:'#1c1114',conf:true,d:"A freezing mountain climb. The Faydown Cloak (double jump) is at the top.",items:['Faydown Cloak'],
+ tips:["The cold drains you: keep moving and use the warm spots."]},
+{id:'karak',n:'Sands of Karak',act:1,x:560,y:320,col:'#d8b070',fg:'#1c1114',conf:false,d:"A desert in the far east. Great Conchflies, Voltvyrm and coral.",boss:['conchflies','voltvyrm'],tips:["Crust King Khann's memory arena is linked to this area in Act 3 (○)."]},
+{id:'citadel',n:'The Citadel',act:2,x:390,y:105,col:'#c9a0b8',fg:'#1c1114',conf:true,d:"The great city at the top of Pharloom, through the Grand Gate. It's made of districts: Choral Chambers, the Underworks, Songclave, Whiteward, High Halls, the Memorium, Whispering Vaults and the Cogwork Core.",boss:['dancers','trobbio','sentinel','unravelled'],items:['Architect Crest (Underworks)','Pale Oil (Whispering Vaults, Choral Chambers)','Clawline (○)'],
+ tips:["Open the Grand Gate with the Needolin.","Songclave becomes a hub; the Caretaker there is part of Silk and Soul."]},
+{id:'wisp',n:'Wisp Thicket',act:2,x:160,y:265,col:'#4a6a8a',conf:false,d:"A ghostly wood. The Father of the Flame burns here.",boss:['fatherflame'],tips:["Bring fire protection if you have it (Magma Bell ○)."]},
+{id:'ducts',n:'Putrified Ducts',act:2,x:490,y:170,col:'#6a7a4a',conf:true,d:"Sewers under the Citadel. The Apostate's Key and, in Act 3, the Flea Caravan's last stop brings the third Pale Oil.",tips:["The third Pale Oil comes from the Flea Caravan here in Act 3."]},
+{id:'cradle',n:'The Cradle',act:2,x:390,y:30,col:'#e0464f',conf:true,d:"The summit above the Citadel. Lace again, then Grand Mother Silk.",boss:['lace2','gms'],tips:["Do anything you need for Act 3 before you climb: Silk and Soul, and the Twisted Child curse if you want that ending."]},
+{id:'abyss',n:'The Abyss',act:3,x:390,y:480,col:'#1a1418',fg:'#f3e6e6',conf:true,d:"The void under Pharloom, open in Act 3. Lost Lace waits at the end.",boss:['lostlace'],tips:["You need the Everbloom for the Sister of the Void ending."]}
+];
+
+/* Bosses. req: the story needs it. */
+const BOSSES=[
+{id:'mossmother',n:'Moss Mother',act:1,reg:'moss',req:true,conf:true,rew:'Your first silk skill route opens',tip:"Watch her dive and slam; hit her when she lands.",prep:['Learn to bind (heal)']},
+{id:'bellbeast',n:'Bell Beast',act:1,reg:'marrow',req:true,conf:true,rew:'Opens the Bellways (fast travel)',tip:"It charges in straight lines; jump over and hit it from behind.",prep:['A few Straight Pins']},
+{id:'lace1',n:'Lace',act:1,reg:'docks',req:true,conf:true,rew:'The way on through the Docks',tip:"She's fast and parries. Wait for her lunge, dodge, punish.",prep:['Full masks','Tools stocked']},
+{id:'fourthchorus',n:'Fourth Chorus',act:1,reg:'farfields',req:true,conf:true,rew:'The way on through Far Fields',tip:"Stay on the platforms and hit the hands, then the head.",prep:[]},
+{id:'beastfly',n:'Savage Beastfly',act:1,reg:'hunters',req:false,conf:true,rew:'Beast Crest',tip:"It brings friends. A patch made them die with the boss.",prep:['Area damage tools']},
+{id:'moorwing',n:'Moorwing',act:1,reg:'greymoor',req:false,conf:true,rew:'Greymoor route',tip:"Made slightly easier in an early patch. Stay mobile.",prep:[]},
+{id:'splinter',n:'Sister Splinter',act:1,reg:'shellwood',req:true,conf:true,rew:'Cling Grip (wall jump) beyond her',tip:"Made slightly easier in an early patch. Kill the shell minions she raises.",prep:[]},
+{id:'widow',n:'Widow',act:1,reg:'bellhart',req:true,conf:true,rew:'Needolin; Bellhart freed',tip:"Her bells and threads cover the floor: jump between them.",prep:['Cling Grip','Full silk to bind']},
+{id:'skulltyrant',n:'Skull Tyrant',act:1,reg:'marrow',req:false,conf:false,rew:'Rosaries and loot',tip:"A big brute; pogo on it.",prep:[]},
+{id:'conchflies',n:'Great Conchflies',act:1,reg:'karak',req:false,conf:false,rew:'Sands of Karak route',tip:"Two flyers at once; focus one.",prep:[]},
+{id:'phantom',n:'Phantom',act:1,reg:'blasted',req:false,conf:false,rew:'Cross Stitch (silk skill, ○)',tip:"A parry-heavy duel in the Exhaust Organ. Learn its rhythm.",prep:[]},
+{id:'lastjudge',n:'Last Judge',act:1,reg:'blasted',req:true,conf:true,rew:'Opens the Citadel and Act 2',tip:"The end of Act 1. Bring every tool you have.",prep:['Needle upgraded','Tools stocked','Plenty of rosaries banked']},
+{id:'groal',n:'Groal the Great',act:2,reg:'bilewater',req:false,conf:false,rew:'Bilewater route',tip:"Fought in the swamp's water; watch your footing.",prep:[]},
+{id:'dancers',n:'Cogwork Dancers',act:2,reg:'citadel',req:true,conf:true,rew:'The way into the Citadel',tip:"Two dancers in sync; watch their pattern and slip between.",prep:[]},
+{id:'trobbio',n:'Trobbio',act:2,reg:'citadel',req:true,conf:true,rew:'Story progress (the Stage by the Choral Chambers)',tip:"Theatrical and flashy; his fireworks have tells.",prep:[]},
+{id:'sinner',n:'First Sinner',act:2,reg:'slab',req:false,conf:true,rew:'Rune Rage (silk skill)',tip:"Reached through the Slab with the Faydown Cloak and Apostate's Key.",prep:['Faydown Cloak','Apostate\'s Key']},
+{id:'sentinel',n:'Second Sentinel',act:2,reg:'citadel',req:false,conf:false,rew:'Part of the Act 3 route (Coghearts, ○)',tip:"Fix it with three Coghearts in the Cogwork Core.",prep:['Three Coghearts']},
+{id:'unravelled',n:'The Unravelled',act:2,reg:'citadel',req:false,conf:false,rew:'Whiteward secrets',tip:"Fought in Whiteward.",prep:[]},
+{id:'fatherflame',n:'Father of the Flame',act:2,reg:'wisp',req:false,conf:false,rew:'Wisp Thicket loot',tip:"Fire everywhere; protection helps.",prep:[]},
+{id:'voltvyrm',n:'Voltvyrm',act:2,reg:'karak',req:false,conf:false,rew:'Sands of Karak loot',tip:"Electric attacks; don't stand in the water.",prep:[]},
+{id:'lace2',n:'Lace (second fight)',act:2,reg:'cradle',req:true,conf:true,rew:'The climb to Grand Mother Silk',tip:"Faster than in the Docks, with new moves.",prep:[]},
+{id:'gms',n:'Grand Mother Silk',act:2,reg:'cradle',req:true,conf:true,rew:'An ending; with Silk and Soul done and the Needolin, Act 3',tip:"Decide your ending first. To reach Act 3, finish Silk and Soul and use the Needolin at the end.",prep:['Silk and Soul done (for Act 3)','Decide on Twisted Child first']},
+{id:'seth',n:'Shrine Guardian Seth',act:3,reg:'shellwood',req:true,conf:false,rew:'Act 3 story',tip:"Fast and aggressive.",prep:[]},
+{id:'nyleth',n:'Nyleth',act:3,reg:'farfields',req:true,conf:false,rew:'A heart for the Everbloom (memory)',tip:"One of the memory bosses the Snail Shamans point you to.",prep:[]},
+{id:'khann',n:'Crust King Khann',act:3,reg:'karak',req:true,conf:false,rew:'A heart for the Everbloom (memory)',tip:"A memory boss.",prep:[]},
+{id:'karmelita',n:'Skarrsinger Karmelita',act:3,reg:'hunters',req:true,conf:false,rew:'A heart for the Everbloom (memory)',tip:"A memory boss.",prep:[]},
+{id:'clover',n:'Clover Dancers',act:3,reg:'farfields',req:false,conf:false,rew:'The fourth, hidden heart (○)',tip:"The memory boss the Shamans don't tell you about.",prep:[]},
+{id:'ttrobbio',n:'Tormented Trobbio',act:3,reg:'citadel',req:false,conf:false,rew:'Act 3 extra',tip:"Trobbio again, angrier.",prep:[]},
+{id:'pinstress',n:'Pinstress',act:3,reg:'blasted',req:false,conf:false,rew:'Act 3 extra',tip:"A needle duel.",prep:[]},
+{id:'belleater',n:'Bell Eater',act:3,reg:'marrow',req:false,conf:false,rew:'Act 3 extra',tip:"Lurks in the Bellways.",prep:[]},
+{id:'lostlace',n:'Lost Lace',act:3,reg:'abyss',req:true,conf:true,rew:'The Sister of the Void ending',tip:"The final fight of Act 3.",prep:['Everbloom','Best needle','Everything stocked']}
+];
+
+const CRESTS=[
+{n:'Hunter',where:'You start with it',d:'Balanced. Eva can add slots to crests as you go.',conf:true},
+{n:'Reaper',where:'Chapel of the Reaper, far west Greymoor',d:'Wide, slow scythe swings; binding gives a burst of extra silk.',conf:true},
+{n:'Wanderer',where:'A chapel near Bone Bottom (guides differ on the exact spot)',d:'Short, very fast strikes.',conf:false},
+{n:'Beast',where:'Chapel of the Beast, Hunter\'s March (Savage Beastfly)',d:'Heavy hits; binding becomes a fury that heals as you hit.',conf:true},
+{n:'Witch',where:'Bilewater route: the Twisted Bud and Yarnaby (guides differ)',d:'Whip-like reach; binding lashes nearby enemies.',conf:false},
+{n:'Architect',where:'Underworks, the Citadel: buy enough from the Twelfth Architect to unlock the door',d:'Drill-like charged attacks; binding rebuilds your tools.',conf:true},
+{n:'Shaman',where:'Act 3: the Ruined Chapel left of Bone Bottom\'s entrance (Silk Soar, two breakable walls)',d:'Silk Skills shine; good for a spell build.',conf:true},
+{n:'Cursed',where:'The Twisted Child route (not one you choose)',d:'A curse rather than a crest: no tool slots and no binding.',conf:false}
+];
+
+/* Ancestral Arts (movement) and Silk Skills, in rough order. */
+const ARTS=[
+['Swift Step','Dash','Deep Docks, east',1,true],
+['Drifter\'s Cloak','Glide','Act 1 (○ exact spot)',1,false],
+['Cling Grip','Wall jump','Shellwood, past Sister Splinter',1,true],
+['Needolin','Play a song; opens the Grand Gate and many secrets','Widow, Bellhart',1,true],
+['Needle Strike','Charged needle attack','The Pinstress (○)',1,false],
+['Clawline','Grapple to points','The Citadel (○)',2,false],
+['Faydown Cloak','Double jump','Top of Mount Fay',2,true],
+['Silk Soar','Super jump','Act 2 (○)',2,false],
+['Sylphsong','Act 3 upgrade','Eva (○)',3,false],
+['Everbloom','Repels the Void; needed for Sister of the Void','Manifested with three hearts from memory bosses',3,true]
+];
+const SKILLS=[
+['Silkspear','Throws a silk spear','Top of Mosshome, Bone Bottom',true],
+['Thread Storm','Silk whirls around you','Act 1 (○)',false],
+['Cross Stitch','A counter-slash','Phantom, Exhaust Organ (○)',false],
+['Sharpdart','A dashing strike','A Weaver statue (○)',false],
+['Rune Rage','Silk runes rain down','First Sinner, the Slab',true],
+['Pale Nails','Homing pale nails','Act 3, needs Silk Soar',true]
+];
+
+/* Tools by colour. Red = attack, blue = passive and defence, yellow = exploration and utility. */
+const TOOLS=[
+['Straight Pin','red',true],['Threefold Pin','red',false],['Sting Shard','red',false],['Tacks','red',false],['Longpin','red',false],['Curveclaw','red',false],['Throwing Ring','red',false],['Pimpillo','red',false],['Conchcutter','red',false],['Silkshot','red',false],['Delver\'s Drill','red',false],['Cogwork Wheel','red',false],['Rosary Cannon','red',false],['Voltvessels','red',false],['Flintslate','red',false],
+['Druid\'s Eye','blue',false],['Magma Bell','blue',true],['Warding Bell','blue',false],['Pollip Pouch','blue',false],['Fractured Mask','blue',false],['Multibinder','blue',false],['Weavelight','blue',false],['Sawtooth Circlet','blue',false],['Injector Band','blue',false],['Spool Extender','blue',false],['Reserve Bind','blue',false],['Claw Mirror','blue',false],['Volt Filament','blue',false],['Quick Sling','blue',false],['Longclaw','blue',false],['Wispfire Lantern','blue',false],['Egg of Flealia','blue',false],['Pin Badge','blue',false],['Snitch Pick','blue',false],
+['Compass','yellow',true],['Shard Pendant','yellow',false],['Magnetite Brooch','yellow',false],['Weighted Belt','yellow',false],['Barbed Bracelet','yellow',false],['Dead Bug\'s Purse','yellow',false],['Shell Satchel','yellow',false],['Magnetite Dice','yellow',false],['Scuttlebrace','yellow',false],['Ascendant\'s Grip','yellow',false],['Spider Strings','yellow',false],['Silkspeed Anklets','yellow',false],['Thief\'s Mark','yellow',false]
+];
+
+const NEEDLE=[['Needle',5,'Start'],['Sharpened Needle',9,'Plinney, Bellhart: free once Bellhart is freed'],['Shining Needle',13,'Plinney: 1 Pale Oil'],['Hivesteel Needle',17,'Plinney: 1 Pale Oil + rosaries'],['Pale Steel Needle',21,'Plinney: 1 Pale Oil + rosaries (Act 3)']];
+const OIL=[['Whispering Vaults','Behind a moving-box puzzle (○)'],['Choral Chambers','A secret room reached via the Whispering Vaults (○)'],['Putrified Ducts','The Flea Caravan, Act 3']];
+
+const ENDINGS=[
+['Weaver Queen','Beat Grand Mother Silk and bind her, without having done Silk and Soul.',true],
+['Snared Silk','Finish the Silk and Soul wish, beat Grand Mother Silk and use the Needolin to snare her. Your save carries on into Act 3.',true],
+['Twisted Child','Beat Grand Mother Silk while cursed (the Twisted Bud route). Do it before Act 3 or you lose the chance.',true],
+['Sister of the Void','Act 3: beat Lost Lace with the Everbloom and free Pharloom.',true],
+['Passing of the Age','Grant the Herald\'s wish and finish the game. Guides are thin on the details.',false]
+];
+
+const UPDATES=[
+['2025-09-04','1.0 release','Out on PC, Switch, Switch 2, PlayStation and Xbox, and day one on Game Pass.',true],
+['2025-09','Early patches','A slight difficulty cut for Moorwing and Sister Splinter, plus many fixes.',true],
+['2025-09-16','1.0.28626','Fixed the Liquid Lacquer courier delivery in Steel Soul mode, among other fixes.',true],
+['2025-12-15','Sea of Sorrow announced','A free expansion with a new sea area, tools and bosses, due in 2026.',true],
+['2026-03','Spring patches','Fixes such as Magma Bell covering every fire explosion and Savage Beastfly\'s minions dying with it; a bench beside Pale Lake.',false],
+['2026','Sea of Sorrow','Free for everyone who owns Silksong. No date announced as of writing.',true]
+];
+
+const PROG=[
+['Act 1','Beat Moss Mother'],['Act 1','Beat the Bell Beast and ride the Bellways'],['Act 1','Silkspear'],['Act 1','Swift Step'],['Act 1','Beat Lace in the Deep Docks'],['Act 1','Cling Grip'],['Act 1','Beat the Widow (Needolin)'],['Act 1','First needle upgrade from Plinney'],['Act 1','A second crest'],['Act 1','Beat the Last Judge'],
+['Act 2','Open the Grand Gate'],['Act 2','Beat the Cogwork Dancers'],['Act 2','Faydown Cloak'],['Act 2','Beat Trobbio'],['Act 2','Unlock your Bellhart home'],['Act 2','Fix the Second Sentinel (three Coghearts)'],['Act 2','Flea Caravan reaches Fleatopia'],['Act 2','Silk and Soul wish done'],['Act 2','Beat Lace at the Cradle'],['Act 2','Beat Grand Mother Silk'],
+['Act 3','Enter Act 3'],['Act 3','Three memory hearts'],['Act 3','Everbloom'],['Act 3','Pale Steel Needle'],['Act 3','Beat Lost Lace'],
+['Extras','All 20 Mask Shards'],['Extras','All 18 Spool Fragments'],['Extras','All 30 fleas'],['Extras','Every crest'],['Extras','Every tool']
+];
+
+const GUIDES=[
+{id:'start',title:'Your first hours',blurb:'Moss Grotto to Bellhart',body:`<ol class="mech">
+<li>Beat Moss Mother and head east into the Marrow. Beat the Bell Beast to open the Bellways.</li>
+<li>Rest in Bone Bottom and climb Mosshome for the <b>Silkspear</b>.</li>
+<li>Go down to the Deep Docks for <b>Swift Step</b> and your first fight with Lace.</li>
+<li>Head north: Far Fields, Greymoor, Shellwood (Sister Splinter and <b>Cling Grip</b>).</li>
+<li>Free Bellhart from the Widow for the <b>Needolin</b>, then visit Plinney for a free needle upgrade.</li></ol>
+<div class="tip">When you die you leave a cocoon with your rosaries. Get back to it before you die again.</div>`},
+{id:'bind',title:'Silk and binding',blurb:'Healing works differently now',body:`<p>Hornet heals by <b>binding</b>: spend a full silk spool to restore three masks at once. You build silk by hitting enemies. Silk Skills also cost silk, so pick your moment.</p><p>Spool Fragments (two per spool piece) make your spool longer. Crests change what binding does (Beast heals over hits, Architect repairs tools, Reaper gives extra silk).</p>`},
+{id:'tools',title:'Tools and crests',blurb:'Colours, slots and shell shards',body:`<p>Tools come in three colours: <span class="tag red">red</span> attacks, <span class="tag blue">blue</span> passive and defensive, <span class="tag yellow">yellow</span> exploration and utility. Each crest has its own slots for each colour.</p><p>Red tools have limited uses and refill at benches for <b>shell shards</b>. New tools are made with <b>craftmetal</b> at the Forge Daughter (○).</p>`},
+{id:'act2',title:'Reaching Act 2',blurb:'The Last Judge and the Grand Gate',body:`<p>Climb the Blasted Steps and beat the <b>Last Judge</b>. Use the Needolin at the Grand Gate to enter the Citadel. Act 2 is where the game opens wide.</p>`},
+{id:'act3',title:'Reaching Act 3',blurb:'Silk and Soul, step by step',body:`<p>Act 3 is optional and hidden. Before you fight Grand Mother Silk:</p><ul class="mech">
+<li>Finish a set of side wishes, and get the Flea Caravan to Fleatopia (guides say 20 to 25 fleas; save more to be safe) ${'<span class="unv">○</span>'}.</li>
+<li>Buy Shakra's maps and finish her quest; unlock your Bellhart home.</li>
+<li>Fix the Second Sentinel with three Coghearts in the Cogwork Core ${'<span class="unv">○</span>'}.</li>
+<li>Take <b>Silk and Soul</b> from the Bellhart wishwall, then talk to the Caretaker in Songclave.</li>
+<li>Beat Grand Mother Silk and use the <b>Needolin</b>. After the credits, load your save.</li></ul>
+<div class="note">Want the Twisted Child ending? Get cursed and beat Grand Mother Silk before you do this; Act 3 shuts that ending off.</div>`},
+{id:'everbloom',title:'The Everbloom',blurb:'Hearts from memory bosses',body:`<p>In Act 3 the Snail Shamans (the Chapel Maid, the Caretaker and the Bell Hermit) tell you about the <b>Everbloom</b>. Hornet must call it up from memory, which takes hearts from three of Pharloom's former rulers, beaten in memory arenas. The Shamans guide you to three; a fourth is hidden.</p>`},
+{id:'rosaries',title:'Rosaries and money',blurb:'Don\'t lose them',body:`<ul class="mech"><li>String rosaries into Rosary Strings to carry them safely: a string doesn't drop when you die.</li><li>Shops in Bone Bottom, Bellhart and the Citadel have the crests' upgrades and tools; plan with the <a href="#shop">shopping list</a>.</li></ul>`},
+{id:'steel',title:'Steel Soul',blurb:'Permadeath tips',body:`<ul class="mech"><li>One death ends the save.</li><li>Skip optional bosses until you're strong. Bilewater and the Last Judge are common run-enders.</li><li>An early patch fixed the Liquid Lacquer courier in Steel Soul.</li></ul>`}
+];
+
+/* ================= STATE ================= */
+let S={prog:{},bossDone:{},bossPrep:{},have:{},tools:{},shards:0,frags:0,fleas:0,needle:0,oil:{},rosaries:0,shop:[],wishes:[],notes:''};
+try{const x=JSON.parse(localStorage.getItem('ss_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('ss_state',JSON.stringify(S));}catch(e){}};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const mark=c=>c?'<span class="conf" title="Team Cherry or several guides agree">●</span>':'<span class="unv" title="Guides disagree, a single source, or a fuzzy spot; check in-game">○</span>';
+const regOf=id=>REGIONS.find(r=>r.id===id);
+const bossOf=id=>BOSSES.find(b=>b.id===id);
+const cnt=(id,v,max)=>`<span class="cnt"><button data-dec="${id}">−</button><b>${v}${max!=null?' / '+max:''}</b><button data-inc="${id}">+</button></span>`;
+const LIM={shards:20,frags:18,fleas:30};
+const masks=()=>5+Math.floor(S.shards/4);
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Home'],
+ ['_'],['guides','Guides'],['regions','Regions'],['bosses','Bosses'],['endings','Endings'],
+ ['_'],['abilities','Arts and Silk Skills'],['crests','Crests'],['tools','Tools'],['needle','Needle and Pale Oil'],['masks','Masks and spools'],
+ ['_'],['fleas','Fleas'],['wishes','Wish log'],['shop','Rosary shopping list'],['completion','Completion'],
+ ['_'],['progress','Progression'],['updates','Updates'],['notes','My Notes']];
+const GROUPS=['Pharloom','Hornet','Collecting','Your save'];
+const REAL=PAGES.filter(p=>p[0]!=='_');
+function buildNav(cur){let gi=0;$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>SILKSONG<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>id==='_'?`<div class="grp">${GROUPS[gi++]}</div>`:`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+
+const TILE={guides:'First hours, binding, tools, Act 2, Act 3, the Everbloom, rosaries, Steel Soul',regions:'Pharloom on a map, with bosses and tips',bosses:'All three acts, with prep checklists',endings:'All five and how to get them',abilities:'Ancestral Arts and Silk Skills',crests:'Every crest and where it is',tools:'Red, blue and yellow tools, ticked off',needle:'Upgrades and the three Pale Oils',masks:'Mask Shards and Spool Fragments',fleas:'Rescue all 30',wishes:'Track your wishes',shop:'What you want to buy and what it costs',completion:'Everything that counts',progress:'Moss Grotto to Lost Lace',updates:'Patches and Sea of Sorrow',notes:'Your own notes'};
+
+function pgHome(){
+  const done=PROG.filter((_,i)=>S.prog[i]).length,bosses=BOSSES.filter(b=>S.bossDone[b.id]).length,next=BOSSES.find(b=>b.req&&!S.bossDone[b.id]),tools=TOOLS.filter(t=>S.tools[t[0]]).length;
+  return `${TWArt.hero(1030300,'Hollow Knight: Silksong')}<h2>Silksong Assistant</h2><p class="sub">A companion for <i>Hollow Knight: Silksong</i>, from Moss Grotto to the Abyss. Your bosses, crests, tools, fleas, wishes, shopping list and notes are saved on this device.</p>
+<div class="stats"><div class="stat"><small>Masks</small><a class="mob big" href="#masks">${masks()}</a></div><div class="stat"><small>Needle</small><a class="mob" href="#needle">${esc(NEEDLE[S.needle][0])}</a></div><div class="stat"><small>Fleas</small><a class="mob big" href="#fleas">${S.fleas} / 30</a></div><div class="stat"><small>Tools</small><a class="mob big" href="#tools">${tools}</a></div><div class="stat"><small>Bosses down</small><a class="mob big" href="#bosses">${bosses} / ${BOSSES.length}</a></div><div class="stat"><small>Next story boss</small>${next?`<a class="mob" href="#bosses/${next.id}">${esc(next.n)}</a>`:'<span class="ok">All done</span>'}</div><div class="stat"><small>Progression</small><a class="mob" href="#progress">${done} of ${PROG.length}</a></div><div class="stat"><small>Wishes open</small><a class="mob big" href="#wishes">${S.wishes.filter(w=>!w.done).length}</a></div></div>
+<div class="grid">${REAL.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> are from Team Cherry or several sources that agree. Facts marked <span class="unv">○</span> come from one source, or guides disagree (boss order, crest routes and tool colours are the usual suspects). Trust the game's own map and Hunter's Journal first. Big spoilers on the Bosses, Endings and Act 3 pages.</div>`;}
+
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div>`;}
+  return `<h2>Guides</h2><p class="sub">Short, practical guides.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
+}
+
+let regAct=0;
+function regionMap(){
+  let s='';for(const r of REGIONS){if(regAct&&r.act!==regAct)continue;const b=(r.boss||[]).every(id=>S.bossDone[id])&&(r.boss||[]).length;
+    s+=`<a href="#regions/${r.id}" aria-label="${esc(r.n)}"><title>${esc(r.n)}: Act ${r.act}</title><circle class="hit" cx="${r.x}" cy="${r.y}" r="24" fill="${r.col}" stroke="#120a0c" stroke-width="2"/><text x="${r.x}" y="${r.y+4}" text-anchor="middle" font-size="11" font-weight="700" fill="${r.fg||'#fff'}">${r.act}${b?' ✔':''}</text><text class="lbl" x="${r.x}" y="${r.y+38}" text-anchor="middle" font-size="11" font-weight="600" fill="#f3e6e6" style="stroke:#120a0c">${esc(r.n.replace('The ',''))}</text></a>`;}
+  return `<svg class="tw-map" viewBox="10 0 600 530" role="img" aria-label="Map of Pharloom">${s}</svg><p class="tw-cap">Roughly where each region sits (the Citadel and Cradle up top, the Abyss below), not to scale. The number is the act you first get in.</p>`;
+}
+function pgRegions(sub){
+  const r=sub&&regOf(sub);
+  if(r){return `<p><a href="#regions">&larr; All regions</a></p><h2>${mark(r.conf)} ${esc(r.n)} <span class="tag">Act ${r.act}</span></h2><p class="sub">${esc(r.d)}</p>
+${r.boss?`<div class="card"><h3 style="margin-top:0">Bosses</h3>${r.boss.map(b=>`<div>${S.bossDone[b]?'<span class="ok">✔</span> ':''}<a class="mob" href="#bosses/${b}">${esc(bossOf(b).n)}</a> <span class="dim">Act ${bossOf(b).act}</span></div>`).join('')}</div>`:''}
+${r.items?`<div class="card"><h3 style="margin-top:0">Key finds</h3><ul class="mech">${r.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}
+<div class="card"><h3 style="margin-top:0">Tips</h3><ul class="mech">${r.tips.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;}
+  return `<h2>Regions</h2><p class="sub">Pharloom, region by region.</p><div class="chips">${[0,1,2,3].map(a=>`<button data-ra="${a}" class="${regAct===a?'on':''}">${a?'Act '+a:'All acts'}</button>`).join('')}</div>${regionMap()}
+<div class="grid">${REGIONS.filter(r=>!regAct||r.act===regAct).map(r=>`<div class="tile" onclick="location.hash='regions/${r.id}'"><b>${esc(r.n)}</b> <span class="tag">Act ${r.act}</span><div class="dim">${esc(r.d.split('. ')[0])}.</div></div>`).join('')}</div>`;
+}
+
+let bF='';
+function pgBosses(sub){
+  const b=sub&&bossOf(sub);
+  if(b){const prep=S.bossPrep[b.id]||{},r=regOf(b.reg),i=BOSSES.indexOf(b);
+    return `<p><a href="#bosses">&larr; All bosses</a></p><h2>${mark(b.conf)} ${esc(b.n)} <span class="tag">Act ${b.act}</span> <span class="tag">${b.req?'Story':'Optional'}</span></h2>
+<label class="chk" style="margin:6px 0 12px"><input type="checkbox" id="bdone"${S.bossDone[b.id]?' checked':''}> I've beaten ${esc(b.n)}</label>
+<div class="card"><h3 style="margin-top:0">Where</h3><p style="margin:0"><a class="mob" href="#regions/${r.id}">${esc(r.n)}</a></p></div>
+<div class="card"><h3 style="margin-top:0">Tip</h3><p style="margin:0">${esc(b.tip)}</p></div>
+${b.prep.length?`<div class="card"><h3 style="margin-top:0">Prep checklist</h3>${b.prep.map((p,j)=>`<label class="chk"><input type="checkbox" data-bp="${j}"${prep[j]?' checked':''}> ${esc(p)}</label>`).join('')}</div>`:''}
+<div class="card"><h3 style="margin-top:0">Reward</h3><p style="margin:0">${esc(b.rew)}</p></div>
+<div class="row">${i?`<a class="mob" href="#bosses/${BOSSES[i-1].id}">&larr; ${esc(BOSSES[i-1].n)}</a>`:''}<span style="flex:1"></span>${BOSSES[i+1]?`<a class="mob" href="#bosses/${BOSSES[i+1].id}">${esc(BOSSES[i+1].n)} &rarr;</a>`:''}</div>`;}
+  return `<h2>Bosses</h2><p class="sub">The story bosses and the main optional ones across all three acts. Guides disagree on the order inside each act, so take it as a rough path.</p>
+<div class="chips">${[['','All'],['1','Act 1'],['2','Act 2'],['3','Act 3'],['req','Story'],['todo','Not beaten']].map(([k,n])=>`<button data-bf="${k}" class="${bF===k?'on':''}">${n}</button>`).join('')}</div>
+<div class="card tbl"><table id="bt"></table></div>`;}
+function bossWire(sub){
+  if(sub){const b=bossOf(sub);if(!b)return;$('bdone').onchange=e=>{S.bossDone[b.id]=e.target.checked;save();};
+    document.querySelectorAll('[data-bp]').forEach(cb=>cb.onchange=()=>{(S.bossPrep[b.id]=S.bossPrep[b.id]||{})[cb.dataset.bp]=cb.checked;save();});return;}
+  const draw=()=>{const rows=BOSSES.filter(b=>!bF||(+bF===b.act)||(bF==='req'&&b.req)||(bF==='todo'&&!S.bossDone[b.id]));
+    $('bt').innerHTML='<tr><th></th><th>Boss</th><th>Act</th><th>Region</th><th>Reward</th></tr>'+rows.map(b=>`<tr><td>${S.bossDone[b.id]?'<span class="ok">✔</span>':''}</td><td>${mark(b.conf)} <a class="mob" href="#bosses/${b.id}">${esc(b.n)}</a>${b.req?' <span class="tag">story</span>':''}</td><td>${b.act}</td><td>${esc(regOf(b.reg).n)}</td><td class="dim">${esc(b.rew)}</td></tr>`).join('');};
+  document.querySelectorAll('[data-bf]').forEach(x=>x.onclick=()=>{bF=x.dataset.bf;document.querySelectorAll('[data-bf]').forEach(y=>y.classList.toggle('on',y===x));draw();});draw();
+}
+
+function pgEndings(){return `<h2>Endings</h2><p class="sub">Five endings. Spoilers below.</p><div class="card tbl"><table><tr><th>Ending</th><th>How</th><th>Got it</th></tr>${ENDINGS.map(([n,h,c],i)=>`<tr><td>${mark(c)} <b>${esc(n)}</b></td><td>${esc(h)}</td><td><input type="checkbox" data-hv="end${i}"${S.have['end'+i]?' checked':''}></td></tr>`).join('')}</table></div>
+<div class="note">Order matters: Twisted Child and Weaver Queen are both Act 2 endings, and finishing Silk and Soul sends your save on to Act 3. Back up a save, or plan a second run, if you want them all.</div><p><a class="mob" href="#guides/act3">How to reach Act 3 &rarr;</a></p>`;}
+
+function pgAbilities(){const a=ARTS.filter(x=>S.have['ab:'+x[0]]).length,k=SKILLS.filter(x=>S.have['sk:'+x[0]]).length;
+  return `<h2>Ancestral Arts and Silk Skills</h2><p class="sub">Arts are movement; Silk Skills spend silk to attack.</p>
+<h3>Ancestral Arts · ${a} of ${ARTS.length}</h3><div class="card tbl"><table><tr><th></th><th>Art</th><th>What it does</th><th>Where</th><th>Act</th></tr>${ARTS.map(([n,w,l,act,c])=>`<tr><td><input type="checkbox" data-hv="ab:${esc(n)}"${S.have['ab:'+n]?' checked':''}></td><td>${mark(c)} <b>${esc(n)}</b></td><td>${esc(w)}</td><td class="dim">${esc(l)}</td><td>${act}</td></tr>`).join('')}</table></div>
+<h3>Silk Skills · ${k} of ${SKILLS.length}</h3><div class="card tbl"><table><tr><th></th><th>Skill</th><th>What it does</th><th>Where</th></tr>${SKILLS.map(([n,w,l,c])=>`<tr><td><input type="checkbox" data-hv="sk:${esc(n)}"${S.have['sk:'+n]?' checked':''}></td><td>${mark(c)} <b>${esc(n)}</b></td><td>${esc(w)}</td><td class="dim">${esc(l)}</td></tr>`).join('')}</table></div>`;}
+
+function pgCrests(){const n=CRESTS.filter(c=>S.have['cr:'+c.n]).length;
+  return `<h2>Crests</h2><p class="sub">Crests change how Hornet fights and binds, and set your tool slots. Swap them at a bench. ${n} of ${CRESTS.length} found.</p>
+<div class="grid">${CRESTS.map(c=>`<div class="card" style="margin:0"><label class="chk" style="margin:0 0 6px"><input type="checkbox" data-hv="cr:${esc(c.n)}"${S.have['cr:'+c.n]?' checked':''}> <b style="color:var(--acc2)">${mark(c.conf)} ${esc(c.n)}</b></label><div>${esc(c.d)}</div><div class="dim" style="margin-top:4px">${esc(c.where)}</div></div>`).join('')}</div>
+<div class="note">Crest effects are summarised; guides describe the finer mechanics differently.</div>`;}
+
+let tCol='';
+function pgTools(){const n=TOOLS.filter(t=>S.tools[t[0]]).length,by=c=>TOOLS.filter(t=>t[1]===c);
+  return `<h2>Tools</h2><p class="sub">Tick each tool as you find or craft it. ${n} of ${TOOLS.length} listed here. Community lists put the total at around 50 ${mark(false)}.</p>
+<div class="chips">${[['','All'],['red','Red'],['blue','Blue'],['yellow','Yellow']].map(([k,l])=>`<button data-tc="${k}" class="${tCol===k?'on':''}">${l}</button>`).join('')}</div>
+${['red','blue','yellow'].filter(c=>!tCol||c===tCol).map(c=>`<h3><span class="tag ${c}" style="margin:0">${c}</span> ${by(c).filter(t=>S.tools[t[0]]).length} of ${by(c).length}</h3><div class="card" style="columns:220px">${by(c).map(([t,,cf])=>`<label class="chk" style="break-inside:avoid"><input type="checkbox" data-tool="${esc(t)}"${S.tools[t]?' checked':''}> ${esc(t)} ${cf?'':mark(false)}</label>`).join('')}</div>`).join('')}
+<div class="note">Only a few tools' colours are certain from Team Cherry's own material; the rest are from community lists. If a tool sits in a different slot colour in your game, the game is right.</div>`;}
+
+function pgNeedle(){const oil=OIL.filter((_,i)=>S.oil[i]).length;
+  return `<h2>Needle and Pale Oil</h2><p class="sub">Pinmaster Plinney in Bellhart upgrades your needle. The first upgrade is free; the next three need Pale Oil, and the last two also cost rosaries.</p>
+<div class="card tbl"><table><tr><th></th><th>Needle</th><th class="n">Damage ${mark(false)}</th><th>Cost</th></tr>${NEEDLE.map((n,i)=>`<tr><td><input type="radio" name="nd" data-nd="${i}"${S.needle===i?' checked':''}></td><td><b>${esc(n[0])}</b></td><td class="n">${n[1]}</td><td>${esc(n[2])}</td></tr>`).join('')}</table>
+<p style="margin:8px 0 0">Pale Oil still needed: <b>${Math.max(0,3-Math.max(0,S.needle-1))}</b> · you've ticked ${oil} of 3.</p></div>
+<h3>Pale Oil</h3><div class="card">${OIL.map((o,i)=>`<label class="chk"><input type="checkbox" data-oil="${i}"${S.oil[i]?' checked':''}> <span><b>${esc(o[0])}</b> <span class="dim">${esc(o[1])}</span></span></label>`).join('')}</div>
+<div class="note">Guides disagree on the exact Pale Oil spots and when the first opens up. The third is in Act 3, so the final needle is an Act 3 upgrade.</div>`;}
+function needleWire(){
+  document.querySelectorAll('[data-nd]').forEach(r=>r.onchange=()=>{S.needle=+r.dataset.nd;save();route(true);});
+  document.querySelectorAll('[data-oil]').forEach(c=>c.onchange=()=>{S.oil[c.dataset.oil]=c.checked;save();route(true);});
+}
+
+function pgMasks(){return `<h2>Masks and spools</h2><p class="sub">Four Mask Shards make a mask. Spool Fragments lengthen your silk spool, two at a time.</p>
+<div class="stats"><div class="stat"><small>Mask Shards</small>${cnt('shards',S.shards,20)}</div><div class="stat"><small>Masks</small><span class="big">${masks()}</span> <span class="dim">of 10</span></div><div class="stat"><small>Spool Fragments</small>${cnt('frags',S.frags,18)}</div><div class="stat"><small>Spool pieces</small><span class="big">${Math.floor(S.frags/2)}</span> <span class="dim">of 9</span></div></div>
+<div class="pips">${Array.from({length:20},(_,i)=>`<span class="pip ${i<S.shards?'f':''}"></span>`).join('')}</div>
+<div class="tip">Shards and fragments hide in shops, behind breakable walls, as wish rewards and at the end of platforming gauntlets. The spool fragments are all in Acts 1 and 2 ${mark(false)}.</div>`;}
+
+function pgFleas(){return `<h2>Fleas</h2><p class="sub">30 lost fleas are hidden across Pharloom. Rescue them and the Flea Caravan moves, eventually to Fleatopia.</p>
+<div class="stats"><div class="stat"><small>Fleas rescued</small>${cnt('fleas',S.fleas,30)}</div><div class="stat"><small>Act 3 route</small>${S.fleas>=25?'<span class="ok">Enough for Fleatopia</span>':`<span class="dim">${25-S.fleas} more to be safe</span>`}</div></div>
+<div class="bar"><i style="width:${S.fleas/30*100}%"></i></div>
+<div class="card"><ul class="mech"><li>${mark(false)} Guides say the Caravan needs 20 to 25 fleas to reach Fleatopia, which is one of the Act 3 conditions. Aim for 25.</li><li>${mark(true)} The Caravan's last stop brings the third Pale Oil in Act 3.</li><li>Listen: trapped fleas make a sound when you're close.</li></ul></div>`;}
+
+function pgWishes(){return `<h2>Wish log</h2><p class="sub">Wishes are Silksong's side quests, taken from wishwalls in towns. Log yours here.</p>
+<div class="card"><form class="row" id="wf"><input id="wn" type="text" style="width:220px" placeholder="Wish (e.g. Silk and Soul)"><select id="wr">${REGIONS.map(r=>`<option>${esc(r.n)}</option>`).join('')}</select><input id="wnote" type="text" style="width:220px" placeholder="What it needs"><button class="pri">Add</button></form></div>
+<div class="card tbl"><table><tr><th></th><th>Wish</th><th>Region</th><th>Notes</th><th></th></tr>${S.wishes.map((w,i)=>`<tr><td><input type="checkbox" data-wd="${i}"${w.done?' checked':''}></td><td><b${w.done?' class="dim"':''}>${esc(w.n)}</b></td><td>${esc(w.r)}</td><td><input type="text" data-wnote="${i}" value="${esc(w.note||'')}" style="width:220px"></td><td><button data-wdel="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="5" class="dim">No wishes yet.</td></tr>'}</table></div>
+<div class="tip">Not every wish is needed for 100%, but Silk and Soul and the wishes leading to it unlock Act 3.</div>`;}
+function wishWire(){
+  $('wf').onsubmit=e=>{e.preventDefault();const n=$('wn').value.trim();if(!n)return;S.wishes.push({n,r:$('wr').value,note:$('wnote').value.trim(),done:false});save();route(true);};
+  document.querySelectorAll('[data-wd]').forEach(c=>c.onchange=()=>{S.wishes[+c.dataset.wd].done=c.checked;save();route(true);});
+  document.querySelectorAll('[data-wnote]').forEach(i=>i.oninput=()=>{S.wishes[+i.dataset.wnote].note=i.value;save();});
+  document.querySelectorAll('[data-wdel]').forEach(b=>b.onclick=()=>{if(confirm('Remove '+S.wishes[+b.dataset.wdel].n+'?')){S.wishes.splice(+b.dataset.wdel,1);save();route(true);}});
+}
+
+function pgShop(){const tot=S.shop.filter(x=>!x.got).reduce((a,x)=>a+(+x.c||0),0),have=+S.rosaries||0;
+  return `<h2>Rosary shopping list</h2><p class="sub">Note what you want to buy and what it costs, and see whether you can afford it.</p>
+<div class="stats"><div class="stat"><small>Rosaries you have</small><input type="number" id="ros" min="0" value="${have}" style="width:110px"></div><div class="stat"><small>Still to buy</small><span class="big">${tot.toLocaleString()}</span></div><div class="stat"><small>${have>=tot?'Left over':'Short by'}</small><span class="big ${have>=tot?'ok':'bad'}">${Math.abs(have-tot).toLocaleString()}</span></div></div>
+<div class="card"><form class="row" id="sf"><input id="sn" type="text" style="width:200px" placeholder="Item (e.g. a map)"><input id="sw" type="text" style="width:160px" placeholder="Shop (e.g. Bellhart)"><input id="sc" type="number" min="0" style="width:90px" placeholder="Cost"><button class="pri">Add</button></form></div>
+<div class="card tbl"><table><tr><th></th><th>Item</th><th>Shop</th><th class="n">Cost</th><th></th></tr>${S.shop.map((x,i)=>`<tr><td><input type="checkbox" data-sg="${i}"${x.got?' checked':''}></td><td><b${x.got?' class="dim"':''}>${esc(x.n)}</b></td><td>${esc(x.w)}</td><td class="n">${(+x.c||0).toLocaleString()}</td><td><button data-sdel="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="5" class="dim">Nothing on the list.</td></tr>'}</table></div>
+<div class="tip">String loose rosaries into Rosary Strings before a hard area. Strings don't drop when you die.</div>`;}
+function shopWire(){
+  $('ros').onchange=e=>{S.rosaries=Math.max(0,+e.target.value||0);save();route(true);};
+  $('sf').onsubmit=e=>{e.preventDefault();const n=$('sn').value.trim();if(!n)return;S.shop.push({n,w:$('sw').value.trim(),c:Math.max(0,+$('sc').value||0),got:false});save();route(true);};
+  document.querySelectorAll('[data-sg]').forEach(c=>c.onchange=()=>{S.shop[+c.dataset.sg].got=c.checked;save();route(true);});
+  document.querySelectorAll('[data-sdel]').forEach(b=>b.onclick=()=>{S.shop.splice(+b.dataset.sdel,1);save();route(true);});
+}
+
+function pgCompletion(){
+  const g=[['Mask Shards',S.shards,20],['Spool Fragments',S.frags,18],['Needle upgrades',S.needle,4],['Ancestral Arts',ARTS.filter(x=>S.have['ab:'+x[0]]).length,ARTS.length],['Silk Skills',SKILLS.filter(x=>S.have['sk:'+x[0]]).length,SKILLS.length],['Crests',CRESTS.filter(c=>S.have['cr:'+c.n]).length,CRESTS.length],['Tools',TOOLS.filter(t=>S.tools[t[0]]).length,TOOLS.length]];
+  const avg=g.reduce((a,[,v,m])=>a+Math.min(1,v/m),0)/g.length;
+  return `<h2>Completion</h2><p class="sub">What counts towards 100%, from community guides ${mark(false)}: stat items (Mask Shards and Spool Fragments), needle upgrades, abilities (Ancestral Arts and Silk Skills), crests and tools. You don't need every boss or every wish. Fleas themselves don't count, but you need them for Act 3.</p>
+<div class="card"><b>Across what you've ticked: ${Math.round(avg*100)}%</b><div class="bar"><i style="width:${avg*100}%"></i></div><p class="dim" style="margin:0">A rough guide from your ticks, not the game's number.</p></div>
+<div class="card tbl"><table><tr><th>Group</th><th class="n">You</th><th style="width:40%"></th></tr>${g.map(([n,v,m])=>`<tr><td>${esc(n)}</td><td class="n">${v} / ${m}</td><td><div class="bar" style="margin:6px 0"><i style="width:${Math.min(1,v/m)*100}%"></i></div></td></tr>`).join('')}</table></div>
+<div class="tip">A missing tool is the usual reason for sitting at 99%.</div>`;}
+
+const cntWire=()=>{document.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>{const k=b.dataset.inc;S[k]=Math.min(LIM[k],(+S[k]||0)+1);save();route(true);});document.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{const k=b.dataset.dec;S[k]=Math.max(0,(+S[k]||0)-1);save();route(true);});};
+
+function pgProgress(){const done=PROG.filter((_,i)=>S.prog[i]).length,groups=[...new Set(PROG.map(p=>p[0]))];
+  return `<h2>Progression</h2><p class="sub">From Moss Grotto to Lost Lace. Tick things off as you go.</p>
+<div class="dim" id="pdone">${done} of ${PROG.length} done</div><div class="bar"><i id="pbar" style="width:${done/PROG.length*100}%"></i></div>
+${groups.map(g=>`<h3>${g}</h3><div class="card">${PROG.map((p,i)=>p[0]===g?`<label class="chk"><input type="checkbox" data-p="${i}"${S.prog[i]?' checked':''}> ${esc(p[1])}</label>`:'').join('')}</div>`).join('')}
+<button onclick="if(confirm('Clear all progression ticks?')){S.prog={};save();route()}">Reset</button>`;}
+
+function pgUpdates(){return `<h2>Updates</h2><p class="sub">Patches since launch and the free expansion.</p>
+<div class="card tbl"><table><tr><th>When</th><th>Update</th><th>What's in it</th></tr>${UPDATES.map(([d,n,t,c])=>`<tr><td style="white-space:nowrap">${esc(d)}</td><td>${mark(c)} <b>${esc(n)}</b></td><td>${esc(t)}</td></tr>`).join('')}</table></div>
+<div class="note">Sea of Sorrow was announced on 15 December 2025 for 2026, free for all owners. Check Team Cherry's blog for a date.</div>`;}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Where your cocoon is, which flea you heard but couldn't reach, which crest and tools beat which boss...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+function route(keepScroll){
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=REAL.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main'),top=m.scrollTop;
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),regions:()=>pgRegions(sub),bosses:()=>pgBosses(sub),endings:pgEndings,abilities:pgAbilities,crests:pgCrests,tools:pgTools,needle:pgNeedle,masks:pgMasks,fleas:pgFleas,wishes:pgWishes,shop:pgShop,completion:pgCompletion,progress:pgProgress,updates:pgUpdates,notes:pgNotes})[page]();
+  m.scrollTop=keepScroll===true?top:0;
+  m.querySelectorAll('input[type=checkbox][data-p]').forEach(cb=>{cb.onchange=()=>{S.prog[cb.dataset.p]=cb.checked;save();const d=PROG.filter((_,i)=>S.prog[i]).length;$('pdone').textContent=d+' of '+PROG.length+' done';$('pbar').style.width=d/PROG.length*100+'%';};});
+  m.querySelectorAll('input[type=checkbox][data-hv]').forEach(cb=>{cb.onchange=()=>{S.have[cb.dataset.hv]=cb.checked;save();if(page!=='endings')route(true);};});
+  m.querySelectorAll('input[type=checkbox][data-tool]').forEach(cb=>{cb.onchange=()=>{S.tools[cb.dataset.tool]=cb.checked;save();route(true);};});
+  m.querySelectorAll('[data-tc]').forEach(b=>b.onclick=()=>{tCol=b.dataset.tc;route(true);});
+  m.querySelectorAll('[data-ra]').forEach(b=>b.onclick=()=>{regAct=+b.dataset.ra;route(true);});
+  cntWire();
+  if(page==='bosses')bossWire(sub);
+  if(page==='needle')needleWire();
+  if(page==='wishes')wishWire();
+  if(page==='shop')shopWire();
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',()=>route());
+route();
+</script>
+</body>
+</html>

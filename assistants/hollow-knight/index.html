@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hollow Knight Assistant · Tavernworks</title>
+<meta name="description" content="Hollow Knight Assistant: every area of Hallownest on a map, all the bosses with prep checklists, a charm builder that checks notches and overcharming, abilities in order, nail, spells and nail arts, masks and vessels, grubs, relics and Pale Ore, Dream Nail essence, stag stations, Godhome pantheons, endings, a completion checklist and notes. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪲</text></svg>">
+<style>
+:root{--bg:#0b0e14;--panel:#121722;--panel2:#1a2130;--line:#2a3346;--tx:#e8ecf4;--dim:#8e98ab;--acc:#cfd8ea;--acc-ink:#0b0e14;--acc2:#7fb2e5;--ok:#8fcf9a;--warn:#f2c14e;--err:#ff7a7a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:215px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:7px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#nav .grp{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:12px 10px 2px}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#nav .grp{display:none}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#070910;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number],input[type=search]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.tag.w{background:#2c2414;color:#f0cf83}.tag.r{background:#14232c;color:#9cc9dc}.tag.i{background:#2b1418;color:#ff9b9b}.tag.g{background:#18281a;color:#a6dc94}
+.note{border-left:3px solid var(--warn);background:#1f1d10;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc2);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc2)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.stat .big{font:600 20px/1.2 Consolas,"Cascadia Mono",monospace}
+.mech li{margin:4px 0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chips button{border-radius:999px;padding:3px 11px;font-size:13px}
+.chips button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.big2{font:600 26px/1.2 Consolas,"Cascadia Mono",monospace;color:var(--acc)}
+.pips{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}
+.pip{width:18px;height:18px;border-radius:50%;border:2px solid var(--acc);background:transparent}
+.pip.f{background:var(--acc)}.pip.o{border-color:var(--err);background:var(--err)}
+.charms{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.charm{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;text-align:left}
+.charm.on{border-color:var(--acc);background:#273248}
+.charm .c{float:right;font:700 12px/18px Consolas,monospace;color:var(--acc)}
+.charm small{display:block;color:var(--dim);font-size:12px}
+.cnt{display:inline-flex;align-items:center;gap:6px}
+.cnt b{min-width:44px;text-align:center;font:600 18px Consolas,monospace}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js?v=2" data-track="hk_state"></script>
+<script src="/assistants/art.js"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   conf: true  = Team Cherry's own text, or several guides and the wiki agree.
+   conf: false = guides disagree, the exact spot or number is fuzzy; check in-game.
+   Written against the current version (1.5, with Hidden Dreams, The Grimm Troupe, Lifeblood
+   and Godmaster all included). Hollow Knight is long settled, so most facts are solid. */
+
+/* Areas of Hallownest. x,y place them on the map. need = what you need to get in properly. */
+const AREAS=[
+{id:'dirtmouth',n:'Dirtmouth and King\'s Pass',x:360,y:42,col:'#6f7c95',conf:true,need:'Nothing',
+ d:"The quiet town above Hallownest, and the cliff path you arrive by. Your hub for shops, the Well down to the Crossroads, and later the Grimm Troupe's tent.",
+ npcs:['Elderbug','Sly (shop, after you rescue him)','Iselda (maps, with Cornifer)','Bretta (rescued from Fungal Wastes)','Jiji the Confessor (her door needs a Simple Key)'],
+ items:['Fury of the Fallen (hidden in King\'s Pass)','Mask Shards and Vessel Fragments from Sly'],
+ tips:["Buy Iselda's Quill and the Crossroads map first: you can't see your own position on the map without the quill and Wayward Compass.","Jiji (in Dirtmouth, needs a Simple Key) will summon your Shade if you bring a Rancid Egg."]},
+{id:'cliffs',n:'Howling Cliffs',x:205,y:52,col:'#55617a',conf:true,need:'Mantis Claw or Monarch Wings for most of it',
+ d:"Windswept cliffs west of Dirtmouth. Home to Nailmaster Mato, Joni's Repose, a Baldur guarding a charm and the Nightmare Lantern.",
+ npcs:['Nailmaster Mato (Cyclone Slash)'],
+ items:['Joni\'s Blessing (Joni\'s Repose)','Baldur Shell','A Lifeblood Cocoon','Gorb (warrior dream)','The Nightmare Lantern (the Grimm Troupe)'],
+ tips:["Mato teaches Cyclone Slash for free once you've found him.","Joni's Blessing turns your masks into lifeblood: more health, but you can't heal with Focus."]},
+{id:'crossroads',n:'Forgotten Crossroads',x:360,y:130,col:'#7a8aa5',conf:true,need:'Nothing',
+ d:"The first real area under Dirtmouth: crumbling roads that link half of Hallownest. Later it becomes the Infected Crossroads, full of orange-eyed bugs.",
+ npcs:['Cornifer (map)','Salubra (charms and notches; Blessing later)','Myla (miner, sadly)','The Snail Shaman (Ancestral Mound)'],
+ boss:['falseknight','mawlek','gruz'],
+ items:['Vengeful Spirit and Soul Catcher (Ancestral Mound)','Glowing Womb (needs Crystal Heart)','Mask Shards (Brooding Mawlek, Goam room)','Grubs: five'],
+ tips:["Visit the Snail Shaman in the Ancestral Mound early: Vengeful Spirit is your first spell and it's huge.","Salubra's shop is down the Crossroads' far west corridor; look for the pink glow. Her notch prices are 120, 500, 900 and 1400 Geo, unlocked by charms owned (5, 10, 18 and 25)."]},
+{id:'greenpath',n:'Greenpath',x:190,y:150,col:'#4f8a52',conf:true,need:'Vengeful Spirit (to cross the first gap) or a dash',
+ d:"An overgrown green maze west of the Crossroads. Hornet's first fight is here, along with the Lake of Unn and Nailmaster Sheo.",
+ npcs:['Nailmaster Sheo (Great Slash)','Hornet','The Moss Prophet (later)'],
+ boss:['hornet1','mosscharger','vengefly'],
+ items:['Mothwing Cloak (Hornet)','Thorns of Agony','Shape of Unn (needs Isma\'s Tear)','A Vessel Fragment','Grubs: three'],
+ tips:["Hornet drops the Mothwing Cloak (dash). Take Greenpath right after the False Knight.","No Eyes, a warrior dream, waits in the Stone Sanctuary here."]},
+{id:'fog',n:'Fog Canyon',x:275,y:205,col:'#a07fbf',conf:true,need:'Nothing to pass; Isma\'s Tear for the acid',
+ d:"A misty canyon of jellyfish (Ooma and Uomas) between Greenpath, Queen's Gardens and the Fungal Wastes. The Teacher's Archives with Uumuu and the dreamer Monomon are at its east end.",
+ boss:['uumuu'],
+ items:['Howling Wraiths (Overgrown Mound, west edge)','A charm notch (Fog Canyon, near the exit to the Queen\'s Station)','Monomon the Teacher (dreamer)','Grubs: one'],
+ tips:["Uumuu can't be hurt until Quirrel arrives and breaks its shell. Dodge until he does.","Ooma explode when killed: hit and step back."]},
+{id:'fungal',n:'Fungal Wastes',x:345,y:240,col:'#8a9a50',conf:true,need:'Mothwing Cloak',
+ d:"Bouncing mushrooms, acid and the Mantis Village. The way into the City of Tears and to Deepnest.",
+ npcs:['Leg Eater (fragile charms)','Bretta (rescue her)','Cloth','Willoh'],
+ boss:['mantis','ogres'],
+ items:['Mantis Claw (Mantis Village)','Mark of Pride (Mantis Lords)','Dashmaster (statue below Mantis Village)','Spore Shroom (needs Mantis Claw)','Fragile Heart, Greed and Strength (Leg Eater)','A charm notch (Shrumal Ogres)','Grubs: two'],
+ tips:["Get the Mantis Claw before the City: it's the wall jump.","The Mantis Lords are optional and nasty for a first-timer. Come back later if they're a wall."]},
+{id:'city',n:'City of Tears',x:470,y:215,col:'#4f74b5',conf:true,need:'City Crest (from the False Knight)',
+ d:"Hallownest's capital, under endless rain. The Soul Sanctum, the King's Station, the Pleasure House, the Tower of Love and Lurien's spire.",
+ npcs:['The Nailsmith (nail upgrades)','Lemm (relic seller, near the City Storerooms)','Quirrel'],
+ boss:['soulmaster','watchers','collector'],
+ items:['Desolate Dive (Soul Master)','Shade Soul (Soul Sanctum, behind a door that needs the Elegant Key)','Spell Twister (Soul Sanctum)','Lurien the Watcher (dreamer)','Love Key (Queen\'s Gardens) opens the Tower of Love','Grubs: several'],
+ tips:["Sell relics to Lemm once you have enough Geo safety. A King's Idol is worth 800.","The Nailsmith sharpens your nail: 250 Geo, then Pale Ore and more Geo for each step."]},
+{id:'waterways',n:'Royal Waterways',x:470,y:298,col:'#4f8a8a',conf:true,need:'Simple Key (City) or Desolate Dive',
+ d:"The sewers under the city. Dung Defender, Flukemarm, Isma's Tear and, deep in a Junk Pit, the entrance to Godhome.",
+ npcs:['Dung Defender (befriend him)','Tuk (Rancid Eggs)','The Godseeker (Junk Pit)'],
+ boss:['dungdef','flukemarm'],
+ items:['Isma\'s Tear (acid swim)','Defender\'s Crest (Dung Defender)','Flukenest (Flukemarm)','The Godhome entrance (Junk Pit, needs a Simple Key)'],
+ tips:["Isma's Tear is in Isma's Grove, in the east of the Waterways.","Tuk sells Rancid Eggs; wear Defender's Crest and she gives you one free."]},
+{id:'peak',n:'Crystal Peak',x:530,y:95,col:'#c98ab8',conf:true,need:'Lumafly Lantern (to see), Desolate Dive for parts',
+ d:"A mining mountain glowing with pink crystal. Lasers, crystal hunters and the Crystal Heart. Hallownest's Crown is at the very top.",
+ npcs:['Myla (on the way)','Cornifer'],
+ boss:['crystalguard','enraged'],
+ items:['Crystal Heart (super dash)','Descending Dark (Crystallised Mound, needs Crystal Heart and Dive)','Deep Focus','Shopkeeper\'s Key (for Sly)','Pale Ore (Crystal Peak)','Hallownest\'s Crown (top)','Grubs: seven'],
+ tips:["Buy the Lumafly Lantern from Sly (1800 Geo) before you go: it's the only way to see in the dark.","The Crystal Guardian sleeps on a bench. Hit it to wake it; it later returns as the Enraged Guardian."]},
+{id:'resting',n:'Resting Grounds',x:625,y:150,col:'#8aa0b8',conf:true,need:'Nothing (via King\'s Station or a stag)',
+ d:"The graveyard of Hallownest. The Seer (Dream Nail), the Spirits' Glade, the Blue Lake and the Grey Mourner live here.",
+ npcs:['The Seer','The Grey Mourner (Delicate Flower)','Revek, Spirits\' Glade','Moth spirits'],
+ items:['Dream Nail','Dreamshield','Soul Eater (under a dive floor)','Xero (warrior dream)'],
+ tips:["The Dream Nail is the key to the endgame: it reads minds, wakes dream bosses and is needed to kill the Dreamers.","Whispering Roots drop essence when you swing the Dream Nail at their orbs."]},
+{id:'deepnest',n:'Deepnest',x:235,y:340,col:'#5b4f6e',conf:true,need:'Mantis Claw; Lumafly Lantern helps a lot',
+ d:"Dark tunnels full of spiders and the Weavers. Nosk, the Distant Village, the Beast's Den and Herrah the Beast (dreamer).",
+ npcs:['The Midwife','Hornet (later)'],
+ boss:['nosk','galien'],
+ items:['Herrah the Beast (dreamer, Beast\'s Den)','Weaversong (Weavers\' Den)','Sharp Shadow (needs Shade Cloak)','Pale Ore (Nosk)','Distant Village stag'],
+ tips:["The Beast's Den has a hidden bench and a lot of webs. Don't let them drop you into the Den's lower spiders.","Nosk pretends to be a fellow bug; follow the 'Knight' at your peril."]},
+{id:'edge',n:'Kingdom\'s Edge',x:655,y:265,col:'#b0a08a',conf:true,need:'Crystal Heart or Monarch Wings; King\'s Brand for the Cast-Off Shell',
+ d:"Ash falling over the eastern rim. Nailmaster Oro, the Colosseum of Fools, Hornet's second fight and the King's Brand.",
+ npcs:['Nailmaster Oro (Dash Slash, 800 Geo)','Bardoon','Little Fool (Colosseum)','Hornet'],
+ boss:['hornet2','markoth','colosseum'],
+ items:['King\'s Brand (Cast-Off Shell, after Hornet)','Quick Slash','The Hive entrance','Colosseum trials','Grubs: four'],
+ tips:["Hornet Sentinel guards the Cast-Off Shell. Win to take the King's Brand.","The Colosseum's trials cost 100, 450 and 800 Geo to enter, and each needs the one before."]},
+{id:'hive',n:'The Hive',x:655,y:360,col:'#d6a63a',conf:true,need:'Break in from the Kingdom\'s Edge',
+ d:"A golden beehive in the Kingdom's Edge. Guarded by the Hive Knight (Lifeblood).",
+ boss:['hiveknight'],
+ items:['Hiveblood (Hive Knight)','A Mask Shard','Grubs: two'],
+ tips:["Hive Guardians smash through walls when they charge. Lure them to open shortcuts."]},
+{id:'basin',n:'Ancient Basin',x:455,y:372,col:'#4a4f5c',conf:true,need:'Desolate Dive via the Royal Waterways or the City lift',
+ d:"The deep floor of Hallownest. The Broken Vessel, the Monarch Wings, the Palace Grounds and the way to the Abyss.",
+ boss:['vessel'],
+ items:['Monarch Wings (Broken Vessel)','Pale Ore (Ancient Basin)','A Vessel Fragment','Palace Grounds (White Palace entrance)','Grubs: two'],
+ tips:["Lost Kin is the Broken Vessel's dream form: Dream Nail its corpse once you have the Dream Nail."]},
+{id:'abyss',n:'The Abyss',x:455,y:465,col:'#1a1d24',fg:'#cfd8ea',conf:true,need:'King\'s Brand',
+ d:"The dark bottom of Hallownest, where the Vessels were made. The Shade Cloak and the Birthplace (Void Heart).",
+ items:['Shade Cloak','Abyss Shriek','Lifeblood Core (door opens with 15 masks of lifeblood)','Void Heart (Birthplace, after Kingsoul)'],
+ tips:["The Abyss is only reachable after you take the King's Brand: go to the Abyss lighthouse via the Ancient Basin's broken lift."]},
+{id:'gardens',n:'Queen\'s Gardens',x:120,y:265,col:'#3f8a6a',conf:true,need:'Mantis Claw',
+ d:"An overgrown royal garden full of Mantis traitors. The Traitor Lord, the Love Key and the White Lady.",
+ npcs:['The White Lady','Grey Mourner\'s flower destination (the grave)'],
+ boss:['traitor','marmu'],
+ items:['Kingsoul half (White Lady)','Love Key','Marmu (warrior dream)','Grubs: three'],
+ tips:["The Delicate Flower breaks if you take a hit. Plan a damage-free route (or ride a stag)."]},
+{id:'palace',n:'White Palace',x:595,y:420,col:'#e8ecf4',fg:'#0b0e14',conf:true,need:'Dream Nail and the Kingsoul half; reach it from the Palace Grounds',
+ d:"A dream of the Pale King's palace: a long platforming gauntlet of saws and spikes. The other Kingsoul half waits at the end.",
+ items:['Kingsoul half (Pale King)','The Path of Pain (optional, much harder)'],
+ tips:["There's no damage reset: each spike sends you back to a checkpoint and costs a mask. Take it slow."]},
+{id:'godhome',n:'Godhome',x:560,y:330,col:'#d8c38a',fg:'#0b0e14',conf:true,need:'Simple Key (Junk Pit, Royal Waterways)',
+ d:"The Godseeker's realm. The Hall of Gods and the five Pantheons.",
+ items:['Hall of Gods statues','Pantheons 1–5','Godtuner'],
+ tips:["Each boss statue in the Hall of Gods has three tiers: Attuned, Ascended and Radiant. Radiant means one hit and you're out."]}
+];
+
+/* Bosses in a sensible order. req: true if the story needs it. */
+const BOSSES=[
+{id:'falseknight',n:'False Knight',area:'crossroads',req:true,conf:true,
+ rew:'City Crest (opens the City of Tears) and Geo',
+ how:'Falls through the floor in the Crossroads. Hit him until his armour shatters, then hit the maggot inside.',
+ attacks:['Mace slam (shockwave travels along the ground)','Leaping crush','Rage: wild slams that bring rocks down'],
+ tip:"Stay close, jump over the shockwave. When the armour pops, wail on the maggot.",
+ prep:['Vengeful Spirit','A healthy soul meter to Focus']},
+{id:'gruz',n:'Gruz Mother',area:'crossroads',req:false,conf:true,rew:'Geo and baby Gruzzers',how:'A sleeping fly in the Crossroads, near the Greenpath exit.',attacks:['Bouncing charge','Straight ram'],tip:"Hit her when she bounces off a wall. Kill the babies she releases before you heal.",prep:[]},
+{id:'hornet1',n:'Hornet Protector',area:'greenpath',req:true,conf:true,rew:'Mothwing Cloak (dash)',how:'At the top of Greenpath.',
+ attacks:['Needle throw (comes back like a boomerang)','Lunge','Thread whirl (Silk around her)','Air dash'],
+ tip:"Hit her two or three times, then back off. Jump the lunge; never stand next to her silk whirl.",prep:['Vengeful Spirit','Charm: Stalwart Shell or Steady Body if you like']},
+{id:'mosscharger',n:'Massive Moss Charger',area:'greenpath',req:false,conf:true,rew:'Geo',how:'Hiding in a grass patch in Greenpath.',attacks:['Burrow and charge'],tip:"Jump over it as it charges; hit it from behind.",prep:[]},
+{id:'vengefly',n:'Vengefly King',area:'greenpath',req:false,conf:true,rew:'Geo',how:'Greenpath (and again in the Colosseum).',attacks:['Dive at you','Summon Vengeflies'],tip:"Kill the summons quickly.",prep:[]},
+{id:'mawlek',n:'Brooding Mawlek',area:'crossroads',req:false,conf:true,rew:'A Mask Shard',how:'West Crossroads, through a breakable wall.',attacks:['Vomit arcs','Leap','Arm swipe up close'],tip:"Stand in the middle and dodge the arcs; hit the head when it lands.",prep:['Mothwing Cloak']},
+{id:'mantis',n:'Mantis Lords',area:'fungal',req:false,conf:true,rew:'Mark of Pride; the Mantis Tribe stop attacking you',how:'Mantis Village throne, after you pick up the Mantis Claw.',
+ attacks:['Dash across the arena','Lance drop from above','Thrown boomerang blade','Phase 2: two Lords at once'],
+ tip:"Phase 1 teaches you the three attacks. In phase 2, watch one Lord at a time and keep moving.",prep:['Mantis Claw','Mothwing Cloak','Three or four nail upgrades help']},
+{id:'ogres',n:'Shrumal Ogres',area:'fungal',req:false,conf:true,rew:'A charm notch',how:'Two big mushroom bugs in the Fungal Wastes.',attacks:['Leaping slam'],tip:"Spells help; stay out from under them.",prep:[]},
+{id:'soulmaster',n:'Soul Master',area:'city',req:true,conf:true,rew:'Desolate Dive',how:'Top of the Soul Sanctum.',
+ attacks:['Teleport and dive','Soul orbs','Charging dash','Phase 2: chases you across a broken floor'],
+ tip:"Hit him when he dives (he's stuck in the floor for a moment). Phase 2 is all dodging. Dream Nail him later for Soul Tyrant.",prep:['Desolate Dive is the reward, not a need','Spells and soul']},
+{id:'dungdef',n:'Dung Defender',area:'waterways',req:false,conf:true,rew:'Defender\'s Crest; a friend',how:'Royal Waterways, east side.',attacks:['Rolling dung ball','Burrow and erupt','Throws dung balls'],tip:"He's friendly afterwards. White Defender is his dream form.",prep:[]},
+{id:'flukemarm',n:'Flukemarm',area:'waterways',req:false,conf:true,rew:'Flukenest',how:'Royal Waterways, in a dark chamber.',attacks:['Spawns flukes'],tip:"Shaman Stone and spells make this short.",prep:[]},
+{id:'crystalguard',n:'Crystal Guardian',area:'peak',req:false,conf:true,rew:'A bench to rest on; later the Enraged Guardian',how:'Asleep on a bench in Crystal Peak.',attacks:['Laser beam','Leap'],tip:"Get in close; the laser can't hit what's under it.",prep:['Lumafly Lantern']},
+{id:'enraged',n:'Enraged Guardian',area:'peak',req:false,conf:true,rew:'A Mask Shard',how:'Return after beating the Crystal Guardian.',attacks:['Faster lasers','Crystal rain'],tip:"Same plan as before, more dodging.",prep:[]},
+{id:'watchers',n:'Watcher Knights',area:'city',req:true,conf:true,rew:'Path to Lurien the Watcher (dreamer)',how:'Watcher\'s Spire, City of Tears.',attacks:['Rolls','Overhead slashes','Up to two at once'],tip:"Kill the first knight fast; each new one joins as one falls.",prep:['Dream Nail (for Lurien)','Desolate Dive helps with rolling knights']},
+{id:'uumuu',n:'Uumuu',area:'fog',req:true,conf:true,rew:'Path to Monomon the Teacher (dreamer)',how:'Teacher\'s Archives, Fog Canyon.',attacks:['Electric pulses','Summons Uomas'],tip:"You can't hurt it until Quirrel breaks its shell. Dodge until then.",prep:['Dream Nail (for Monomon)']},
+{id:'hornet2',n:'Hornet Sentinel',area:'edge',req:true,conf:true,rew:'King\'s Brand (opens the Abyss)',how:'Kingdom\'s Edge, the Cast-Off Shell.',attacks:['Faster Hornet moves','Spike traps on the floor'],tip:"Like Greenpath, but she leaves spikes. Use Mantis Claw and wings to stay above them.",prep:['Monarch Wings','Crystal Heart']},
+{id:'vessel',n:'Broken Vessel',area:'basin',req:false,conf:true,rew:'Monarch Wings (double jump; needed in practice)',how:'Ancient Basin.',attacks:['Leaps and slashes','Infection orbs','Summons balloons'],tip:"It's the gatekeeper of the wings. Lost Kin is its dream form.",prep:[]},
+{id:'nosk',n:'Nosk',area:'deepnest',req:false,conf:true,rew:'Pale Ore',how:'Deepnest, a trap disguised as another knight.',attacks:['Leaping crush','Slime rain','Charge'],tip:"Stay under the platforms when it rains.",prep:['Lumafly Lantern']},
+{id:'traitor',n:'Traitor Lord',area:'gardens',req:false,conf:true,rew:'Path to the White Lady (Kingsoul half)',how:'Queen\'s Gardens.',attacks:['Leap slashes','Sickle wave','Dive'],tip:"Strong, fast attacks; stay behind him.",prep:[]},
+{id:'hiveknight',n:'Hive Knight',area:'hive',req:false,conf:true,rew:'Hiveblood',how:'Deep in the Hive.',attacks:['Bees','Needle spin','Lunge'],tip:"Shooting spells clear the bee swarms.",prep:[]},
+{id:'collector',n:'The Collector',area:'city',req:false,conf:true,rew:'Collector\'s Map (shows remaining grubs)',how:'Tower of Love, City of Tears (Love Key).',attacks:['Throws jars of monsters','Leaps around'],tip:"Kill the jar monsters fast.",prep:['Love Key']},
+{id:'markoth',n:'Markoth (warrior dream)',area:'edge',req:false,conf:true,rew:'Essence',how:'A grave in the Kingdom\'s Edge; Dream Nail it.',attacks:['Spinning shield','Thrown nails'],tip:"The hardest warrior dream; Monarch Wings and patience.",prep:['Dream Nail']},
+{id:'galien',n:'Galien (warrior dream)',area:'deepnest',req:false,conf:true,rew:'Essence',how:'A grave in Deepnest.',attacks:['Spinning scythe'],tip:"Keep away from the scythe; hit Galien when it's out of range.",prep:['Dream Nail']},
+{id:'marmu',n:'Marmu (warrior dream)',area:'gardens',req:false,conf:true,rew:'Essence',how:'A grave in Queen\'s Gardens.',attacks:['Rolls at you'],tip:"Pogo off her with down-slashes.",prep:['Dream Nail']},
+{id:'colosseum',n:'Colosseum of Fools',area:'edge',req:false,conf:true,rew:'Warrior: a charm notch. Conqueror: Pale Ore. Fool: a big Geo prize',how:'Kingdom\'s Edge.',attacks:['Wave after wave'],tip:"Each trial needs the one before it.",prep:[]},
+{id:'grimm',n:'Troupe Master Grimm',area:'dirtmouth',req:false,conf:true,rew:'Grimmchild upgrade; later Nightmare King Grimm',how:'Strike the Nightmare Lantern in the Howling Cliffs with the Dream Nail, then collect flames.',attacks:['Bats and spikes','Dive and dash','Balloon'],tip:"Learn his patterns; he's fair.",prep:['Grimmchild']},
+{id:'hk',n:'The Hollow Knight',area:'crossroads',req:true,conf:true,rew:'An ending',how:'The Black Egg Temple, after all three Dreamers are dead.',
+ attacks:['Sword combos','Infection orbs','Self-stab (it hurts itself; hit it)','Hornet joins (Void Heart path)'],
+ tip:"Get Void Heart for the Sealed Siblings ending; with it and Awoken Dream Nail, go into its mind for the Radiance.",prep:['All three Dreamers','Pure Nail if you can','Mask Shards and Vessels']},
+{id:'radiance',n:'The Radiance',area:'crossroads',req:false,conf:true,rew:'The Dream No More ending',how:'Dream Nail the Hollow Knight while Hornet binds it (needs Void Heart).',attacks:['Swords from the sky','Beams','Orb rings','Platforms phase'],tip:"Keep moving; the platform phase is about patience.",prep:['Void Heart','Dream Nail']}
+];
+
+/* Charms. c = notch cost. */
+const CHARMS=[
+[1,'Wayward Compass',1,'Shows your position on the map.','Iselda, Dirtmouth (220 Geo)'],
+[2,'Gathering Swarm',1,'Collects loose Geo.','Sly (300 Geo)'],
+[3,'Stalwart Shell',2,'Longer invincibility after a hit.','Sly (200 Geo)'],
+[4,'Soul Catcher',2,'More soul per nail hit.','Ancestral Mound, Crossroads'],
+[5,'Shaman Stone',3,'Bigger, stronger spells.','Salubra (220 Geo)'],
+[6,'Soul Eater',4,'Much more soul per hit.','Resting Grounds, under a dive floor'],
+[7,'Dashmaster',2,'Faster dash cooldown; down-dash.','Fungal Wastes, statue below Mantis Village'],
+[8,'Sprintmaster',1,'Run faster.','Sly, with the Shopkeeper\'s Key (400 Geo)'],
+[9,'Grubsong',1,'Soul when you take damage.','Grubfather, 10 grubs'],
+[10,'Grubberfly\'s Elegy',3,'Nail fires beams at full health.','Grubfather, 46 grubs'],
+[11,'Fragile / Unbreakable Heart',2,'+2 masks.','Leg Eater (350 Geo); Divine makes it unbreakable (12,000 Geo)'],
+[12,'Fragile / Unbreakable Greed',2,'More Geo from kills.','Leg Eater (250 Geo); Divine (9,000 Geo)'],
+[13,'Fragile / Unbreakable Strength',3,'+50% nail damage.','Leg Eater (600 Geo); Divine (15,000 Geo)'],
+[14,'Spell Twister',2,'Spells cost 24 soul instead of 33.','Soul Sanctum, City of Tears'],
+[15,'Steady Body',1,'No recoil from nail hits.','Salubra (120 Geo)'],
+[16,'Heavy Blow',2,'More knockback; better stagger.','Sly, with the Shopkeeper\'s Key (350 Geo)'],
+[17,'Quick Slash',3,'Faster nail swings.','Kingdom\'s Edge'],
+[18,'Longnail',2,'Longer nail.','Salubra (300 Geo)'],
+[19,'Mark of Pride',3,'Much longer nail.','Mantis Lords'],
+[20,'Fury of the Fallen',2,'+75% nail damage at one mask.','King\'s Pass, hidden'],
+[21,'Thorns of Agony',1,'Damage around you when hit.','Greenpath thorn maze'],
+[22,'Baldur Shell',2,'Blocks hits while Focusing.','Howling Cliffs'],
+[23,'Flukenest',3,'Vengeful Spirit becomes flukes.','Flukemarm, Royal Waterways'],
+[24,'Defender\'s Crest',1,'A damaging cloud around you.','Dung Defender'],
+[25,'Glowing Womb',2,'Spend soul to spawn hatchlings.','Crossroads, needs Crystal Heart'],
+[26,'Quick Focus',3,'Faster Focus.','Salubra (800 Geo)'],
+[27,'Deep Focus',4,'Heal two masks, slower.','Crystal Peak, needs Crystal Heart'],
+[28,'Lifeblood Heart',2,'+2 lifeblood masks at a bench.','Salubra (250 Geo)'],
+[29,'Lifeblood Core',3,'+4 lifeblood masks at a bench.','The Abyss, a door that needs 15 lifeblood masks'],
+[30,'Joni\'s Blessing',4,'Masks become lifeblood (+40%), but no Focus.','Joni\'s Repose, Howling Cliffs'],
+[31,'Hiveblood',4,'Last mask lost regrows.','Hive Knight, the Hive'],
+[32,'Spore Shroom',1,'Focus releases a damaging spore cloud.','Fungal Wastes, needs Mantis Claw'],
+[33,'Sharp Shadow',2,'Shade Cloak dash damages.','Deepnest, needs Shade Cloak'],
+[34,'Shape of Unn',2,'Move while Focusing.','Lake of Unn, Greenpath (Isma\'s Tear)'],
+[35,'Nailmaster\'s Glory',1,'Faster nail art charge.','Sly, after you learn all three nail arts'],
+[36,'Weaversong',2,'Weaverlings fight for you.','Weavers\' Den, Deepnest'],
+[37,'Dream Wielder',1,'Faster Dream Nail; more essence.','The Seer, 500 essence'],
+[38,'Dreamshield',3,'An orbiting shield.','Resting Grounds'],
+[39,'Grimmchild / Carefree Melody',2,'Grimmchild attacks for you; Carefree Melody sometimes blocks hits.','The Grimm Troupe (Nightmare Lantern); Carefree if you banish the Troupe'],
+[40,'Kingsoul / Void Heart',5,'Kingsoul: soul over time. Void Heart (0 notches): the Siblings become friendly; needed for two endings.','Both halves (White Lady and the White Palace); Void Heart from the Birthplace in the Abyss']
+].map(([id,n,c,e,w])=>({id,n,c,e,w}));
+const VH_ID=40;
+
+const BUILDS=[
+['Early game',[4,3,15],'Soul Catcher, Stalwart Shell and Steady Body for safer early fights.'],
+['Spellcaster',[5,14,6],'Shaman Stone, Spell Twister and Soul Eater: spam bigger spells.'],
+['Spellcaster + flukes',[5,23,14,6],'Shaman Stone with Flukenest turns Vengeful Spirit into a shotgun.'],
+['Nail power',[13,17,19,7],'Strength, Quick Slash, Mark of Pride and Dashmaster.'],
+['Glass cannon',[20,10,13,17],'Fury, Grubberfly, Strength, Quick Slash. Live at one mask, or don\'t.'],
+['Healer',[26,27,34,22],'Quick and Deep Focus, Shape of Unn and Baldur Shell.'],
+['Tank (Lifeblood)',[30,31,28],'Joni\'s Blessing, Hiveblood and Lifeblood Heart.'],
+['Explorer',[1,2,8,7],'Compass, Swarm, Sprintmaster and Dashmaster.']
+];
+
+/* Known charm synergies. */
+const SYN=[
+[[5,23],'Flukenest with Shaman Stone shoots bigger flukes.'],
+[[10,20],'Grubberfly\'s Elegy works at one mask with Fury of the Fallen (red beams).'],
+[[24,32],'Defender\'s Crest with Spore Shroom makes a dung cloud.'],
+[[27,32],'Deep Focus with Spore Shroom makes a bigger cloud.'],
+[[26,27],'Quick Focus offsets Deep Focus\'s slow heal.'],
+[[34,26],'Shape of Unn with Quick Focus makes you a faster slug.'],
+[[33,7],'Sharp Shadow with Dashmaster: dash more often and further.'],
+[[33,8],'Sharp Shadow with Sprintmaster: longer, faster shadow dash.'],
+[[36,9],'Weaversong with Grubsong: weaverlings gather soul.'],
+[[25,24],'Glowing Womb with Defender\'s Crest makes dung hatchlings.'],
+[[25,20],'Glowing Womb with Fury of the Fallen makes fiery hatchlings at one mask.'],
+[[38,37],'Dreamshield with Dream Wielder grows the shield.'],
+[[19,18],'Longnail with Mark of Pride: the longest reach.']
+];
+
+/* Abilities in the order most players find them. */
+const ABIL=[
+['Vengeful Spirit','Spell','Ancestral Mound, Forgotten Crossroads (Snail Shaman)',true],
+['Mothwing Cloak','Dash','Hornet, Greenpath',true],
+['Mantis Claw','Wall jump','Mantis Village, Fungal Wastes',true],
+['Desolate Dive','Spell','Soul Master, City of Tears',true],
+['Crystal Heart','Super dash','Crystal Peak',true],
+['Monarch Wings','Double jump','Broken Vessel, Ancient Basin',true],
+['Isma\'s Tear','Acid swim','Royal Waterways',true],
+['Dream Nail','Read and enter dreams','Resting Grounds (the Seer)',true],
+['Howling Wraiths','Spell','Overgrown Mound, Fog Canyon',true],
+['King\'s Brand','Opens the Abyss','Cast-Off Shell, Kingdom\'s Edge (Hornet)',true],
+['Shade Cloak','Dash through enemies','The Abyss',true],
+['Shade Soul','Upgraded Vengeful Spirit','Soul Sanctum, behind a door that needs the Elegant Key (Sly)',false],
+['Descending Dark','Upgraded Desolate Dive','Crystallised Mound, Crystal Peak',true],
+['Abyss Shriek','Upgraded Howling Wraiths','The Abyss, needs Monarch Wings',true],
+['Awoken Dream Nail','Upgraded Dream Nail','The Seer, 1800 essence',true],
+['Lumafly Lantern','Lights dark rooms','Sly (1800 Geo)',true]
+];
+
+const NAIL=[['Old Nail',5,'—','Start'],['Sharpened Nail',9,'250 Geo','Nailsmith, City of Tears'],['Channelled Nail',13,'800 Geo + 1 Pale Ore','Nailsmith'],['Coiled Nail',17,'2000 Geo + 2 Pale Ore','Nailsmith'],['Pure Nail',21,'4000 Geo + 3 Pale Ore','Nailsmith']];
+const ORE=[['Ancient Basin','A hidden ledge in the Basin'],['Crystal Peak','A hidden spot near the top'],['Nosk','Deepnest, after the fight'],['Grubfather','31 grubs'],['The Seer','300 essence'],['Colosseum of Fools','Trial of the Conqueror']];
+const ARTS=[['Cyclone Slash','Nailmaster Mato, Howling Cliffs','Free'],['Great Slash','Nailmaster Sheo, Greenpath','Free'],['Dash Slash','Nailmaster Oro, Kingdom\'s Edge','800 Geo']];
+const SPELLS=[['Vengeful Spirit','Shade Soul','Fires a soul blast'],['Desolate Dive','Descending Dark','Slams down'],['Howling Wraiths','Abyss Shriek','Shrieks up']];
+
+const GRUBREW=[[5,'A Mask Shard'],[10,'Grubsong'],[16,'A Rancid Egg'],[23,'A Hallownest Seal'],[31,'Pale Ore'],[38,'A King\'s Idol'],[46,'Grubberfly\'s Elegy']];
+const RELICS=[['journal','Wanderer\'s Journal',200,14],['seal','Hallownest Seal',450,17],['idol','King\'s Idol',800,8],['egg','Arcane Egg',1200,4]];
+const SEER=[[100,'A Hallownest Seal'],[200,'Opens the Spirits\' Glade'],[300,'Pale Ore'],[500,'Dream Wielder'],[700,'A Vessel Fragment'],[900,'Dreamgate'],[1200,'An Arcane Egg'],[1500,'A Mask Shard'],[1800,'Awoken Dream Nail'],[2400,'The Seer ascends']];
+const STAGS=['Dirtmouth','Forgotten Crossroads','Greenpath','Queen\'s Station','Queen\'s Gardens','City Storerooms','King\'s Station','Resting Grounds','Distant Village','Hidden Station','Stag Nest'];
+
+const PANTH=[
+{n:'Pantheon of the Master',open:'Godhome, from the start',end:'Nailmasters Oro & Mato',bosses:'Vengefly King, Gruz Mother, False Knight, Massive Moss Charger, Hornet Protector, Gorb, Dung Defender, Soul Warrior, Brooding Mawlek, Oro & Mato',conf:true},
+{n:'Pantheon of the Artist',open:'Godhome, from the start',end:'Paintmaster Sheo',bosses:'Xero, Crystal Guardian, Soul Master, Oblobbles, Mantis Lords, Marmu, Nosk, Flukemarm, Broken Vessel, Sheo',conf:false},
+{n:'Pantheon of the Sage',open:'Godhome, from the start',end:'Great Nailsage Sly',bosses:'Hive Knight, Elder Hu, The Collector, God Tamer, Troupe Master Grimm, Galien, Grey Prince Zote, Uumuu, Hornet Sentinel, Sly',conf:false},
+{n:'Pantheon of the Knight',open:'Finish the first three',end:'Pure Vessel',bosses:'Enraged Guardian, Lost Kin, No Eyes, Traitor Lord, White Defender, Failed Champion, Markoth, Watcher Knights, Soul Tyrant, Pure Vessel',conf:false},
+{n:'Pantheon of Hallownest',open:'Finish the other four',end:'Absolute Radiance',bosses:'Almost every boss in the game, with a few benches along the way',conf:true}
+];
+const BINDS=['Nail','Shell','Charms','Soul'];
+
+const ENDINGS=[
+['The Hollow Knight','Beat the Hollow Knight without Void Heart. The Knight takes its place.',true],
+['Sealed Siblings','Beat the Hollow Knight with Void Heart equipped.',true],
+['Dream No More','With Void Heart, wait for Hornet to bind the Hollow Knight, then Dream Nail it and beat the Radiance.',true],
+['Embrace the Void','Beat the Pantheon of Hallownest (Godmaster).',true],
+['Delicate Flower','Deliver the Delicate Flower to the Godseeker, then beat the Pantheon of Hallownest.',true]
+];
+
+const PROG=[
+['Opening','Reach Dirtmouth'],['Opening','Vengeful Spirit'],['Opening','Beat the False Knight'],['Opening','Buy the Crossroads map and Iselda\'s Quill'],['Opening','Mothwing Cloak (Hornet)'],
+['Mid game','Mantis Claw'],['Mid game','Reach the City of Tears'],['Mid game','Desolate Dive (Soul Master)'],['Mid game','Lumafly Lantern'],['Mid game','Crystal Heart'],['Mid game','Isma\'s Tear'],['Mid game','Dream Nail'],['Mid game','Monarch Wings'],
+['Dreamers','Lurien the Watcher'],['Dreamers','Monomon the Teacher'],['Dreamers','Herrah the Beast'],
+['Late game','King\'s Brand'],['Late game','Shade Cloak'],['Late game','Pure Nail'],['Late game','Both Kingsoul halves'],['Late game','Void Heart'],['Late game','Beat the Hollow Knight'],['Late game','Beat the Radiance'],
+['Extras','Grimm Troupe: Nightmare King Grimm or banish'],['Extras','Path of Pain'],['Extras','All 46 grubs'],['Extras','Pantheon of Hallownest'],['Extras','112%']
+];
+
+const GUIDES=[
+{id:'start',title:'Your first hours',blurb:'Dirtmouth to the City of Tears',body:`<ol class="mech">
+<li>Drop down the Well into the Forgotten Crossroads. Hit everything; you'll find Cornifer humming to the left. Buy his map.</li>
+<li>Go back up to Dirtmouth and buy Iselda's <b>Quill</b> and the <b>Wayward Compass</b> charm. The map only fills in when you sit at a bench.</li>
+<li>Find the <b>Ancestral Mound</b> in the west Crossroads for Vengeful Spirit and Soul Catcher.</li>
+<li>Beat the <b>False Knight</b> (City Crest). Then head west into <b>Greenpath</b> for Hornet and the Mothwing Cloak.</li>
+<li>From there: Fungal Wastes for the <b>Mantis Claw</b>, then the City of Tears.</li></ol>
+<div class="tip">When you die, a Shade keeps your Geo. Hit it to get it back. Die again first and the Geo is gone.</div>`},
+{id:'charms',title:'Charms and notches',blurb:'How to build without wasting notches',body:`<p>You start with three notches and can reach eleven: four from Salubra (120, 500, 900 and 1400 Geo, unlocked by owning 5, 10, 18 and 25 charms), one from the Shrumal Ogres, one in Fog Canyon, one from the Colosseum's Trial of the Warrior and one from Grimm.</p>
+<p><b>Overcharming:</b> if you have at least one free notch you can equip one more charm even if it costs too much. You'll take double damage. Use the <a href="#charms">charm builder</a> to check.</p>`},
+{id:'dreamers',title:'The three Dreamers',blurb:'Lurien, Monomon and Herrah',body:`<p>The Black Egg is sealed by three Dreamers. Kill each with the Dream Nail:</p><ul class="mech"><li><b>Lurien</b>: top of the Watcher's Spire, City of Tears (Watcher Knights first).</li><li><b>Monomon</b>: Teacher's Archives, Fog Canyon (Uumuu first).</li><li><b>Herrah</b>: Beast's Den, Deepnest.</li></ul><div class="note">Once all three are dead, the Crossroads become Infected and the endgame opens. The Crossroads' enemies get tougher, but nothing is lost.</div>`},
+{id:'geo',title:'Making Geo',blurb:'Farms and relics',body:`<ul class="mech"><li>Sell relics to Lemm (City of Tears).</li><li>The Colosseum Trial of the Fool pays well.</li><li>Equip Gathering Swarm and Fragile/Unbreakable Greed while you farm.</li><li>Geo rocks in the Crossroads and Crystal Peak are easy money.</li></ul>`},
+{id:'endings',title:'Endings in order',blurb:'Five endings, which first',body:`<p>The usual order: get <b>Void Heart</b> first (Kingsoul + the Birthplace), then beat the Hollow Knight for Sealed Siblings, then Dream No More. See the <a href="#endings">Endings</a> page.</p>`},
+{id:'steel',title:'Steel Soul',blurb:'Permadeath tips',body:`<ul class="mech"><li>Die once and the save is gone.</li><li>Skip optional bosses until you're strong, and use the Godhome Hall of Gods to practise (Attuned is safe in Steel Soul).</li><li>The White Palace saws and Path of Pain are the scariest parts.</li></ul>`},
+{id:'grimm',title:'The Grimm Troupe',blurb:'Lantern, flames and the Troupe Master',body:`<p>Strike the Nightmare Lantern in the Howling Cliffs with the Dream Nail. Grimm sets up in Dirtmouth. Collect three flames for each level of Grimmchild, beat the Troupe Master, then choose: Nightmare King Grimm or banish the Troupe (Brumm) for Carefree Melody.</p>`},
+{id:'godhome',title:'Godhome',blurb:'Hall of Gods and pantheons',body:`<p>Enter from the Junk Pit in the Royal Waterways with a Simple Key. Each boss has three statue tiers. Pantheons run several bosses back-to-back; bindings make them harder.</p>`}
+];
+
+/* ================= STATE ================= */
+let S={prog:{},bossDone:{},bossPrep:{},have:{},build:[],notches:3,builds:[],grubs:0,relics:{},sold:{},essence:0,stags:{},panth:{},shards:0,frags:0,nail:0,ore:{},arts:{},spells:{},notes:''};
+try{const x=JSON.parse(localStorage.getItem('hk_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('hk_state',JSON.stringify(S));}catch(e){}};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const mark=c=>c?'<span class="conf" title="Team Cherry or several guides agree">●</span>':'<span class="unv" title="Guides disagree or the detail is fuzzy; check in-game">○</span>';
+const areaOf=id=>AREAS.find(a=>a.id===id);
+const bossOf=id=>BOSSES.find(b=>b.id===id);
+const charmOf=id=>CHARMS.find(c=>c.id===id);
+const cnt=(id,v,max)=>`<span class="cnt"><button data-dec="${id}">−</button><b>${v}${max!=null?' / '+max:''}</b><button data-inc="${id}">+</button></span>`;
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Home'],
+ ['_'],['guides','Guides'],['areas','Areas'],['bosses','Bosses'],['endings','Endings'],
+ ['_'],['abilities','Abilities'],['charms','Charm builder'],['nail','Nail, spells and arts'],['masks','Masks and vessels'],
+ ['_'],['completion','Completion'],['grubs','Grubs'],['relics','Relics and Pale Ore'],['essence','Dream Nail and essence'],['stags','Stag stations'],
+ ['_'],['godhome','Godhome'],['progress','Progression'],['notes','My Notes']];
+const GROUPS=['Hallownest','The Knight','Collecting','Your save'];
+const REAL=PAGES.filter(p=>p[0]!=='_');
+function buildNav(cur){let gi=0;$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>HOLLOW KNIGHT<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>id==='_'?`<div class="grp">${GROUPS[gi++]}</div>`:`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+
+const TILE={guides:'First hours, charms, Dreamers, Geo, endings, Steel Soul, Grimm, Godhome',areas:'Every area on a map, with what\'s in it',bosses:'Bosses with prep checklists',endings:'All five and how to get them',abilities:'Movement and spells in order',charms:'Build, check notches and overcharming',nail:'Nail upgrades, spells and nail arts',masks:'Mask Shards and Vessel Fragments',completion:'Everything that counts to 112%',grubs:'Count grubs and see the Grubfather\'s rewards',relics:'Sell value calculator and Pale Ore',essence:'Essence milestones from the Seer',stags:'Every stag station',godhome:'Pantheons and bindings',progress:'From King\'s Pass to the Radiance',notes:'Your own notes'};
+
+function maskCount(){return 5+Math.floor(S.shards/4);}
+function vesselCount(){return Math.floor(S.frags/3);}
+
+function pgHome(){
+  const done=PROG.filter((_,i)=>S.prog[i]).length,bosses=BOSSES.filter(b=>S.bossDone[b.id]).length,next=BOSSES.find(b=>b.req&&!S.bossDone[b.id]);
+  return `${TWArt.hero(367520,'Hollow Knight')}<h2>Hollow Knight Assistant</h2><p class="sub">A companion for <i>Hollow Knight</i>, from King's Pass to the Radiance and the Pantheon of Hallownest. Your bosses, charms, grubs, relics, essence and notes are saved on this device.</p>
+<div class="stats"><div class="stat"><small>Masks</small><a class="mob big" href="#masks">${maskCount()}</a></div><div class="stat"><small>Soul vessels</small><a class="mob big" href="#masks">${vesselCount()}</a></div><div class="stat"><small>Nail</small><a class="mob" href="#nail">${esc(NAIL[S.nail][0])}</a></div><div class="stat"><small>Grubs</small><a class="mob big" href="#grubs">${S.grubs} / 46</a></div><div class="stat"><small>Essence</small><a class="mob big" href="#essence">${S.essence}</a></div><div class="stat"><small>Bosses down</small><a class="mob big" href="#bosses">${bosses} / ${BOSSES.length}</a></div><div class="stat"><small>Next story boss</small>${next?`<a class="mob" href="#bosses/${next.id}">${esc(next.n)}</a>`:'<span class="ok">All done</span>'}</div><div class="stat"><small>Progression</small><a class="mob" href="#progress">${done} of ${PROG.length}</a></div></div>
+<div class="grid">${REAL.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> are from Team Cherry or several sources that agree. Facts marked <span class="unv">○</span> are fuzzy (exact spots or numbers guides disagree on). The game is spoiler-heavy: the Endings and Godhome pages say who you'll fight.</div>`;}
+
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div>`;}
+  return `<h2>Guides</h2><p class="sub">Short, practical guides.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;
+}
+
+/* A rough map of Hallownest: areas by where they sit, links between neighbours. */
+function areaMap(){
+  const L=[['dirtmouth','cliffs'],['dirtmouth','crossroads'],['crossroads','greenpath'],['crossroads','fog'],['crossroads','fungal'],['crossroads','peak'],['crossroads','resting'],['greenpath','fog'],['greenpath','gardens'],['fog','fungal'],['fog','gardens'],['fungal','city'],['fungal','deepnest'],['gardens','deepnest'],['city','peak'],['city','resting'],['city','waterways'],['city','edge'],['waterways','basin'],['waterways','edge'],['waterways','godhome'],['edge','hive'],['basin','abyss'],['basin','palace'],['deepnest','basin']];
+  let s='';for(const [a,b] of L){const A=areaOf(a),B=areaOf(b);s+=`<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="#7fb2e566" stroke-width="2" stroke-dasharray="5 5"/>`;}
+  for(const a of AREAS){s+=`<a href="#areas/${a.id}" aria-label="${esc(a.n)}"><title>${esc(a.n)}</title><circle class="hit" cx="${a.x}" cy="${a.y}" r="26" fill="${a.col}" stroke="#0b0e14" stroke-width="2"/><text class="lbl" x="${a.x}" y="${a.y+40}" text-anchor="middle" font-size="11" font-weight="600" fill="#e8ecf4">${esc(a.n.replace(' and King\'s Pass','').replace('Forgotten ','').replace('Royal ',''))}</text></a>`;}
+  return `<svg class="tw-map" viewBox="40 0 680 520" role="img" aria-label="Map of Hallownest">${s}</svg><p class="tw-cap">Roughly where each area sits, not to scale. Tap one.</p>`;
+}
+function pgAreas(sub){
+  const a=sub&&areaOf(sub);
+  if(a){return `<p><a href="#areas">&larr; All areas</a></p><h2>${mark(a.conf)} ${esc(a.n)}</h2><p class="sub">${esc(a.d)}</p>
+<div class="stats"><div class="stat"><small>To get in</small>${esc(a.need)}</div>${a.boss?`<div class="stat"><small>Bosses</small>${a.boss.map(b=>`<a class="mob" href="#bosses/${b}">${esc(bossOf(b).n)}</a>`).join('<br>')}</div>`:''}</div>
+${a.npcs?`<div class="card"><h3 style="margin-top:0">Who's here</h3><ul class="mech">${a.npcs.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}
+<div class="card"><h3 style="margin-top:0">What's here</h3><ul class="mech">${a.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+<div class="card"><h3 style="margin-top:0">Tips</h3><ul class="mech">${a.tips.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;}
+  return `<h2>Areas</h2><p class="sub">Hallownest, area by area.</p>${areaMap()}<div class="grid">${AREAS.map(a=>`<div class="tile" onclick="location.hash='areas/${a.id}'"><b>${esc(a.n)}</b><div class="dim">${esc(a.need)}</div></div>`).join('')}</div>`;
+}
+
+function pgBosses(sub){
+  const b=sub&&bossOf(sub);
+  if(b){const prep=S.bossPrep[b.id]||{},a=areaOf(b.area),i=BOSSES.indexOf(b),pr=b.prep;
+    return `<p><a href="#bosses">&larr; All bosses</a></p><h2>${mark(b.conf)} ${esc(b.n)} <span class="tag">${b.req?'Story':'Optional'}</span> <span class="tag">${esc(a.n)}</span></h2>
+<label class="chk" style="margin:6px 0 12px"><input type="checkbox" id="bdone"${S.bossDone[b.id]?' checked':''}> I've beaten ${esc(b.n)}</label>
+<div class="card"><h3 style="margin-top:0">Where</h3><p style="margin:0">${esc(b.how)}</p></div>
+<div class="card"><h3 style="margin-top:0">Attacks</h3><ul class="mech">${b.attacks.map(x=>`<li>${esc(x)}</li>`).join('')}</ul><div class="tip">${esc(b.tip)}</div></div>
+${pr.length?`<div class="card"><h3 style="margin-top:0">Prep checklist</h3>${pr.map((p,j)=>`<label class="chk"><input type="checkbox" data-bp="${j}"${prep[j]?' checked':''}> ${esc(p)}</label>`).join('')}</div>`:''}
+<div class="card"><h3 style="margin-top:0">Reward</h3><p style="margin:0">${esc(b.rew)}</p></div>
+<div class="row">${i?`<a class="mob" href="#bosses/${BOSSES[i-1].id}">&larr; ${esc(BOSSES[i-1].n)}</a>`:''}<span style="flex:1"></span><a class="mob" href="#areas/${a.id}">${esc(a.n)}</a><span style="flex:1"></span>${BOSSES[i+1]?`<a class="mob" href="#bosses/${BOSSES[i+1].id}">${esc(BOSSES[i+1].n)} &rarr;</a>`:''}</div>`;}
+  return `<h2>Bosses</h2><p class="sub">Story bosses and the main optional ones, roughly in the order you'll meet them. Tap one for its attacks and a prep checklist.</p>
+<div class="chips" id="bf"><button data-bf="" class="on">All</button><button data-bf="req">Story</button><button data-bf="opt">Optional</button><button data-bf="todo">Not beaten</button></div>
+<div class="card tbl"><table id="bt"></table></div>`;}
+function bossWire(sub){
+  if(sub){const b=bossOf(sub);if(!b)return;$('bdone').onchange=e=>{S.bossDone[b.id]=e.target.checked;save();};
+    document.querySelectorAll('[data-bp]').forEach(cb=>cb.onchange=()=>{(S.bossPrep[b.id]=S.bossPrep[b.id]||{})[cb.dataset.bp]=cb.checked;save();});return;}
+  const draw=f=>{const rows=BOSSES.filter(b=>!f||(f==='req'&&b.req)||(f==='opt'&&!b.req)||(f==='todo'&&!S.bossDone[b.id]));
+    $('bt').innerHTML='<tr><th></th><th>Boss</th><th>Area</th><th>Reward</th></tr>'+rows.map(b=>`<tr><td>${S.bossDone[b.id]?'<span class="ok">✔</span>':''}</td><td>${mark(b.conf)} <a class="mob" href="#bosses/${b.id}">${esc(b.n)}</a>${b.req?' <span class="tag">story</span>':''}</td><td>${esc(areaOf(b.area).n)}</td><td class="dim">${esc(b.rew)}</td></tr>`).join('');};
+  document.querySelectorAll('[data-bf]').forEach(x=>x.onclick=()=>{document.querySelectorAll('[data-bf]').forEach(y=>y.classList.toggle('on',y===x));draw(x.dataset.bf);});draw('');
+}
+
+function pgEndings(){return `<h2>Endings</h2><p class="sub">Five endings. Spoilers below.</p><div class="card tbl"><table><tr><th>Ending</th><th>How</th><th>Got it</th></tr>${ENDINGS.map(([n,h,c],i)=>`<tr><td>${mark(c)} <b>${esc(n)}</b></td><td>${esc(h)}</td><td><input type="checkbox" data-hv="end${i}"${S.have['end'+i]?' checked':''}></td></tr>`).join('')}</table></div>
+<div class="tip">Void Heart: take both Kingsoul halves (the White Lady in Queen's Gardens and the White Palace), then go to the Birthplace at the bottom of the Abyss with Kingsoul equipped.</div>`;}
+
+function pgAbilities(){const n=ABIL.filter(a=>S.have['ab:'+a[0]]).length;
+  return `<h2>Abilities</h2><p class="sub">In the order most players find them. ${n} of ${ABIL.length} ticked.</p><div class="bar"><i style="width:${n/ABIL.length*100}%"></i></div>
+<div class="card tbl"><table><tr><th></th><th>Ability</th><th>What it does</th><th>Where</th></tr>${ABIL.map(([a,w,l,c])=>`<tr><td><input type="checkbox" data-hv="ab:${esc(a)}"${S.have['ab:'+a]?' checked':''}></td><td>${mark(c)} <b>${esc(a)}</b></td><td>${esc(w)}</td><td class="dim">${esc(l)}</td></tr>`).join('')}</table></div>`;}
+
+/* Charm builder. You may overcharm if at least one notch is free before the last charm. */
+function buildCheck(){
+  const cs=S.build.map(charmOf).filter(Boolean),cost=c=>c.id===VH_ID&&S.vh?0:c.c,used=cs.reduce((a,c)=>a+cost(c),0),maxc=cs.reduce((a,c)=>Math.max(a,cost(c)),0);
+  const state=used<=S.notches?'ok':(used-maxc<S.notches?'over':'bad');
+  return {cs,used,state,cost};
+}
+function pgCharms(){const {cs,used,state,cost}=buildCheck(),owned=CHARMS.filter(c=>S.have['ch:'+c.id]).length,ids=new Set(S.build);
+  const syn=SYN.filter(([p])=>p.every(id=>ids.has(id)));
+  return `<h2>Charm builder</h2><p class="sub">Tap charms to equip them. Tick the ones you own. ${owned} of ${CHARMS.length} owned.</p>
+<div class="card"><div class="row"><label>Notches <select id="nn">${[3,4,5,6,7,8,9,10,11].map(n=>`<option${n===S.notches?' selected':''}>${n}</option>`).join('')}</select></label><label class="chk" style="margin:0"><input type="checkbox" id="vh"${S.vh?' checked':''}> I have Void Heart (0 notches)</label><button id="bclear">Clear</button></div>
+<div class="pips">${Array.from({length:Math.max(S.notches,used)},(_,i)=>`<span class="pip ${i<used?(i>=S.notches?'o':'f'):''}"></span>`).join('')}</div>
+<div><b>${used} of ${S.notches} notches</b> · ${state==='ok'?'<span class="ok">Fits</span>':state==='over'?'<span class="unv">Overcharmed: you take double damage</span>':'<span class="bad">Too much: you can\'t equip this, even overcharmed</span>'}</div>
+${cs.length?`<p style="margin:8px 0 0">${cs.map(c=>`<span class="tag" style="margin:0 4px 4px 0">${esc(c.id===VH_ID&&S.vh?'Void Heart':c.n)} · ${cost(c)}</span>`).join('')}</p>`:''}
+${syn.length?`<div class="tip">${syn.map(s=>esc(s[1])).join('<br>')}</div>`:''}
+<div class="row" style="margin-top:8px"><input id="bname" type="text" style="width:180px" placeholder="Name this build"><button class="pri" id="bsave">Save build</button></div></div>
+<h3>Presets</h3><div class="chips">${BUILDS.map((b,i)=>`<button data-preset="${i}" title="${esc(b[2])}">${esc(b[0])}</button>`).join('')}</div>
+${S.builds.length?`<h3>Your builds</h3><div class="chips">${S.builds.map((b,i)=>`<button data-mine="${i}">${esc(b.n)}</button><button data-mdel="${i}" title="Delete">✕</button>`).join('')}</div>`:''}
+<h3>All charms</h3><div class="charms">${CHARMS.map(c=>`<div class="charm${ids.has(c.id)?' on':''}" data-eq="${c.id}"><span class="c">${c.id===VH_ID&&S.vh?0:c.c}</span><b>${esc(c.id===VH_ID&&S.vh?'Void Heart':c.n)}</b><small>${esc(c.e)}</small><small>${esc(c.w)}</small><label class="chk" style="margin:4px 0 0;font-size:12px" onclick="event.stopPropagation()"><input type="checkbox" data-hv="ch:${c.id}"${S.have['ch:'+c.id]?' checked':''}> owned</label></div>`).join('')}</div>`;}
+function charmWire(){
+  $('nn').onchange=e=>{S.notches=+e.target.value;save();route(true);};
+  $('vh').onchange=e=>{S.vh=e.target.checked;save();route(true);};
+  $('bclear').onclick=()=>{S.build=[];save();route(true);};
+  document.querySelectorAll('[data-eq]').forEach(d=>d.onclick=()=>{const id=+d.dataset.eq,i=S.build.indexOf(id);if(i>=0)S.build.splice(i,1);else S.build.push(id);save();route(true);});
+  document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{S.build=BUILDS[+b.dataset.preset][1].slice();save();route(true);});
+  document.querySelectorAll('[data-mine]').forEach(b=>b.onclick=()=>{const x=S.builds[+b.dataset.mine];S.build=x.ids.slice();S.notches=x.notches||S.notches;save();route(true);});
+  document.querySelectorAll('[data-mdel]').forEach(b=>b.onclick=()=>{S.builds.splice(+b.dataset.mdel,1);save();route(true);});
+  $('bsave').onclick=()=>{const n=$('bname').value.trim()||'Build '+(S.builds.length+1);if(!S.build.length)return;S.builds.push({n,ids:S.build.slice(),notches:S.notches});save();route(true);};
+}
+
+function pgNail(){const ore=ORE.filter((_,i)=>S.ore[i]).length,need=NAIL.slice(S.nail+1).reduce((a,n)=>{const m=n[2].match(/(\d+) Pale/);return a+(m?+m[1]:0);},0),geo=NAIL.slice(S.nail+1).reduce((a,n)=>{const m=n[2].match(/^(\d+)/);return a+(m?+m[1]:0);},0);
+  return `<h2>Nail, spells and nail arts</h2><p class="sub">Your nail is upgraded by the Nailsmith in the City of Tears. Pick your current nail to see what's left.</p>
+<div class="card tbl"><table><tr><th></th><th>Nail</th><th class="n">Damage</th><th>Cost</th></tr>${NAIL.map((n,i)=>`<tr><td><input type="radio" name="nail" data-nail="${i}"${S.nail===i?' checked':''}></td><td><b>${esc(n[0])}</b></td><td class="n">${n[1]}</td><td>${esc(n[2])}</td></tr>`).join('')}</table>
+<p style="margin:8px 0 0">To the Pure Nail: <b>${geo.toLocaleString()} Geo</b> and <b>${need} Pale Ore</b>. You've ticked ${ore} of 6 Pale Ore below.</p></div>
+<h3>Pale Ore</h3><div class="card">${ORE.map((o,i)=>`<label class="chk"><input type="checkbox" data-ore="${i}"${S.ore[i]?' checked':''}> <span><b>${esc(o[0])}</b> <span class="dim">${esc(o[1])}</span></span></label>`).join('')}</div>
+<h3>Spells</h3><div class="card tbl"><table><tr><th>Spell</th><th>Upgrade</th><th>What it does</th></tr>${SPELLS.map(([a,b,w])=>`<tr><td><label class="chk" style="margin:0"><input type="checkbox" data-hv="ab:${esc(a)}"${S.have['ab:'+a]?' checked':''}> ${esc(a)}</label></td><td><label class="chk" style="margin:0"><input type="checkbox" data-hv="ab:${esc(b)}"${S.have['ab:'+b]?' checked':''}> ${esc(b)}</label></td><td class="dim">${esc(w)}</td></tr>`).join('')}</table><p class="dim" style="margin:6px 0 0">Spells cost 33 soul (24 with Spell Twister). Shaman Stone makes them bigger.</p></div>
+<h3>Nail arts</h3><div class="card tbl"><table><tr><th></th><th>Art</th><th>Nailmaster</th><th>Cost</th></tr>${ARTS.map(([a,w,c])=>`<tr><td><input type="checkbox" data-hv="art:${esc(a)}"${S.have['art:'+a]?' checked':''}></td><td><b>${esc(a)}</b></td><td>${esc(w)}</td><td>${esc(c)}</td></tr>`).join('')}</table><p class="dim" style="margin:6px 0 0">Learn all three, then Sly (Dirtmouth) teaches you and gives Nailmaster's Glory.</p></div>`;}
+function nailWire(){
+  document.querySelectorAll('[data-nail]').forEach(r=>r.onchange=()=>{S.nail=+r.dataset.nail;save();route(true);});
+  document.querySelectorAll('[data-ore]').forEach(c=>c.onchange=()=>{S.ore[c.dataset.ore]=c.checked;save();route(true);});
+}
+
+function pgMasks(){return `<h2>Masks and vessels</h2><p class="sub">Four Mask Shards make a mask; three Vessel Fragments make a soul vessel.</p>
+<div class="stats"><div class="stat"><small>Mask Shards</small>${cnt('shards',S.shards,16)}</div><div class="stat"><small>Masks</small><span class="big">${maskCount()}</span> <span class="dim">of 9</span></div><div class="stat"><small>Vessel Fragments</small>${cnt('frags',S.frags,9)}</div><div class="stat"><small>Soul vessels</small><span class="big">${vesselCount()}</span> <span class="dim">of 3</span></div></div>
+<div class="pips">${Array.from({length:16},(_,i)=>`<span class="pip ${i<S.shards?'f':''}" title="Shard ${i+1}"></span>`).join('')}</div>
+<h3>Where shards come from</h3><div class="card"><ul class="mech"><li>${mark(true)} Sly sells four (rising prices; two need the Shopkeeper's Key).</li><li>${mark(true)} The Grubfather (5 grubs), the Seer (1500 essence), Brooding Mawlek, Enraged Guardian.</li><li>${mark(false)} The rest are scattered: Crossroads, Queen's Station, Stone Sanctuary (Greenpath), Royal Waterways, Deepnest, Kingdom's Edge, the Hive. Buy maps from Cornifer and look for dead ends.</li></ul></div>
+<h3>Where fragments come from</h3><div class="card"><ul class="mech"><li>${mark(true)} Sly sells two (needs the Shopkeeper's Key for one).</li><li>${mark(true)} The Seer (700 essence).</li><li>${mark(false)} Greenpath, the Crossroads, King's Station, the Ancient Basin, Deepnest and the Stag Nest have the rest.</li></ul></div>`;}
+
+const LIST={shards:16,frags:9,grubs:46};
+function cntWire(){document.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>{const k=b.dataset.inc;S[k]=Math.min(LIST[k],(+S[k]||0)+1);save();route(true);});document.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{const k=b.dataset.dec;S[k]=Math.max(0,(+S[k]||0)-1);save();route(true);});}
+
+/* Completion: groups with their size. Equipment counts 2% each, most things 1%. */
+function compGroups(){
+  return [
+   ['Masks',`${maskCount()-5} / 4`,(maskCount()-5)/4],
+   ['Soul vessels',`${vesselCount()} / 3`,vesselCount()/3],
+   ['Nail upgrades',`${S.nail} / 4`,S.nail/4],
+   ['Spells (with upgrades)',`${SPELLS.reduce((a,[x,y])=>a+(S.have['ab:'+x]?1:0)+(S.have['ab:'+y]?1:0),0)} / 6`,SPELLS.reduce((a,[x,y])=>a+(S.have['ab:'+x]?1:0)+(S.have['ab:'+y]?1:0),0)/6],
+   ['Nail arts',`${ARTS.filter(a=>S.have['art:'+a[0]]).length} / 3`,ARTS.filter(a=>S.have['art:'+a[0]]).length/3],
+   ['Charms',`${CHARMS.filter(c=>S.have['ch:'+c.id]).length} / ${CHARMS.length}`,CHARMS.filter(c=>S.have['ch:'+c.id]).length/CHARMS.length],
+   ['Equipment',`${['Mothwing Cloak','Mantis Claw','Crystal Heart','Monarch Wings','Isma\'s Tear','Shade Cloak','Dream Nail'].filter(a=>S.have['ab:'+a]).length} / 7`,['Mothwing Cloak','Mantis Claw','Crystal Heart','Monarch Wings','Isma\'s Tear','Shade Cloak','Dream Nail'].filter(a=>S.have['ab:'+a]).length/7],
+   ['Bosses (all listed)',`${BOSSES.filter(b=>S.bossDone[b.id]).length} / ${BOSSES.length}`,BOSSES.filter(b=>S.bossDone[b.id]).length/BOSSES.length],
+   ['Pantheons',`${PANTH.filter((_,i)=>(S.panth[i]||{}).done).length} / 5`,PANTH.filter((_,i)=>(S.panth[i]||{}).done).length/5]
+  ];
+}
+function pgCompletion(){const g=compGroups(),avg=g.reduce((a,x)=>a+x[2],0)/g.length;
+  return `<h2>Completion</h2><p class="sub">The game's full total is <b>112%</b> ${mark(true)}: 100% in the base game, plus 6% for the Grimm Troupe, 1% for Lifeblood and 5% for Godmaster. Charms are the biggest group; each piece of equipment counts 2% and most other things 1% ${mark(false)}.</p>
+<div class="card"><b>Your progress across the groups we track: ${Math.round(avg*100)}%</b><div class="bar"><i style="width:${avg*100}%"></i></div><p class="dim" style="margin:0">This is a rough guide built from what you've ticked on the other pages, not the game's own number. Sit at a bench and look at your save file for the real one.</p></div>
+<div class="card tbl"><table><tr><th>Group</th><th class="n">You</th><th style="width:40%"></th></tr>${g.map(([n,v,f])=>`<tr><td>${esc(n)}</td><td class="n">${v}</td><td><div class="bar" style="margin:6px 0"><i style="width:${Math.min(1,f)*100}%"></i></div></td></tr>`).join('')}</table></div>
+<h3>What doesn't count</h3><div class="card"><ul class="mech"><li>Grubs (but the Grubfather's rewards include charms and a Mask Shard that do).</li><li>Relics, Geo and Pale Ore themselves.</li><li>The Path of Pain.</li><li>Hunter's Journal entries.</li></ul></div>`;}
+
+function pgGrubs(){const next=GRUBREW.find(r=>r[0]>S.grubs);
+  return `<h2>Grubs</h2><p class="sub">46 grubs are trapped in jars across Hallownest. Free them and visit the Grubfather in the Forgotten Crossroads for rewards.</p>
+<div class="stats"><div class="stat"><small>Grubs freed</small>${cnt('grubs',S.grubs,46)}</div><div class="stat"><small>Next reward</small>${next?`${esc(next[1])} <span class="dim">at ${next[0]}</span>`:'<span class="ok">All rewards</span>'}</div></div>
+<div class="bar"><i style="width:${S.grubs/46*100}%"></i></div>
+<div class="card tbl"><table><tr><th class="n">Grubs</th><th>Reward</th><th></th></tr>${GRUBREW.map(([n,r])=>`<tr><td class="n">${n}</td><td>${esc(r)}</td><td>${S.grubs>=n?'<span class="ok">✔</span>':''}</td></tr>`).join('')}</table><p class="dim" style="margin:6px 0 0">The Grubfather also hands out Geo at every step in between.</p></div>
+<div class="tip">Grubsong (10 grubs) makes grubs cry out when you're near: listen for them. The Collector's Map (Tower of Love) marks every grub still trapped.</div>`;}
+
+function pgRelics(){const val=RELICS.reduce((a,[k,,p])=>a+(+S.relics[k]||0)*p,0),sold=RELICS.reduce((a,[k])=>a+(+S.sold[k]||0),0);
+  return `<h2>Relics and Pale Ore</h2><p class="sub">Relics sell to Lemm in the City of Tears. Enter how many you're carrying.</p>
+<div class="card tbl"><table><tr><th>Relic</th><th class="n">Lemm pays</th><th class="n">In the game</th><th>Carrying</th><th>Sold</th></tr>${RELICS.map(([k,n,p,t])=>`<tr><td><b>${esc(n)}</b></td><td class="n">${p}</td><td class="n">${t}</td><td><input type="number" min="0" max="${t}" data-rel="${k}" value="${+S.relics[k]||0}" style="width:70px"></td><td><input type="number" min="0" max="${t}" data-sold="${k}" value="${+S.sold[k]||0}" style="width:70px"></td></tr>`).join('')}</table>
+<p style="margin:8px 0 0">Worth <span class="big2">${val.toLocaleString()}</span> Geo · sold ${sold} of 43</p></div>
+<div class="tip">Relics only sell; nothing else uses them. Hold a few as a Geo bank you can't lose to your Shade.</div>
+<p><a class="mob" href="#nail">Pale Ore and the Nailsmith &rarr;</a></p>`;}
+function relicWire(){
+  document.querySelectorAll('[data-rel]').forEach(i=>i.onchange=()=>{S.relics[i.dataset.rel]=Math.max(0,+i.value||0);save();route(true);});
+  document.querySelectorAll('[data-sold]').forEach(i=>i.onchange=()=>{S.sold[i.dataset.sold]=Math.max(0,+i.value||0);save();route(true);});
+}
+
+function pgEssence(){const next=SEER.find(r=>r[0]>S.essence);
+  return `<h2>Dream Nail and essence</h2><p class="sub">Hit Whispering Roots, dream bosses and ghosts with the Dream Nail to gather essence, then show it to the Seer in the Resting Grounds.</p>
+<div class="stats"><div class="stat"><small>Your essence</small><input type="number" id="ess" min="0" value="${S.essence}" style="width:100px"></div><div class="stat"><small>Next</small>${next?`${esc(next[1])} <span class="dim">at ${next[0]} (${next[0]-S.essence} to go)</span>`:'<span class="ok">The Seer has ascended</span>'}</div></div>
+<div class="bar"><i style="width:${Math.min(100,S.essence/2400*100)}%"></i></div>
+<div class="card tbl"><table><tr><th class="n">Essence</th><th>Reward</th><th></th></tr>${SEER.map(([n,r])=>`<tr><td class="n">${n}</td><td>${esc(r)}</td><td>${S.essence>=n?'<span class="ok">✔</span>':''}</td></tr>`).join('')}</table></div>
+<div class="tip">Warrior dreams (Gorb, Elder Hu, Marmu, No Eyes, Galien, Xero, Markoth) each give a good chunk of essence. Dream bosses (Failed Champion, Soul Tyrant, Lost Kin, White Defender, Grey Prince Zote) give essence too.</div>`;}
+
+function pgStags(){const n=STAGS.filter((_,i)=>S.stags[i]).length;
+  return `<h2>Stag stations</h2><p class="sub">Ring the bell to call the Last Stag. Most stations need a toll the first time. ${n} of ${STAGS.length} open.</p><div class="bar"><i style="width:${n/STAGS.length*100}%"></i></div>
+<div class="card">${STAGS.map((s,i)=>`<label class="chk"><input type="checkbox" data-stag="${i}"${S.stags[i]?' checked':''}> ${esc(s)}</label>`).join('')}</div>
+<div class="tip">Open every station and ride to the Stag Nest at the end for a short story.</div>`;}
+
+function pgGodhome(){return `<h2>Godhome</h2><p class="sub">Enter through the Junk Pit in the Royal Waterways (Simple Key). Tick each pantheon and the bindings you beat it with.</p>
+${PANTH.map((p,i)=>{const s=S.panth[i]||{};return `<div class="card"><h3 style="margin-top:0">${mark(p.conf)} ${esc(p.n)} ${s.done?'<span class="ok">✔</span>':''}</h3><p style="margin:0 0 6px">Opens: ${esc(p.open)} · last boss: <b>${esc(p.end)}</b></p><p class="dim" style="margin:0 0 6px">${esc(p.bosses)}</p>
+<div class="row"><label class="chk" style="margin:0"><input type="checkbox" data-pd="${i}"${s.done?' checked':''}> Done</label>${BINDS.map(b=>`<label class="chk" style="margin:0"><input type="checkbox" data-pb="${i}:${b}"${(s.b||{})[b]?' checked':''}> ${b} binding</label>`).join('')}</div></div>`;}).join('')}
+<div class="note">Boss orders in pantheons 2 to 4 are from memory and community lists; check the in-game list when you start one.</div>`;}
+function godWire(){
+  document.querySelectorAll('[data-pd]').forEach(c=>c.onchange=()=>{const i=c.dataset.pd;(S.panth[i]=S.panth[i]||{}).done=c.checked;save();route(true);});
+  document.querySelectorAll('[data-pb]').forEach(c=>c.onchange=()=>{const [i,b]=c.dataset.pb.split(':');const p=S.panth[i]=S.panth[i]||{};(p.b=p.b||{})[b]=c.checked;save();});
+}
+
+function pgProgress(){const done=PROG.filter((_,i)=>S.prog[i]).length,groups=[...new Set(PROG.map(p=>p[0]))];
+  return `<h2>Progression</h2><p class="sub">From King's Pass to the Radiance. Tick things off as you go.</p>
+<div class="dim" id="pdone">${done} of ${PROG.length} done</div><div class="bar"><i id="pbar" style="width:${done/PROG.length*100}%"></i></div>
+${groups.map(g=>`<h3>${g}</h3><div class="card">${PROG.map((p,i)=>p[0]===g?`<label class="chk"><input type="checkbox" data-p="${i}"${S.prog[i]?' checked':''}> ${esc(p[1])}</label>`:'').join('')}</div>`).join('')}
+<button onclick="if(confirm('Clear all progression ticks?')){S.prog={};save();route()}">Reset</button>`;}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Where your Shade is, which grub you heard but couldn't reach, which charm build beat which boss...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+function route(keepScroll){
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=REAL.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main'),top=m.scrollTop;
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),areas:()=>pgAreas(sub),bosses:()=>pgBosses(sub),endings:pgEndings,abilities:pgAbilities,charms:pgCharms,nail:pgNail,masks:pgMasks,completion:pgCompletion,grubs:pgGrubs,relics:pgRelics,essence:pgEssence,stags:pgStags,godhome:pgGodhome,progress:pgProgress,notes:pgNotes})[page]();
+  m.scrollTop=keepScroll===true?top:0;
+  m.querySelectorAll('input[type=checkbox][data-p]').forEach(cb=>{cb.onchange=()=>{S.prog[cb.dataset.p]=cb.checked;save();const d=PROG.filter((_,i)=>S.prog[i]).length;$('pdone').textContent=d+' of '+PROG.length+' done';$('pbar').style.width=d/PROG.length*100+'%';};});
+  m.querySelectorAll('input[type=checkbox][data-hv]').forEach(cb=>{cb.onchange=()=>{S.have[cb.dataset.hv]=cb.checked;save();if(page==='abilities')route(true);};});
+  m.querySelectorAll('input[type=checkbox][data-stag]').forEach(cb=>{cb.onchange=()=>{S.stags[cb.dataset.stag]=cb.checked;save();route(true);};});
+  cntWire();
+  if(page==='bosses')bossWire(sub);
+  if(page==='charms')charmWire();
+  if(page==='nail')nailWire();
+  if(page==='relics')relicWire();
+  if(page==='essence')$('ess').onchange=e=>{S.essence=Math.max(0,+e.target.value||0);save();route(true);};
+  if(page==='godhome')godWire();
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',()=>route());
+route();
+</script>
+</body>
+</html>
