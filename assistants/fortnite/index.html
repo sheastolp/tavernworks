@@ -92,10 +92,13 @@ label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
 /* ================= DATA =================
    Fortnite changes every season, so nothing season-specific is written down here.
    The live pages (stats, Item Shop, news, map) read fortnite-api.com, a free
-   community API. Stats need a free API key from its dashboard; the rest don't.
+   community API. Its stats endpoint needs a key, so stats go through our own
+   worker (cloudflare/fortnite-worker.js), which adds it. Players only type a name.
    conf: true  = Epic's own pages or long-standing, widely published facts.
    conf: false = changes between seasons or comes from a single source; check in-game. */
 const API='https://fortnite-api.com';
+/* Stats lookups go through this worker, which holds the API key. */
+const STATS_API='https://fortnite.tavernworks.dev';
 
 const MODES=[['overall','All modes'],['solo','Solo'],['duo','Duos'],['trio','Trios'],['squad','Squads'],['ltm','Limited & other']];
 const INPUTS=[['all','All inputs'],['keyboardMouse','Keyboard & mouse'],['gamepad','Controller'],['touch','Touch']];
@@ -170,9 +173,9 @@ let S={matches:[],players:{},me:'',wish:[],quests:[],ranks:{},xp:{lvl:1,pct:0,ta
   prefs:{type:'epic',win:'lifetime',input:'all'},reset:{daily:0,weekDay:4,weekHour:14},lastMode:'Solo',lastDrop:''};
 try{const x=JSON.parse(localStorage.getItem('fn_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
 const save=()=>{try{localStorage.setItem('fn_state',JSON.stringify(S));}catch(e){}};
-/* The API key and the live-data cache stay on this device and aren't synced. */
-const getKey=()=>{try{return localStorage.getItem('fn_apikey')||'';}catch(e){return '';}};
-const setKey=k=>{try{k?localStorage.setItem('fn_apikey',k):localStorage.removeItem('fn_apikey');}catch(e){}};
+/* The live-data cache stays on this device and isn't synced. A key saved by an older
+   version of the tracker isn't needed any more. */
+try{localStorage.removeItem('fn_apikey');}catch(e){}
 let C={};try{C=JSON.parse(localStorage.getItem('fn_cache')||'{}')||{};}catch(e){}
 const saveC=()=>{try{localStorage.setItem('fn_cache',JSON.stringify(C));}catch(e){}};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -186,14 +189,12 @@ const ago=t=>{const m=Math.round((Date.now()-t)/6e4);return m<1?'just now':m<60?
 const hm=ms=>{const m=Math.max(0,Math.round(ms/6e4));return `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`;};
 
 /* ================= LIVE DATA ================= */
-async function api(path,auth){
-  const h={};if(auth)h.Authorization=getKey();
-  let r;try{r=await fetch(API+path,{headers:h});}catch(e){throw new Error('Couldn\'t reach fortnite-api.com. Check your connection, or whether something is blocking it.');}
+async function api(path,stats){
+  let r;try{r=await fetch((stats?STATS_API:API)+path);}catch(e){throw new Error(stats?'Couldn\'t reach the stats service. Check your connection and try again in a minute.':'Couldn\'t reach fortnite-api.com. Check your connection, or whether something is blocking it.');}
   let j=null;try{j=await r.json();}catch(e){}
   if(!r.ok||!j||j.status>=400){
     const s=(j&&j.status)||r.status;
-    if(s===401)throw new Error('The API key is missing or wasn\'t accepted. Check it on the Player Stats page.');
-    if(s===403&&auth)throw new Error('This player\'s stats are private. They can make them public in Fortnite (see the guide "Making your stats visible").');
+    if(s===403&&stats&&!(j&&/only answers/.test(j.error||'')))throw new Error('This player\'s stats are private. They can make them public in Fortnite (see the guide "Making your stats visible").');
     if(s===404)throw new Error('No account by that name, or it has no Battle Royale stats. Check the spelling and the platform.');
     if(s===429)throw new Error('Too many requests. Wait a minute and try again.');
     throw new Error((j&&j.error)||('fortnite-api.com answered '+s+'.'));
@@ -293,20 +294,15 @@ ${statsTable(s)}
 ${list.length>1?`<h3>Over time</h3><div class="row">${Object.entries(MET).map(([k,[n]])=>`<button data-met="${k}" class="${metric===k?'on':''}">${n}</button>`).join('')}</div>
 ${lineChart(list.filter(x=>x.s.overall).map(x=>({t:x.at,v:MET[metric][1](x.s.overall)})).filter(p=>p.v!=null),MET[metric][0],!['kd','wr'].includes(metric))}
 <p class="dim">All modes, one point per check that found new matches (${list.length} saved).</p>`:''}`;}
-function pgStats(){const key=getKey(),pr=S.prefs,saved=Object.entries(S.players);
+function pgStats(){const pr=S.prefs,saved=Object.entries(S.players);
   return `<h2>Player Stats</h2><p class="sub">Battle Royale stats for any player whose stats are public. Every lookup is saved, so looking someone up again shows what changed.</p>
-${key?'':`<div class="card"><h3 style="margin-top:0">First, a free API key</h3>
-<p>Stats come from <a href="https://fortnite-api.com" target="_blank" rel="noopener">fortnite-api.com</a>, which needs a free key for stats lookups:</p>
-<ol><li>Go to <a href="https://dash.fortnite-api.com" target="_blank" rel="noopener">dash.fortnite-api.com</a> and sign in with Discord.</li><li>Copy your API key.</li><li>Paste it below.</li></ol>
-<form class="row" id="kf"><input id="kv" type="password" style="width:320px" placeholder="Paste your API key" autocomplete="off"><button class="pri">Save key</button></form>
-<p class="dim">The key stays in this browser. It's sent only to fortnite-api.com, and it isn't included in Google Drive sync. The Item Shop, News and Map work without it.</p></div>`}
 <div class="card"><form class="row" id="lf"><input id="ln" type="text" style="width:220px" placeholder="Player name" value="${esc(S.lastName||'')}" required>
 <select id="lt">${ACCTS.map(([v,n])=>`<option value="${v}"${pr.type===v?' selected':''}>${n}</option>`).join('')}</select>
 <select id="lw"><option value="lifetime"${pr.win==='lifetime'?' selected':''}>Lifetime</option><option value="season"${pr.win==='season'?' selected':''}>This season</option></select>
 <select id="li">${INPUTS.map(([v,n])=>`<option value="${v}"${pr.input===v?' selected':''}>${n}</option>`).join('')}</select>
-<button class="pri"${key?'':' disabled'}>Look up</button></form>
+<button class="pri">Look up</button></form>
 ${saved.length?`<div class="row"><span class="dim">Saved:</span>${saved.sort((a,b)=>(b[0]===S.me)-(a[0]===S.me)||a[1].name.localeCompare(b[1].name)).map(([id,p])=>`<button data-pl="${esc(id)}">${id===S.me?'★ ':''}${esc(p.name)}</button>`).join('')}</div>`:''}
-${key?`<p class="dim" style="margin:6px 0 0">Using your saved API key. <a href="#" id="kx">Change or remove it</a>.</p>`:''}</div>
+</div>
 <div id="lres">${lookupErr?`<div class="err">${esc(lookupErr)}</div>`:lastLookup?playerView(lastLookup):''}</div>
 ${saved.length?`<div class="row"><a href="#compare">Compare saved players &rarr;</a> <button id="pclear">Forget saved players</button></div>`:''}
 <div class="note">Stats can lag a match or two behind the game. Fortnite only shares stats for accounts that allow it; see <a href="#guides/tracker">Making your stats visible</a>.</div>`;}
@@ -354,7 +350,7 @@ function autoDiff(base,st){const out=[];
     out.push(e);}
   return out;}
 let autoBusy=false;
-async function autoPoll(force){const A=S.auto;if(!A||!A.name||!A.on||!getKey()||autoBusy)return;
+async function autoPoll(force){const A=S.auto;if(!A||!A.name||!A.on||autoBusy)return;
   if(!force&&A.last&&Date.now()-A.last<(A.every||2)*6e4-5e3)return;
   autoBusy=true;
   try{const d=await fetchStats(A.name,A.type,'lifetime');record(d,A.type,'lifetime','all');
@@ -372,21 +368,17 @@ async function autoPoll(force){const A=S.auto;if(!A||!A.name||!A.on||!getKey()||
   if(['matches','home','drops','map'].includes(pg)&&!typing&&editIdx<0)route();}
 setInterval(()=>{if(document.visibilityState==='visible')autoPoll();},30000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')autoPoll();});
-function autoCard(){const A=S.auto,key=getKey();
+function autoCard(){const A=S.auto;
   if(!A||!A.name)return `<div class="card"><h3 style="margin-top:0">Track matches automatically</h3>
 <p class="dim" style="margin-top:0">Enter your Fortnite name and every match you finish is added here by itself, with the mode, your kills, wins and a placement range. Keep any page of the tracker open while you play, or open it afterwards to catch up.</p>
-${key?'':`<div class="row"><input id="akv" type="password" style="width:300px" placeholder="Paste your free API key" autocomplete="off"></div>
-<p class="dim" style="margin:0 0 6px">This needs a free key: sign in at <a href="https://dash.fortnite-api.com" target="_blank" rel="noopener">dash.fortnite-api.com</a> with Discord and copy your API key. It stays in this browser.</p>`}
 <form class="row" id="af"><input id="an" type="text" style="width:200px" placeholder="Your Fortnite name" value="${esc(S.lastName||'')}" required>
-<select id="aty">${ACCTS.map(([v,n])=>`<option value="${v}"${S.prefs.type===v?' selected':''}>${n}</option>`).join('')}</select><button class="pri">Start tracking</button></form>
-<div id="amsg"></div></div>`;
+<select id="aty">${ACCTS.map(([v,n])=>`<option value="${v}"${S.prefs.type===v?' selected':''}>${n}</option>`).join('')}</select><button class="pri">Start tracking</button></form></div>`;
   const acct=(ACCTS.find(a=>a[0]===A.type)||[])[1],left=A.last?Math.max(0,Math.ceil(((A.every||2)*6e4-(Date.now()-A.last))/6e4)):0;
   return `<div class="card"><div class="row" style="justify-content:space-between;margin:0"><span>${A.on?(A.err?'🟠':'🟢'):'⏸️'} Auto-tracking <b>${esc(A.name)}</b> <span class="tag">${esc(acct)}</span></span>
 <span class="row" style="margin:0"><button id="anow">Check now</button><button id="apause">${A.on?'Pause':'Resume'}</button><button id="astop">Stop</button></span></div>
 <p class="dim" style="margin:6px 0 0">${!A.base?'Starting…':`Last checked ${ago(A.last)}${A.on?`, next in about ${left||1} min`:''}. ${A.found?`${A.found} match${A.found===1?'':'es'} logged automatically since ${new Date(A.since).toLocaleDateString()}${A.lastNew?`, the latest ${ago(A.lastNew)}`:''}.`:'Matches you finish from now on show up here, usually a few minutes after each one.'}`}
 Check every <select id="aev">${[1,2,5,10].map(v=>`<option value="${v}"${(A.every||2)===v?' selected':''}>${v} min</option>`).join('')}</select></p>
 ${A.err?`<div class="err">${esc(A.err)}</div>`:''}
-${!getKey()?'<div class="err">Your API key was removed. Add it again on <a href="#stats">Player Stats</a> to keep tracking.</div>':''}
 <p class="dim" style="margin:6px 0 0">Fortnite only shares totals, so placement is a range unless you won, Build and Zero Build are counted together, and matches finished between two checks are combined into one entry. Tap ✎ on a match to add the exact place, damage or drop spot.</p></div>`;}
 
 /* ================= MATCH LOG ================= */
@@ -587,8 +579,6 @@ function route(){
   clearInterval(tick);
   if(page==='home'&&!C.shop&&S.wish.length)loadShop().then(()=>{if(m.dataset.pg==='home')route();}).catch(()=>{});
   if(page==='stats'){
-    if($('kf'))$('kf').onsubmit=e=>{e.preventDefault();const v=$('kv').value.trim();if(v){setKey(v);route();}};
-    if($('kx'))$('kx').onclick=e=>{e.preventDefault();const v=prompt('Paste a new API key, or leave empty to remove it.',getKey());if(v===null)return;setKey(v.trim());route();};
     $('lf').onsubmit=e=>{e.preventDefault();const n=$('ln').value.trim();if(!n)return;
       S.prefs={type:$('lt').value,win:$('lw').value,input:$('li').value};S.lastName=n;save();doLookup(n,S.prefs.type,S.prefs.win,S.prefs.input);};
     m.querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{const P=S.players[b.dataset.pl];$('ln').value=P.name;$('lt').value=P.type;S.lastName=P.name;
@@ -614,8 +604,7 @@ function route(){
       $('ef').onsubmit=e=>{e.preventDefault();if(!M.n){const pl=num('ep');if(pl){M.place=pl;delete M.topN;delete M.outN;}else if(M.place&&!M.auto)M.place=null;}
         M.ast=num('ea');M.dmg=num('ed');M.drop=$('edr').value.trim();M.note=$('en').value.trim();editIdx=-1;save();route();};
       $('ex').onclick=()=>{editIdx=-1;route();};}
-    if($('af'))$('af').onsubmit=e=>{e.preventDefault();if($('akv')&&$('akv').value.trim())setKey($('akv').value.trim());
-      if(!getKey()){$('amsg').innerHTML='<div class="err">Paste your API key first.</div>';return;}
+    if($('af'))$('af').onsubmit=e=>{e.preventDefault();
       const n=$('an').value.trim();if(!n)return;S.lastName=n;S.prefs.type=$('aty').value;
       S.auto={name:n,type:$('aty').value,on:true,every:2};save();route();autoPoll(true);};
     if($('anow'))$('anow').onclick=()=>{$('anow').disabled=true;$('anow').textContent='Checking…';autoPoll(true);};
