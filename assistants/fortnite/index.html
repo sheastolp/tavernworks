@@ -543,15 +543,230 @@ function pgVB(){const bal=S.vb.reduce((a,x)=>a+x.a,0),spent=S.vb.filter(x=>x.a<0
 <div class="card tbl"><table><tr><th>When</th><th>What</th><th class="n">V-Bucks</th><th></th></tr>${S.vb.map((x,i)=>({x,i})).reverse().map(({x,i})=>`<tr><td>${new Date(x.at).toLocaleDateString()}</td><td>${esc(x.w)}</td><td class="n ${x.a<0?'dn':'up'}">${x.a>0?'+':''}${fmt(x.a)}</td><td><button data-vd="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="4" class="dim">Nothing logged yet.</td></tr>'}</table></div>
 <p class="dim">Start with one "Earned" entry for your current balance so the total matches the game.</p>`;}
 
+/* ================= SPRITE TRACKER =================
+   Sprites are companions you carry in a match. They level up as you play (up to level 5)
+   and give their ability while you hold them. To keep one you have to extract it: at an
+   Extraction Site, with a Portable Extractor, or by winning. Extracting adds it (and that
+   variant) to your collection and pays Sprite Dust, which summons unlocked Sprites into
+   later matches. Extract one at level 5 to master it.
+   The game doesn't share your collection with any API, so you log it here. The roster is
+   new and guides disagree on it, so every Sprite below can be edited, and you can add
+   Sprites and variants the list doesn't have yet.
+   conf: true  = several guides and Epic's wording agree.
+   conf: false = one source, conflicting sources or not announced yet; check in-game. */
+const SPR_RAR=['Rare','Epic','Legendary','Mythic','?'];
+const SPR_RCOL={Rare:'#3ba7f0',Epic:'#b855e8',Legendary:'#f0a23b',Mythic:'#f5d33b','?':'#8a90b8'};
+const SPR_SEASONS=[['s4','Chapter 7 Season 4: Override'],['fm','Fortnitemares 2026'],['s3','Chapter 7 Season 3'],['mine','Added by you']];
+const SPR_BASE=[
+{n:'Klombo',r:'Mythic',se:'s4',conf:true,a:'Hands out random items as it levels up. It levels up from using healing items rather than from fighting. The rarest Sprite this season.'},
+{n:'Jackrabbit',r:'Legendary',se:'s4',conf:true,a:'An extra jump while you\'re in the air. The wait between jumps gets shorter each level.'},
+{n:'X-Ray',r:'Legendary',se:'s4',conf:true,a:'Marks enemies near you every so often. It marks faster and further each level.'},
+{n:'Pond',r:'Epic',se:'s4',conf:true,a:'Jump again just after landing for a Super Jump, while it has charges. Stronger jumps and a shorter cooldown each level.'},
+{n:'Dumpster Dive',r:'Epic',se:'s4',conf:false,a:'Guides disagree: either food heals you more, or you find loot by jumping into dumpsters.'},
+{n:'Honey',r:'?',se:'s4',conf:false,a:'When you take damage, a beehive appears and attacks whoever hit you.'},
+{n:'Sonic',r:'Epic',se:'s4',conf:false,a:''},{n:'Tails',r:'Epic',se:'s4',conf:false,a:''},{n:'Shadow',r:'Epic',se:'s4',conf:false,a:''},
+{n:'8-Bit',r:'Rare',se:'s4',conf:false,a:''},{n:'Adventure',r:'Rare',se:'s4',conf:false,a:''},{n:'Bush',r:'Rare',se:'s4',conf:false,a:''},
+{n:'Onigiri',r:'?',se:'s4',conf:false,a:'Reported to have replaced the Bullet Sprite.'},
+{n:'Vampire',r:'?',se:'fm',conf:true,a:'Recover health as you damage enemies. You heal more each level.'},
+{n:'Spooky Dash',r:'?',se:'fm',conf:false,a:''},{n:'The Deer',r:'?',se:'fm',conf:false,a:''},
+{n:'Pumpkin',r:'?',se:'fm',conf:false,a:'Announced for Fortnitemares. Leaks say it grows a pumpkin head that blocks headshots; not confirmed.'},
+...['Water','Earth','Fire','Duck','Demon','Ghost','King','Punk','Dream','Burnt Peanut','Zero Point'].map(n=>({n,r:'?',se:'s3',conf:false,a:''}))
+];
+/* Variants are found and extracted one by one, like the base Sprite. */
+const SPR_VARS=['Normal','Gold','Gummy','Galaxy','Holofoil','Cube','Cheat Master'];
+const SPR_HOW=[['site','Extraction Site'],['portable','Portable Extractor'],['win','Victory Royale']];
+const SPR_DEF={add:[],edit:{},vars:null,col:{},log:[],dust:[],cost:{Rare:100,Epic:'',Legendary:'',Mythic:''},tiers:[],ackWins:[],showOld:false,f:{q:'',r:'',miss:false,hunt:false}};
+S.spr=Object.assign(JSON.parse(JSON.stringify(SPR_DEF)),S.spr||{});
+const sslug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const sprVars=()=>S.spr.vars||SPR_VARS;
+/* The roster: built-in Sprites with your edits, plus the ones you added. */
+function roster(){return SPR_BASE.map(b=>Object.assign({},b,S.spr.edit[b.n]||{})).concat(S.spr.add.map(a=>Object.assign({se:'mine',conf:true},a))).filter(x=>!x.gone);}
+const active=()=>roster().filter(x=>S.spr.showOld||x.se!=='s3');
+const colOf=n=>S.spr.col[n]||(S.spr.col[n]={v:{},m:false,hunt:false,note:''});
+const varsOf=sp=>sp.vs||sprVars();
+const owned=(n,v)=>(S.spr.col[n]&&S.spr.col[n].v[v])||0;
+function sprProgress(list){let have=0,all=0,m=0,base=0;list.forEach(sp=>{const vs=varsOf(sp);all+=vs.length;have+=vs.filter(v=>owned(sp.n,v)).length;if(colOf(sp.n).m)m++;if(vs.some(v=>owned(sp.n,v)))base++;});
+  return {have,all,m,base,n:list.length,pct:all?have/all*100:0};}
+const dustBal=()=>S.spr.dust.reduce((a,x)=>a+x.a,0);
+function rarTag(r){return `<span class="tag" style="margin:0 0 0 6px;color:${SPR_RCOL[r]||SPR_RCOL['?']};border:1px solid ${SPR_RCOL[r]||SPR_RCOL['?']}55">${esc(r==='?'?'Rarity ?':r)}</span>`;}
+function sprStats(n){const L=S.spr.log.filter(x=>x.s===n),ext=L.filter(x=>!x.lost),lost=L.length-ext.length;
+  return {runs:L.length,ext:ext.length,lost,rate:L.length?ext.length/L.length*100:null,best:L.length?Math.max(...L.map(x=>+x.lvl||0)):null,dust:ext.reduce((a,x)=>a+(+x.dust||0),0)};}
+/* Recent wins from the Match Log: a Victory Royale extracts whatever you were carrying. */
+function unloggedWins(){return S.matches.filter(m=>(m.place===1||(m.n&&m.wins))&&Date.now()-new Date(m.at)<7*DAY&&!S.spr.ackWins.includes(m.at));}
+
+const SPR_TABS=[['','Collection'],['log','Extractions'],['dust','Sprite Dust'],['mastery','Mastery'],['guide','How Sprites work'],['roster','Edit roster']];
+function sprTabs(cur){return `<div class="row" style="margin:0 0 12px">${SPR_TABS.map(([k,n])=>`<a href="#sprites${k?'/'+k:''}"><button class="${cur===k?'on':''}">${n}</button></a>`).join('')}</div>`;}
+function sprHead(cur){const P=sprProgress(active());
+  return `<h2>Sprite Tracker</h2><p class="sub">Your Sprite collection: every variant you've extracted, what you've mastered, your runs and your Sprite Dust. Saved on this device.</p>
+<div class="stats"><div class="stat"><small>Collection</small>${P.have} / ${P.all}<div class="bar" style="margin:6px 0 0"><i style="width:${P.pct}%"></i></div></div>
+<div class="stat"><small>Sprites found</small>${P.base} / ${P.n}</div><div class="stat"><small>Mastered</small>${P.m}</div>
+<div class="stat"><small>Sprite Dust</small>${fmt(dustBal())}</div><div class="stat"><small>Extractions</small>${S.spr.log.filter(x=>!x.lost).length}</div></div>
+${sprTabs(cur)}`;}
+
+function pgSprites(sub){
+  if(sub&&sub.startsWith('sp-'))return sprDetail(sub.slice(3));
+  if(sub==='log')return sprHead('log')+sprLogPage();
+  if(sub==='dust')return sprHead('dust')+sprDustPage();
+  if(sub==='mastery')return sprHead('mastery')+sprMasteryPage();
+  if(sub==='guide')return sprHead('guide')+sprGuidePage();
+  if(sub==='roster')return sprHead('roster')+sprRosterPage();
+  const F=S.spr.f,wins=unloggedWins();
+  return sprHead('')+`${wins.length?`<div class="tip"><b>🏆 ${wins.length} recent win${wins.length===1?'':'s'} in your Match Log.</b> A Victory Royale extracts every Sprite you were carrying. Log them below with "Victory Royale". <button id="sack">Dismiss</button></div>`:''}
+<div class="card"><h3 style="margin-top:0">Log an extraction</h3>${extractForm()}</div>
+<div class="row"><input id="sfq" type="text" style="width:200px" placeholder="Search Sprites" value="${esc(F.q)}">
+<select id="sfr"><option value="">All rarities</option>${SPR_RAR.map(r=>`<option${F.r===r?' selected':''}>${r}</option>`).join('')}</select>
+<label class="chk" style="margin:0"><input type="checkbox" id="sfm"${F.miss?' checked':''}> Missing variants</label>
+<label class="chk" style="margin:0"><input type="checkbox" id="sfh"${F.hunt?' checked':''}> Hunting</label>
+<label class="chk" style="margin:0"><input type="checkbox" id="sfo"${S.spr.showOld?' checked':''}> Season 3 Sprites</label></div>
+<div id="sgrid"></div>
+<p class="dim">Tap a box to mark a variant collected (or not). Logging an extraction ticks it for you. ★ marks a mastered Sprite, 🎯 one you're hunting. Details marked <span class="unv">○</span> aren't confirmed; open a Sprite to correct it.</p>`;}
+function sprGrid(){const F=S.spr.f,q=F.q.toLowerCase(),vars=sprVars();
+  const list=active().filter(sp=>(!F.r||sp.r===F.r)&&(!q||(sp.n+' '+(sp.a||'')).toLowerCase().includes(q))&&(!F.hunt||colOf(sp.n).hunt)&&(!F.miss||varsOf(sp).some(v=>!owned(sp.n,v))));
+  const by=SPR_SEASONS.map(([k,n])=>[n,list.filter(x=>x.se===k)]).filter(x=>x[1].length);
+  return by.length?by.map(([n,l])=>`<h3>${esc(n)}</h3><div class="card tbl"><table><tr><th>Sprite</th>${vars.map(v=>`<th style="text-align:center;font-size:12px">${esc(v)}</th>`).join('')}<th class="n">Runs</th></tr>
+${l.map(sp=>{const c=colOf(sp.n),vs=varsOf(sp),st=sprStats(sp.n);return `<tr><td style="white-space:nowrap">${mark(sp.conf)} <a class="mob" href="#sprites/sp-${sslug(sp.n)}"><b>${esc(sp.n)}</b></a>${c.m?' <span title="Mastered">★</span>':''}${c.hunt?' <span title="Hunting">🎯</span>':''}${rarTag(sp.r)}</td>
+${vars.map(v=>vs.includes(v)?`<td style="text-align:center"><button data-tg="${esc(sp.n)}" data-v="${esc(v)}" class="${owned(sp.n,v)?'on':''}" style="min-width:34px;padding:3px 6px" title="${esc(sp.n+' · '+v)}${owned(sp.n,v)>1?' · extracted '+owned(sp.n,v)+'×':''}">${owned(sp.n,v)?'✓':'·'}</button></td>`:'<td style="text-align:center" class="dim" title="No such variant">—</td>').join('')}
+<td class="n">${st.runs?`${st.ext}/${st.runs}`:''}</td></tr>`;}).join('')}</table></div>`).join(''):'<p class="dim">No Sprites match.</p>';}
+
+function extractForm(pre){const R=active(),sp=pre||S.spr.lastS||(R[0]&&R[0].n)||'';const spo=roster().find(x=>x.n===sp);
+  return `<form class="row" id="sxf"><select id="sxs">${R.map(x=>`<option${x.n===sp?' selected':''}>${esc(x.n)}</option>`).join('')}</select>
+<select id="sxv">${(spo?varsOf(spo):sprVars()).map(v=>`<option${v===(S.spr.lastV||'Normal')?' selected':''}>${esc(v)}</option>`).join('')}</select>
+<label>Level <select id="sxl">${[1,2,3,4,5].map(l=>`<option${l===(S.spr.lastL||1)?' selected':''}>${l}</option>`).join('')}</select></label>
+<select id="sxh">${SPR_HOW.map(([v,n])=>`<option value="${v}"${v===(S.spr.lastH||'site')?' selected':''}>${n}</option>`).join('')}<option value="lost">Lost it (eliminated)</option></select>
+<label>Dust earned <input id="sxd" type="number" min="0" style="width:90px" placeholder="0"></label><button class="pri">Log</button></form>
+<p class="dim" style="margin:4px 0 0">Extracting at level 5 masters the Sprite. "Lost it" counts the run without adding to your collection.</p>`;}
+function sprLogAdd(){const s=$('sxs').value,v=$('sxv').value,lvl=+$('sxl').value,how=$('sxh').value,d=Math.max(0,+$('sxd').value||0);
+  S.spr.lastS=s;S.spr.lastV=v;S.spr.lastL=lvl;if(how!=='lost')S.spr.lastH=how;
+  const e={at:new Date().toISOString(),s,v,lvl,how,dust:d};if(how==='lost')e.lost=1;S.spr.log.push(e);
+  if(!e.lost){const c=colOf(s);c.v[v]=(c.v[v]||0)+1;if(lvl>=5&&!c.m){c.m=true;e.mastered=1;}if(d)S.spr.dust.push({at:e.at,a:d,w:'Extracted '+s+(v!=='Normal'?' ('+v+')':'')});}
+  save();return e;}
+
+function sprDetail(sl){const sp=roster().find(x=>sslug(x.n)===sl);if(!sp)return `<p><a href="#sprites">&larr; All Sprites</a></p><p class="dim">That Sprite isn't on your roster.</p>`;
+  const c=colOf(sp.n),st=sprStats(sp.n),vs=varsOf(sp),L=S.spr.log.filter(x=>x.s===sp.n).slice().reverse(),cost=S.spr.cost[sp.r];
+  return `<p><a href="#sprites">&larr; All Sprites</a></p><h2>${mark(sp.conf)} ${esc(sp.n)} Sprite${rarTag(sp.r)}${c.m?' <span class="tag" style="color:var(--acc)">★ Mastered</span>':''}</h2>
+<p class="sub">${esc((SPR_SEASONS.find(s=>s[0]===sp.se)||[])[1]||'')}</p>
+<div class="card"><b>Ability</b><p style="margin:4px 0 0">${sp.a?esc(sp.a):'<span class="dim">Not confirmed yet. Add what the game says below.</span>'}</p></div>
+<div class="stats"><div class="stat"><small>Variants</small>${vs.filter(v=>owned(sp.n,v)).length} / ${vs.length}</div><div class="stat"><small>Extracted</small>${st.ext}</div><div class="stat"><small>Lost</small>${st.lost}</div>
+<div class="stat"><small>Kept rate</small>${pct(st.rate)}</div><div class="stat"><small>Best level</small>${st.best??'—'}</div><div class="stat"><small>Summon cost</small>${cost?fmt(c.m?cost/2:cost)+(c.m?' <span class="d dim">mastered ½</span>':''):'—'}</div></div>
+<div class="row">${vs.map(v=>`<button data-tg="${esc(sp.n)}" data-v="${esc(v)}" class="${owned(sp.n,v)?'on':''}">${owned(sp.n,v)?'✓':'○'} ${esc(v)}${owned(sp.n,v)>1?' ×'+owned(sp.n,v):''}</button>`).join('')}</div>
+<div class="row"><label class="chk" style="margin:0"><input type="checkbox" id="sdm"${c.m?' checked':''}> Mastered</label><label class="chk" style="margin:0"><input type="checkbox" id="sdh"${c.hunt?' checked':''}> 🎯 Hunting this one</label></div>
+<div class="card"><h3 style="margin-top:0">Log a run with ${esc(sp.n)}</h3>${extractForm(sp.n)}</div>
+<details class="card"${sp.a?'':' open'}><summary>Correct this Sprite</summary><form id="sef" style="margin-top:8px"><div class="row"><label>Rarity <select id="ser">${SPR_RAR.map(r=>`<option${r===sp.r?' selected':''}>${r}</option>`).join('')}</select></label>
+<label class="chk" style="margin:0"><input type="checkbox" id="sec"${sp.conf?' checked':''}> Confirmed in-game</label></div>
+<textarea id="sea" style="width:100%;height:70px" placeholder="What it does, from the in-game description">${esc(sp.a||'')}</textarea>
+<div class="row"><span class="dim">Variants it has:</span>${sprVars().map(v=>`<label class="chk" style="margin:0"><input type="checkbox" data-sev="${esc(v)}"${vs.includes(v)?' checked':''}> ${esc(v)}</label>`).join('')}</div>
+<div class="row"><button class="pri">Save</button>${S.spr.edit[sp.n]&&sp.se!=='mine'?'<button type="button" id="ses">Back to the built-in details</button>':''}<button type="button" id="sed">Remove from roster</button></div></form></details>
+<h3>Notes</h3><textarea id="sdn" style="width:100%;height:70px" placeholder="Where you found it, which variant drops where…">${esc(c.note||'')}</textarea>
+<h3>Runs</h3><div class="card tbl"><table><tr><th>When</th><th>Variant</th><th class="n">Level</th><th>Result</th><th class="n">Dust</th></tr>${L.map(x=>`<tr><td>${new Date(x.at).toLocaleDateString()}</td><td>${esc(x.v)}</td><td class="n">${esc(x.lvl)}</td><td>${x.lost?'<span class="dn">Lost</span>':`<span class="up">${esc((SPR_HOW.find(h=>h[0]===x.how)||[])[1]||'Extracted')}</span>${x.mastered?' ★':''}`}</td><td class="n">${x.dust?fmt(x.dust):''}</td></tr>`).join('')||'<tr><td colspan="5" class="dim">No runs logged yet.</td></tr>'}</table></div>`;}
+
+function sprLogPage(){const L=S.spr.log.map((x,i)=>({x,i})).reverse(),ext=S.spr.log.filter(x=>!x.lost),by={};
+  S.spr.log.forEach(x=>{(by[x.s]=by[x.s]||{e:0,l:0});x.lost?by[x.s].l++:by[x.s].e++;});
+  const how={};ext.forEach(x=>how[x.how]=(how[x.how]||0)+1);
+  return `<div class="card"><h3 style="margin-top:0">Log an extraction</h3>${extractForm()}</div>
+${S.spr.log.length?`<div class="stats"><div class="stat"><small>Runs</small>${S.spr.log.length}</div><div class="stat"><small>Kept</small>${pct(ext.length/S.spr.log.length*100)}</div>
+${SPR_HOW.map(([k,n])=>`<div class="stat"><small>${n}</small>${how[k]||0}</div>`).join('')}</div>`:''}
+<div class="card tbl"><table><tr><th>When</th><th>Sprite</th><th>Variant</th><th class="n">Level</th><th>Result</th><th class="n">Dust</th><th></th></tr>
+${L.map(({x,i})=>`<tr><td>${new Date(x.at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</td><td><a href="#sprites/sp-${sslug(x.s)}">${esc(x.s)}</a></td><td>${esc(x.v)}</td><td class="n">${esc(x.lvl)}</td>
+<td>${x.lost?'<span class="dn">Lost</span>':`<span class="up">${esc((SPR_HOW.find(h=>h[0]===x.how)||[])[1]||'Extracted')}</span>${x.mastered?' ★ mastered':''}`}</td><td class="n">${x.dust?fmt(x.dust):''}</td><td><button data-sld="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="7" class="dim">Extractions and lost runs you log show up here.</td></tr>'}</table></div>
+<p class="dim">Deleting a run doesn't untick the variant or remove its Dust; change those on the Collection and Sprite Dust tabs.</p>`;}
+
+function sprDustPage(){const bal=dustBal(),C2=S.spr.cost,hunt=active().filter(sp=>colOf(sp.n).hunt);
+  return `<div class="card"><form class="row" id="sdf"><input id="sdw" type="text" style="width:220px" placeholder="What (e.g. summoned X-Ray, a lobby code)" required>
+<input id="sda" type="number" min="1" style="width:100px" placeholder="Amount" required><select id="sdd"><option value="1">Earned</option><option value="-1">Spent</option></select><button class="pri">Add</button>
+<button type="button" id="sdset">Set balance…</button></form><p class="dim" style="margin:4px 0 0">Dust from extractions you log is added for you.</p></div>
+<div class="card"><h3 style="margin-top:0">Summon costs</h3><p class="dim" style="margin-top:0">${mark(false)} Costs depend on rarity, and mastering a Sprite halves its cost. Only the Rare cost (100) has been reported so far; fill in the rest from the game.</p>
+<form class="row" id="scf">${['Rare','Epic','Legendary','Mythic'].map(r=>`<label style="color:${SPR_RCOL[r]}">${r} <input data-sc="${r}" type="number" min="0" style="width:90px" value="${esc(C2[r]??'')}"></label>`).join('')}</form>
+${hunt.length?`<p style="margin:6px 0 0">Summoning what you're hunting: ${hunt.map(sp=>{const c=C2[sp.r];return `${esc(sp.n)} ${c?fmt(colOf(sp.n).m?c/2:c):'?'}`;}).join(' · ')}</p>`:''}
+${(()=>{const aff=['Rare','Epic','Legendary','Mythic'].filter(r=>+C2[r]).map(r=>`${Math.floor(bal/+C2[r])} ${r}`);return aff.length?`<p class="dim" style="margin:6px 0 0">Your balance covers ${aff.join(', ')} summon${aff.length?'s':''}.</p>`:'';})()}</div>
+<div class="card tbl"><table><tr><th>When</th><th>What</th><th class="n">Dust</th><th></th></tr>${S.spr.dust.map((x,i)=>({x,i})).reverse().map(({x,i})=>`<tr><td>${new Date(x.at).toLocaleDateString()}</td><td>${esc(x.w)}</td><td class="n ${x.a<0?'dn':'up'}">${x.a>0?'+':''}${fmt(x.a)}</td><td><button data-sdx="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="4" class="dim">Nothing logged yet. Use "Set balance" to match what the game shows.</td></tr>'}</table></div>`;}
+
+function sprMasteryPage(){const R=active(),m=R.filter(sp=>colOf(sp.n).m),next=R.filter(sp=>!colOf(sp.n).m).map(sp=>[sp,sprStats(sp.n)]).sort((a,b)=>(b[1].best||0)-(a[1].best||0));
+  const T=S.spr.tiers.slice().sort((a,b)=>a.n-b.n),nt=T.find(t=>t.n>m.length);
+  return `<p>Extract a Sprite at level 5 (or win while it's level 5) to master it. Mastery stays on your account, makes that Sprite cheaper to summon, and moves you along the season's mastery reward track.</p>
+<div class="stats"><div class="stat"><small>Mastered</small>${m.length} / ${R.length}</div><div class="stat"><small>Next reward</small>${nt?`${nt.n-m.length} to go`:'—'}<div class="d dim">${nt?esc(nt.r):''}</div></div></div>
+<h3>Mastered</h3><div class="card">${m.map(sp=>`<a class="tag" style="margin:2px;font-size:13px;text-decoration:none" href="#sprites/sp-${sslug(sp.n)}">★ ${esc(sp.n)}</a>`).join('')||'<span class="dim">None yet.</span>'}</div>
+<h3>Closest to mastering</h3><div class="card tbl"><table><tr><th>Sprite</th><th class="n">Best level reached</th><th class="n">Runs</th></tr>${next.slice(0,8).map(([sp,st])=>`<tr><td><a href="#sprites/sp-${sslug(sp.n)}">${esc(sp.n)}</a>${rarTag(sp.r)}</td><td class="n">${st.best??'—'}</td><td class="n">${st.runs||''}</td></tr>`).join('')}</table></div>
+<h3>Reward track</h3><p class="dim" style="margin-top:0">${mark(false)} Guides list different rewards, so copy the tiers from the in-game mastery screen.</p>
+<form class="row" id="stf"><label>At <input id="stn" type="number" min="1" style="width:70px" required> mastered</label><input id="str" type="text" style="width:240px" placeholder="Reward (e.g. 5,000 Sprite Dust)" required><button class="pri">Add tier</button></form>
+<div class="card tbl"><table><tr><th class="n">Mastered</th><th>Reward</th><th>Status</th><th></th></tr>${T.map(t=>`<tr><td class="n">${t.n}</td><td>${esc(t.r)}</td><td>${m.length>=t.n?'<span class="ok">Unlocked</span>':`<span class="dim">${t.n-m.length} to go</span>`}</td><td><button data-stx="${S.spr.tiers.indexOf(t)}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="4" class="dim">No tiers yet.</td></tr>'}</table></div>`;}
+
+function sprGuidePage(){return `<div class="card">
+<label class="chk"><input type="checkbox" data-k="sp1"> <span><b>Find one.</b> Sprites turn up around the island in matches. Pick one up and you get its ability for that match.</span></label>
+<label class="chk"><input type="checkbox" data-k="sp2"> <span><b>Level it up.</b> A Sprite gains levels during the match, up to level 5, and its ability gets stronger each level.</span></label>
+<label class="chk"><input type="checkbox" data-k="sp3"> <span><b>Extract it to keep it.</b> Use an Extraction Site, a Portable Extractor, or win the match. Get eliminated first and the Sprite is lost.</span></label>
+<label class="chk"><input type="checkbox" data-k="sp4"> <span><b>Collect the variants.</b> Gold, Gummy, Galaxy and the others are separate finds; each one is added when you extract it.</span></label>
+<label class="chk"><input type="checkbox" data-k="sp5"> <span><b>Spend Sprite Dust.</b> Extractions pay Sprite Dust, even for duplicates. Spend it to summon a Sprite you've unlocked into your next match.</span></label>
+<label class="chk"><input type="checkbox" data-k="sp6"> <span><b>Master it.</b> Extract a Sprite at level 5 to master it. Mastered Sprites cost half as much to summon and count toward the mastery reward track. A mastered Sprite still starts each match at level 1.</span></label></div>
+<h3>Tips</h3><ul><li>Note where the Extraction Sites are as soon as you land, and head for one before the late game if you're carrying something rare.</li>
+<li>Save Portable Extractors for when you've got a level 5 Sprite you haven't mastered yet.</li><li>Rare Sprites cost the least to summon and level up quickest: a cheap way to work through mastery.</li>
+<li>Mark the Sprites you still need as 🎯 Hunting and filter the Collection by them.</li></ul>
+<div class="note">${mark(false)} Sprites arrived recently and change with every update. Guides disagree on rarities, abilities, variant lists and costs, so this tracker lets you correct any of it. Lobby codes that give Sprite Dust come and go; log what you get on the Sprite Dust tab.</div>`;}
+
+function sprRosterPage(){const R=roster(),gone=SPR_BASE.filter(b=>S.spr.edit[b.n]&&S.spr.edit[b.n].gone);
+  return `<div class="card"><h3 style="margin-top:0">Add a Sprite</h3><form class="row" id="saf"><input id="san" type="text" style="width:180px" placeholder="Name" required>
+<select id="sar">${SPR_RAR.map(r=>`<option>${r}</option>`).join('')}</select><input id="saa" type="text" style="width:280px" placeholder="What it does"><button class="pri">Add</button></form></div>
+<div class="card"><h3 style="margin-top:0">Variants</h3><p class="dim" style="margin-top:0">These are the columns on the Collection grid. Open a Sprite to say which variants it has.</p>
+<div class="row">${sprVars().map((v,i)=>`<span class="tag" style="margin:0;font-size:13px">${esc(v)}${v==='Normal'?'':` <a href="#" data-svx="${i}" title="Remove">✕</a>`}</span>`).join('')}</div>
+<form class="row" id="svf"><input id="svn" type="text" style="width:180px" placeholder="New variant" required><button class="pri">Add variant</button>${S.spr.vars?'<button type="button" id="svr">Reset variants</button>':''}</form></div>
+<div class="card tbl"><table><tr><th>Sprite</th><th>Rarity</th><th>Season</th><th>Ability</th></tr>${R.map(sp=>`<tr><td>${mark(sp.conf)} <a href="#sprites/sp-${sslug(sp.n)}">${esc(sp.n)}</a></td><td>${esc(sp.r)}</td><td class="dim">${esc((SPR_SEASONS.find(s=>s[0]===sp.se)||[])[1]||'')}</td><td>${sp.a?esc(sp.a):'<span class="dim">—</span>'}</td></tr>`).join('')}</table></div>
+${gone.length?`<p class="dim">Removed: ${gone.map(b=>`<a href="#" data-sun="${esc(b.n)}">${esc(b.n)} (restore)</a>`).join(', ')}</p>`:''}
+<div class="row"><button id="sexp">Export collection (JSON)</button><label class="chk" style="margin:0">Import <input id="simp" type="file" accept="application/json"></label></div>`;}
+
+function sprWire(m,sub){
+  const rr=()=>route();
+  const tg=()=>m.querySelectorAll('[data-tg]').forEach(b=>b.onclick=()=>{const c=colOf(b.dataset.tg),v=b.dataset.v;if(c.v[v])delete c.v[v];else c.v[v]=1;save();rr();});
+  if($('sxs')){$('sxs').onchange=()=>{const sp=roster().find(x=>x.n===$('sxs').value);$('sxv').innerHTML=varsOf(sp).map(v=>`<option>${esc(v)}</option>`).join('');};
+    $('sxf').onsubmit=e=>{e.preventDefault();sprLogAdd();rr();};}
+  if($('sgrid')){$('sgrid').innerHTML=sprGrid();
+    const F=S.spr.f,up=()=>{F.q=$('sfq').value;F.r=$('sfr').value;F.miss=$('sfm').checked;F.hunt=$('sfh').checked;save();$('sgrid').innerHTML=sprGrid();tg();};
+    $('sfq').oninput=up;['sfr','sfm','sfh'].forEach(id=>$(id).onchange=up);$('sfo').onchange=e=>{S.spr.showOld=e.target.checked;save();rr();};
+    if($('sack'))$('sack').onclick=()=>{unloggedWins().forEach(w=>S.spr.ackWins.push(w.at));S.spr.ackWins=S.spr.ackWins.slice(-200);save();rr();};}
+  tg();
+  if(sub&&sub.startsWith('sp-')){const sp=roster().find(x=>sslug(x.n)===sub.slice(3));if(!sp)return;const c=colOf(sp.n);
+    $('sdm').onchange=e=>{c.m=e.target.checked;save();rr();};$('sdh').onchange=e=>{c.hunt=e.target.checked;save();};$('sdn').oninput=e=>{c.note=e.target.value;save();};
+    $('sef').onsubmit=e=>{e.preventDefault();const vs=[...m.querySelectorAll('[data-sev]')].filter(x=>x.checked).map(x=>x.dataset.sev);
+      const ch={r:$('ser').value,a:$('sea').value.trim(),conf:$('sec').checked,vs:vs.length&&vs.length<sprVars().length?vs:undefined};/* all ticked = follow the variant list */
+      if(sp.se==='mine'){const a=S.spr.add.find(x=>x.n===sp.n);Object.assign(a,ch);}else S.spr.edit[sp.n]=Object.assign(S.spr.edit[sp.n]||{},ch);save();rr();};
+    if($('ses'))$('ses').onclick=()=>{delete S.spr.edit[sp.n];save();rr();};
+    $('sed').onclick=()=>{if(!confirm('Remove '+sp.n+' from your roster? Your collection for it is kept.'))return;
+      if(sp.se==='mine')S.spr.add=S.spr.add.filter(x=>x.n!==sp.n);else S.spr.edit[sp.n]=Object.assign(S.spr.edit[sp.n]||{},{gone:true});save();location.hash='sprites/roster';};}
+  if(sub==='log')m.querySelectorAll('[data-sld]').forEach(b=>b.onclick=()=>{S.spr.log.splice(+b.dataset.sld,1);save();rr();});
+  if(sub==='dust'){
+    $('sdf').onsubmit=e=>{e.preventDefault();const a=Math.abs(+$('sda').value||0)*+$('sdd').value;if(!a)return;S.spr.dust.push({at:new Date().toISOString(),w:$('sdw').value.trim(),a});save();rr();};
+    $('sdset').onclick=()=>{const v=prompt('What does the game show as your Sprite Dust?',dustBal());if(v===null||isNaN(+v))return;const d=+v-dustBal();if(d){S.spr.dust.push({at:new Date().toISOString(),w:'Matched the game\'s balance',a:d});save();rr();}};
+    m.querySelectorAll('[data-sc]').forEach(i=>i.onchange=()=>{S.spr.cost[i.dataset.sc]=i.value===''?'':+i.value;save();rr();});
+    m.querySelectorAll('[data-sdx]').forEach(b=>b.onclick=()=>{S.spr.dust.splice(+b.dataset.sdx,1);save();rr();});}
+  if(sub==='mastery'){$('stf').onsubmit=e=>{e.preventDefault();S.spr.tiers.push({n:+$('stn').value,r:$('str').value.trim()});save();rr();};
+    m.querySelectorAll('[data-stx]').forEach(b=>b.onclick=()=>{S.spr.tiers.splice(+b.dataset.stx,1);save();rr();});}
+  if(sub==='roster'){
+    $('saf').onsubmit=e=>{e.preventDefault();const n=$('san').value.trim();if(!n||roster().some(x=>x.n.toLowerCase()===n.toLowerCase()))return alert('That Sprite is already on the roster.');
+      S.spr.add.push({n,r:$('sar').value,a:$('saa').value.trim()});save();rr();};
+    $('svf').onsubmit=e=>{e.preventDefault();const v=$('svn').value.trim();if(!v||sprVars().includes(v))return;S.spr.vars=sprVars().concat(v);save();rr();};
+    m.querySelectorAll('[data-svx]').forEach(a=>a.onclick=e=>{e.preventDefault();const vs=sprVars().slice();vs.splice(+a.dataset.svx,1);S.spr.vars=vs;save();rr();});
+    if($('svr'))$('svr').onclick=()=>{S.spr.vars=null;save();rr();};
+    m.querySelectorAll('[data-sun]').forEach(a=>a.onclick=e=>{e.preventDefault();delete S.spr.edit[a.dataset.sun].gone;save();rr();});
+    $('sexp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({format:'tavernworks-fortnite-sprites',v:1,spr:S.spr},null,1)],{type:'application/json'}));a.download='fortnite-sprites.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
+    $('simp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());if(!j||j.format!=='tavernworks-fortnite-sprites'||!j.spr)throw 0;
+      if(!confirm('Replace your Sprite collection with the one in this file?'))return;S.spr=Object.assign(JSON.parse(JSON.stringify(SPR_DEF)),j.spr);save();rr();}catch(_){alert('That file isn\'t a Sprite collection export.');}};}
+}
+
 /* ================= HOME, GUIDES, NOTES ================= */
-const PAGES=[['home','Home'],['stats','Player Stats'],['compare','Compare'],['matches','Match Log'],['drops','Drop Spots'],['ranked','Ranked'],['shop','Item Shop'],['news','News'],['map','Map'],['xp','Level Planner'],['quests','Quests'],['vbucks','V-Bucks'],['guides','Guides'],['notes','My Notes']];
-const TILE={stats:'Look up any player and track their stats over time',compare:'Two saved players side by side',matches:'Your match history, logged automatically from your Fortnite name',drops:'How you do at each drop spot',ranked:'Your rank in each ranked mode, with history',
+const PAGES=[['home','Home'],['sprites','✨ Sprite Tracker'],['stats','Player Stats'],['compare','Compare'],['matches','Match Log'],['drops','Drop Spots'],['ranked','Ranked'],['shop','Item Shop'],['news','News'],['map','Map'],['xp','Level Planner'],['quests','Quests'],['vbucks','V-Bucks'],['guides','Guides'],['notes','My Notes']];
+const TILE={sprites:'Every Sprite and variant you\'ve extracted, mastery, runs and Sprite Dust',stats:'Look up any player and track their stats over time',compare:'Two saved players side by side',matches:'Your match history, logged automatically from your Fortnite name',drops:'How you do at each drop spot',ranked:'Your rank in each ranked mode, with history',
 shop:'Today\'s Item Shop with a wishlist',news:'Lobby news, live',map:'This season\'s island and named locations',xp:'XP per day to reach your target level',quests:'Your quests, unticked at each reset',vbucks:'Balance and spending',guides:'Drops, storm, Zero Build, ranked and more',notes:'Your own notes'};
 function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>FORTNITE<br>TRACKER</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+function homeSprites(){const R=active(),P=sprProgress(R),hunt=R.filter(sp=>colOf(sp.n).hunt),last=S.spr.log.filter(x=>!x.lost).slice(-1)[0],w=unloggedWins().length;
+  return `<div class="card" style="border-color:var(--acc)"><div class="row" style="justify-content:space-between;margin:0"><h3 style="margin:0">✨ Sprite Tracker</h3><a href="#sprites"><button class="pri">Open collection</button></a></div>
+<div class="stats"><div class="stat"><small>Collection</small>${P.have} / ${P.all} <span class="d dim">${P.pct.toFixed(0)}%</span><div class="bar" style="margin:6px 0 0"><i style="width:${P.pct}%"></i></div></div>
+<div class="stat"><small>Sprites found</small>${P.base} / ${P.n}</div><div class="stat"><small>Mastered</small>${P.m}</div><div class="stat"><small>Sprite Dust</small>${fmt(dustBal())}</div>
+<div class="stat"><small>Last extraction</small><span style="font-size:14px">${last?esc(last.s)+(last.v!=='Normal'?' · '+esc(last.v):'')+' · '+ago(new Date(last.at).getTime()):'None yet'}</span></div></div>
+${hunt.length?`<p style="margin:0">🎯 Hunting: ${hunt.map(sp=>`<a href="#sprites/sp-${sslug(sp.n)}">${esc(sp.n)}</a>`).join(', ')}</p>`:''}
+${w?`<p style="margin:6px 0 0"><a href="#sprites">🏆 ${w} recent win${w===1?'':'s'}: log the Sprites you extracted</a></p>`:''}</div>`;}
 function pgHome(){const me=S.me&&S.players[S.me],L=me&&latest(S.me,S.prefs.win,S.prefs.input),o=L&&L.s.overall;
   const today=summarize(S.matches.filter(m=>inRange(m,'today'))),hits=C.shop&&shopDay(C.shop.at)===shopDay(Date.now())?C.shop.items.filter(wantHit):null;
   const qOpen=S.quests.filter(q=>!qDone(q)).length;
-  return `<div class="hero"><b>FORTNITE<br>TRACKER</b><span>🪂</span></div><h2>Fortnite Tracker</h2><p class="sub">Stats, a match log, ranked progress, the Item Shop and more for <i>Fortnite</i> Battle Royale. Your logs and lists are saved on this device.</p>
+  return `<div class="hero"><b>FORTNITE<br>TRACKER</b><span>🪂</span></div><h2>Fortnite Tracker</h2><p class="sub">A Sprite collection tracker, plus stats, a match log, ranked progress, the Item Shop and more for <i>Fortnite</i> Battle Royale. Your logs and lists are saved on this device.</p>
+${homeSprites()}
 <div class="stats">
 <div class="stat"><small>${me?esc(me.name):'Your stats'}</small>${o?`${fmt(o.w)} wins · ${f2(kd(o))} K/D`:'<a href="#stats" style="font-size:14px">Look yourself up</a>'}</div>
 <div class="stat"><small>Today</small>${today.n?`${today.n} played · ${today.w} won`:`<a href="#matches" style="font-size:14px">${S.auto&&S.auto.name?'No matches yet':'Track your matches'}</a>`}</div>
@@ -573,7 +788,7 @@ function route(){
   const page=PAGES.some(p=>p[0]===pg)?pg:'home';
   buildNav(page);
   const m=$('main'),scroll=m.dataset.pg===page?m.scrollTop:0;m.dataset.pg=page;
-  m.innerHTML=({home:pgHome,stats:pgStats,compare:pgCompare,matches:pgMatches,drops:pgDrops,ranked:pgRanked,shop:pgShop,news:pgNews,map:pgMap,xp:pgXP,quests:pgQuests,vbucks:pgVB,guides:()=>pgGuides(sub),notes:pgNotes})[page]();
+  m.innerHTML=({home:pgHome,sprites:()=>pgSprites(sub),stats:pgStats,compare:pgCompare,matches:pgMatches,drops:pgDrops,ranked:pgRanked,shop:pgShop,news:pgNews,map:pgMap,xp:pgXP,quests:pgQuests,vbucks:pgVB,guides:()=>pgGuides(sub),notes:pgNotes})[page]();
   m.scrollTop=scroll;
   m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
   clearInterval(tick);
@@ -644,6 +859,7 @@ function route(){
     $('vf').onsubmit=e=>{e.preventDefault();const a=Math.abs(+$('va').value||0)*+$('vd').value;if(!a)return;S.vb.push({at:new Date().toISOString(),w:$('vw').value.trim(),a});save();route();};
     m.querySelectorAll('[data-vd]').forEach(b=>b.onclick=()=>{S.vb.splice(+b.dataset.vd,1);save();route();});
   }
+  if(page==='sprites')sprWire(m,sub);
   if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
 }
 window.addEventListener('hashchange',route);

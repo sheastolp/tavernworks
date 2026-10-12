@@ -506,6 +506,7 @@ window.TAVERN_PROJECTS = {
     ["hollowknight","2026-10-11","Hollow Knight Assistant: a map of Hallownest, bosses with prep checklists, a charm builder that checks overcharming, grubs, relics, essence, stags, Godhome and all five endings","/assistants/hollow-knight/"],
     ["silksong","2026-10-11","Silksong Assistant: Pharloom on a map, bosses across three acts, the road to Act 3, crests, a tool tracker, needle and Pale Oil, fleas, a wish log and a rosary shopping list","/assistants/silksong/"],
     ["fortnite","2026-10-12","Fortnite Tracker: player stats with change since your last check, a match log with drop-spot results, a ranked tracker, the live Item Shop with a wishlist, news, the map, quests and a level planner","/assistants/fortnite/"],
-    ["fortnite","2026-10-12","Fortnite Tracker: enter your Fortnite name and your match history fills itself in, with kills, wins and a placement range for each match","/assistants/fortnite/"]
+    ["fortnite","2026-10-12","Fortnite Tracker: enter your Fortnite name and your match history fills itself in, with kills, wins and a placement range for each match","/assistants/fortnite/"],
+    ["fortnite","2026-10-12","Fortnite Tracker: a Sprite Tracker for every Sprite and variant you've extracted, mastery, runs and Sprite Dust","/assistants/fortnite/"]
   ]
 };
