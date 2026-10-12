@@ -241,8 +241,9 @@ const kd=m=>m?(m.d?m.k/m.d:m.k):null;
 const winRate=m=>m&&m.m?m.w/m.m*100:null;
 const pkey=(id,win,inp)=>id+'|'+win+'|'+inp;
 let lastLookup=null,lookupErr='';
-async function lookup(name,type,win,inp){
-  const d=await api(`/v2/stats/br/v2?name=${encodeURIComponent(name)}&accountType=${type}&timeWindow=${win}&image=none`,true);
+const fetchStats=(name,type,win)=>api(`/v2/stats/br/v2?name=${encodeURIComponent(name)}&accountType=${type}&timeWindow=${win}&image=none`,true);
+async function lookup(name,type,win,inp){return record(await fetchStats(name,type,win),type,win,inp);}
+function record(d,type,win,inp){
   const st=d.stats&&(inp==='all'?d.stats.all:d.stats[inp]);
   const snap={at:Date.now(),s:compactStats(st),bp:d.battlePass?{l:d.battlePass.level,p:d.battlePass.progress}:null};
   const id=d.account.id,P=S.players[id]||(S.players[id]={name:d.account.name,type,snaps:{}});
@@ -329,29 +330,103 @@ ${!A||!B?`<div class="note">${esc(S.players[!A?a:b].name)} hasn't been looked up
 ${rows.map(([n,f,fm])=>{const x=A.s[mode]&&f(A.s[mode]),y=B.s[mode]&&f(B.s[mode]);return `<tr><td>${n}</td><td class="n${x>y?' up':''}">${A.s[mode]?fm(x):'—'}</td><td class="n${y>x?' up':''}">${B.s[mode]?fm(y):'—'}</td></tr>`;}).join('')}
 <tr><td class="dim">Checked</td><td class="n dim">${ago(A.at)}</td><td class="n dim">${ago(B.at)}</td></tr></table></div>`}`;}
 
+/* ================= AUTO-TRACKING =================
+   Fortnite only shares running totals, not a list of matches. So while any page of the
+   tracker is open, it checks your totals every few minutes and turns each change into
+   match entries: per mode, the matches, wins and kills added since the last check. One
+   new match between two checks gives a full entry; several (say, played with the page
+   closed) give one combined entry. Placement comes from the mode's "top N" counters, so
+   it's a range unless you won. Matches from before tracking started can't be fetched. */
+const AUTO_MODES={solo:'Solo',duo:'Duos',trio:'Trios',squad:'Squads',ltm:'Other modes'};
+const rawMode=m=>{const o={};for(const k in m)if(typeof m[k]==='number')o[k]=m[k];return o;};
+function autoDiff(base,st){const out=[];
+  for(const k in AUTO_MODES){const a=st&&st[k],b=base[k]||{};if(!a)continue;
+    const dm=(a.matches||0)-(b.matches||0);if(dm<=0)continue;
+    const dw=Math.max(0,(a.wins||0)-(b.wins||0)),dk=Math.max(0,(a.kills||0)-(b.kills||0));
+    const lm=a.lastModified&&new Date(a.lastModified),at=(lm&&!isNaN(lm)&&lm<=Date.now()?lm:new Date()).toISOString();
+    if(dm>1){out.push({at,mode:AUTO_MODES[k],n:dm,wins:dw,kills:dk,auto:1});continue;}
+    const e={at,mode:AUTO_MODES[k],kills:dk,auto:1};
+    if(dw)e.place=1;
+    else{/* The smallest top-N counter that went up is the worst you could have placed. */
+      const ths=Object.keys(a).map(x=>/^top(\d+)$/.exec(x)).filter(Boolean).map(x=>+x[1]).sort((x,y)=>x-y);
+      const tn=ths.find(t=>(a['top'+t]||0)>(b['top'+t]||0));
+      if(tn){e.topN=tn;const lo=ths.filter(t=>t<tn);if(lo.length)e.outN=lo[lo.length-1];}else if(ths.length)e.outN=ths[ths.length-1];}
+    out.push(e);}
+  return out;}
+let autoBusy=false;
+async function autoPoll(force){const A=S.auto;if(!A||!A.name||!A.on||!getKey()||autoBusy)return;
+  if(!force&&A.last&&Date.now()-A.last<(A.every||2)*6e4-5e3)return;
+  autoBusy=true;
+  try{const d=await fetchStats(A.name,A.type,'lifetime');record(d,A.type,'lifetime','all');
+    const st=d.stats&&d.stats.all,base={};for(const k in AUTO_MODES)if(st&&st[k])base[k]=rawMode(st[k]);
+    if(A.id!==d.account.id||!A.base){A.id=d.account.id;A.since=Date.now();}
+    else{const e=autoDiff(A.base,st);if(e.length){S.matches.push(...e);S.matches.sort((x,y)=>x.at<y.at?-1:x.at>y.at?1:0);A.lastNew=Date.now();A.found=(A.found||0)+e.reduce((a,m)=>a+cnt(m),0);}}
+    A.name=d.account.name;A.base=base;A.err='';
+    if(!S.me)S.me=d.account.id;
+    if(d.battlePass&&S.me===d.account.id){S.xp.lvl=d.battlePass.level;S.xp.pct=d.battlePass.progress;}
+  }catch(e){A.err=e.message;}
+  A.last=Date.now();autoBusy=false;save();
+  /* Redraw pages that show matches, unless you're typing into one. */
+  const pg=(location.hash.slice(1)||'home').split('/')[0],ae=document.activeElement;
+  const typing=ae&&$('main').contains(ae)&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)&&ae.type!=='checkbox';
+  if(['matches','home','drops','map'].includes(pg)&&!typing&&editIdx<0)route();}
+setInterval(()=>{if(document.visibilityState==='visible')autoPoll();},30000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')autoPoll();});
+function autoCard(){const A=S.auto,key=getKey();
+  if(!A||!A.name)return `<div class="card"><h3 style="margin-top:0">Track matches automatically</h3>
+<p class="dim" style="margin-top:0">Enter your Fortnite name and every match you finish is added here by itself, with the mode, your kills, wins and a placement range. Keep any page of the tracker open while you play, or open it afterwards to catch up.</p>
+${key?'':`<div class="row"><input id="akv" type="password" style="width:300px" placeholder="Paste your free API key" autocomplete="off"></div>
+<p class="dim" style="margin:0 0 6px">This needs a free key: sign in at <a href="https://dash.fortnite-api.com" target="_blank" rel="noopener">dash.fortnite-api.com</a> with Discord and copy your API key. It stays in this browser.</p>`}
+<form class="row" id="af"><input id="an" type="text" style="width:200px" placeholder="Your Fortnite name" value="${esc(S.lastName||'')}" required>
+<select id="aty">${ACCTS.map(([v,n])=>`<option value="${v}"${S.prefs.type===v?' selected':''}>${n}</option>`).join('')}</select><button class="pri">Start tracking</button></form>
+<div id="amsg"></div></div>`;
+  const acct=(ACCTS.find(a=>a[0]===A.type)||[])[1],left=A.last?Math.max(0,Math.ceil(((A.every||2)*6e4-(Date.now()-A.last))/6e4)):0;
+  return `<div class="card"><div class="row" style="justify-content:space-between;margin:0"><span>${A.on?(A.err?'🟠':'🟢'):'⏸️'} Auto-tracking <b>${esc(A.name)}</b> <span class="tag">${esc(acct)}</span></span>
+<span class="row" style="margin:0"><button id="anow">Check now</button><button id="apause">${A.on?'Pause':'Resume'}</button><button id="astop">Stop</button></span></div>
+<p class="dim" style="margin:6px 0 0">${!A.base?'Starting…':`Last checked ${ago(A.last)}${A.on?`, next in about ${left||1} min`:''}. ${A.found?`${A.found} match${A.found===1?'':'es'} logged automatically since ${new Date(A.since).toLocaleDateString()}${A.lastNew?`, the latest ${ago(A.lastNew)}`:''}.`:'Matches you finish from now on show up here, usually a few minutes after each one.'}`}
+Check every <select id="aev">${[1,2,5,10].map(v=>`<option value="${v}"${(A.every||2)===v?' selected':''}>${v} min</option>`).join('')}</select></p>
+${A.err?`<div class="err">${esc(A.err)}</div>`:''}
+${!getKey()?'<div class="err">Your API key was removed. Add it again on <a href="#stats">Player Stats</a> to keep tracking.</div>':''}
+<p class="dim" style="margin:6px 0 0">Fortnite only shares totals, so placement is a range unless you won, Build and Zero Build are counted together, and matches finished between two checks are combined into one entry. Tap ✎ on a match to add the exact place, damage or drop spot.</p></div>`;}
+
 /* ================= MATCH LOG ================= */
 function inRange(m,r){if(r==='all')return true;const t=new Date(m.at).getTime();
   if(r==='today'){const d=new Date();d.setHours(0,0,0,0);return t>=d.getTime();}
   return Date.now()-t<(+r)*DAY;}
-function summarize(list){const n=list.length,w=list.filter(m=>m.place===1).length,k=list.reduce((a,m)=>a+(m.kills||0),0),
-  dm=list.filter(m=>m.dmg!=null&&m.dmg!==''),t10=list.filter(m=>m.place&&m.place<=10).length,deaths=n-w;
-  return {n,w,k,kd:deaths?k/deaths:k,avgK:n?k/n:null,avgP:n?list.reduce((a,m)=>a+(m.place||0),0)/n:null,avgD:dm.length?dm.reduce((a,m)=>a+(+m.dmg),0)/dm.length:null,
-    wr:n?w/n*100:null,t10:n?t10/n*100:null,best:n?Math.max(...list.map(m=>m.kills||0)):null};}
+/* An entry is one match, or (auto-tracked) several matches that finished between two checks.
+   Auto-tracked matches may only know a placement range: better than outN, at worst topN. */
+const cnt=m=>m.n||1;
+const wins=m=>m.n?m.wins||0:(m.place===1?1:0);
+function top10(m){if(m.n)return null;if(m.place)return m.place<=10;if(m.topN&&m.topN<=10)return true;if(m.outN!=null&&m.outN>=10)return false;return null;}
+function placeText(m){if(m.n)return `${m.n} matches · ${m.wins||0} won`;if(m.place===1)return '<span class="ok">🏆 1</span>';if(m.place)return esc(m.place);
+  if(m.topN&&m.outN)return `${m.outN+1}–${m.topN}`;if(m.topN)return 'Top '+m.topN;if(m.outN)return 'Below '+m.outN;return '<span class="dim">?</span>';}
+const avgPt=s=>s.avgP?'#'+s.avgP.toFixed(1):'—';
+function summarize(list){const n=list.reduce((a,m)=>a+cnt(m),0),w=list.reduce((a,m)=>a+wins(m),0),k=list.reduce((a,m)=>a+(m.kills||0),0),
+  dm=list.filter(m=>m.dmg!=null&&m.dmg!==''),pl=list.filter(m=>!m.n&&m.place),t=list.map(top10).filter(x=>x!=null),deaths=n-w,one=list.filter(m=>!m.n);
+  return {n,w,k,kd:deaths?k/deaths:k,avgK:n?k/n:null,avgP:pl.length?pl.reduce((a,m)=>a+m.place,0)/pl.length:null,avgD:dm.length?dm.reduce((a,m)=>a+(+m.dmg),0)/dm.length:null,
+    wr:n?w/n*100:null,t10:t.length?t.filter(Boolean).length/t.length*100:null,best:one.length?Math.max(...one.map(m=>m.kills||0)):null};}
 function killsChart(list){/* single series: kills per match, wins in green, last 40 matches */
-  const L=list.slice(-40);if(L.length<2)return '';const W=640,H=180,Lf=36,R=8,T=12,B=22,mx=Math.max(1,...L.map(m=>m.kills||0)),bw=Math.min(36,(W-Lf-R)/L.length);
+  const L=list.filter(m=>!m.n).slice(-40);if(L.length<2)return '';const W=640,H=180,Lf=36,R=8,T=12,B=22,mx=Math.max(1,...L.map(m=>m.kills||0)),bw=Math.min(36,(W-Lf-R)/L.length);
   const Y=v=>T+(1-v/mx)*(H-T-B);
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Kills per match, last ${L.length} matches">
 <line class="ax" x1="${Lf}" x2="${W-R}" y1="${Y(0)}" y2="${Y(0)}"/><line class="ax" x1="${Lf}" x2="${W-R}" y1="${Y(mx)}" y2="${Y(mx)}"/>
 <text x="${Lf-6}" y="${Y(0)+4}" text-anchor="end">0</text><text x="${Lf-6}" y="${Y(mx)+4}" text-anchor="end">${mx}</text>
-${L.map((m,i)=>{const h=Math.max(2,Y(0)-Y(m.kills||0)),x=Lf+i*bw+1;return `<rect class="m${m.place===1?' w':''}" x="${x}" y="${Y(0)-h}" width="${Math.max(2,bw-2)}" height="${h}" rx="${Math.min(4,bw/3)}"><title>${new Date(m.at).toLocaleString()} · ${esc(m.mode)} · #${m.place||'?'} · ${m.kills||0} kills${m.drop?' · '+esc(m.drop):''}</title></rect>`;}).join('')}
+${L.map((m,i)=>{const h=Math.max(2,Y(0)-Y(m.kills||0)),x=Lf+i*bw+1;return `<rect class="m${m.place===1?' w':''}" x="${x}" y="${Y(0)-h}" width="${Math.max(2,bw-2)}" height="${h}" rx="${Math.min(4,bw/3)}"><title>${new Date(m.at).toLocaleString()} · ${esc(m.mode)} · ${m.place?'#'+m.place:m.topN||m.outN?placeText(m):'place ?'} · ${m.kills||0} kills${m.drop?' · '+esc(m.drop):''}</title></rect>`;}).join('')}
 <text x="${Lf}" y="${H-6}">older</text><text x="${W-R}" y="${H-6}" text-anchor="end">latest</text></svg>
 <p class="dim" style="margin:0 0 12px">Kills per match. <span class="ok">Green</span> bars are wins. Hover a bar for the match.</p>`;}
+let editIdx=-1;
+function editRow(m,i){return `<tr><td colspan="9"><form class="row" id="ef" style="margin:0"><b>${esc(m.mode)}</b>
+${m.n?'':`<label>Place <input id="ep" type="number" min="1" max="100" style="width:70px" value="${esc(m.place??'')}" placeholder="${m.topN?'≤'+m.topN:''}"></label>`}
+<label>Assists <input id="ea" type="number" min="0" style="width:64px" value="${esc(m.ast??'')}"></label><label>Damage <input id="ed" type="number" min="0" style="width:84px" value="${esc(m.dmg??'')}"></label>
+<label>Drop <input id="edr" type="text" list="mdl" style="width:150px" value="${esc(m.drop||'')}"></label><input id="en" type="text" style="width:200px" placeholder="Note" value="${esc(m.note||'')}">
+<button class="pri">Save</button><button type="button" id="ex">Cancel</button></form></td></tr>`;}
 function pgMatches(){const r=S.range||'today',mf=S.modeF||'';
   const list=S.matches.filter(m=>inRange(m,r)&&(!mf||m.mode===mf)),s=summarize(list);
   const modes=[...new Set(LOG_MODES.concat(S.matches.map(m=>m.mode)))];const pois=(C.map&&C.map.pois)||[];
   const drops=[...new Set(pois.concat(S.matches.map(m=>m.drop).filter(Boolean)))].sort();
-  return `<h2>Match Log</h2><p class="sub">Log matches as you play for session stats the API can't give you: placement, damage and where you dropped.</p>
-<div class="card"><form id="mf"><div class="row">
+  return `<h2>Match Log</h2><p class="sub">Your match history, logged automatically from your Fortnite name or by hand, with session stats, damage and where you dropped.</p>
+${autoCard()}
+<div class="card">${S.auto&&S.auto.name?'<h3 style="margin-top:0">Add a match by hand</h3>':''}<form id="mf"><div class="row">
 <label>Mode <input id="mm" type="text" list="mml" style="width:170px" value="${esc(S.lastMode)}"></label><datalist id="mml">${modes.map(m=>`<option value="${esc(m)}">`).join('')}</datalist>
 <label>Place <input id="mp" type="number" min="1" max="100" style="width:70px" required></label>
 <label>Kills <input id="mk" type="number" min="0" style="width:64px" value="0"></label>
@@ -363,11 +438,11 @@ ${pois.length?'':'<p class="dim" style="margin:6px 0 0">Open <a href="#map">Map<
 <div class="row">${[['today','Today'],['7','7 days'],['30','30 days'],['all','All time']].map(([v,n])=>`<button data-rg="${v}" class="${r===v?'on':''}">${n}</button>`).join('')}
 <select id="mfm"><option value="">All modes</option>${modes.filter(m=>S.matches.some(x=>x.mode===m)).map(m=>`<option${mf===m?' selected':''}>${esc(m)}</option>`).join('')}</select></div>
 <div class="stats"><div class="stat"><small>Matches</small>${s.n}</div><div class="stat"><small>Wins</small>${s.w}</div><div class="stat"><small>Win rate</small>${pct(s.wr)}</div>
-<div class="stat"><small>Kills</small>${s.k}</div><div class="stat"><small>K/D</small>${f2(s.n?s.kd:null)}</div><div class="stat"><small>Avg place</small>${s.avgP?'#'+s.avgP.toFixed(1):'—'}</div>
+<div class="stat"><small>Kills</small>${s.k}</div><div class="stat"><small>K/D</small>${f2(s.n?s.kd:null)}</div><div class="stat"><small>${list.some(m=>m.n||!m.place)?'Avg exact place':'Avg place'}</small>${avgPt(s)}</div>
 <div class="stat"><small>Top 10 rate</small>${pct(s.t10)}</div><div class="stat"><small>Avg damage</small>${fmt(s.avgD)}</div><div class="stat"><small>Most kills</small>${s.best??'—'}</div></div>
 ${killsChart(list)}
 <div class="card tbl"><table><tr><th>When</th><th>Mode</th><th class="n">Place</th><th class="n">Kills</th><th class="n">Assists</th><th class="n">Damage</th><th>Drop</th><th>Note</th><th></th></tr>
-${list.map(m=>({m,i:S.matches.indexOf(m)})).reverse().slice(0,200).map(({m,i})=>`<tr><td>${new Date(m.at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</td><td>${esc(m.mode)}</td><td class="n">${m.place===1?'<span class="ok">🏆 1</span>':esc(m.place)}</td><td class="n">${esc(m.kills)}</td><td class="n">${esc(m.ast??'')}</td><td class="n">${esc(m.dmg??'')}</td><td>${esc(m.drop||'')}</td><td>${esc(m.note||'')}</td><td><button data-del="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="9" class="dim">No matches in this range yet.</td></tr>'}</table></div>
+${list.map(m=>({m,i:S.matches.indexOf(m)})).reverse().slice(0,200).map(({m,i})=>(i===editIdx?editRow(m,i):`<tr><td>${new Date(m.at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</td><td>${esc(m.mode)}${m.auto?'<span class="tag" title="Logged automatically">auto</span>':''}</td><td class="n">${placeText(m)}</td><td class="n">${esc(m.kills)}</td><td class="n">${esc(m.ast??'')}</td><td class="n">${esc(m.dmg??'')}</td><td>${esc(m.drop||'')}</td><td>${esc(m.note||'')}</td><td style="white-space:nowrap"><button data-ed="${i}" title="Edit">✎</button> <button data-del="${i}" title="Delete">✕</button></td></tr>`)).join('')||'<tr><td colspan="9" class="dim">No matches in this range yet.</td></tr>'}</table></div>
 <div class="row"><button id="mcsv">Export CSV</button><span class="dim">${S.matches.length} matches logged in all.</span></div>`;}
 
 function pgDrops(){const pois=(C.map&&C.map.pois)||[];const by={};
@@ -375,8 +450,8 @@ function pgDrops(){const pois=(C.map&&C.map.pois)||[];const by={};
   const rows=Object.entries(by).map(([d,l])=>[d,summarize(l),pois.includes(d)]).sort((a,b)=>b[1].n-a[1].n);
   return `<h2>Drop Spots</h2><p class="sub">How you do depending on where you land, from your <a href="#matches">Match Log</a>. Spots not on this season's map are shown greyed out.</p>
 ${rows.length?`<div class="card tbl"><table><tr><th>Drop spot</th><th class="n">Matches</th><th class="n">Wins</th><th class="n">Avg place</th><th class="n">Top 10</th><th class="n">Kills / match</th><th class="n">Avg damage</th></tr>
-${rows.map(([d,s,on])=>`<tr class="${on||!pois.length?'':'dim'}"><td><b>${esc(d)}</b></td><td class="n">${s.n}</td><td class="n">${s.w}</td><td class="n">#${s.avgP.toFixed(1)}</td><td class="n">${pct(s.t10)}</td><td class="n">${f2(s.avgK)}</td><td class="n">${fmt(s.avgD)}</td></tr>`).join('')}</table></div>
-${rows.filter(r=>r[1].n>=3).length>1?`<div class="tip">Best average placement with 3+ matches: <b>${esc(rows.filter(r=>r[1].n>=3).sort((a,b)=>a[1].avgP-b[1].avgP)[0][0])}</b>.</div>`:''}`
+${rows.map(([d,s,on])=>`<tr class="${on||!pois.length?'':'dim'}"><td><b>${esc(d)}</b></td><td class="n">${s.n}</td><td class="n">${s.w}</td><td class="n">${avgPt(s)}</td><td class="n">${pct(s.t10)}</td><td class="n">${f2(s.avgK)}</td><td class="n">${fmt(s.avgD)}</td></tr>`).join('')}</table></div>
+${rows.filter(r=>r[1].n>=3&&r[1].avgP).length>1?`<div class="tip">Best average placement with 3+ matches: <b>${esc(rows.filter(r=>r[1].n>=3&&r[1].avgP).sort((a,b)=>(a[1].avgP||99)-(b[1].avgP||99))[0][0])}</b>.</div>`:''}`
 :'<div class="card dim">Fill in "Dropped at" when you log a match and your drop spots show up here.</div>'}`;}
 
 /* ================= RANKED ================= */
@@ -429,7 +504,7 @@ function pgMap(){const m=C.map;return `<h2>Map</h2><p class="sub">This season's 
 <div class="row"><button id="mr">Refresh</button>${m?`<span class="dim">Updated ${ago(m.at)}</span>`:''}</div>
 ${mapErr?`<div class="err">${esc(mapErr)}</div>`:''}
 ${m?`${m.img?`<a href="${esc(m.img)}" target="_blank" rel="noopener"><img class="map" src="${esc(m.img)}" alt="Fortnite Battle Royale map with named locations" loading="lazy"></a>`:''}
-<h3>Named locations (${m.pois.length})</h3><div class="card tbl"><table><tr><th>Location</th><th class="n">Matches dropped</th><th class="n">Avg place</th></tr>${m.pois.map(p=>{const l=S.matches.filter(x=>x.drop===p),s=summarize(l);return `<tr><td>${esc(p)}</td><td class="n">${s.n||''}</td><td class="n">${s.n?'#'+s.avgP.toFixed(1):''}</td></tr>`;}).join('')}</table></div>`:mapErr?'':'<p class="dim">Loading…</p>'}`;}
+<h3>Named locations (${m.pois.length})</h3><div class="card tbl"><table><tr><th>Location</th><th class="n">Matches dropped</th><th class="n">Avg place</th></tr>${m.pois.map(p=>{const l=S.matches.filter(x=>x.drop===p),s=summarize(l);return `<tr><td>${esc(p)}</td><td class="n">${s.n||''}</td><td class="n">${s.n?avgPt(s):''}</td></tr>`;}).join('')}</table></div>`:mapErr?'':'<p class="dim">Loading…</p>'}`;}
 
 /* ================= LEVEL PLANNER ================= */
 function pgXP(){const X=S.xp,xpl=+X.xpl||80000,cur=(+X.lvl||1)+(+X.pct||0)/100,tg=+X.target||100,need=Math.max(0,(tg-cur)*xpl);
@@ -478,7 +553,7 @@ function pgVB(){const bal=S.vb.reduce((a,x)=>a+x.a,0),spent=S.vb.filter(x=>x.a<0
 
 /* ================= HOME, GUIDES, NOTES ================= */
 const PAGES=[['home','Home'],['stats','Player Stats'],['compare','Compare'],['matches','Match Log'],['drops','Drop Spots'],['ranked','Ranked'],['shop','Item Shop'],['news','News'],['map','Map'],['xp','Level Planner'],['quests','Quests'],['vbucks','V-Bucks'],['guides','Guides'],['notes','My Notes']];
-const TILE={stats:'Look up any player and track their stats over time',compare:'Two saved players side by side',matches:'Log matches for session stats, placement and damage',drops:'How you do at each drop spot',ranked:'Your rank in each ranked mode, with history',
+const TILE={stats:'Look up any player and track their stats over time',compare:'Two saved players side by side',matches:'Your match history, logged automatically from your Fortnite name',drops:'How you do at each drop spot',ranked:'Your rank in each ranked mode, with history',
 shop:'Today\'s Item Shop with a wishlist',news:'Lobby news, live',map:'This season\'s island and named locations',xp:'XP per day to reach your target level',quests:'Your quests, unticked at each reset',vbucks:'Balance and spending',guides:'Drops, storm, Zero Build, ranked and more',notes:'Your own notes'};
 function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>FORTNITE<br>TRACKER</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
 function pgHome(){const me=S.me&&S.players[S.me],L=me&&latest(S.me,S.prefs.win,S.prefs.input),o=L&&L.s.overall;
@@ -487,7 +562,7 @@ function pgHome(){const me=S.me&&S.players[S.me],L=me&&latest(S.me,S.prefs.win,S
   return `<div class="hero"><b>FORTNITE<br>TRACKER</b><span>🪂</span></div><h2>Fortnite Tracker</h2><p class="sub">Stats, a match log, ranked progress, the Item Shop and more for <i>Fortnite</i> Battle Royale. Your logs and lists are saved on this device.</p>
 <div class="stats">
 <div class="stat"><small>${me?esc(me.name):'Your stats'}</small>${o?`${fmt(o.w)} wins · ${f2(kd(o))} K/D`:'<a href="#stats" style="font-size:14px">Look yourself up</a>'}</div>
-<div class="stat"><small>Today</small>${today.n?`${today.n} played · ${today.w} won`:'<a href="#matches" style="font-size:14px">Log a match</a>'}</div>
+<div class="stat"><small>Today</small>${today.n?`${today.n} played · ${today.w} won`:`<a href="#matches" style="font-size:14px">${S.auto&&S.auto.name?'No matches yet':'Track your matches'}</a>`}</div>
 <div class="stat"><small>Wishlist in shop</small>${hits?(hits.length?`<a href="#shop">${hits.length} today</a>`:'None today'):'<a href="#shop" style="font-size:14px">Check the shop</a>'}</div>
 <div class="stat"><small>Shop changes in</small>${hm(nextShop()-Date.now())}</div>
 <div class="stat"><small>Quests open</small>${qOpen}</div>
@@ -524,6 +599,7 @@ function route(){
     if($('pclear'))$('pclear').onclick=()=>{if(confirm('Forget every saved player and their history?')){S.players={};S.me='';lastLookup=null;save();route();}};
   }
   if(page==='compare'&&$('ca')){$('ca').onchange=e=>{S.cmpA=e.target.value;save();route();};$('cb').onchange=e=>{S.cmpB=e.target.value;save();route();};$('cm').onchange=e=>{S.cmpMode=e.target.value;save();route();};}
+  if(page!=='matches')editIdx=-1;
   if(page==='matches'){
     const add=win=>{const place=win?1:+$('mp').value;if(!place){$('mp').focus();return;}
       const num=id=>$(id).value===''?null:+$(id).value;
@@ -532,9 +608,22 @@ function route(){
     $('mf').onsubmit=e=>{e.preventDefault();add(false);};$('mwin').onclick=()=>add(true);
     m.querySelectorAll('[data-rg]').forEach(b=>b.onclick=()=>{S.range=b.dataset.rg;save();route();});
     $('mfm').onchange=e=>{S.modeF=e.target.value;save();route();};
-    m.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{S.matches.splice(+b.dataset.del,1);save();route();});
+    m.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{S.matches.splice(+b.dataset.del,1);editIdx=-1;save();route();});
+    m.querySelectorAll('[data-ed]').forEach(b=>b.onclick=()=>{editIdx=+b.dataset.ed;route();});
+    if($('ef')){const M=S.matches[editIdx],num=id=>!$(id)||$(id).value===''?null:+$(id).value;
+      $('ef').onsubmit=e=>{e.preventDefault();if(!M.n){const pl=num('ep');if(pl){M.place=pl;delete M.topN;delete M.outN;}else if(M.place&&!M.auto)M.place=null;}
+        M.ast=num('ea');M.dmg=num('ed');M.drop=$('edr').value.trim();M.note=$('en').value.trim();editIdx=-1;save();route();};
+      $('ex').onclick=()=>{editIdx=-1;route();};}
+    if($('af'))$('af').onsubmit=e=>{e.preventDefault();if($('akv')&&$('akv').value.trim())setKey($('akv').value.trim());
+      if(!getKey()){$('amsg').innerHTML='<div class="err">Paste your API key first.</div>';return;}
+      const n=$('an').value.trim();if(!n)return;S.lastName=n;S.prefs.type=$('aty').value;
+      S.auto={name:n,type:$('aty').value,on:true,every:2};save();route();autoPoll(true);};
+    if($('anow'))$('anow').onclick=()=>{$('anow').disabled=true;$('anow').textContent='Checking…';autoPoll(true);};
+    if($('apause'))$('apause').onclick=()=>{S.auto.on=!S.auto.on;save();route();if(S.auto.on)autoPoll(true);};
+    if($('astop'))$('astop').onclick=()=>{if(confirm('Stop tracking '+S.auto.name+'? Matches already logged stay in your log.')){S.auto=null;save();route();}};
+    if($('aev'))$('aev').onchange=e=>{S.auto.every=+e.target.value;save();};
     $('mcsv').onclick=()=>{const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-      const csv=['date,mode,place,kills,assists,damage,drop,note'].concat(S.matches.map(x=>[x.at,x.mode,x.place,x.kills,x.ast,x.dmg,x.drop,x.note].map(q).join(','))).join('\n');
+      const csv=['date,mode,matches,wins,place,place_range,kills,assists,damage,drop,note,auto'].concat(S.matches.map(x=>[x.at,x.mode,cnt(x),wins(x),x.place,x.place?'':placeText(x).replace(/<[^>]+>/g,''),x.kills,x.ast,x.dmg,x.drop,x.note,x.auto?'yes':''].map(q).join(','))).join('\n');
       const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='fortnite-matches.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
     if(!C.map)loadMap().then(()=>{if(m.dataset.pg==='matches'&&!$('mp').value)route();}).catch(()=>{});
   }
@@ -570,6 +659,7 @@ function route(){
 }
 window.addEventListener('hashchange',route);
 route();
+autoPoll();
 </script>
 </body>
 </html>
