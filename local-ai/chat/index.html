@@ -292,15 +292,19 @@
         html += `<pre><button class="copycode" type="button">Copy</button><code>${code.replace(/\n$/, "")}</code></pre>`;
         return;
       }
-      for (const block of part.split(/\n{2,}/)) {
-        const t = block.trim();
-        if (!t) continue;
+      // Lists are gathered line by line so a list can follow a lead-in line,
+      // items can wrap onto indented lines, and items separated by blank
+      // lines ("loose" lists) stay one list instead of restarting at 1.
+      let list = null;   // { tag, start, items }
+      const flush = () => {
+        if (!list) return;
+        const start = list.tag === "ol" && list.start !== 1 ? ` start="${list.start}"` : "";
+        html += `<${list.tag}${start}>` + list.items.map((it) => `<li>${inline(it).replace(/\n/g, "<br>")}</li>`).join("") + `</${list.tag}>`;
+        list = null;
+      };
+      const plain = (t) => {
         const lines = t.split("\n");
-        if (lines.every((l) => /^\s*[-*•] /.test(l))) {
-          html += "<ul>" + lines.map((l) => `<li>${inline(l.replace(/^\s*[-*•] /, ""))}</li>`).join("") + "</ul>";
-        } else if (lines.every((l) => /^\s*\d+[.)] /.test(l))) {
-          html += "<ol>" + lines.map((l) => `<li>${inline(l.replace(/^\s*\d+[.)] /, ""))}</li>`).join("") + "</ol>";
-        } else if (/^#{1,4} /.test(t) && lines.length === 1) {
+        if (/^#{1,4} /.test(t) && lines.length === 1) {
           const n = t.match(/^#+/)[0].length;
           html += `<h${n}>${inline(t.slice(n + 1))}</h${n}>`;
         } else if (lines.every((l) => l.startsWith("&gt;"))) {
@@ -308,7 +312,31 @@
         } else {
           html += `<p>${inline(t).replace(/\n/g, "<br>")}</p>`;
         }
+      };
+      for (const block of part.split(/\n{2,}/)) {
+        if (!block.trim()) continue;
+        let text = [];
+        const endText = () => { if (text.length) { flush(); plain(text.join("\n").trim()); text = []; } };
+        let inItem = false;
+        for (const line of block.replace(/^\n+|\s+$/g, "").split("\n")) {
+          const ul = line.match(/^\s*[-*•] +(.*)$/);
+          const ol = line.match(/^\s*(\d+)[.)] +(.*)$/);
+          if (ul || ol) {
+            endText();
+            const tag = ul ? "ul" : "ol";
+            if (!list || list.tag !== tag) { flush(); list = { tag, start: ol ? +ol[1] : 1, items: [] }; }
+            list.items.push(ul ? ul[1] : ol[2]);
+            inItem = true;
+          } else if (inItem && list && (/^\s+\S/.test(line) || !text.length) && !/^#{1,4} /.test(line)) {
+            list.items[list.items.length - 1] += "\n" + line.trim();
+          } else {
+            inItem = false;
+            text.push(line);
+          }
+        }
+        endText();
       }
+      flush();
     });
     return html;
   }
