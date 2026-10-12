@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fortnite Tracker · Tavernworks</title>
+<meta name="description" content="Fortnite Tracker: look up Battle Royale stats for any player and track them over time, log your matches with session stats and drop-spot results, a ranked tracker, the live Item Shop with a wishlist, news, the map, a level planner, quests with resets and a V-Bucks log. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪂</text></svg>">
+<style>
+:root{--bg:#0d0f1f;--panel:#151933;--panel2:#1f2547;--line:#323a6b;--tx:#eef0ff;--dim:#a2a8d0;--acc:#ffd23f;--acc-ink:#2a2000;--acc2:#7cc4ff;--ok:#6fdc8c;--warn:#f2c14e;--err:#ff7a7a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:8px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+input,select,textarea{background:#080a16;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number],input[type=date]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.note{border-left:3px solid var(--warn);background:#272311;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.err{border-left:3px solid var(--err);background:#2a1418;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#ffd0d0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.stat small{display:block;color:var(--dim);font-size:11px;font-weight:400;text-transform:uppercase;letter-spacing:.06em}
+.stat .d{font-size:12px;font-weight:400}
+.hero{position:relative;max-width:460px;aspect-ratio:460/215;border-radius:12px;overflow:hidden;margin:0 0 16px;display:flex;align-items:flex-end;padding:14px 16px;
+  background:radial-gradient(circle at 75% 20%,#ffd23f55,transparent 45%),linear-gradient(135deg,#3b1d8f,#1a6fd1 60%,#29c4ff);border:1px solid var(--line)}
+.hero b{font:900 italic 44px/1 Impact,"Arial Black",system-ui,sans-serif;letter-spacing:1px;color:#fff;text-shadow:0 3px 0 #1b0f4a}
+.hero span{position:absolute;top:14px;right:16px;font-size:44px}
+.shop{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.item{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.item.want{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.item .pic{aspect-ratio:1;background:#080a16;position:relative}
+.item .pic img{width:100%;height:100%;object-fit:cover;display:block}
+.item .pic .bn{position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;background:var(--acc);color:var(--acc-ink);border-radius:4px;padding:1px 6px}
+.item .bd{padding:8px 10px;display:flex;flex-direction:column;gap:2px;flex:1}
+.item .bd b{font-size:13px}
+.item .bd .pr{margin-top:auto;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.item .bd button{padding:2px 8px;font-size:12px}
+.r-common{border-top:3px solid #b1b1b1}.r-uncommon{border-top:3px solid #5bbd3a}.r-rare{border-top:3px solid #3ba7f0}.r-epic{border-top:3px solid #b855e8}.r-legendary{border-top:3px solid #f0a23b}
+.r-mythic{border-top:3px solid #f5d33b}.r-icon{border-top:3px solid #43d6e5}.r-marvel{border-top:3px solid #e33b3b}.r-dc{border-top:3px solid #4a6fe0}.r-gaminglegends{border-top:3px solid #7a5bf0}.r-starwars{border-top:3px solid #e6e6e6}
+.news{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.news .card{padding:0;overflow:hidden}.news img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}.news .card div{padding:10px 14px}
+.chart{width:100%;height:auto;display:block;background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:0 0 6px}
+.chart .m{fill:var(--acc)}.chart .m.w{fill:var(--ok)}.chart .m:hover{opacity:.8}
+.chart .ax{stroke:var(--line)}.chart text{fill:var(--dim);font-size:11px;font-family:"Segoe UI",system-ui,sans-serif}
+.chart .ln{fill:none;stroke:var(--acc2);stroke-width:2}.chart .pt{fill:var(--acc2);stroke:var(--panel);stroke-width:2}
+.map{max-width:100%;border-radius:10px;border:1px solid var(--line);display:block;margin:0 0 10px}
+.rk{font-weight:700}
+.up{color:var(--ok)}.dn{color:var(--err)}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js?v=2" data-track="fn_state"></script>
+<script src="/assistants/art.js?v=2"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   Fortnite changes every season, so nothing season-specific is written down here.
+   The live pages (stats, Item Shop, news, map) read fortnite-api.com, a free
+   community API. Stats need a free API key from its dashboard; the rest don't.
+   conf: true  = Epic's own pages or long-standing, widely published facts.
+   conf: false = changes between seasons or comes from a single source; check in-game. */
+const API='https://fortnite-api.com';
+
+const MODES=[['overall','All modes'],['solo','Solo'],['duo','Duos'],['trio','Trios'],['squad','Squads'],['ltm','Limited & other']];
+const INPUTS=[['all','All inputs'],['keyboardMouse','Keyboard & mouse'],['gamepad','Controller'],['touch','Touch']];
+const ACCTS=[['epic','Epic name'],['psn','PlayStation name'],['xbl','Xbox gamertag']];
+
+/* Ranked, lowest to highest. Unreal players are ranked on a leaderboard rather than by %. */
+const RANKS=['Bronze I','Bronze II','Bronze III','Silver I','Silver II','Silver III','Gold I','Gold II','Gold III','Platinum I','Platinum II','Platinum III','Diamond I','Diamond II','Diamond III','Elite','Champion','Unreal'];
+const RANK_COL={Bronze:'#c98a52',Silver:'#c8d0dc',Gold:'#f1c34a',Platinum:'#7fd6d2',Diamond:'#79a8ff',Elite:'#c9a2ff',Champion:'#ff9a5c',Unreal:'#ff6fb5'};
+const RANKED_MODES=['Battle Royale','Zero Build','Reload','Reload Zero Build'];
+
+/* Match-log modes. You can type your own too. */
+const LOG_MODES=['Solo','Duos','Trios','Squads','Zero Build Solo','Zero Build Duos','Zero Build Trios','Zero Build Squads','Ranked BR','Ranked Zero Build','Reload','Reload Zero Build','Creative / other'];
+
+/* Evergreen guides: things that hold from season to season. */
+const GUIDES=[
+{id:'tracker',title:'Making your stats visible',blurb:'If a lookup says private, this is why.',body:`
+<p>Epic only shares the stats of players who allow it. If the tracker says an account is private, the player needs to switch this on in Fortnite:</p>
+<label class="chk"><input type="checkbox" data-k="v1"> Open <b>Settings</b> from the main menu.</label>
+<label class="chk"><input type="checkbox" data-k="v2"> Go to <b>Account and Privacy</b>.</label>
+<label class="chk"><input type="checkbox" data-k="v3"> Turn on <b>Show on Career Leaderboard</b> and apply.</label>
+<label class="chk"><input type="checkbox" data-k="v4"> Play a match. New stats can take a little while to show up.</label>
+<p class="dim">The setting's name has moved around between seasons; if you can't find it, search the settings for "leaderboard".</p>`},
+{id:'drop',title:'Dropping in',blurb:'Where you land decides the first two minutes.',body:`
+<label class="chk"><input type="checkbox" data-k="d1"> Look at the bus route before you jump. Spots far from the route are quieter.</label>
+<label class="chk"><input type="checkbox" data-k="d2"> Glide toward the edge of a named spot rather than its centre, and land on high ground or a roof.</label>
+<label class="chk"><input type="checkbox" data-k="d3"> Pick one or two drop spots and learn their chests, then log each match there to see how it goes (<a href="#drops">Drop Spots</a>).</label>
+<label class="chk"><input type="checkbox" data-k="d4"> Hot drops are good practice and bad for placement. Decide which one you want this match.</label>
+<label class="chk"><input type="checkbox" data-k="d5"> In squads, call where you're landing so you don't split up.</label>`},
+{id:'loot',title:'Loadout and healing',blurb:'What to carry and what to drink first.',body:`
+<ul><li>Carry a close-range weapon, a mid-range weapon and healing. A third weapon or a mobility item is the flex slot.</li>
+<li>Shields before health: small shields fill up to 50, big shields go to 100.</li>
+<li>Drink small shields first, then big ones, so nothing is wasted.</li>
+<li>Heal behind cover, and not while an enemy can see you.</li>
+<li>Drop the grey and green weapons once you have better ones; inventory space is limited.</li></ul>`},
+{id:'storm',title:'Storm and rotations',blurb:'Where most deaths after the early game come from.',body:`
+<label class="chk"><input type="checkbox" data-k="s1"> Check the map every time the storm circle appears.</label>
+<label class="chk"><input type="checkbox" data-k="s2"> Move early. Rotating late means running through open ground with the storm behind you.</label>
+<label class="chk"><input type="checkbox" data-k="s3"> Travel along the edge of the zone so fights only come from one side.</label>
+<label class="chk"><input type="checkbox" data-k="s4"> Keep a vehicle or mobility item for the late game if you can.</label>
+<label class="chk"><input type="checkbox" data-k="s5"> In the final circles, the player with cover and height usually wins.</label>`},
+{id:'zb',title:'Zero Build',blurb:'No walls to hide behind, so the map is your cover.',body:`
+<ul><li>Move from cover to cover: rocks, trees, buildings, ridges.</li><li>Your overshield regenerates if you stop taking damage. Break line of sight to let it come back.</li>
+<li>Mantle and climb to take height; the high ground matters even more without builds.</li>
+<li>Pick fights you can finish. A third party will hear the shots.</li></ul>`},
+{id:'build',title:'Building basics',blurb:'For modes where building is on.',body:`
+<label class="chk"><input type="checkbox" data-k="b1"> Learn to put up a wall the moment you're shot. It's the single most useful build.</label>
+<label class="chk"><input type="checkbox" data-k="b2"> Then a "1x1": four walls, a ramp and a floor around you.</label>
+<label class="chk"><input type="checkbox" data-k="b3"> Practise ramp rushing toward an enemy, and edit plays, in Creative warm-up maps.</label>
+<label class="chk"><input type="checkbox" data-k="b4"> Farm materials early; running out in the end game ends your run.</label>
+<label class="chk"><input type="checkbox" data-k="b5"> Try a builder-friendly control layout and bind builds to keys you can reach without moving.</label>`},
+{id:'ranked',title:'Ranked',blurb:'How climbing works, and how to track it here.',body:`
+<ul><li>Ranked runs from Bronze to Unreal: ${RANKS.length} steps in all. Elite, Champion and Unreal are the top three.</li>
+<li>Placing well and getting eliminations earn progress; leaving early or dying first costs it.</li>
+<li>Each ranked mode has its own rank, and ranks are adjusted at the start of each new season.</li>
+<li>Log your rank and progress on the <a href="#ranked">Ranked</a> page after each session to see how you're climbing.</li></ul>
+<p class="dim">The exact point values aren't public and change between seasons.</p>`},
+{id:'xp',title:'Levelling up',blurb:'Where the XP comes from.',body:`
+<ul><li>Daily and weekly quests are the steadiest source of XP. Track them on <a href="#quests">Quests</a> so you don't miss a reset.</li>
+<li>Playing other experiences (Creative islands, LEGO Fortnite, Fortnite Festival and others) earns XP toward the same level.</li>
+<li>Seasonal quests and milestones pay out big chunks; check them at the start of each season.</li>
+<li>Use the <a href="#xp">Level Planner</a> to see how much you need each day to finish before the season ends.</li></ul>`},
+{id:'team',title:'Playing as a team',blurb:'Duos, trios and squads.',body:`
+<label class="chk"><input type="checkbox" data-k="t1"> Use pings for enemies, loot and where you're going.</label>
+<label class="chk"><input type="checkbox" data-k="t2"> Share healing and ammo. Ask before you drop it so it isn't wasted.</label>
+<label class="chk"><input type="checkbox" data-k="t3"> Pick up a teammate's reboot card and take it to a reboot van.</label>
+<label class="chk"><input type="checkbox" data-k="t4"> Fight together: two players shooting at one enemy win.</label>
+<label class="chk"><input type="checkbox" data-k="t5"> Agree when to rotate before the storm closes.</label>`}
+];
+
+/* ================= STATE ================= */
+let S={matches:[],players:{},me:'',wish:[],quests:[],ranks:{},xp:{lvl:1,pct:0,target:100,end:'',xpl:80000},vb:[],checks:{},notes:'',
+  prefs:{type:'epic',win:'lifetime',input:'all'},reset:{daily:0,weekDay:4,weekHour:14},lastMode:'Solo',lastDrop:''};
+try{const x=JSON.parse(localStorage.getItem('fn_state')||'null');if(x)S=Object.assign(S,x);}catch(e){}
+const save=()=>{try{localStorage.setItem('fn_state',JSON.stringify(S));}catch(e){}};
+/* The API key and the live-data cache stay on this device and aren't synced. */
+const getKey=()=>{try{return localStorage.getItem('fn_apikey')||'';}catch(e){return '';}};
+const setKey=k=>{try{k?localStorage.setItem('fn_apikey',k):localStorage.removeItem('fn_apikey');}catch(e){}};
+let C={};try{C=JSON.parse(localStorage.getItem('fn_cache')||'{}')||{};}catch(e){}
+const saveC=()=>{try{localStorage.setItem('fn_cache',JSON.stringify(C));}catch(e){}};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const mark=c=>c?'<span class="conf" title="Epic or long-standing">●</span>':'<span class="unv" title="Changes between seasons; check in-game">○</span>';
+const fmt=n=>n==null||isNaN(n)?'—':Math.round(n).toLocaleString();
+const f2=n=>n==null||isNaN(n)||!isFinite(n)?'—':(+n).toFixed(2);
+const pct=n=>n==null||isNaN(n)||!isFinite(n)?'—':(+n).toFixed(1)+'%';
+const DAY=864e5;
+const ago=t=>{const m=Math.round((Date.now()-t)/6e4);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':Math.round(m/1440)+' d ago';};
+const hm=ms=>{const m=Math.max(0,Math.round(ms/6e4));return `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`;};
+
+/* ================= LIVE DATA ================= */
+async function api(path,auth){
+  const h={};if(auth)h.Authorization=getKey();
+  let r;try{r=await fetch(API+path,{headers:h});}catch(e){throw new Error('Couldn\'t reach fortnite-api.com. Check your connection, or whether something is blocking it.');}
+  let j=null;try{j=await r.json();}catch(e){}
+  if(!r.ok||!j||j.status>=400){
+    const s=(j&&j.status)||r.status;
+    if(s===401)throw new Error('The API key is missing or wasn\'t accepted. Check it on the Player Stats page.');
+    if(s===403&&auth)throw new Error('This player\'s stats are private. They can make them public in Fortnite (see the guide "Making your stats visible").');
+    if(s===404)throw new Error('No account by that name, or it has no Battle Royale stats. Check the spelling and the platform.');
+    if(s===429)throw new Error('Too many requests. Wait a minute and try again.');
+    throw new Error((j&&j.error)||('fortnite-api.com answered '+s+'.'));
+  }
+  return j.data;
+}
+/* The Item Shop turns over every day at 00:00 UTC. */
+const shopDay=t=>new Date(t).toISOString().slice(0,10);
+const nextShop=()=>{const d=new Date();d.setUTCHours(24,0,0,0);return d.getTime();};
+
+function shopName(e){return (e.bundle&&e.bundle.name)||[...(e.brItems||[]),...(e.instruments||[]),...(e.cars||[]),...(e.legoKits||[])].map(i=>i.name).find(Boolean)||((e.tracks||[])[0]||{}).title||'Item';}
+function shopImg(e){const r=e.newDisplayAsset&&(e.newDisplayAsset.renderImages||[])[0];if(r&&r.image)return r.image;
+  const b=(e.brItems||[])[0];if(b&&b.images)return b.images.featured||b.images.icon||b.images.smallIcon;
+  const t=(e.tracks||[])[0];if(t&&t.albumArt)return t.albumArt;
+  const o=[...(e.instruments||[]),...(e.cars||[]),...(e.legoKits||[])][0];return o&&o.images&&(o.images.large||o.images.small)||(e.bundle&&e.bundle.image)||'';}
+function shopType(e){const b=(e.brItems||[])[0];if(e.bundle)return 'Bundle';if(b&&b.type)return b.type.displayValue||b.type.value;
+  if((e.tracks||[]).length)return 'Jam Track';if((e.instruments||[]).length)return 'Instrument';if((e.cars||[]).length)return 'Car';if((e.legoKits||[]).length)return 'LEGO kit';return 'Other';}
+/* Keep only what the page shows, so the cache stays small. */
+function compactShop(d){return (d.entries||[]).map(e=>{const b=(e.brItems||[])[0]||{};return {
+  n:shopName(e),img:shopImg(e),p:e.finalPrice,rp:e.regularPrice,t:shopType(e),
+  r:(b.rarity&&(b.rarity.value||''))||'',rd:(b.rarity&&b.rarity.displayValue)||'',s:(e.layout&&e.layout.name)||'',
+  bn:(e.banner&&e.banner.value)||'',out:e.outDate||'',items:[...(e.brItems||[]),...(e.instruments||[]),...(e.cars||[]),...(e.legoKits||[])].map(i=>i.name).concat((e.tracks||[]).map(t=>t.title)).filter(Boolean)};});}
+async function loadShop(force){
+  if(!force&&C.shop&&shopDay(C.shop.at)===shopDay(Date.now()))return C.shop;
+  const d=await api('/v2/shop?language=en');C.shop={at:Date.now(),items:compactShop(d)};saveC();return C.shop;}
+async function loadNews(force){
+  if(!force&&C.news&&Date.now()-C.news.at<3*36e5)return C.news;
+  const d=await api('/v2/news/br?language=en');
+  const list=(d.motds||[]).filter(m=>!m.hidden).map(m=>({t:m.title||m.tabTitle,b:m.body,img:m.image||m.tileImage}));
+  (d.messages||[]).forEach(m=>list.push({t:m.title,b:m.body,img:m.image}));
+  C.news={at:Date.now(),list,img:d.image||''};saveC();return C.news;}
+async function loadMap(force){
+  if(!force&&C.map&&Date.now()-C.map.at<DAY)return C.map;
+  const d=await api('/v1/map?language=en');
+  C.map={at:Date.now(),img:(d.images&&(d.images.pois||d.images.blank))||'',pois:(d.pois||[]).map(p=>p.name).filter(n=>n&&!/^\s*$/.test(n))};
+  C.map.pois=[...new Set(C.map.pois)].sort();saveC();return C.map;}
+
+const wantHit=it=>S.wish.find(w=>{const q=w.toLowerCase();return it.n.toLowerCase().includes(q)||it.items.some(n=>n.toLowerCase().includes(q));});
+
+/* ================= PLAYER STATS ================= */
+/* Snapshots keep only the numbers the tracker shows, per mode. */
+function compactStats(st){const o={};MODES.forEach(([k])=>{const m=st&&st[k];if(!m)return;
+  o[k]={m:m.matches||0,w:m.wins||0,k:m.kills||0,d:m.deaths||0,min:m.minutesPlayed||0,sc:m.score||0,t:m.top10||m.top5||m.top3||0,o:m.playersOutlived||0};});return o;}
+const kd=m=>m?(m.d?m.k/m.d:m.k):null;
+const winRate=m=>m&&m.m?m.w/m.m*100:null;
+const pkey=(id,win,inp)=>id+'|'+win+'|'+inp;
+let lastLookup=null,lookupErr='';
+async function lookup(name,type,win,inp){
+  const d=await api(`/v2/stats/br/v2?name=${encodeURIComponent(name)}&accountType=${type}&timeWindow=${win}&image=none`,true);
+  const st=d.stats&&(inp==='all'?d.stats.all:d.stats[inp]);
+  const snap={at:Date.now(),s:compactStats(st),bp:d.battlePass?{l:d.battlePass.level,p:d.battlePass.progress}:null};
+  const id=d.account.id,P=S.players[id]||(S.players[id]={name:d.account.name,type,snaps:{}});
+  P.name=d.account.name;P.type=type;
+  const k=pkey(id,win,inp),list=P.snaps[k]||(P.snaps[k]=[]),prev=list[list.length-1];
+  /* Only keep a new snapshot when something changed, so history stays meaningful. */
+  const changed=!prev||JSON.stringify(prev.s.overall||{})!==JSON.stringify(snap.s.overall||{});
+  if(changed){list.push(snap);if(list.length>200)list.shift();}else prev.at=snap.at;
+  save();
+  return {id,name:d.account.name,type,win,inp,snap,prev:changed?prev:list[list.length-2]||null,empty:!st};
+}
+function delta(a,b,f){if(!b)return '';const x=f(a),y=f(b);if(x==null||y==null)return '';const dd=x-y;if(Math.abs(dd)<1e-9)return '';
+  return ` <span class="d ${dd>0?'up':'dn'}">${dd>0?'+':''}${Number.isInteger(dd)?dd.toLocaleString():dd.toFixed(2)}</span>`;}
+function statsTable(s){return `<div class="card tbl"><table><tr><th>Mode</th><th class="n">Matches</th><th class="n">Wins</th><th class="n">Win %</th><th class="n">Kills</th><th class="n">K/D</th><th class="n">Kills / match</th><th class="n">Hours</th></tr>
+${MODES.filter(([k])=>s[k]).map(([k,n])=>{const m=s[k];return `<tr><td><b>${n}</b></td><td class="n">${fmt(m.m)}</td><td class="n">${fmt(m.w)}</td><td class="n">${pct(winRate(m))}</td><td class="n">${fmt(m.k)}</td><td class="n">${f2(kd(m))}</td><td class="n">${f2(m.m?m.k/m.m:null)}</td><td class="n">${fmt(m.min/60)}</td></tr>`;}).join('')}</table></div>`;}
+function headline(s,prev){const o=s.overall||{},p=prev&&prev.s.overall;return `<div class="stats">
+<div class="stat"><small>Wins</small>${fmt(o.w)}${delta(o,p,m=>m.w)}</div>
+<div class="stat"><small>Win rate</small>${pct(winRate(o))}</div>
+<div class="stat"><small>Kills</small>${fmt(o.k)}${delta(o,p,m=>m.k)}</div>
+<div class="stat"><small>K/D</small>${f2(kd(o))}${delta(o,p,kd)}</div>
+<div class="stat"><small>Matches</small>${fmt(o.m)}${delta(o,p,m=>m.m)}</div>
+<div class="stat"><small>Hours played</small>${fmt((o.min||0)/60)}</div></div>`;}
+/* What happened between two snapshots: the matches played in between. */
+function between(a,b){if(!a||!b||!a.overall||!b.overall)return null;const x=a.overall,y=b.overall,m=x.m-y.m;if(m<=0)return null;
+  const w=x.w-y.w,k=x.k-y.k,d=x.d-y.d;return {m,w,k,d};}
+function lineChart(points,label,whole){/* single series: one value per snapshot */
+  if(points.length<2)return '';const W=640,H=200,L=48,R=12,T=14,B=28,xs=points.map(p=>p.t),ys=points.map(p=>p.v);
+  const x0=Math.min(...xs),x1=Math.max(...xs),lo=Math.min(...ys),hi=Math.max(...ys),pad=(hi-lo)||Math.max(1,hi*.05);
+  const yMin=Math.max(0,lo-pad*.15),yMax=hi+pad*.15;
+  const X=t=>L+(x1===x0?0.5:(t-x0)/(x1-x0))*(W-L-R),Y=v=>T+(1-(v-yMin)/(yMax-yMin))*(H-T-B);
+  const ticks=whole?[...new Set([Math.ceil(yMin),Math.round((yMin+yMax)/2),Math.floor(yMax)])]:[yMin,(yMin+yMax)/2,yMax];
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)} over time">
+${ticks.map(v=>`<line class="ax" x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end">${whole||v>=100?fmt(v):f2(v)}</text>`).join('')}
+<text x="${L}" y="${H-8}">${new Date(x0).toLocaleDateString()}</text><text x="${W-R}" y="${H-8}" text-anchor="end">${new Date(x1).toLocaleDateString()}</text>
+<polyline class="ln" points="${points.map(p=>X(p.t)+','+Y(p.v)).join(' ')}"/>
+${points.map(p=>`<circle class="pt" cx="${X(p.t)}" cy="${Y(p.v)}" r="5"><title>${new Date(p.t).toLocaleString()}: ${whole||p.v>=100?fmt(p.v):f2(p.v)} ${esc(label)}</title></circle>`).join('')}</svg>`;}
+function playerView(r){const P=S.players[r.id],list=P.snaps[pkey(r.id,r.win,r.inp)]||[];
+  const isMe=S.me===r.id,s=r.snap.s,gap=between(r.snap.s,r.prev&&r.prev.s);
+  if(r.empty)return `<div class="note">${esc(r.name)} has no stats for this time window and input.</div>`;
+  const metric=S.chartMetric||'w',MET={w:['Wins',m=>m.w],k:['Kills',m=>m.k],kd:['K/D',kd],wr:['Win %',winRate],m:['Matches',m=>m.m]};
+  return `<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(r.name)} <span class="tag">${esc((ACCTS.find(a=>a[0]===r.type)||[])[1])}</span><span class="tag">${r.win==='season'?'This season':'Lifetime'}</span><span class="tag">${esc(INPUTS.find(i=>i[0]===r.inp)[1])}</span></h3>
+<span><button id="pme">${isMe?'★ This is me':'☆ This is me'}</button></span></div>
+${r.snap.bp?`<p class="dim" style="margin:4px 0 0">Level ${fmt(r.snap.bp.l)}, ${fmt(r.snap.bp.p)}% of the way to the next.</p>`:''}
+${headline(s,r.prev)}
+${r.prev?`<p class="dim">Changes are since your last check, ${ago(r.prev.at)}.${gap?` In between: ${gap.m} match${gap.m===1?'':'es'}, ${gap.w} win${gap.w===1?'':'s'}, ${gap.k} kill${gap.k===1?'':'s'} (K/D ${f2(gap.d?gap.k/gap.d:gap.k)}).`:''}</p>`:'<p class="dim">First check saved. Look this player up again later to see what changed.</p>'}</div>
+${statsTable(s)}
+${list.length>1?`<h3>Over time</h3><div class="row">${Object.entries(MET).map(([k,[n]])=>`<button data-met="${k}" class="${metric===k?'on':''}">${n}</button>`).join('')}</div>
+${lineChart(list.filter(x=>x.s.overall).map(x=>({t:x.at,v:MET[metric][1](x.s.overall)})).filter(p=>p.v!=null),MET[metric][0],!['kd','wr'].includes(metric))}
+<p class="dim">All modes, one point per check that found new matches (${list.length} saved).</p>`:''}`;}
+function pgStats(){const key=getKey(),pr=S.prefs,saved=Object.entries(S.players);
+  return `<h2>Player Stats</h2><p class="sub">Battle Royale stats for any player whose stats are public. Every lookup is saved, so looking someone up again shows what changed.</p>
+${key?'':`<div class="card"><h3 style="margin-top:0">First, a free API key</h3>
+<p>Stats come from <a href="https://fortnite-api.com" target="_blank" rel="noopener">fortnite-api.com</a>, which needs a free key for stats lookups:</p>
+<ol><li>Go to <a href="https://dash.fortnite-api.com" target="_blank" rel="noopener">dash.fortnite-api.com</a> and sign in with Discord.</li><li>Copy your API key.</li><li>Paste it below.</li></ol>
+<form class="row" id="kf"><input id="kv" type="password" style="width:320px" placeholder="Paste your API key" autocomplete="off"><button class="pri">Save key</button></form>
+<p class="dim">The key stays in this browser. It's sent only to fortnite-api.com, and it isn't included in Google Drive sync. The Item Shop, News and Map work without it.</p></div>`}
+<div class="card"><form class="row" id="lf"><input id="ln" type="text" style="width:220px" placeholder="Player name" value="${esc(S.lastName||'')}" required>
+<select id="lt">${ACCTS.map(([v,n])=>`<option value="${v}"${pr.type===v?' selected':''}>${n}</option>`).join('')}</select>
+<select id="lw"><option value="lifetime"${pr.win==='lifetime'?' selected':''}>Lifetime</option><option value="season"${pr.win==='season'?' selected':''}>This season</option></select>
+<select id="li">${INPUTS.map(([v,n])=>`<option value="${v}"${pr.input===v?' selected':''}>${n}</option>`).join('')}</select>
+<button class="pri"${key?'':' disabled'}>Look up</button></form>
+${saved.length?`<div class="row"><span class="dim">Saved:</span>${saved.sort((a,b)=>(b[0]===S.me)-(a[0]===S.me)||a[1].name.localeCompare(b[1].name)).map(([id,p])=>`<button data-pl="${esc(id)}">${id===S.me?'★ ':''}${esc(p.name)}</button>`).join('')}</div>`:''}
+${key?`<p class="dim" style="margin:6px 0 0">Using your saved API key. <a href="#" id="kx">Change or remove it</a>.</p>`:''}</div>
+<div id="lres">${lookupErr?`<div class="err">${esc(lookupErr)}</div>`:lastLookup?playerView(lastLookup):''}</div>
+${saved.length?`<div class="row"><a href="#compare">Compare saved players &rarr;</a> <button id="pclear">Forget saved players</button></div>`:''}
+<div class="note">Stats can lag a match or two behind the game. Fortnite only shares stats for accounts that allow it; see <a href="#guides/tracker">Making your stats visible</a>.</div>`;}
+async function doLookup(name,type,win,inp){
+  $('lres').innerHTML='<p class="dim">Looking up…</p>';
+  try{lastLookup=await lookup(name,type,win,inp);lookupErr='';}catch(e){lastLookup=null;lookupErr=e.message;}
+  if(location.hash.slice(1).split('/')[0]==='stats')route();}
+
+function latest(id,win,inp){const P=S.players[id];const l=P&&P.snaps[pkey(id,win,inp)];return l&&l.length?l[l.length-1]:null;}
+function pgCompare(){const ids=Object.keys(S.players);const pr=S.prefs;
+  if(ids.length<2)return `<h2>Compare</h2><p class="sub">Look up at least two players on <a href="#stats">Player Stats</a>, then compare them here.</p>`;
+  const a=S.cmpA&&S.players[S.cmpA]?S.cmpA:(S.me&&S.players[S.me]?S.me:ids[0]),b=S.cmpB&&S.players[S.cmpB]&&S.cmpB!==a?S.cmpB:ids.find(x=>x!==a);
+  const sel=(id,v)=>`<select id="${id}">${ids.map(x=>`<option value="${esc(x)}"${x===v?' selected':''}>${esc(S.players[x].name)}</option>`).join('')}</select>`;
+  const A=latest(a,pr.win,pr.input),B=latest(b,pr.win,pr.input);
+  const rows=[['Matches',m=>m.m,fmt],['Wins',m=>m.w,fmt],['Win %',winRate,pct],['Kills',m=>m.k,fmt],['K/D',kd,f2],['Kills / match',m=>m.m?m.k/m.m:null,f2],['Hours',m=>m.min/60,fmt]];
+  const mode=S.cmpMode||'overall';
+  return `<h2>Compare</h2><p class="sub">Side by side, from each player's latest saved check for ${pr.win==='season'?'this season':'lifetime'} · ${esc(INPUTS.find(i=>i[0]===pr.input)[1])}. Change those on <a href="#stats">Player Stats</a>.</p>
+<div class="row">${sel('ca',a)} vs ${sel('cb',b)} <select id="cm">${MODES.map(([k,n])=>`<option value="${k}"${mode===k?' selected':''}>${n}</option>`).join('')}</select></div>
+${!A||!B?`<div class="note">${esc(S.players[!A?a:b].name)} hasn't been looked up with these settings yet.</div>`:
+`<div class="card tbl"><table><tr><th></th><th class="n">${esc(S.players[a].name)}</th><th class="n">${esc(S.players[b].name)}</th></tr>
+${rows.map(([n,f,fm])=>{const x=A.s[mode]&&f(A.s[mode]),y=B.s[mode]&&f(B.s[mode]);return `<tr><td>${n}</td><td class="n${x>y?' up':''}">${A.s[mode]?fm(x):'—'}</td><td class="n${y>x?' up':''}">${B.s[mode]?fm(y):'—'}</td></tr>`;}).join('')}
+<tr><td class="dim">Checked</td><td class="n dim">${ago(A.at)}</td><td class="n dim">${ago(B.at)}</td></tr></table></div>`}`;}
+
+/* ================= MATCH LOG ================= */
+function inRange(m,r){if(r==='all')return true;const t=new Date(m.at).getTime();
+  if(r==='today'){const d=new Date();d.setHours(0,0,0,0);return t>=d.getTime();}
+  return Date.now()-t<(+r)*DAY;}
+function summarize(list){const n=list.length,w=list.filter(m=>m.place===1).length,k=list.reduce((a,m)=>a+(m.kills||0),0),
+  dm=list.filter(m=>m.dmg!=null&&m.dmg!==''),t10=list.filter(m=>m.place&&m.place<=10).length,deaths=n-w;
+  return {n,w,k,kd:deaths?k/deaths:k,avgK:n?k/n:null,avgP:n?list.reduce((a,m)=>a+(m.place||0),0)/n:null,avgD:dm.length?dm.reduce((a,m)=>a+(+m.dmg),0)/dm.length:null,
+    wr:n?w/n*100:null,t10:n?t10/n*100:null,best:n?Math.max(...list.map(m=>m.kills||0)):null};}
+function killsChart(list){/* single series: kills per match, wins in green, last 40 matches */
+  const L=list.slice(-40);if(L.length<2)return '';const W=640,H=180,Lf=36,R=8,T=12,B=22,mx=Math.max(1,...L.map(m=>m.kills||0)),bw=Math.min(36,(W-Lf-R)/L.length);
+  const Y=v=>T+(1-v/mx)*(H-T-B);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Kills per match, last ${L.length} matches">
+<line class="ax" x1="${Lf}" x2="${W-R}" y1="${Y(0)}" y2="${Y(0)}"/><line class="ax" x1="${Lf}" x2="${W-R}" y1="${Y(mx)}" y2="${Y(mx)}"/>
+<text x="${Lf-6}" y="${Y(0)+4}" text-anchor="end">0</text><text x="${Lf-6}" y="${Y(mx)+4}" text-anchor="end">${mx}</text>
+${L.map((m,i)=>{const h=Math.max(2,Y(0)-Y(m.kills||0)),x=Lf+i*bw+1;return `<rect class="m${m.place===1?' w':''}" x="${x}" y="${Y(0)-h}" width="${Math.max(2,bw-2)}" height="${h}" rx="${Math.min(4,bw/3)}"><title>${new Date(m.at).toLocaleString()} · ${esc(m.mode)} · #${m.place||'?'} · ${m.kills||0} kills${m.drop?' · '+esc(m.drop):''}</title></rect>`;}).join('')}
+<text x="${Lf}" y="${H-6}">older</text><text x="${W-R}" y="${H-6}" text-anchor="end">latest</text></svg>
+<p class="dim" style="margin:0 0 12px">Kills per match. <span class="ok">Green</span> bars are wins. Hover a bar for the match.</p>`;}
+function pgMatches(){const r=S.range||'today',mf=S.modeF||'';
+  const list=S.matches.filter(m=>inRange(m,r)&&(!mf||m.mode===mf)),s=summarize(list);
+  const modes=[...new Set(LOG_MODES.concat(S.matches.map(m=>m.mode)))];const pois=(C.map&&C.map.pois)||[];
+  const drops=[...new Set(pois.concat(S.matches.map(m=>m.drop).filter(Boolean)))].sort();
+  return `<h2>Match Log</h2><p class="sub">Log matches as you play for session stats the API can't give you: placement, damage and where you dropped.</p>
+<div class="card"><form id="mf"><div class="row">
+<label>Mode <input id="mm" type="text" list="mml" style="width:170px" value="${esc(S.lastMode)}"></label><datalist id="mml">${modes.map(m=>`<option value="${esc(m)}">`).join('')}</datalist>
+<label>Place <input id="mp" type="number" min="1" max="100" style="width:70px" required></label>
+<label>Kills <input id="mk" type="number" min="0" style="width:64px" value="0"></label>
+<label>Assists <input id="ma" type="number" min="0" style="width:64px"></label>
+<label>Damage <input id="md" type="number" min="0" style="width:84px"></label></div>
+<div class="row"><label>Dropped at <input id="mdr" type="text" list="mdl" style="width:170px" value="${esc(S.lastDrop)}"></label><datalist id="mdl">${drops.map(d=>`<option value="${esc(d)}">`).join('')}</datalist>
+<input id="mn" type="text" style="width:240px" placeholder="Note (what got you?)"><button class="pri">Log match</button> <button type="button" id="mwin">🏆 Log a win</button></div></form>
+${pois.length?'':'<p class="dim" style="margin:6px 0 0">Open <a href="#map">Map</a> once to fill the drop-spot list with this season\'s named locations.</p>'}</div>
+<div class="row">${[['today','Today'],['7','7 days'],['30','30 days'],['all','All time']].map(([v,n])=>`<button data-rg="${v}" class="${r===v?'on':''}">${n}</button>`).join('')}
+<select id="mfm"><option value="">All modes</option>${modes.filter(m=>S.matches.some(x=>x.mode===m)).map(m=>`<option${mf===m?' selected':''}>${esc(m)}</option>`).join('')}</select></div>
+<div class="stats"><div class="stat"><small>Matches</small>${s.n}</div><div class="stat"><small>Wins</small>${s.w}</div><div class="stat"><small>Win rate</small>${pct(s.wr)}</div>
+<div class="stat"><small>Kills</small>${s.k}</div><div class="stat"><small>K/D</small>${f2(s.n?s.kd:null)}</div><div class="stat"><small>Avg place</small>${s.avgP?'#'+s.avgP.toFixed(1):'—'}</div>
+<div class="stat"><small>Top 10 rate</small>${pct(s.t10)}</div><div class="stat"><small>Avg damage</small>${fmt(s.avgD)}</div><div class="stat"><small>Most kills</small>${s.best??'—'}</div></div>
+${killsChart(list)}
+<div class="card tbl"><table><tr><th>When</th><th>Mode</th><th class="n">Place</th><th class="n">Kills</th><th class="n">Assists</th><th class="n">Damage</th><th>Drop</th><th>Note</th><th></th></tr>
+${list.map(m=>({m,i:S.matches.indexOf(m)})).reverse().slice(0,200).map(({m,i})=>`<tr><td>${new Date(m.at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</td><td>${esc(m.mode)}</td><td class="n">${m.place===1?'<span class="ok">🏆 1</span>':esc(m.place)}</td><td class="n">${esc(m.kills)}</td><td class="n">${esc(m.ast??'')}</td><td class="n">${esc(m.dmg??'')}</td><td>${esc(m.drop||'')}</td><td>${esc(m.note||'')}</td><td><button data-del="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="9" class="dim">No matches in this range yet.</td></tr>'}</table></div>
+<div class="row"><button id="mcsv">Export CSV</button><span class="dim">${S.matches.length} matches logged in all.</span></div>`;}
+
+function pgDrops(){const pois=(C.map&&C.map.pois)||[];const by={};
+  S.matches.filter(m=>m.drop).forEach(m=>(by[m.drop]=by[m.drop]||[]).push(m));
+  const rows=Object.entries(by).map(([d,l])=>[d,summarize(l),pois.includes(d)]).sort((a,b)=>b[1].n-a[1].n);
+  return `<h2>Drop Spots</h2><p class="sub">How you do depending on where you land, from your <a href="#matches">Match Log</a>. Spots not on this season's map are shown greyed out.</p>
+${rows.length?`<div class="card tbl"><table><tr><th>Drop spot</th><th class="n">Matches</th><th class="n">Wins</th><th class="n">Avg place</th><th class="n">Top 10</th><th class="n">Kills / match</th><th class="n">Avg damage</th></tr>
+${rows.map(([d,s,on])=>`<tr class="${on||!pois.length?'':'dim'}"><td><b>${esc(d)}</b></td><td class="n">${s.n}</td><td class="n">${s.w}</td><td class="n">#${s.avgP.toFixed(1)}</td><td class="n">${pct(s.t10)}</td><td class="n">${f2(s.avgK)}</td><td class="n">${fmt(s.avgD)}</td></tr>`).join('')}</table></div>
+${rows.filter(r=>r[1].n>=3).length>1?`<div class="tip">Best average placement with 3+ matches: <b>${esc(rows.filter(r=>r[1].n>=3).sort((a,b)=>a[1].avgP-b[1].avgP)[0][0])}</b>.</div>`:''}`
+:'<div class="card dim">Fill in "Dropped at" when you log a match and your drop spots show up here.</div>'}`;}
+
+/* ================= RANKED ================= */
+const rankTier=r=>r.split(' ')[0];
+function pgRanked(){return `<h2>Ranked</h2><p class="sub">Record your rank after a session. Each ranked mode has its own rank. History is kept per mode.</p>
+<div class="grid">${RANKED_MODES.map(md=>{const R=S.ranks[md]||{},cur=R.rank||'';const h=(R.hist||[]);const first=h[0];
+  return `<div class="card" style="margin:0"><h3 style="margin-top:0">${esc(md)}</h3>
+${cur?`<div class="rk" style="font-size:22px;color:${RANK_COL[rankTier(cur)]}">${esc(cur)}${cur!=='Unreal'?` <span class="dim" style="font-size:14px">${R.pct||0}%</span>`:''}</div>
+${cur!=='Unreal'?`<div class="bar"><i style="width:${R.pct||0}%"></i></div>`:''}`:'<p class="dim">Not set yet.</p>'}
+<form class="row" data-rf="${esc(md)}"><select>${RANKS.map(r=>`<option${r===cur?' selected':''}>${r}</option>`).join('')}</select><input type="number" min="0" max="100" style="width:70px" value="${R.pct||0}" title="Progress %">%<button class="pri">Save</button></form>
+${h.length>1?`<p class="dim" style="margin:6px 0 0">Since ${new Date(first.at).toLocaleDateString()}: ${esc(first.rank)} → ${esc(cur)} (${rankDelta(first,{rank:cur,pct:R.pct})}).</p>`:''}
+${h.length?`<details><summary class="dim">History (${h.length})</summary><table>${h.slice().reverse().slice(0,30).map(x=>`<tr><td>${new Date(x.at).toLocaleDateString()}</td><td>${esc(x.rank)}</td><td class="n">${x.rank==='Unreal'?'':x.pct+'%'}</td></tr>`).join('')}</table></details>`:''}</div>`;}).join('')}</div>
+<div class="note">Ranks are adjusted at the start of each season. ${mark(false)} The exact rules for how far you drop change between seasons.</div>`;}
+function rankDelta(a,b){const x=RANKS.indexOf(a.rank)*100+(+a.pct||0),y=RANKS.indexOf(b.rank)*100+(+b.pct||0),d=y-x;
+  return d===0?'no change':`<span class="${d>0?'up':'dn'}">${d>0?'+':''}${d}% across ranks</span>`;}
+
+/* ================= ITEM SHOP ================= */
+let shopErr='';
+function pgShop(){const sh=C.shop,fresh=sh&&shopDay(sh.at)===shopDay(Date.now());
+  return `<h2>Item Shop</h2><p class="sub">Today's shop, live. Add things to your wishlist and they light up the day they're back. The shop changes at 00:00 UTC (${new Date(nextShop()).toLocaleTimeString([], {timeStyle:'short'})} your time), in <span id="scd">${hm(nextShop()-Date.now())}</span>.</p>
+<div class="card"><h3 style="margin-top:0">Wishlist</h3><form class="row" id="wf"><input id="wv" type="text" style="width:240px" placeholder="Name of an outfit, emote, track…"><button class="pri">Add</button></form>
+<div class="row">${S.wish.map((w,i)=>`<span class="tag" style="margin:0;font-size:13px">${esc(w)} <a href="#" data-wd="${i}" title="Remove">✕</a></span>`).join('')||'<span class="dim">Nothing yet. Tap ♡ on an item to add it.</span>'}</div><div id="whit"></div></div>
+<div class="row"><input id="sq" type="text" style="width:220px" placeholder="Search the shop"><select id="st"><option value="">All types</option></select><select id="ss"><option value="">All sections</option></select>
+<label class="chk" style="margin:0"><input type="checkbox" id="sw"> Wishlist only</label><button id="sr">Refresh</button><span class="dim" id="scn"></span></div>
+<div id="sbox">${shopErr?`<div class="err">${esc(shopErr)}</div>`:fresh?'':'<p class="dim">Loading today\'s shop…</p>'}</div>
+<p class="dim">Prices are in V-Bucks. Shop data from fortnite-api.com; images belong to Epic Games. <a href="https://www.fortnite.com/item-shop" target="_blank" rel="noopener">Official Item Shop</a>.</p>`;}
+function shopRender(){const sh=C.shop;if(!sh||!$('sbox'))return;
+  const types=[...new Set(sh.items.map(i=>i.t))].sort(),secs=[...new Set(sh.items.map(i=>i.s).filter(Boolean))];
+  const fill=(id,arr)=>{const el=$(id),v=el.value;if(el.options.length===1)el.insertAdjacentHTML('beforeend',arr.map(x=>`<option>${esc(x)}</option>`).join(''));el.value=v;};
+  fill('st',types);fill('ss',secs);
+  const q=$('sq').value.toLowerCase(),t=$('st').value,s=$('ss').value,wo=$('sw').checked;
+  const L=sh.items.filter(i=>(!t||i.t===t)&&(!s||i.s===s)&&(!q||[i.n,i.t,i.rd,i.s,...i.items].join(' ').toLowerCase().includes(q))&&(!wo||wantHit(i)));
+  $('scn').textContent=L.length+' of '+sh.items.length+' · updated '+ago(sh.at);
+  $('sbox').innerHTML=L.length?`<div class="shop">${L.map(i=>{const w=wantHit(i),idx=sh.items.indexOf(i);return `<div class="item r-${esc(String(i.r).toLowerCase().replace(/[^a-z]/g,''))}${w?' want':''}">
+<div class="pic">${i.img?`<img src="${esc(i.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}${i.bn?`<span class="bn">${esc(i.bn)}</span>`:''}</div>
+<div class="bd"><b>${esc(i.n)}</b><span class="dim" style="font-size:12px">${esc(i.t)}${i.rd?' · '+esc(i.rd):''}${i.items.length>1?' · '+i.items.length+' items':''}</span>
+<div class="pr"><span>${fmt(i.p)} <span class="dim">V</span>${i.rp>i.p?` <s class="dim">${fmt(i.rp)}</s>`:''}</span><button data-want="${idx}" title="${w?'On your wishlist':'Add to wishlist'}">${w?'♥':'♡'}</button></div></div></div>`;}).join('')}</div>`:'<p class="dim">Nothing matches.</p>';
+  const hits=sh.items.filter(wantHit);$('whit').innerHTML=S.wish.length?(hits.length?`<div class="tip"><b>In the shop today:</b> ${hits.map(i=>esc(i.n)+' ('+fmt(i.p)+' V)').join(', ')}</div>`:'<p class="dim" style="margin:6px 0 0">Nothing from your wishlist is in today\'s shop.</p>'):'';
+  $('sbox').querySelectorAll('[data-want]').forEach(b=>b.onclick=()=>{const it=sh.items[+b.dataset.want],w=wantHit(it);
+    if(w)S.wish.splice(S.wish.indexOf(w),1);else S.wish.push(it.n);save();route();});}
+
+/* ================= NEWS & MAP ================= */
+let newsErr='',mapErr='';
+function pgNews(){const n=C.news;return `<h2>News</h2><p class="sub">Battle Royale news from the game's lobby, live.</p>
+<div class="row"><button id="nr">Refresh</button>${n?`<span class="dim">Updated ${ago(n.at)}</span>`:''}</div>
+${newsErr?`<div class="err">${esc(newsErr)}</div>`:''}
+${n?(n.list.length?`<div class="news">${n.list.map(x=>`<div class="card">${x.img?`<img src="${esc(x.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}<div><b>${esc(x.t)}</b><p class="dim" style="margin:4px 0 0">${esc(x.b)}</p></div></div>`).join('')}</div>`:'<p class="dim">No news right now.</p>'):newsErr?'':'<p class="dim">Loading…</p>'}
+<p class="dim">For patch notes and status, see <a href="https://www.fortnite.com/news" target="_blank" rel="noopener">fortnite.com/news</a> and <a href="https://status.epicgames.com" target="_blank" rel="noopener">Epic's server status</a>.</p>`;}
+function pgMap(){const m=C.map;return `<h2>Map</h2><p class="sub">This season's Battle Royale island with its named locations, live. The names also fill the drop-spot list in the <a href="#matches">Match Log</a>.</p>
+<div class="row"><button id="mr">Refresh</button>${m?`<span class="dim">Updated ${ago(m.at)}</span>`:''}</div>
+${mapErr?`<div class="err">${esc(mapErr)}</div>`:''}
+${m?`${m.img?`<a href="${esc(m.img)}" target="_blank" rel="noopener"><img class="map" src="${esc(m.img)}" alt="Fortnite Battle Royale map with named locations" loading="lazy"></a>`:''}
+<h3>Named locations (${m.pois.length})</h3><div class="card tbl"><table><tr><th>Location</th><th class="n">Matches dropped</th><th class="n">Avg place</th></tr>${m.pois.map(p=>{const l=S.matches.filter(x=>x.drop===p),s=summarize(l);return `<tr><td>${esc(p)}</td><td class="n">${s.n||''}</td><td class="n">${s.n?'#'+s.avgP.toFixed(1):''}</td></tr>`;}).join('')}</table></div>`:mapErr?'':'<p class="dim">Loading…</p>'}`;}
+
+/* ================= LEVEL PLANNER ================= */
+function pgXP(){const X=S.xp,xpl=+X.xpl||80000,cur=(+X.lvl||1)+(+X.pct||0)/100,tg=+X.target||100,need=Math.max(0,(tg-cur)*xpl);
+  const end=X.end?new Date(X.end+'T00:00:00'):null,days=end?Math.max(0,Math.ceil((end-Date.now())/DAY)):null;
+  return `<h2>Level Planner</h2><p class="sub">How much XP you need each day to reach your target level before the season ends.</p>
+<div class="card"><form class="row" id="xf">
+<label>Level now <input id="xl" type="number" min="1" style="width:80px" value="${esc(X.lvl)}"></label>
+<label>Progress % <input id="xp" type="number" min="0" max="99" style="width:70px" value="${esc(X.pct)}"></label>
+<label>Target level <input id="xt" type="number" min="2" style="width:80px" value="${esc(X.target)}"></label>
+<label>Season ends <input id="xe" type="date" style="width:150px" value="${esc(X.end)}"></label>
+<label>XP per level <input id="xx" type="number" min="1" style="width:100px" value="${esc(xpl)}"></label></form>
+<p class="dim" style="margin:6px 0 0">${mark(false)} Every level has cost 80,000 XP in recent seasons; change it if that's different now. Find the season end date on the Battle Pass screen. Look yourself up on <a href="#stats">Player Stats</a> to fill in your level automatically.</p></div>
+<div class="stats"><div class="stat"><small>Levels to go</small>${f2(Math.max(0,tg-cur))}</div><div class="stat"><small>XP to go</small>${fmt(need)}</div>
+<div class="stat"><small>Days left</small>${days??'—'}</div><div class="stat"><small>XP per day</small>${days?fmt(need/days):'—'}</div><div class="stat"><small>Levels per day</small>${days?f2(need/days/xpl):'—'}</div><div class="stat"><small>XP per week</small>${days?fmt(need/days*7):'—'}</div></div>
+<div class="bar"><i style="width:${Math.min(100,cur/tg*100)}%"></i></div>
+${need===0?'<div class="tip">You\'re there. Set a higher target if you\'re going for the bonus rewards.</div>':''}`;}
+
+/* ================= QUESTS ================= */
+/* Each quest unticks itself at its reset. Dailies reset with the shop by default; the
+   weekly reset day and hour can be set to match the game. */
+function lastDaily(){const d=new Date();d.setUTCHours(S.reset.daily,0,0,0);if(d>Date.now())d.setUTCDate(d.getUTCDate()-1);return d.getTime();}
+function lastWeekly(){const d=new Date();d.setUTCHours(S.reset.weekHour,0,0,0);while(d.getUTCDay()!==S.reset.weekDay||d>Date.now())d.setUTCDate(d.getUTCDate()-1);return d.getTime();}
+const qDone=q=>q.doneAt&&(q.kind==='daily'?q.doneAt>=lastDaily():q.kind==='weekly'?q.doneAt>=lastWeekly():true);
+const WD=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function pgQuests(){const groups=[['daily','Daily'],['weekly','Weekly'],['season','Season & other']];
+  const xpLeft=S.quests.filter(q=>!qDone(q)).reduce((a,q)=>a+(+q.xp||0),0);
+  return `<h2>Quests</h2><p class="sub">Copy the quests you're working on from the game. Daily and weekly ones untick themselves when they reset.</p>
+<div class="card"><form class="row" id="qf"><input id="qt" type="text" style="width:280px" placeholder="e.g. Deal 500 damage with SMGs" required>
+<select id="qk">${groups.map(([v,n])=>`<option value="${v}">${n}</option>`).join('')}</select><input id="qx" type="number" min="0" style="width:100px" placeholder="XP"><button class="pri">Add</button></form></div>
+<div class="stats"><div class="stat"><small>Daily reset in</small>${hm(lastDaily()+DAY-Date.now())}</div><div class="stat"><small>Weekly reset in</small>${hm(lastWeekly()+7*DAY-Date.now())}</div><div class="stat"><small>XP left on the list</small>${fmt(xpLeft)}</div></div>
+${groups.map(([k,n])=>{const L=S.quests.map((q,i)=>({q,i})).filter(x=>x.q.kind===k);return `<h3>${n}</h3><div class="card">${L.map(({q,i})=>`<div class="row" style="margin:2px 0"><label class="chk" style="flex:1;margin:0"><input type="checkbox" data-q="${i}"${qDone(q)?' checked':''}> <span${qDone(q)?' class="dim" style="text-decoration:line-through"':''}>${esc(q.t)}</span>${q.xp?`<span class="tag">${fmt(q.xp)} XP</span>`:''}</label><button data-qd="${i}" title="Delete">✕</button></div>`).join('')||'<span class="dim">None.</span>'}</div>`;}).join('')}
+<details class="card"><summary>Reset times</summary><form class="row" id="rf" style="margin-top:8px">
+<label>Dailies at <input id="rd" type="number" min="0" max="23" style="width:64px" value="${S.reset.daily}"> :00 UTC</label>
+<label>Weeklies on <select id="rw">${WD.map((d,i)=>`<option value="${i}"${i===S.reset.weekDay?' selected':''}>${d}</option>`).join('')}</select> at <input id="rh" type="number" min="0" max="23" style="width:64px" value="${S.reset.weekHour}"> :00 UTC</label><button class="pri">Save</button></form>
+<p class="dim">${mark(false)} Epic has moved quest release times between seasons. Match these to the countdowns in the game's Quests tab.</p></details>`;}
+
+/* ================= V-BUCKS ================= */
+function pgVB(){const bal=S.vb.reduce((a,x)=>a+x.a,0),spent=S.vb.filter(x=>x.a<0).reduce((a,x)=>a-x.a,0);
+  const d30=S.vb.filter(x=>x.a<0&&Date.now()-new Date(x.at)<30*DAY).reduce((a,x)=>a-x.a,0);
+  return `<h2>V-Bucks Log</h2><p class="sub">Track what comes in (Battle Pass rewards, purchases, gifts) and what you spend, so you know your balance and what you've spent.</p>
+<div class="card"><form class="row" id="vf"><input id="vw" type="text" style="width:240px" placeholder="What (e.g. Battle Pass, an outfit)" required>
+<input id="va" type="number" min="1" style="width:100px" placeholder="Amount" required><select id="vd"><option value="-1">Spent</option><option value="1">Earned / bought</option></select><button class="pri">Add</button></form></div>
+<div class="stats"><div class="stat"><small>Balance (logged)</small>${fmt(bal)}</div><div class="stat"><small>Spent, all time</small>${fmt(spent)}</div><div class="stat"><small>Spent, last 30 days</small>${fmt(d30)}</div><div class="stat"><small>Wishlist in shop today</small>${C.shop&&shopDay(C.shop.at)===shopDay(Date.now())?fmt(C.shop.items.filter(wantHit).reduce((a,i)=>a+(i.p||0),0))+' V':'—'}</div></div>
+<div class="card tbl"><table><tr><th>When</th><th>What</th><th class="n">V-Bucks</th><th></th></tr>${S.vb.map((x,i)=>({x,i})).reverse().map(({x,i})=>`<tr><td>${new Date(x.at).toLocaleDateString()}</td><td>${esc(x.w)}</td><td class="n ${x.a<0?'dn':'up'}">${x.a>0?'+':''}${fmt(x.a)}</td><td><button data-vd="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="4" class="dim">Nothing logged yet.</td></tr>'}</table></div>
+<p class="dim">Start with one "Earned" entry for your current balance so the total matches the game.</p>`;}
+
+/* ================= HOME, GUIDES, NOTES ================= */
+const PAGES=[['home','Home'],['stats','Player Stats'],['compare','Compare'],['matches','Match Log'],['drops','Drop Spots'],['ranked','Ranked'],['shop','Item Shop'],['news','News'],['map','Map'],['xp','Level Planner'],['quests','Quests'],['vbucks','V-Bucks'],['guides','Guides'],['notes','My Notes']];
+const TILE={stats:'Look up any player and track their stats over time',compare:'Two saved players side by side',matches:'Log matches for session stats, placement and damage',drops:'How you do at each drop spot',ranked:'Your rank in each ranked mode, with history',
+shop:'Today\'s Item Shop with a wishlist',news:'Lobby news, live',map:'This season\'s island and named locations',xp:'XP per day to reach your target level',quests:'Your quests, unticked at each reset',vbucks:'Balance and spending',guides:'Drops, storm, Zero Build, ranked and more',notes:'Your own notes'};
+function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>FORTNITE<br>TRACKER</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+function pgHome(){const me=S.me&&S.players[S.me],L=me&&latest(S.me,S.prefs.win,S.prefs.input),o=L&&L.s.overall;
+  const today=summarize(S.matches.filter(m=>inRange(m,'today'))),hits=C.shop&&shopDay(C.shop.at)===shopDay(Date.now())?C.shop.items.filter(wantHit):null;
+  const qOpen=S.quests.filter(q=>!qDone(q)).length;
+  return `<div class="hero"><b>FORTNITE<br>TRACKER</b><span>🪂</span></div><h2>Fortnite Tracker</h2><p class="sub">Stats, a match log, ranked progress, the Item Shop and more for <i>Fortnite</i> Battle Royale. Your logs and lists are saved on this device.</p>
+<div class="stats">
+<div class="stat"><small>${me?esc(me.name):'Your stats'}</small>${o?`${fmt(o.w)} wins · ${f2(kd(o))} K/D`:'<a href="#stats" style="font-size:14px">Look yourself up</a>'}</div>
+<div class="stat"><small>Today</small>${today.n?`${today.n} played · ${today.w} won`:'<a href="#matches" style="font-size:14px">Log a match</a>'}</div>
+<div class="stat"><small>Wishlist in shop</small>${hits?(hits.length?`<a href="#shop">${hits.length} today</a>`:'None today'):'<a href="#shop" style="font-size:14px">Check the shop</a>'}</div>
+<div class="stat"><small>Shop changes in</small>${hm(nextShop()-Date.now())}</div>
+<div class="stat"><small>Quests open</small>${qOpen}</div>
+<div class="stat"><small>Ranked</small>${RANKED_MODES.filter(m=>S.ranks[m]&&S.ranks[m].rank).map(m=>`<span style="font-size:13px;display:block;color:${RANK_COL[rankTier(S.ranks[m].rank)]}">${esc(m)}: ${esc(S.ranks[m].rank)}</span>`).join('')||'<a href="#ranked" style="font-size:14px">Set your rank</a>'}</div></div>
+<div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Fortnite changes every season, so the live pages read today's data from <a href="https://fortnite-api.com" target="_blank" rel="noopener">fortnite-api.com</a>, a free community API, instead of a list written here. Facts marked <span class="unv">○</span> change between seasons; check them in the game.</div>`;}
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div>`;}
+  return `<h2>Guides</h2><p class="sub">Habits that hold from season to season. Checkboxes are saved on this device.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;}
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Drop routes, settings, loadouts that work, who to queue with…">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+let tick=0;
+function route(){
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=PAGES.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main'),scroll=m.dataset.pg===page?m.scrollTop:0;m.dataset.pg=page;
+  m.innerHTML=({home:pgHome,stats:pgStats,compare:pgCompare,matches:pgMatches,drops:pgDrops,ranked:pgRanked,shop:pgShop,news:pgNews,map:pgMap,xp:pgXP,quests:pgQuests,vbucks:pgVB,guides:()=>pgGuides(sub),notes:pgNotes})[page]();
+  m.scrollTop=scroll;
+  m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
+  clearInterval(tick);
+  if(page==='home'&&!C.shop&&S.wish.length)loadShop().then(()=>{if(m.dataset.pg==='home')route();}).catch(()=>{});
+  if(page==='stats'){
+    if($('kf'))$('kf').onsubmit=e=>{e.preventDefault();const v=$('kv').value.trim();if(v){setKey(v);route();}};
+    if($('kx'))$('kx').onclick=e=>{e.preventDefault();const v=prompt('Paste a new API key, or leave empty to remove it.',getKey());if(v===null)return;setKey(v.trim());route();};
+    $('lf').onsubmit=e=>{e.preventDefault();const n=$('ln').value.trim();if(!n)return;
+      S.prefs={type:$('lt').value,win:$('lw').value,input:$('li').value};S.lastName=n;save();doLookup(n,S.prefs.type,S.prefs.win,S.prefs.input);};
+    m.querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{const P=S.players[b.dataset.pl];$('ln').value=P.name;$('lt').value=P.type;S.lastName=P.name;
+      S.prefs={type:P.type,win:$('lw').value,input:$('li').value};save();doLookup(P.name,P.type,S.prefs.win,S.prefs.input);});
+    if($('pme'))$('pme').onclick=()=>{S.me=S.me===lastLookup.id?'':lastLookup.id;
+      if(S.me&&lastLookup.snap.bp){S.xp.lvl=lastLookup.snap.bp.l;S.xp.pct=lastLookup.snap.bp.p;}save();route();};
+    m.querySelectorAll('[data-met]').forEach(b=>b.onclick=()=>{S.chartMetric=b.dataset.met;save();route();});
+    if($('pclear'))$('pclear').onclick=()=>{if(confirm('Forget every saved player and their history?')){S.players={};S.me='';lastLookup=null;save();route();}};
+  }
+  if(page==='compare'&&$('ca')){$('ca').onchange=e=>{S.cmpA=e.target.value;save();route();};$('cb').onchange=e=>{S.cmpB=e.target.value;save();route();};$('cm').onchange=e=>{S.cmpMode=e.target.value;save();route();};}
+  if(page==='matches'){
+    const add=win=>{const place=win?1:+$('mp').value;if(!place){$('mp').focus();return;}
+      const num=id=>$(id).value===''?null:+$(id).value;
+      S.lastMode=$('mm').value.trim()||'Solo';S.lastDrop=$('mdr').value.trim();
+      S.matches.push({at:new Date().toISOString(),mode:S.lastMode,place,kills:+$('mk').value||0,ast:num('ma'),dmg:num('md'),drop:S.lastDrop,note:$('mn').value.trim()});save();route();};
+    $('mf').onsubmit=e=>{e.preventDefault();add(false);};$('mwin').onclick=()=>add(true);
+    m.querySelectorAll('[data-rg]').forEach(b=>b.onclick=()=>{S.range=b.dataset.rg;save();route();});
+    $('mfm').onchange=e=>{S.modeF=e.target.value;save();route();};
+    m.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{S.matches.splice(+b.dataset.del,1);save();route();});
+    $('mcsv').onclick=()=>{const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+      const csv=['date,mode,place,kills,assists,damage,drop,note'].concat(S.matches.map(x=>[x.at,x.mode,x.place,x.kills,x.ast,x.dmg,x.drop,x.note].map(q).join(','))).join('\n');
+      const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='fortnite-matches.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
+    if(!C.map)loadMap().then(()=>{if(m.dataset.pg==='matches'&&!$('mp').value)route();}).catch(()=>{});
+  }
+  if(page==='ranked')m.querySelectorAll('[data-rf]').forEach(f=>f.onsubmit=e=>{e.preventDefault();const md=f.dataset.rf,rank=f.querySelector('select').value,p=Math.max(0,Math.min(100,+f.querySelector('input').value||0));
+    const R=S.ranks[md]||(S.ranks[md]={hist:[]});R.rank=rank;R.pct=rank==='Unreal'?0:p;R.hist.push({at:new Date().toISOString(),rank,pct:R.pct});save();route();});
+  if(page==='shop'){
+    const go=f=>{shopErr='';loadShop(f).then(()=>{shopRender();}).catch(e=>{shopErr=e.message;if($('sbox'))$('sbox').innerHTML=`<div class="err">${esc(shopErr)}</div>`;});};
+    ['sq','st','ss','sw'].forEach(id=>$(id)[id==='sq'?'oninput':'onchange']=shopRender);
+    $('sr').onclick=()=>go(true);
+    $('wf').onsubmit=e=>{e.preventDefault();const v=$('wv').value.trim();if(v&&!S.wish.some(w=>w.toLowerCase()===v.toLowerCase())){S.wish.push(v);save();}route();};
+    m.querySelectorAll('[data-wd]').forEach(a=>a.onclick=e=>{e.preventDefault();S.wish.splice(+a.dataset.wd,1);save();route();});
+    if(C.shop&&shopDay(C.shop.at)===shopDay(Date.now()))shopRender();else go(false);
+    tick=setInterval(()=>{if(!$('scd'))return clearInterval(tick);if(nextShop()-Date.now()>DAY-6e4&&C.shop&&shopDay(C.shop.at)!==shopDay(Date.now()))route();$('scd').textContent=hm(nextShop()-Date.now());},30000);
+  }
+  if(page==='news'){const go=f=>loadNews(f).then(()=>{newsErr='';if(m.dataset.pg==='news')route();}).catch(e=>{newsErr=e.message;if(m.dataset.pg==='news')route();});
+    $('nr').onclick=()=>{newsErr='';go(true);};if(!C.news&&!newsErr)go(false);}
+  if(page==='map'){const go=f=>loadMap(f).then(()=>{mapErr='';if(m.dataset.pg==='map')route();}).catch(e=>{mapErr=e.message;if(m.dataset.pg==='map')route();});
+    $('mr').onclick=()=>{mapErr='';go(true);};if(!C.map&&!mapErr)go(false);}
+  if(page==='xp'){const upd=()=>{S.xp={lvl:+$('xl').value||1,pct:+$('xp').value||0,target:+$('xt').value||100,end:$('xe').value,xpl:+$('xx').value||80000};save();route();};
+    m.querySelectorAll('#xf input').forEach(i=>i.onchange=upd);$('xf').onsubmit=e=>{e.preventDefault();upd();};}
+  if(page==='quests'){
+    $('qf').onsubmit=e=>{e.preventDefault();const t=$('qt').value.trim();if(!t)return;S.quests.push({t,kind:$('qk').value,xp:+$('qx').value||0,doneAt:0});save();route();};
+    m.querySelectorAll('[data-q]').forEach(cb=>cb.onchange=()=>{S.quests[+cb.dataset.q].doneAt=cb.checked?Date.now():0;save();route();});
+    m.querySelectorAll('[data-qd]').forEach(b=>b.onclick=()=>{S.quests.splice(+b.dataset.qd,1);save();route();});
+    $('rf').onsubmit=e=>{e.preventDefault();const c=(v,d)=>Math.max(0,Math.min(23,isNaN(+v)?d:+v));
+      S.reset={daily:c($('rd').value,0),weekDay:+$('rw').value,weekHour:c($('rh').value,14)};save();route();};
+  }
+  if(page==='vbucks'){
+    $('vf').onsubmit=e=>{e.preventDefault();const a=Math.abs(+$('va').value||0)*+$('vd').value;if(!a)return;S.vb.push({at:new Date().toISOString(),w:$('vw').value.trim(),a});save();route();};
+    m.querySelectorAll('[data-vd]').forEach(b=>b.onclick=()=>{S.vb.splice(+b.dataset.vd,1);save();route();});
+  }
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',route);
+route();
+</script>
+</body>
+</html>
