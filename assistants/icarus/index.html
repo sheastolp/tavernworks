@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Icarus Assistant · Tavernworks</title>
-<meta name="description" content="Icarus Assistant: survival guides, a creature field guide with mechanics, tech tiers, maps, a prospect timer, drop checklists and notes. Runs in your browser.">
+<meta name="description" content="Icarus Assistant: survival guides, a creature field guide with mechanics, ore locations, tech tiers, maps, a prospect timer, drop checklists and notes. Runs in your browser.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪂</text></svg>">
 <style>
 :root{--bg:#12100e;--panel:#1c1814;--panel2:#26201a;--line:#3a3027;--tx:#ece5db;--dim:#a4978a;--acc:#f08a3c;--acc-ink:#2a1200;--acc2:#7cc9c4;--ok:#7ad37f;--warn:#f2c14e;--err:#ff7a6b}
@@ -126,6 +126,81 @@ const CREATURES=[
  tip:'Go in with your best tier weapons and armour, a full set of meds and a team.'}
 ];
 
+/* Ores and minerals. maps: which maps it turns up on. tool: the pickaxe it needs.
+   Cave shares for Olympus/Styx are player counts (roughly: iron 54%, copper 16%, coal 11%,
+   platinum 5%, titanium 5%, gold 4%, aluminium 4%); ore on those two maps is spread evenly
+   rather than by tier. Prometheus caves follow the biome. */
+const ORES=[
+{n:'Stone',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Hands or any pickaxe',
+ look:'Loose stones on the ground and grey rock everywhere.',
+ where:'Everywhere. Pick loose stones up by hand at first, then mine boulders and cliff faces.',
+ uses:'Stone tools, campfires, furnaces, stone building.',tip:'Mine the big boulders near your base rather than walking to cliffs.'},
+{n:'Oxite',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Stone pickaxe',
+ look:'White, chalky rock, often on the surface beside ordinary stone.',
+ where:'Surface outcrops in most biomes, and inside caves.',
+ uses:'Oxygen. Feed it to an Oxidizer, or eat it raw in an emergency.',tip:'Always finish the whole node, and keep a stack in your pack on every trip.'},
+{n:'Copper Ore',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Stone pickaxe',
+ look:'Rock with orange and green streaks.',
+ where:'Caves on every map, about one cave node in six on Olympus and Styx. Also surface outcrops in forest and riverland. On Prometheus it is common in grassland and swamp caves.',
+ uses:'Copper ingots (Stone Furnace) for Tier 2 tools, nails, electronics and wiring.',tip:'One of your first metals. Bring a stone pickaxe into the first cave you find.'},
+{n:'Iron Ore',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Stone pickaxe',
+ look:'Dark grey rock with rust-red patches.',
+ where:'The most common cave ore: about half the cave nodes on Olympus and Styx. Also surface outcrops in mountains and rocky ground. On Prometheus it makes up most of the grassland and swamp caves.',
+ uses:'Iron ingots for metal tools, nails and armour; with coal it becomes steel.',tip:'You will need far more iron than anything else. Find a cave with several iron nodes and build near it.'},
+{n:'Coal',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Stone pickaxe',
+ look:'Black, glossy rock.',
+ where:'Caves (about one node in ten on Olympus and Styx), and surface seams in rocky and volcanic ground.',
+ uses:'Fuel, and steel (iron plus coal).',tip:'Stockpile it as soon as you reach Tier 3. Steel eats coal.'},
+{n:'Sulfur',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Stone pickaxe',
+ look:'Bright yellow crust on rock.',
+ where:'Caves, and surface patches in desert and volcanic areas.',
+ uses:'Gunpowder and ammunition, plus some explosives.',tip:'Keep some for when you move on to firearms.'},
+{n:'Salt',conf:false,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Stone pickaxe',
+ look:'Pale pink-white crystal rock.',
+ where:'Surface deposits, mostly in dry areas and near the desert. Some maps have few or none, so mark any you find.',
+ uses:'Cooking and preserving food, and some medicine.',tip:'One deposit lasts a long time. Note where it is on your map.'},
+{n:'Clay',conf:false,maps:['Olympus','Styx','Prometheus'],tool:'Stone pickaxe',
+ look:'Smooth brown-red earth.',
+ where:'Riverbanks, lake shores and wet ground.',
+ uses:'Bricks, kilns and some building pieces.',tip:'Look along the rivers you already use for water.'},
+{n:'Silica',conf:false,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Stone pickaxe',
+ look:'Pale, glassy rock.',
+ where:'Desert and sandy ground, and some caves.',
+ uses:'Glass, at the Glassworking Bench (Tier 3).',tip:'You only need it once you start on glass, so don\'t haul it early.'},
+{n:'Ice',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Stone pickaxe',
+ look:'Blue-white chunks of ice.',
+ where:'Arctic, glacier and tundra biomes.',
+ uses:'Water where there is no liquid water. Melt it or drop it in a water container.',tip:'In the snow, ice is your water supply. Carry a stack.'},
+{n:'Gold Ore',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Stone pickaxe',
+ look:'Rock with bright yellow flecks.',
+ where:'Caves; rare on Olympus and Styx (about one node in twenty-five). On Prometheus it is more common in tundra and arctic caves.',
+ uses:'Gold ingots for electronics and late-game gear.',tip:'A stone pickaxe can mine it, so grab it whenever you see it.'},
+{n:'Aluminium Ore',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Steel pickaxe',
+ look:'Light grey, almost silver rock.',
+ where:'Caves; rare on Olympus and Styx (about one node in twenty-five). Common in Prometheus tundra and arctic caves. Also found as deep ore veins.',
+ uses:'Aluminium ingots for Tier 4 gear, electronics and the Fabricator.',tip:'You can\'t mine it until you have a steel pickaxe. Mark the nodes and come back.'},
+{n:'Platinum Ore',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Steel pickaxe',
+ look:'Silver-white rock with a blue tint.',
+ where:'Caves, rare (about one node in twenty on Olympus and Styx). Players find it most in arctic caves and mountain areas. On Prometheus look in volcanic caves, which have more of it. Also found as deep ore veins.',
+ uses:'Platinum ingots for Tier 3 and 4 tools, weapons and benches.',tip:'Rare by hand. A deep ore vein and a drill is the steady supply.'},
+{n:'Titanium Ore',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Steel pickaxe',
+ look:'Dark, metallic grey-blue rock.',
+ where:'Caves, rare (about one node in twenty on Olympus and Styx). Prometheus volcanic caves have more of it. Also found as deep ore veins in mountainous ground.',
+ uses:'Titanium ingots for Tier 4 armour, tools and weapons.',tip:'Plan your trip: caves with titanium are usually deep and full of worms.'},
+{n:'Scoria',conf:false,maps:['Prometheus'],tool:'Stone pickaxe',
+ look:'Dark red-brown, bubbly volcanic rock.',
+ where:'Prometheus volcanic biome.',
+ uses:'Volcanic building materials and concrete mixes.',tip:'Bring heat protection. The volcanic biome hurts.'},
+{n:'Exotics',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Pickaxe (mission or exotic deposit)',
+ look:'Glowing purple crystal deposits. Red Exotics are a separate, rarer kind.',
+ where:'Marked deposits on prospects that ask for them, and some caves. Red Exotics turn up on the newer maps.',
+ uses:'Currency in the orbital Workshop, where you buy gear that stays between drops.',tip:'Carry Exotics back up in the dropship. If you are left behind, you lose them.'},
+{n:'Deep ore veins',conf:true,maps:['Olympus','Styx','Prometheus','Elysium'],tool:'Deep Mining Drill (Tier 4, needs power)',
+ look:'A marked ore deposit in the ground rather than a rock you can swing at.',
+ where:'Across the landscape and in some medium and large caves. Where they spawn is random each time a world is generated, so there is no fixed list. Some players find them with the Workshop scanner.',
+ uses:'An endless supply of one ore (often platinum, titanium, aluminium, iron or copper) once you place a drill on it.',tip:'Your long-term answer to rare metals. Build a small powered outpost on a good vein.'}
+];
+
 const STATS=[
 ['Health','Damage from creatures, falls, storms, fire and afflictions. Recover with food buffs, bandages and rest.'],
 ['Stamina','Spent sprinting, swinging, jumping and dodging. Food and drink buffs raise it.'],
@@ -173,7 +248,7 @@ const GUIDES=[
 <p>Caves hold the metal and Oxite you need, and they keep the weather off you. They also hold cave worms.</p>
 <label class="chk"><input type="checkbox" data-k="c1"> Bring torches, food, water and spare Oxite.</label>
 <label class="chk"><input type="checkbox" data-k="c2"> Clear the worms near the entrance before you mine.</label>
-<label class="chk"><input type="checkbox" data-k="c3"> Mine copper and iron early; you need them for Tier 2 tools.</label>
+<label class="chk"><input type="checkbox" data-k="c3"> Mine copper and iron early; you need them for Tier 2 tools. See the <a href="#ores">Ores</a> page for what else to look for.</label>
 <label class="chk"><input type="checkbox" data-k="c4"> Watch your weight. An overloaded character can't run.</label>
 <label class="chk"><input type="checkbox" data-k="c5"> Mark the cave on your map so you can come back.</label>`},
 {id:'prospects',title:'Prospects and the dropship',blurb:'Don\'t get left behind.',body:`
@@ -203,10 +278,10 @@ const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 const mark=c=>c?'<span class="conf" title="Wiki or published guides">●</span>':'<span class="unv" title="Player reports; check in-game">○</span>';
 
 /* ================= PAGES ================= */
-const PAGES=[['home','Home'],['guides','Guides'],['survival','Survival Stats'],['creatures','Creatures'],['tech','Tech Tiers'],['maps','Maps'],['timer','Prospect Timer'],['loadout','Drop Checklist'],['notes','My Notes']];
+const PAGES=[['home','Home'],['guides','Guides'],['survival','Survival Stats'],['creatures','Creatures'],['ores','Ores'],['tech','Tech Tiers'],['maps','Maps'],['timer','Prospect Timer'],['loadout','Drop Checklist'],['notes','My Notes']];
 function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>ICARUS<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
 
-const TILE={guides:'First drop, storms, caves, prospects, hunting',survival:'Health, oxygen, water, food and temperature',creatures:'Tap a creature for how it fights and how to beat it',tech:'What each tier unlocks',maps:'Olympus, Styx, Prometheus and Elysium',timer:'Count down to your dropship',loadout:'What to bring on every trip',notes:'Your own notes'};
+const TILE={guides:'First drop, storms, caves, prospects, hunting',survival:'Health, oxygen, water, food and temperature',creatures:'Tap a creature for how it fights and how to beat it',ores:'Where each ore is found and what you need to mine it',tech:'What each tier unlocks',maps:'Olympus, Styx, Prometheus and Elysium',timer:'Count down to your dropship',loadout:'What to bring on every trip',notes:'Your own notes'};
 function pgHome(){return `${TWArt.hero(1149460,'Icarus')}<h2>Icarus Assistant</h2><p class="sub">A companion for <i>Icarus</i>. Your checklists, timer and notes are saved on this device.</p>
 <div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
 <div class="note">Facts marked <span class="conf">●</span> come from the Icarus wiki or published guides. Facts marked <span class="unv">○</span> come from player reports. Icarus changes with weekly updates, so trust what you see in-game first.</div>`;}
@@ -237,6 +312,28 @@ function creaturesRender(){
   const r=CREATURES.filter(c=>(!k||c.k===k)&&(!q||[c.n,c.k,c.where,c.drops,c.tip,...c.mech].join(' ').toLowerCase().includes(q)));
   $('ccn').textContent=r.length+' creature'+(r.length===1?'':'s');
   $('cl').innerHTML=r.map(c=>`<tr><td>${mark(c.conf)} <a class="mob" href="#creatures/${slug(c.n)}">${esc(c.n)}</a><span class="tag ${KIND[c.k]}">${c.k}</span></td><td>${esc(c.where)}</td><td>${esc(c.drops)}</td></tr>`).join('')||'<tr><td colspan="3" class="dim">No creatures match.</td></tr>';
+}
+
+/* ---- ores ---- */
+const MAP_NAMES=['Olympus','Styx','Prometheus','Elysium'];
+function pgOres(sub){
+  const o=sub&&ORES.find(x=>slug(x.n)===sub);
+  if(o)return `<p><a href="#ores">&larr; All ores</a></p>
+<h2>${mark(o.conf)} ${esc(o.n)}</h2>
+<div class="stats"><div class="stat"><small>Mine with</small>${esc(o.tool)}</div><div class="stat"><small>Looks like</small>${esc(o.look)}</div><div class="stat"><small>Maps</small>${esc(o.maps.join(', '))}</div></div>
+<div class="card"><h3 style="margin-top:0">Where to find it</h3><div>${esc(o.where)}</div><h3>What it's for</h3><div>${esc(o.uses)}</div></div>
+<div class="tip"><b>Tip:</b> ${esc(o.tip)}</div>`;
+  return `<h2>Ores</h2><p class="sub">Where to find each ore and what you need to mine it. Tap a name for details.</p>
+<div class="row"><input id="oq" type="text" style="width:260px" placeholder="Search (e.g. cave, arctic, steel)"><select id="om"><option value="">All maps</option>${MAP_NAMES.map(m=>`<option>${m}</option>`).join('')}</select><span class="dim" id="ocn"></span></div>
+<div class="card tbl"><table><thead><tr><th>Ore</th><th>Where</th><th>Mine with</th></tr></thead><tbody id="ol"></tbody></table></div>
+<div class="note">Caves are where most metal is. On Olympus and Styx, ore isn't sorted by biome or tier, so any cave can hold anything. Players count roughly: iron 54%, copper 16%, coal 11%, platinum 5%, titanium 5%, gold 4%, aluminium 4% of cave nodes. Prometheus caves follow the biome: volcanic caves have more platinum and titanium, grassland and swamp caves are mostly iron and copper.</div>
+<div class="tip">Deep ore veins and cave spots change from world to world. Write down the good ones on the <a href="#notes">My Notes</a> page.</div>`;
+}
+function oresRender(){
+  const q=$('oq').value.toLowerCase(),m=$('om').value;
+  const r=ORES.filter(o=>(!m||o.maps.includes(m))&&(!q||[o.n,o.look,o.where,o.uses,o.tool,o.tip].join(' ').toLowerCase().includes(q)));
+  $('ocn').textContent=r.length+' ore'+(r.length===1?'':'s');
+  $('ol').innerHTML=r.map(o=>`<tr><td>${mark(o.conf)} <a class="mob" href="#ores/${slug(o.n)}">${esc(o.n)}</a></td><td>${esc(o.where)}</td><td>${esc(o.tool)}</td></tr>`).join('')||'<tr><td colspan="3" class="dim">No ores match.</td></tr>';
 }
 
 function pgTech(){return `<h2>Tech Tiers</h2><p class="sub">You unlock blueprints with tech points as you level. Each tier needs the bench from the tier before it.</p>
@@ -285,11 +382,12 @@ function route(){
   const page=PAGES.some(p=>p[0]===pg)?pg:'home';
   buildNav(page);
   const m=$('main');
-  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),survival:pgSurvival,creatures:()=>pgCreatures(sub),tech:pgTech,maps:pgMaps,timer:pgTimer,loadout:pgLoadout,notes:pgNotes})[page]();
+  m.innerHTML=({home:pgHome,guides:()=>pgGuides(sub),survival:pgSurvival,creatures:()=>pgCreatures(sub),ores:()=>pgOres(sub),tech:pgTech,maps:pgMaps,timer:pgTimer,loadout:pgLoadout,notes:pgNotes})[page]();
   m.scrollTop=0;
   m.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{cb.checked=!!S.checks[cb.dataset.k];cb.onchange=()=>{S.checks[cb.dataset.k]=cb.checked;save();};});
   m.querySelectorAll('input[type=checkbox][data-l]').forEach(cb=>{cb.onchange=()=>{S.loadout[cb.dataset.l]=cb.checked;save();const d=LOADOUT.filter((_,i)=>S.loadout[i]).length;$('ldone').textContent=d+' of '+LOADOUT.length+' packed';$('lbar').style.width=d/LOADOUT.length*100+'%';};});
   if(page==='creatures'&&$('cq')){$('cq').oninput=creaturesRender;$('ck').onchange=creaturesRender;creaturesRender();}
+  if(page==='ores'&&$('oq')){$('oq').oninput=oresRender;$('om').onchange=oresRender;oresRender();}
   if(page==='timer'){timerShow();if(!tick)tick=setInterval(timerShow,1000);}
   if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
 }
