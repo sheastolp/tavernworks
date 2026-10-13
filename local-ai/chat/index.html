@@ -484,7 +484,7 @@
       const link = $("connectLink");
       if (link) link.onclick = (e) => { e.preventDefault(); openSettings(); };
       const st = t.querySelector(".starters");
-      if (settings.api) for (const q of ["Write a quick D&D tavern description", "Explain how a CPU runs an LLM", "Give me three NPC names for a goblin market", "Summarise the rules for grappling in 5e"]) {
+      if (settings.api) for (const q of ["Write a quick D&D tavern description", "Explain how a GPU runs an LLM", "Give me three NPC names for a goblin market", "Summarise the rules for grappling in 5e"]) {
         const b = document.createElement("button"); b.textContent = q; b.onclick = () => { $("input").value = q; send(); }; st.appendChild(b);
       }
       return;

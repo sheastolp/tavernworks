@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Local AI · Tavernworks</title>
-<meta name="description" content="Local AI — a self-hosted LLM running on a headless Ubuntu laptop with Ollama and Open WebUI. CPU only, no cloud.">
+<meta name="description" content="Local AI — a self-hosted LLM running on a headless Ubuntu gaming laptop with Ollama and Open WebUI. GTX 1650 GPU, no cloud.">
 <meta property="og:title" content="Local AI · Tavernworks">
-<meta property="og:description" content="A self-hosted LLM on an old laptop: Ollama, Open WebUI, Tailscale. CPU only, no cloud.">
+<meta property="og:description" content="A self-hosted LLM on an ASUS TUF gaming laptop: Ollama, Open WebUI, Tailscale. GTX 1650 GPU, no cloud.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔮</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -143,11 +143,11 @@
     <div class="orb">🔮</div>
     <div class="sign">THE WORKBENCH</div>
     <h1>Local AI</h1>
-    <p class="tag">My own AI chat, running on <b>an old laptop in the back room</b>. No cloud, no GPU, no subscription.</p>
+    <p class="tag">My own AI chat, running on <b>a gaming laptop in the back room</b>. No cloud, no data centre, no subscription.</p>
     <div class="badges">
       <span class="pill live">RUNNING</span>
       <span class="pill plain">SELF-HOSTED</span>
-      <span class="pill plain">CPU ONLY</span>
+      <span class="pill plain">GTX 1650</span>
     </div>
     <div class="cta hero-cta">
       <a class="btn gold" href="/local-ai/chat/">💬 Chat in the browser</a>
@@ -160,20 +160,20 @@
   <div class="divider">THE IDEA</div>
   <div class="scroll">
     <p>Most AI chat is a thin window onto someone else's server. Every message goes off to a data centre and gets logged somewhere you can't see.</p>
-    <p><b>This one lives at home.</b> A retired Lenovo Yoga 730 runs headless Ubuntu with the lid shut, serving a large language model on nothing but its CPU. The chats stay on hardware I own.</p>
+    <p><b>This one lives at home.</b> An ASUS TUF Gaming FX705DT runs headless Ubuntu with the lid shut, serving a large language model on its GeForce GTX 1650. The chats stay on hardware I own.</p>
   </div>
 
   <div class="divider">THE RIG</div>
   <div class="grid four">
     <div class="card">
       <div class="icon">💻</div>
-      <h3>Lenovo Yoga 730</h3>
-      <p>An everyday laptop given a second life as a server. Headless Ubuntu, no monitor, no desktop.</p>
+      <h3>ASUS TUF FX705DT</h3>
+      <p>A 17" gaming laptop with a Ryzen CPU and a GeForce GTX 1650, put to work as a server. Headless Ubuntu, no monitor, no desktop.</p>
     </div>
     <div class="card">
       <div class="icon">🦙</div>
       <h3>Ollama</h3>
-      <p>Downloads and runs the models in CPU-only mode, no graphics card involved. Listens on port 11434 and powers both chat pages.</p>
+      <p>Downloads and runs the models on the GTX 1650 through CUDA, spilling over to the CPU when a model doesn't fit in 4 GB. Listens on port 11434 and powers both chat pages.</p>
     </div>
     <div class="card">
       <div class="icon">💬</div>
@@ -195,12 +195,12 @@
       <div class="node"><b>Tailscale</b><span>private tailnet</span></div>
       <div class="arrow">→</div>
       <div class="node box">
-        <b>Yoga 730 · Ubuntu</b>
+        <b>TUF FX705DT · Ubuntu</b>
         <div class="inner">
           <div><strong>Open WebUI</strong>port 3000</div>
           <div><strong>tailscale serve</strong>HTTPS → 11434</div>
           <div><strong>Ollama</strong>port 11434</div>
-          <div><strong>CPU</strong>does the work</div>
+          <div><strong>GTX 1650</strong>does the work</div>
         </div>
       </div>
     </div>
@@ -258,32 +258,32 @@ systemctl show ollama --property=Environment   # should list it</pre>
     </details>
     <details>
       <summary>Connected, but no models in the list</summary>
-      <p>Ollama has nothing downloaded yet. On the laptop: <code>ollama pull llama3.2</code> (small models suit a CPU best), then reload the chat.</p>
+      <p>Ollama has nothing downloaded yet. On the laptop: <code>ollama pull llama3.2</code> (models up to about 4B fit the GPU's 4 GB best), then reload the chat.</p>
     </details>
   </div>
 
-  <div class="divider">LIFE WITHOUT A GPU</div>
+  <div class="divider">LIFE ON A 4 GB GPU</div>
   <div class="grid">
     <div class="card">
-      <div class="icon">🐢</div>
-      <h3>Slower replies</h3>
-      <p>Text comes out a word at a time instead of in a flood. Fine for chatting, not for anything in a hurry.</p>
+      <div class="icon">⚡</div>
+      <h3>Quicker replies</h3>
+      <p>With the model on the graphics card, text streams out several times faster than it did on the old CPU-only laptop.</p>
     </div>
     <div class="card">
       <div class="icon">⚖️</div>
-      <h3>Smaller models</h3>
-      <p>Compact, quantized models fit in laptop RAM and run at a usable speed. The giant ones don't.</p>
+      <h3>Mid-size models</h3>
+      <p>Quantized models up to about 4B fit entirely in the 4 GB of VRAM. Bigger ones still run, split between GPU and CPU, just slower. The giant ones don't.</p>
     </div>
     <div class="card">
       <div class="icon">🪙</div>
       <h3>Nearly free</h3>
-      <p>No API bill and no subscription. Hardware I already had, sipping laptop-level power.</p>
+      <p>No API bill and no subscription. Hardware I already had, drawing laptop-level power.</p>
     </div>
   </div>
 
   <div class="divider">FORGE YOUR OWN</div>
   <div class="scroll">
-    <p>Got an old laptop gathering dust? The basic recipe on Ubuntu is short. Check each project's docs for the current install steps.</p>
+    <p>Got an old laptop or gaming rig gathering dust? The basic recipe on Ubuntu is short. Check each project's docs for the current install steps.</p>
     <h4>1. Install Ollama and pull a small model</h4>
 <pre>curl -fsSL https://ollama.com/install.sh | sh
 ollama run llama3.2</pre>
@@ -307,15 +307,15 @@ sudo tailscale up</pre>
     </details>
     <details>
       <summary>Is it as good as ChatGPT?</summary>
-      <p>No. Small models running on a laptop CPU can't match the big hosted ones. They're still handy for everyday questions, drafting and tinkering, and they're private.</p>
+      <p>No. Small models running on a laptop GPU can't match the big hosted ones. They're still handy for everyday questions, drafting and tinkering, and they're private.</p>
     </details>
     <details>
       <summary>Why a laptop?</summary>
       <p>It was already there. Laptops are quiet, sip power and come with a built-in battery backup, which makes them decent little home servers.</p>
     </details>
     <details>
-      <summary>Why CPU only?</summary>
-      <p>The laptop has no graphics card Ollama can use, so the processor does all the work. It's slower, but it proves you don't need fancy hardware to run AI at home.</p>
+      <summary>What changed from the old laptop?</summary>
+      <p>Local AI started on a retired Lenovo Yoga 730 with no graphics card Ollama could use, so the CPU did everything. The ASUS TUF has an NVIDIA GTX 1650, which Ollama uses automatically once the NVIDIA driver is installed (<code>sudo ubuntu-drivers install</code>, then reboot). <code>ollama ps</code> shows how much of a loaded model sits on the GPU.</p>
     </details>
   </div>
 

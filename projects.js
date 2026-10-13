@@ -157,7 +157,7 @@ window.TAVERN_PROJECTS = {
       "card": {
         "section": "workbench",
         "title": "Local AI",
-        "text": "A self-hosted LLM on an old laptop. Ollama and Open WebUI on headless Ubuntu, CPU only, no cloud.",
+        "text": "A self-hosted LLM on an ASUS TUF gaming laptop. Ollama and Open WebUI on headless Ubuntu, GTX 1650 GPU, no cloud.",
         "href": "/local-ai/",
         "url": "tavernworks.dev/local-ai",
         "pill": "RUNNING",
@@ -508,6 +508,7 @@ window.TAVERN_PROJECTS = {
     ["fortnite","2026-10-12","Fortnite Tracker: player stats with change since your last check, a match log with drop-spot results, a ranked tracker, the live Item Shop with a wishlist, news, the map, quests and a level planner","/assistants/fortnite/"],
     ["fortnite","2026-10-12","Fortnite Tracker: enter your Fortnite name and your match history fills itself in, with kills, wins and a placement range for each match","/assistants/fortnite/"],
     ["fortnite","2026-10-12","Fortnite Tracker: a Sprite Tracker for every Sprite and variant you've extracted, mastery, runs and Sprite Dust","/assistants/fortnite/"],
-    ["icarus","2026-10-12","Icarus Assistant: an ore guide with where to find each ore, cave odds by map and the pickaxe you need","/assistants/icarus/#ores"]
+    ["icarus","2026-10-12","Icarus Assistant: an ore guide with where to find each ore, cave odds by map and the pickaxe you need","/assistants/icarus/#ores"],
+    ["localai","2026-10-13","Local AI moves to an ASUS TUF gaming laptop with a GTX 1650 GPU","/local-ai/"]
   ]
 };
