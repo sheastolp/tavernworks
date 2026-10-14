@@ -19,7 +19,8 @@
 # Safe to run again: it never overwrites settings or data.
 #
 # What it does:
-#   - installs Deno if it's missing
+#   - installs Deno if it's missing, plus ffmpeg and streamlink (UndercoverBurn
+#     uses them to hear the streamer)
 #   - clones the three bot repos
 #   - creates a settings file per bot (from each repo's .env.example) for you
 #     to fill in
@@ -78,6 +79,23 @@ if ! command -v deno >/dev/null && [ ! -x "$DENO_INSTALL/bin/deno" ]; then
 fi
 DENO=$(command -v deno || echo "$DENO_INSTALL/bin/deno")
 echo "Deno: $("$DENO" --version | head -1)"
+
+# UndercoverBurn pulls each live stream's audio with streamlink and ffmpeg to
+# hear what the streamer says. streamlink comes from pipx, not apt: Twitch
+# changes often and the apt copy falls behind. Re-running this upgrades it.
+if [ "$MODE" = system ]; then
+  command -v ffmpeg >/dev/null && command -v pipx >/dev/null ||
+    apt-get install -y ffmpeg pipx >/dev/null
+  export PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin
+  if command -v streamlink >/dev/null; then
+    pipx upgrade streamlink >/dev/null 2>&1 || true
+  else
+    pipx install streamlink >/dev/null
+  fi
+  echo "streamlink: $(streamlink --version 2>/dev/null || echo missing), ffmpeg: $(command -v ffmpeg || echo missing)"
+elif ! command -v streamlink >/dev/null || ! command -v ffmpeg >/dev/null; then
+  echo "UndercoverBurn needs streamlink and ffmpeg to hear the streamer: sudo apt-get install ffmpeg pipx && pipx install streamlink"
+fi
 
 mkdir -p "$UNIT_DIR" "$CONF_DIR"
 as_user mkdir -p "$BOTS_DIR" "$DATA_DIR"
@@ -139,7 +157,10 @@ for entry in "${BOTS[@]}"; do
     [ "$MODE" = system ] && echo "User=$RUN_USER"
     echo "WorkingDirectory=$dir"
     echo "EnvironmentFile=$env"
-    echo "ExecStart=$DENO run --allow-net --allow-env --allow-read --allow-write server.ts"
+    # UndercoverBurn runs streamlink and ffmpeg to hear the streamer.
+    run=""
+    [ "$name" = undercoverburn ] && run=" --allow-run=streamlink,ffmpeg"
+    echo "ExecStart=$DENO run --allow-net --allow-env --allow-read --allow-write$run server.ts"
     echo "Restart=always"
     echo "RestartSec=5"
     echo

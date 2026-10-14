@@ -95,6 +95,30 @@ OPENAI_MODEL=llama3.2
 
 Without either, the bots still run; only the AI replies fail.
 
+UndercoverBurn can also **hear the streamer**: it pulls each live channel's
+audio with `streamlink` and `ffmpeg` (setup installs both) and transcribes it,
+so its commentary and roasts can react to what the streamer says. With
+`OPENAI_API_KEY` set it uses OpenAI's `gpt-4o-mini-transcribe` (about $0.18
+per hour of talking; silent stretches aren't sent). To keep it free, run a
+Whisper server on the Local AI laptop instead and point it there:
+
+```sh
+# on the AI laptop: run an OpenAI-compatible Whisper server, e.g. speaches
+# (https://speaches.ai, see its install docs) with faster-whisper-small, on
+# port 8000, then give it an HTTPS address on the tailnet:
+sudo tailscale serve --bg --https 8443 8000
+
+# in undercoverburn.env
+TRANSCRIBE_BASE_URL=https://<ai-laptop>.<tailnet>.ts.net:8443/v1
+TRANSCRIBE_MODEL=Systran/faster-whisper-small
+TRANSCRIBE_LANGUAGE=en
+```
+
+It's the "Hear the streamer" switch on UndercoverBurn's `/dashboard`.
+**Already set up before this?** Run `setup.sh` again (it adds streamlink,
+ffmpeg and the bot's `--allow-run` permission), then
+`systemctl restart tavernworks-undercoverburn`.
+
 ## 4. Get the tunnel ready (nothing switches yet)
 
 Install `cloudflared` from Cloudflare's package repo and create the tunnel:
