@@ -103,14 +103,17 @@ per hour of talking; silent stretches aren't sent). To keep it free, run a
 Whisper server on the Local AI laptop instead and point it there:
 
 ```sh
-# on the AI laptop: run an OpenAI-compatible Whisper server, e.g. speaches
-# (https://speaches.ai, see its install docs) with faster-whisper-small, on
-# port 8000, then give it an HTTPS address on the tailnet:
-sudo tailscale serve --bg --https 8443 8000
+# on the AI laptop: speaches, an OpenAI-compatible Whisper server, on port 8000
+# (CPU build, so it doesn't fight Ollama for the GTX 1650's 4 GB)
+docker run --detach --restart unless-stopped --publish 8000:8000 --name speaches \
+  --volume hf-hub-cache:/home/ubuntu/.cache/huggingface/hub \
+  ghcr.io/speaches-ai/speaches:latest-cpu
+SPEACHES_BASE_URL=http://localhost:8000 uvx speaches-cli model download Systran/faster-distil-whisper-small.en
+sudo tailscale serve --bg --https=8443 8000
 
 # in undercoverburn.env
 TRANSCRIBE_BASE_URL=https://<ai-laptop>.<tailnet>.ts.net:8443/v1
-TRANSCRIBE_MODEL=Systran/faster-whisper-small
+TRANSCRIBE_MODEL=Systran/faster-distil-whisper-small.en
 TRANSCRIBE_LANGUAGE=en
 ```
 
