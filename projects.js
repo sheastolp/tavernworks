@@ -509,6 +509,22 @@ window.TAVERN_PROJECTS = {
     ["fortnite","2026-10-12","Fortnite Tracker: enter your Fortnite name and your match history fills itself in, with kills, wins and a placement range for each match","/assistants/fortnite/"],
     ["fortnite","2026-10-12","Fortnite Tracker: a Sprite Tracker for every Sprite and variant you've extracted, mastery, runs and Sprite Dust","/assistants/fortnite/"],
     ["icarus","2026-10-12","Icarus Assistant: an ore guide with where to find each ore, cave odds by map and the pickaxe you need","/assistants/icarus/#ores"],
-    ["localai","2026-10-13","Local AI moves to an ASUS TUF gaming laptop with a GTX 1650 GPU","/local-ai/"]
+    ["guildscribe","2026-10-12","Raids: two raid bosses per stream, with !rally reminders every 30 minutes","https://guildscribe.tavernworks.dev/"],
+    ["localai","2026-10-13","Local AI moves to an ASUS TUF gaming laptop with a GTX 1650 GPU","/local-ai/"],
+    ["burn","2026-10-13","A personality page: pick a personality, write its prompts, post like a human","https://burn.tavernworks.dev/"],
+    ["guildscribe","2026-10-14","!market now calls up a fresh peddler stall, with sharper haggle verdicts","https://guildscribe.tavernworks.dev/"],
+    ["guildscribe","2026-10-14","Suspected bots are banned automatically","https://guildscribe.tavernworks.dev/"],
+    ["burn","2026-10-14","Hears the streamer: live Twitch audio transcribed for AI posts","https://burn.tavernworks.dev/"],
+    ["burn","2026-10-14","Randomly timed, chat-driven Mario roasts","https://burn.tavernworks.dev/"],
+    ["guildscribe","2026-10-15","Every viewer gets a fantasy nickname, or picks their own with !nick","https://guildscribe.tavernworks.dev/"],
+    ["guildscribe","2026-10-15","Spam filters with a strike ladder and link permits","https://guildscribe.tavernworks.dev/"],
+    ["guildscribe","2026-10-15","A quote book and a StreamElements import page","https://guildscribe.tavernworks.dev/"],
+    ["guildscribe","2026-10-15","!commands links each channel's own list, with $() counters, chat triggers and timed messages","https://guildscribe.tavernworks.dev/"],
+    ["guildscribe","2026-10-15","!gold today, a mod's !rob off/on pause, and 5e.tools monsters in the bestiary","https://guildscribe.tavernworks.dev/"],
+    ["guildscribe","2026-10-15","Privacy policy and terms ready for public use","https://guildscribe.tavernworks.dev/"],
+    ["burn","2026-10-15","Ready for public use","https://burn.tavernworks.dev/"],
+    ["journal","2026-10-16","Start an entry right on the home page, then open it in the full journal","#journal"],
+    ["home","2026-10-16","The Journal moves up under the path; The Bots and The Workbench fold into one section","#projects"],
+    ["tips","2026-10-16","The tip jar folds away until opened","#support"]
   ]
 };

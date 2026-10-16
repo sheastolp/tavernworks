@@ -86,24 +86,49 @@
   .beta{background:rgba(88,101,242,.18);color:#a5adff}
 
   .journal{
-    background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:26px;
-    display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:26px;align-items:start
+    background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:22px;
+    display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:24px;align-items:start
   }
   .journal h3{font-family:Cinzel,serif;color:var(--gold2);font-size:21px;display:flex;align-items:center;gap:10px}
   .journal .txt p{color:var(--muted);font-size:14.5px;margin-top:8px}
-  .journal ul{list-style:none;margin-top:12px;display:flex;flex-direction:column;gap:5px;font-size:14px;color:var(--muted)}
-  .journal ul li::before{content:"✦";color:var(--gold);margin-right:8px;font-size:11px}
-  .journal .cta{justify-content:flex-start;margin-top:20px}
-  .journal .page{
-    background:#0f0b08;border:1px solid var(--line);border-radius:12px;font-size:13.5px;line-height:25px;
-    display:grid;grid-template-columns:38px 1fr;overflow:hidden
-  }
-  .journal .page .n{background:rgba(0,0,0,.3);border-right:1px solid var(--line);color:#6c5945;text-align:right;padding:10px 8px 10px 0;font-family:ui-monospace,Consolas,monospace;font-size:12px}
-  .journal .page .t{padding:10px 14px;white-space:nowrap;overflow:hidden}
-  .journal .page .t b{font-family:Cinzel,serif;color:var(--gold2);font-weight:600}
-  .journal .page .t i{color:var(--muted)}
   .journal h4{font-family:Cinzel,serif;font-size:13px;letter-spacing:.08em;color:var(--gold);margin:18px 0 10px}
-  @media (max-width:720px){.journal{grid-template-columns:1fr}}
+  .journal .txt .chips{grid-template-columns:1fr}
+  @media (max-width:720px){.journal{grid-template-columns:1fr}.journal .txt{order:-1}}
+
+  /* The journal snip: the top of /journal/'s entry view, typed in here and
+     handed to the full journal by "Open in the full journal". */
+  .snip{--lh:25px;background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+  .snip .bar{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--bg2);min-width:0}
+  .snip .brand{font-size:17px;line-height:1}
+  .snip .crumb{font-family:Cinzel,serif;font-size:12.5px;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+  .snip .crumb::after{content:" ›";color:var(--muted)}
+  .snip .title{flex:1;min-width:0;font:600 15px Inter,system-ui,sans-serif;color:var(--text);background:transparent;border:1px solid transparent;border-radius:8px;padding:5px 8px;outline:0}
+  .snip .title:hover,.snip .title:focus{border-color:var(--line);background:rgba(0,0,0,.2)}
+  .snip .title::placeholder{color:#6c5945}
+  .snip .tools{display:flex;gap:4px}
+  .snip .tb{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:4px 8px;white-space:nowrap;transition:.15s}
+  .snip .tb:hover{color:var(--gold2);border-color:var(--gold)}
+  .snip .editor{position:relative;display:flex;height:225px;background:#0f0b08}
+  .snip .gutter{width:42px;flex-shrink:0;overflow:hidden;background:rgba(0,0,0,.28);border-right:1px solid var(--line);font:12px ui-monospace,Consolas,monospace;color:#6c5945;text-align:right;user-select:none}
+  .snip .gutter .in{padding:12px 8px 12px 0}
+  .snip .gutter .in div.cur{color:var(--gold2)}
+  .snip textarea,.snip .mirror{font:14.5px/var(--lh) Inter,system-ui,sans-serif;padding:12px 16px;white-space:pre-wrap;overflow-wrap:break-word;tab-size:4}
+  .snip textarea{flex:1;min-width:0;resize:none;border:0;outline:0;background:transparent;color:var(--text);overflow-y:auto}
+  .snip textarea::placeholder{color:#6c5945}
+  .snip .mirror{position:absolute;left:-99999px;top:0;visibility:hidden;padding-top:0;padding-bottom:0}
+  .snip .mirror div{min-height:var(--lh)}
+  .snip .foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px;border-top:1px solid var(--line);background:var(--bg2);font-size:12.5px;color:var(--muted)}
+  .snip .foot .btn{padding:8px 14px;font-size:14px}
+  @media (max-width:520px){.snip .tb .lbl{display:none}.snip .crumb{display:none}}
+
+  /* Folded sections: the divider is the toggle. */
+  details.fold > summary{list-style:none;cursor:pointer;user-select:none}
+  details.fold > summary::-webkit-details-marker{display:none}
+  details.fold > summary:hover{color:var(--gold2)}
+  details.fold > summary:focus-visible{outline:2px solid var(--gold);outline-offset:4px;border-radius:6px}
+  details.fold .hint{font-family:Inter,system-ui,sans-serif;font-size:11.5px;letter-spacing:.04em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 10px;white-space:nowrap}
+  details.fold .hint::after{content:"Show ▾"}
+  details.fold[open] .hint::after{content:"Hide ▴"}
 
   .about{
     background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px;
@@ -234,32 +259,32 @@
     <p class="trail-note" id="trail-note" aria-live="polite"></p>
   </div>
 
-  <div class="divider">THE BOTS</div>
-  <div class="grid" id="cards-bots"></div>
-
-  <div class="divider">THE WORKBENCH</div>
-  <div class="grid" id="cards-workbench"></div>
-
   <div class="divider" id="journal">THE JOURNAL</div>
   <div class="journal">
+    <div class="snip" id="snip">
+      <div class="bar">
+        <a class="brand" href="/journal/" data-open title="Open the full journal">📖</a>
+        <span class="crumb" id="snip-crumb">Quick notes</span>
+        <input class="title" id="snip-title" placeholder="Untitled entry" aria-label="Entry title" autocomplete="off">
+        <div class="tools">
+          <a class="tb" href="/journal/" data-open title="Preview with images, in the full journal">👁 <span class="lbl">Preview</span></a>
+          <a class="tb" href="/journal/" data-open title="Attach maps and handouts, in the full journal">📎 <span class="lbl">Attach</span></a>
+          <a class="tb" href="/journal/" data-open title="Roll dice, in the full journal">🎲 <span class="lbl">Roll</span></a>
+        </div>
+      </div>
+      <div class="editor">
+        <div class="gutter" aria-hidden="true"><div class="in" id="snip-gutter"></div></div>
+        <textarea id="snip-text" spellcheck="true" aria-label="Journal entry" placeholder="The party arrives at the Yawning Portal…&#10;&#10;Start writing here, then open the full journal to keep it, attach maps, roll dice and fill in a character sheet."></textarea>
+        <div class="mirror" id="snip-mirror" aria-hidden="true"></div>
+      </div>
+      <div class="foot">
+        <span id="snip-saved">Your draft stays in this browser.</span>
+        <a class="btn" href="/journal/" id="snip-open" data-open>🪶 Open in the full journal ↗</a>
+      </div>
+    </div>
     <div class="txt">
       <h3>📖 Adventurer's Journal <span class="pill beta">BETA</span></h3>
-      <p>A campaign notebook that lives in your browser. Keep a project for every campaign, one-shot or character, and fill it with numbered session notes.</p>
-      <ul>
-        <li>Projects with numbered entries, add or remove as you go</li>
-        <li>Line-numbered editor with upload and download (.md, .txt, .html)</li>
-        <li>A character sheet for each project: portrait, stats, gold and inventory</li>
-        <li>Attach maps, handouts and portraits with inline image previews</li>
-        <li>A dice roller, with or without modifiers, that can log rolls in the entry</li>
-        <li>Sign in with Google to sync across your devices through your own Drive</li>
-      </ul>
-      <div class="cta"><a class="btn" href="/journal/">🪶 Open the journal</a></div>
-    </div>
-    <div>
-      <div class="page" aria-hidden="true">
-        <div class="n">1<br>2<br>3<br>4<br>5<br>6</div>
-        <div class="t"><b># Session 4: The Sunless Citadel</b><br><br>The party rappels into the ravine at dusk.<br>Meepo the kobold begs us to find his dragon.<br><i>![Calcryx the white wyrmling](forge)</i><br>- Loot: 3 gp, a rusted key, one angry dragon</div>
-      </div>
+      <p>A campaign notebook that lives in your browser. Start an entry here, then open the full journal for numbered entries, a character sheet for each project, attachments, a dice roller and Google Drive sync across your devices.</p>
       <div id="journal-recent" hidden>
         <h4>Your projects</h4>
         <div class="chips" id="journal-projects"></div>
@@ -267,7 +292,13 @@
     </div>
   </div>
 
-  <div class="divider" id="support">THE TIP JAR</div>
+  <details class="fold" id="projects">
+    <summary class="divider">THE BOTS &amp; THE WORKBENCH <span class="hint"></span></summary>
+    <div class="grid" id="cards"></div>
+  </details>
+
+  <details class="fold" id="support">
+  <summary class="divider">THE TIP JAR <span class="hint"></span></summary>
   <div class="jar">
     <p>If the bots or tools have earned a spot at your table, you can leave a tip to keep the tavern lights on. Every coin goes back into the workshop.</p>
     <div id="tips-group" hidden>
@@ -295,6 +326,7 @@
       <a class="edit" href="/tips/" title="Edit the tip jar links (admin login)">✏️ Edit links</a>
     </div>
   </div>
+  </details>
 
   <div class="divider">THE GUILD</div>
   <div class="about">
@@ -603,8 +635,81 @@ const PEOPLE = [];
         `<div class="role">Updated ${esc(new Date(p.updated).toLocaleDateString([], { dateStyle: "medium" }))}</div></span></a>`
       ).join("");
       document.getElementById("journal-recent").hidden = false;
+      // The snip's crumb names the project its draft will land in.
+      let last = null;
+      try { last = JSON.parse(localStorage.getItem("journal.lastProject")); } catch {}
+      document.getElementById("snip-crumb").textContent = (list.find((p) => p.id === last) || list[0]).name;
     };
   };
+})();
+
+// The journal snip: type here, then any of its links opens /journal/ with
+// the draft, which the journal adds as a new entry. The draft is kept in
+// this browser until then.
+(function () {
+  const KEY = "journal.homeDraft";
+  const ta = document.getElementById("snip-text"), title = document.getElementById("snip-title");
+  const inner = document.getElementById("snip-gutter"), mirror = document.getElementById("snip-mirror");
+  const saved = document.getElementById("snip-saved");
+  if (!ta) return;
+  const read = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+  const write = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
+  const draft = read(KEY);
+  if (draft) { ta.value = draft.text || ""; title.value = draft.title || ""; }
+
+  // Line numbers that follow soft-wrapped lines, like the journal's own.
+  let raf = 0;
+  const draw = () => {
+    raf = 0;
+    const cs = getComputedStyle(ta);
+    mirror.style.width = (ta.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) + "px";
+    mirror.replaceChildren(...ta.value.split("\n").map((l) => { const d = document.createElement("div"); d.textContent = l || "​"; return d; }));
+    const cur = ta.value.slice(0, ta.selectionStart).split("\n").length - 1;
+    inner.innerHTML = Array.from(mirror.children, (d, i) => `<div style="height:${d.offsetHeight}px"${i === cur ? ' class="cur"' : ""}>${i + 1}</div>`).join("");
+    sync();
+  };
+  const refresh = () => { if (!raf) raf = requestAnimationFrame(draw); };
+  const sync = () => { inner.style.transform = `translateY(${-ta.scrollTop}px)`; };
+  ta.addEventListener("scroll", sync);
+  ["keyup", "click", "focus"].forEach((ev) => ta.addEventListener(ev, refresh));
+  new ResizeObserver(refresh).observe(ta);
+  refresh();
+
+  let timer = 0;
+  const save = () => {
+    const empty = !ta.value.trim() && !title.value.trim();
+    const ok = write(KEY, empty ? null : { title: title.value, text: ta.value });
+    saved.textContent = !ok ? "This browser won't keep drafts. Open the journal to save it." : empty ? "Your draft stays in this browser." : "Draft kept in this browser";
+  };
+  [ta, title].forEach((el) => el.addEventListener("input", () => { refresh(); clearTimeout(timer); timer = setTimeout(save, 400); }));
+
+  // Hand the draft to the journal. If storage is blocked the journal opens
+  // without it, so leave the draft here instead of losing it.
+  document.querySelectorAll("#snip [data-open]").forEach((a) => a.addEventListener("click", () => {
+    clearTimeout(timer);
+    if (!ta.value.trim() && !title.value.trim()) return;
+    if (write("journal.inbox", { title: title.value, text: ta.value, at: Date.now() })) write(KEY, null);
+  }));
+  // Coming back from the journal: the draft has moved there.
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted && !read(KEY)) { ta.value = title.value = ""; save(); refresh(); }
+  });
+})();
+
+// Folded sections open when a link points at them or inside them.
+(function () {
+  const reveal = () => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    const el = id && document.getElementById(id);
+    const fold = el && el.closest("details.fold");
+    if (fold && !fold.open) { fold.open = true; el.scrollIntoView(); }
+  };
+  window.addEventListener("hashchange", reveal);
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (a && a.getAttribute("href") === location.hash) setTimeout(reveal);
+  });
+  reveal();
 })();
 </script>
 <script src="/tip-links.js"></script>
@@ -659,10 +764,9 @@ document.querySelectorAll('.wallet').forEach((b) => b.addEventListener('click', 
       const href = c.href || p.href;
       return `<a class="card" href="${esc(href)}"${ext(href)}>${head}<div class="meta"><span class="url">${esc(c.url)}</span>${pill}</div></a>`;
     };
-    document.querySelectorAll('[id^="cards-"]').forEach((grid) => {
-      const section = grid.id.slice(6);
-      grid.innerHTML = DATA.projects.filter((p) => p.card && p.card.section === section).map(card).join("");
-    });
+    // One grid for both sections: the bots first, then the workbench.
+    const ORDER = ["bots", "workbench"];
+    document.getElementById("cards").innerHTML = ORDER.flatMap((s) => DATA.projects.filter((p) => p.card && p.card.section === s)).map(card).join("");
   })();
 
   document.querySelectorAll(".card.expand").forEach((card) => {

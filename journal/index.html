@@ -2162,6 +2162,24 @@
     renderProjects();
     if (pid) await openProject(pid, h.get("e"), h.get("v") === "sheet" && pid === h.get("p"));
     else showMain();
+    // A draft written in the home page's journal snip arrives as a new entry
+    // in the open project, or in a new "Quick notes" project.
+    const draft = store.get("journal.inbox", null);
+    if (draft) {
+      try { localStorage.removeItem("journal.inbox"); } catch {}
+      const title = String(draft.title || "").trim(), text = String(draft.text || "");
+      if (title || text.trim()) {
+        if (project) await newEntry(title || undefined);
+        else await newProject("Quick notes");
+        ta.value = text;
+        if (title) titleIn.value = title;
+        dirty = true;
+        await flush();
+        renderEntries(); renderCrumb(); gutter.refresh();
+        ta.focus(); ta.setSelectionRange(text.length, text.length);
+        toast(`Added your draft to "${project.name}"`);
+      }
+    }
     showUsage();
     Sync.start();
   })();
