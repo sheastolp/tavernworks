@@ -24,8 +24,8 @@ How the pieces fit:
 - **Deploys:** push to `main` as before. Every 3 minutes the laptop pulls new
   commits, type-checks them and restarts that bot. A commit that doesn't
   type-check isn't started; the bot stays on the last good one.
-- **AI replies** (GuildScribe's `!haggle` and NPCs, UndercoverBurn's chat
-  commentary) used Val Town's built-in OpenAI. Now they use either your own
+- **AI replies** (GuildScribe's `!haggle` and NPCs, UndercoverBurn's roasts)
+  used Val Town's built-in OpenAI. Now they use either your own
   OpenAI key or Ollama on the Local AI laptop.
 
 All steps below run as **root** (e.g. a `tailscale ssh root@<yoga>` session).
@@ -97,7 +97,7 @@ Without either, the bots still run; only the AI replies fail.
 
 UndercoverBurn can also **hear the streamer**: it pulls each live channel's
 audio with `streamlink` and `ffmpeg` (setup installs both) and transcribes it,
-so its commentary and roasts can react to what the streamer says. With
+so its roasts can react to what the streamer says. With
 `OPENAI_API_KEY` set it uses OpenAI's `gpt-4o-mini-transcribe` (about $0.18
 per hour of talking; silent stretches aren't sent). To keep it free, run a
 Whisper server on the Local AI laptop instead and point it there:

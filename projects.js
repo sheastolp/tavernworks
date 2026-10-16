@@ -106,7 +106,7 @@ window.TAVERN_PROJECTS = {
       "card": {
         "section": "bots",
         "title": "UndercoverBurn",
-        "text": "Slips into your Twitch chat undercover, then blows its cover with a playful roast, a quote from your StreamElements <code>!quote</code> list, or a one-liner riffing on what chat is saying. Also calls out ad breaks and welcomes chat back. Only talks while you're live.",
+        "text": "Slips into your Twitch chat undercover, then blows its cover with a playful roast or a quote from your StreamElements <code>!quote</code> list. Also calls out ad breaks and welcomes chat back. Only talks while you're live.",
         "href": "",
         "url": "burn.tavernworks.dev",
         "pill": "LIVE",
@@ -525,6 +525,7 @@ window.TAVERN_PROJECTS = {
     ["burn","2026-10-15","Ready for public use","https://burn.tavernworks.dev/"],
     ["journal","2026-10-16","Start an entry right on the home page, then open it in the full journal","#journal"],
     ["home","2026-10-16","The Journal moves up under the path; The Bots and The Workbench fold into one section","#projects"],
-    ["tips","2026-10-16","The tip jar folds away until opened","#support"]
+    ["tips","2026-10-16","The tip jar folds away until opened","#support"],
+    ["burn","2026-10-16","AI only writes roasts and hears the streamer; everything else is plain text","https://burn.tavernworks.dev/"]
   ]
 };
