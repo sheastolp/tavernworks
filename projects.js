@@ -544,6 +544,7 @@ window.TAVERN_PROJECTS = {
     ["guildscribe","2026-10-18","!clip: anyone in chat clips the last 30 seconds","https://guildscribe.tavernworks.dev/"],
     ["guildscribe","2026-10-18","Stream protection: follow-bot blocking, a hate-raid shield and an offline lock","https://guildscribe.tavernworks.dev/"],
     ["guildscribe","2026-10-18","The Mod center: chat modes, Shield Mode, every protection and a mod log on one page","https://guildscribe.tavernworks.dev/"],
-    ["guildscribe","2026-10-18","A message of the day posted when each stream goes live","https://guildscribe.tavernworks.dev/"]
+    ["guildscribe","2026-10-18","A message of the day posted when each stream goes live","https://guildscribe.tavernworks.dev/"],
+    ["home","2026-10-23","Stream overlays: a tavernworks.dev link badge and a card showing which project is in use","/overlays/"]
   ]
 };

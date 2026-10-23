@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stream Overlays · Tavernworks</title>
+<meta name="description" content="OBS overlays for your stream: a tavernworks.dev link badge and a card showing which Tavernworks project is in use.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📺</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069; --twitch:#9146ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,168,74,.18), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 50% 110%, rgba(201,87,43,.12), transparent 70%),
+      var(--bg);
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:960px;margin:0 auto;padding:0 16px}
+
+  nav{padding:22px 0 0}
+  .back{font-size:14px;color:var(--muted);transition:.15s}
+  .back:hover{color:var(--gold2)}
+
+  header{padding:48px 0 32px;text-align:center}
+  .orb{font-size:64px;line-height:1;filter:drop-shadow(0 0 24px rgba(224,168,74,.45))}
+  .sign{
+    display:inline-block;font-family:Cinzel,serif;font-size:13px;letter-spacing:.3em;
+    color:var(--gold);border:1px solid var(--line);padding:6px 16px;border-radius:999px;
+    background:rgba(0,0,0,.25);margin:20px 0 18px
+  }
+  h1{
+    font-family:Cinzel,serif;font-weight:800;font-size:clamp(34px,8.5vw,72px);line-height:1.05;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);
+    -webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .tag{margin:16px auto 0;color:var(--muted);font-size:18px;max-width:620px}
+  .tag b{color:var(--text);font-weight:600}
+  .badges{margin-top:22px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .pill{font-size:11px;font-weight:600;letter-spacing:.05em;padding:4px 11px;border-radius:999px;white-space:nowrap}
+  .live{background:rgba(127,176,105,.15);color:var(--green)}
+  .beta{background:rgba(88,101,242,.18);color:#a5adff}
+  .plain{background:rgba(255,255,255,.05);color:var(--muted)}
+
+  .divider{
+    display:flex;align-items:center;gap:14px;margin:52px 0 22px;
+    font-family:Cinzel,serif;color:var(--gold);letter-spacing:.15em;font-size:15px;text-align:center
+  }
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  .scroll{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px}
+  .scroll > p{color:var(--muted)}
+  .scroll > p + p{margin-top:12px}
+  .scroll b{color:var(--text);font-weight:600}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:.92em;color:var(--gold2)}
+
+  .steps{display:flex;flex-direction:column;gap:16px}
+  .step{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:22px}
+  .step h3{font-family:Cinzel,serif;font-size:18px;color:var(--gold2);display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .step h3 .n{
+    width:30px;height:30px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:14px;
+    color:var(--bg);background:linear-gradient(180deg,var(--gold2),var(--gold))
+  }
+  .step > p{color:var(--muted);font-size:14.5px}
+  .step > p + p{margin-top:8px}
+  .step ol{color:var(--muted);font-size:14.5px;margin:8px 0 0 20px;display:flex;flex-direction:column;gap:4px}
+
+  .fields{display:flex;flex-wrap:wrap;gap:14px 20px;margin-top:14px;align-items:flex-end}
+  label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
+  label.check{flex-direction:row;align-items:center;gap:8px;padding-bottom:10px}
+  input[type=text]{
+    font:500 15px Inter,system-ui,sans-serif;color:var(--text);background:#0f0b08;border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;width:min(100%,260px)
+  }
+  input[type=text]:focus{outline:none;border-color:var(--gold)}
+  input[type=range]{accent-color:var(--gold);width:180px}
+  input[type=checkbox]{accent-color:var(--gold);width:16px;height:16px}
+
+  .copyrow{display:flex;gap:8px;align-items:stretch;margin-top:12px}
+  .copyrow code{
+    flex:1;min-width:0;font-size:13px;color:var(--text);background:#0f0b08;border:1px solid var(--line);
+    border-radius:8px;padding:9px 10px;overflow-wrap:anywhere
+  }
+  .copyrow code .k{color:var(--gold2)}
+  .copy{flex-shrink:0;font:600 13px Inter,system-ui,sans-serif;color:var(--text);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:0 12px;cursor:pointer;transition:.15s}
+  .copy:hover{border-color:var(--gold)}
+  .copy.done{border-color:var(--green);color:var(--green)}
+  .copy:disabled{opacity:.45;cursor:not-allowed}
+  .linkbtn{display:inline-block;margin-top:10px;font-size:13.5px;color:var(--gold2)}
+  .linkbtn:hover{text-decoration:underline}
+  select{
+    font:500 15px Inter,system-ui,sans-serif;color:var(--text);background:#0f0b08;border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;width:min(100%,300px)
+  }
+  select:focus{outline:none;border-color:var(--gold)}
+  .preview{
+    position:relative;margin-top:14px;aspect-ratio:16/9;border-radius:12px;overflow:hidden;border:1px solid var(--line);
+    background:repeating-conic-gradient(#1b140f 0 25%,#120d0a 0 50%) 0 0/24px 24px
+  }
+  .preview iframe{position:absolute;top:0;left:0;width:1920px;height:1080px;border:0;transform-origin:0 0;pointer-events:none}
+
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
+  footer span{color:var(--gold)}
+  footer a:hover{color:var(--gold2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav><a class="back" href="/">← Back to the Tavern</a></nav>
+
+  <header>
+    <div class="orb">📺</div>
+    <div class="sign">STREAM OVERLAYS</div>
+    <h1>Overlays</h1>
+    <p class="tag">Two OBS browser sources: a badge that sends viewers to <b>tavernworks.dev</b>, and a card that shows <b>which project</b> is on screen.</p>
+  </header>
+
+  <div class="divider">THE LINK BADGE</div>
+  <div class="steps">
+    <div class="step">
+      <h3><span class="n">1</span>Point viewers at tavernworks.dev</h3>
+      <p>A small corner badge that stays on screen. Pick a corner and size, then copy the link into OBS.</p>
+      <div class="fields">
+        <label>Corner<select id="l-pos"></select></label>
+        <label>Size <span id="l-scale-out">100%</span><input type="range" id="l-scale" min="50" max="200" step="10" value="100"></label>
+        <label>Line above the link<input type="text" id="l-text" value="Find it all at" spellcheck="false"></label>
+      </div>
+      <div class="copyrow"><code id="l-url"></code><button class="copy" type="button" id="l-copy">Copy</button></div>
+      <div class="preview"><iframe id="l-frame" title="Link badge preview"></iframe></div>
+    </div>
+  </div>
+
+  <div class="divider">THE PROJECT CARD</div>
+  <div class="steps">
+    <div class="step">
+      <h3><span class="n">2</span>Show which project you're using</h3>
+      <p>A card with the project's icon, name and link. Leave it on <b>Latest on the path</b> and it follows whatever project changed last, or pick one. Make one source per project and switch them with your scenes.</p>
+      <div class="fields">
+        <label>Project<select id="p-project"></select></label>
+        <label>Corner<select id="p-pos"></select></label>
+        <label>Size <span id="p-scale-out">100%</span><input type="range" id="p-scale" min="50" max="200" step="10" value="100"></label>
+        <label>Line above the name<input type="text" id="p-text" value="Now using" spellcheck="false"></label>
+        <label class="check"><input type="checkbox" id="p-link" checked>Show the project's link</label>
+      </div>
+      <div class="copyrow"><code id="p-url"></code><button class="copy" type="button" id="p-copy">Copy</button></div>
+      <div class="preview"><iframe id="p-frame" title="Project card preview"></iframe></div>
+    </div>
+  </div>
+
+  <div class="divider">ADD THEM TO OBS</div>
+  <div class="steps">
+    <div class="step">
+      <h3><span class="n">3</span>Browser sources</h3>
+      <ol>
+        <li>In your scene, add a <b>Browser</b> source and paste a link as the URL.</li>
+        <li>Set the size to <b>1920 × 1080</b> (or your canvas size). Everything but the badge is see-through.</li>
+        <li>Put the badge and the card in different corners so they don't overlap.</li>
+      </ol>
+    </div>
+  </div>
+
+  <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus<br><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
+</div>
+<script src="../projects.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+  const copy = (btn, text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      const was = btn.textContent;
+      btn.textContent = "Copied";
+      btn.classList.add("done");
+      setTimeout(() => { btn.textContent = was; btn.classList.remove("done"); }, 1500);
+    });
+  };
+
+  const CORNERS = [["tl", "Top left"], ["tr", "Top right"], ["bl", "Bottom left"], ["br", "Bottom right"]];
+  const corners = (sel, def) => {
+    sel.innerHTML = CORNERS.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+    sel.value = def;
+  };
+  const projects = (window.TAVERN_PROJECTS || { projects: [] }).projects;
+  $("p-project").innerHTML = '<option value="">Latest on the path</option>' +
+    projects.map((p) => `<option value="${esc(p.key)}">${p.icon} ${esc(p.name)}</option>`).join("");
+
+  // Each builder: its fields, saved in this browser, turned into an overlay link.
+  function builder(id, page, fields, defaults) {
+    const els = Object.fromEntries(fields.map((f) => [f, $(id + "-" + f)]));
+    if (els.pos) corners(els.pos, defaults.pos);
+    for (const [f, el] of Object.entries(els)) {
+      const saved = store.get("overlays." + id + "." + f);
+      if (saved == null) continue;
+      if (el.type === "checkbox") el.checked = saved === "1"; else el.value = saved;
+    }
+    const frame = $(id + "-frame"), box = $(id + "-url"), btn = $(id + "-copy");
+    let shown = "";
+    function update() {
+      const q = new URLSearchParams();
+      for (const [f, el] of Object.entries(els)) {
+        const v = el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value.trim();
+        store.set("overlays." + id + "." + f, v);
+        if (f === "scale") { $(id + "-scale-out").textContent = v + "%"; if (v !== "100") q.set(f, String(v / 100)); }
+        else if (v !== String(defaults[f] ?? "")) q.set(f, v);
+      }
+      const qs = q.toString();
+      const url = "https://tavernworks.dev/overlays/" + page + (qs ? "?" + qs : "");
+      box.textContent = url;
+      btn.dataset.copy = url;
+      const local = page + (qs ? "?" + qs : "");
+      if (local !== shown) { frame.src = local; shown = local; }
+    }
+    Object.values(els).forEach((el) => el.addEventListener("input", update));
+    btn.addEventListener("click", () => copy(btn, btn.dataset.copy));
+    update();
+    return frame;
+  }
+
+  const frames = [
+    builder("l", "link.html", ["pos", "scale", "text"], { pos: "br", text: "Find it all at" }),
+    builder("p", "project.html", ["project", "pos", "scale", "text", "link"], { project: "", pos: "bl", text: "Now using", link: "1" }),
+  ];
+
+  // Scale the 1920x1080 overlay down to fit each preview box.
+  const fit = () => frames.forEach((f) => { f.style.transform = `scale(${f.parentElement.clientWidth / 1920})`; });
+  window.addEventListener("resize", fit);
+  fit();
+})();
+</script>
+</body>
+</html>

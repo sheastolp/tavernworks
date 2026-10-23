@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link Overlay · Tavernworks</title>
+<meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@800&family=Inter:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* OBS browser source: transparent, one small badge in a corner. */
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:transparent;overflow:hidden;height:100%}
+  body{font-family:Inter,system-ui,sans-serif;color:#f1e6d6}
+  [hidden]{display:none!important}
+  .badge{
+    position:fixed;display:flex;align-items:center;gap:14px;padding:12px 22px 12px 14px;border-radius:16px;
+    background:linear-gradient(180deg,rgba(36,26,19,.94),rgba(21,16,12,.94));border:2px solid #e0a84a;
+    box-shadow:0 10px 32px rgba(0,0,0,.5),0 0 24px rgba(224,168,74,.22);
+    transform-origin:var(--origin);transform:scale(var(--scale,1));
+    animation:in .5s cubic-bezier(.2,1.4,.4,1) both
+  }
+  .tl{top:4vh;left:3vw;--origin:top left}
+  .tr{top:4vh;right:3vw;--origin:top right}
+  .bl{bottom:4vh;left:3vw;--origin:bottom left}
+  .br{bottom:4vh;right:3vw;--origin:bottom right}
+  .icon{font-size:40px;line-height:1;filter:drop-shadow(0 0 12px rgba(245,200,115,.5))}
+  .top{font-size:14px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#b9a68f}
+  .url{font-family:Cinzel,serif;font-weight:800;font-size:28px;line-height:1.15;color:#f5c873}
+  @keyframes in{from{opacity:0;transform:translateY(20px) scale(calc(var(--scale,1)*.92))}}
+</style>
+</head>
+<body>
+<div class="badge" id="badge"><div class="icon">🍺</div><div><div class="top" id="top"></div><div class="url" id="url"></div></div></div>
+<script>
+// A corner badge pointing viewers at tavernworks.dev.
+//
+//   ?pos=br          tl, tr, bl or br (default br, bottom right)
+//   &scale=1         0.5-3, size of the badge
+//   &text=...        the small line above the link (default "Find it all at")
+//   &url=...         the link shown (default tavernworks.dev)
+(function () {
+  const q = new URLSearchParams(location.search);
+  const pos = ["tl", "tr", "bl", "br"].includes(q.get("pos")) ? q.get("pos") : "br";
+  const scale = Math.max(0.5, Math.min(3, Number(q.get("scale")) || 1));
+  const badge = document.getElementById("badge");
+  badge.classList.add(pos);
+  badge.style.setProperty("--scale", scale);
+  document.getElementById("top").textContent = q.get("text") ?? "Find it all at";
+  document.getElementById("top").hidden = !document.getElementById("top").textContent;
+  document.getElementById("url").textContent = q.get("url") || "tavernworks.dev";
+})();
+</script>
+</body>
+</html>

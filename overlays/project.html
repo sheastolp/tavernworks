@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Overlay · Tavernworks</title>
+<meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@800&family=Inter:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* OBS browser source: transparent, a card naming the project on screen. */
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:transparent;overflow:hidden;height:100%}
+  body{font-family:Inter,system-ui,sans-serif;color:#f1e6d6}
+  [hidden]{display:none!important}
+  .badge{
+    position:fixed;display:flex;align-items:center;gap:14px;padding:14px 24px 14px 16px;max-width:min(92vw,720px);border-radius:16px;
+    background:linear-gradient(180deg,rgba(36,26,19,.94),rgba(21,16,12,.94));border:2px solid #e0a84a;
+    box-shadow:0 10px 32px rgba(0,0,0,.5),0 0 24px rgba(224,168,74,.22);
+    transform-origin:var(--origin);transform:scale(var(--scale,1));
+    animation:in .5s cubic-bezier(.2,1.4,.4,1) both
+  }
+  .tl{top:4vh;left:3vw;--origin:top left}
+  .tr{top:4vh;right:3vw;--origin:top right}
+  .bl{bottom:4vh;left:3vw;--origin:bottom left}
+  .br{bottom:4vh;right:3vw;--origin:bottom right}
+  .icon{font-size:48px;line-height:1;filter:drop-shadow(0 0 12px rgba(245,200,115,.5))}
+  .top{font-size:14px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#b9a68f}
+  .name{font-family:Cinzel,serif;font-weight:800;font-size:30px;line-height:1.15;color:#f5c873}
+  .url{font-size:17px;font-weight:500;color:#e9dcc8;margin-top:2px;overflow-wrap:anywhere}
+  @keyframes in{from{opacity:0;transform:translateY(20px) scale(calc(var(--scale,1)*.92))}}
+</style>
+</head>
+<body>
+<div class="badge" id="badge" hidden><div class="icon" id="icon"></div><div><div class="top" id="top"></div><div class="name" id="name"></div><div class="url" id="url"></div></div></div>
+<script src="../projects.js"></script>
+<script>
+// A card naming the Tavernworks project in use on stream, with its link.
+// Projects come from projects.js, so new ones show up here on their own.
+//
+//   ?project=hush    a project key from projects.js (default: the most
+//                    recently changed project on The Path So Far)
+//   &pos=bl          tl, tr, bl or br (default bl, bottom left)
+//   &scale=1         0.5-3, size of the card
+//   &text=...        the small line above the name (default "Now using")
+//   &link=0          hide the link line
+(function () {
+  const q = new URLSearchParams(location.search);
+  const data = window.TAVERN_PROJECTS || { projects: [], changes: [] };
+  const last = data.changes[data.changes.length - 1];
+  const key = (q.get("project") || (last && last[0]) || "home").toLowerCase();
+  const p = data.projects.find((x) => x.key === key) || data.projects.find((x) => x.key === "home");
+  if (!p) return;
+
+  // "/hushwave/" -> "tavernworks.dev/hushwave", "https://burn.tavernworks.dev/" -> "burn.tavernworks.dev"
+  const link = (href) => {
+    if (!href || href[0] === "#") return "tavernworks.dev";
+    const u = new URL(href, "https://tavernworks.dev/");
+    return (u.host + u.pathname).replace(/\/+$/, "");
+  };
+
+  const pos = ["tl", "tr", "bl", "br"].includes(q.get("pos")) ? q.get("pos") : "bl";
+  const scale = Math.max(0.5, Math.min(3, Number(q.get("scale")) || 1));
+  const $ = (id) => document.getElementById(id);
+  $("badge").classList.add(pos);
+  $("badge").style.setProperty("--scale", scale);
+  $("icon").textContent = p.icon;
+  $("top").textContent = q.get("text") ?? "Now using";
+  $("top").hidden = !$("top").textContent;
+  $("name").textContent = p.name;
+  $("url").textContent = link(p.href);
+  $("url").hidden = q.get("link") === "0";
+  $("badge").hidden = false;
+})();
+</script>
+</body>
+</html>
