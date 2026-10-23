@@ -200,6 +200,23 @@ window.TAVERN_PROJECTS = {
       }
     },
     {
+      "key": "lorekeeper",
+      "icon": "📚",
+      "name": "Lorekeeper",
+      "href": "https://github.com/sheastolp/LoreKeeper",
+      "dir": "",
+      "card": {
+        "section": "workbench",
+        "title": "Lorekeeper",
+        "text": "A Windows app that turns your VODs, recordings, screenshots and docs into a library you can ask questions about, with a built-in video editor. Finds a person in your streams by voice and cuts their best moments into captioned clips. Runs fully offline.",
+        "href": "https://github.com/sheastolp/LoreKeeper",
+        "url": "github.com/sheastolp/LoreKeeper",
+        "pill": "BETA",
+        "pillKind": "beta",
+        "links": []
+      }
+    },
+    {
       "key": "station",
       "icon": "🛰️",
       "name": "Stationeers Assistant",
@@ -545,6 +562,7 @@ window.TAVERN_PROJECTS = {
     ["guildscribe","2026-10-18","Stream protection: follow-bot blocking, a hate-raid shield and an offline lock","https://guildscribe.tavernworks.dev/"],
     ["guildscribe","2026-10-18","The Mod center: chat modes, Shield Mode, every protection and a mod log on one page","https://guildscribe.tavernworks.dev/"],
     ["guildscribe","2026-10-18","A message of the day posted when each stream goes live","https://guildscribe.tavernworks.dev/"],
-    ["home","2026-10-23","Stream overlays: a tavernworks.dev link badge and a card showing which project is in use","/overlays/"]
+    ["home","2026-10-23","Stream overlays: a tavernworks.dev link badge and a card showing which project is in use","/overlays/"],
+    ["lorekeeper","2026-10-23","Lorekeeper card: ask your library, edit video, find clips by voice","https://github.com/sheastolp/LoreKeeper"]
   ]
 };
