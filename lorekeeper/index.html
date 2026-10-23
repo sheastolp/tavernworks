@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lorekeeper · Tavernworks</title>
+<meta name="description" content="Lorekeeper: a Windows app that turns your VODs, recordings, screenshots and docs into a library you can ask questions about, with a built-in video editor and voice-matched clip finder. How to download and install it.">
+<meta property="og:title" content="Lorekeeper · Tavernworks">
+<meta property="og:description" content="Ask your VODs and docs questions, edit video by transcript, and cut clips of anyone in your streams by voice. Runs fully offline on Windows.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069; --twitch:#9146ff; --lore:#9b7bd4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(155,123,212,.16), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 50% 110%, rgba(201,87,43,.12), transparent 70%),
+      var(--bg);
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+
+  nav{padding:22px 0 0}
+  .back{font-size:14px;color:var(--muted);transition:.15s}
+  .back:hover{color:var(--gold2)}
+
+  header{padding:48px 0 32px;text-align:center}
+  .orb{font-size:64px;line-height:1;filter:drop-shadow(0 0 24px rgba(155,123,212,.45))}
+  .sign{
+    display:inline-block;font-family:Cinzel,serif;font-size:13px;letter-spacing:.3em;
+    color:var(--gold);border:1px solid var(--line);padding:6px 16px;border-radius:999px;
+    background:rgba(0,0,0,.25);margin:20px 0 18px
+  }
+  h1{
+    font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,8.5vw,72px);overflow-wrap:anywhere;line-height:1.05;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);
+    -webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .tag{margin:16px auto 0;color:var(--muted);font-size:18px;max-width:640px}
+  .tag b{color:var(--text);font-weight:600}
+  .badges{margin-top:22px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .pill{font-size:11px;font-weight:600;letter-spacing:.05em;padding:4px 11px;border-radius:999px;white-space:nowrap}
+  .live{background:rgba(127,176,105,.15);color:var(--green)}
+  .soon{background:rgba(224,168,74,.12);color:var(--gold)}
+  .plain{background:rgba(255,255,255,.05);color:var(--muted)}
+  header .cta{justify-content:center;margin-top:26px}
+
+  .divider{
+    display:flex;align-items:center;gap:14px;margin:52px 0 22px;
+    font-family:Cinzel,serif;color:var(--gold);letter-spacing:.15em;font-size:15px
+  }
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .card{
+    background:linear-gradient(180deg,var(--card),var(--bg2));
+    border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:8px
+  }
+  .card .icon{font-size:26px;line-height:1}
+  .card h3{font-family:Cinzel,serif;font-size:18px;color:var(--gold2)}
+  .card p{color:var(--muted);font-size:14.5px}
+
+  .scroll{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px}
+  .scroll p{color:var(--muted)}
+  .scroll p + p{margin-top:12px}
+  .scroll b{color:var(--text);font-weight:600}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:.92em;color:var(--gold2);overflow-wrap:anywhere}
+
+  .models{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:18px}
+  .model{border:1px solid var(--line);border-radius:12px;padding:16px;background:rgba(0,0,0,.22)}
+  .model h3{font-family:Cinzel,serif;font-size:16px;color:var(--gold2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .model p{color:var(--muted);font-size:14px;margin-top:6px}
+
+  .steps{list-style:none;counter-reset:step;display:grid;gap:14px}
+  .steps > li{counter-increment:step;display:grid;grid-template-columns:34px 1fr;gap:14px;align-items:start}
+  .steps > li::before{
+    content:counter(step);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
+    font:800 15px Cinzel,serif;color:var(--bg);background:linear-gradient(180deg,var(--gold2),var(--gold))
+  }
+  .steps h3{font-family:Cinzel,serif;font-size:16px;color:var(--gold2);line-height:1.3;padding-top:7px}
+  .steps p{color:var(--muted);font-size:14.5px}
+  .steps p + p{margin-top:6px}
+  .steps ul{color:var(--muted);font-size:14.5px;margin:6px 0 0 18px;display:grid;gap:4px}
+  .guide a{color:var(--gold2)}
+  .steps b{color:var(--text);font-weight:600}
+  .note{margin-top:18px;padding:14px 16px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:14px}
+  .note b{color:var(--text);font-weight:600}
+
+  .faq details{border-bottom:1px solid var(--line);padding:14px 0}
+  .faq details:last-child{border-bottom:0}
+  .faq summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";color:var(--gold);font-weight:400;font-size:20px;line-height:1}
+  .faq details[open] summary::after{content:"−"}
+  .faq details p{color:var(--muted);font-size:14.5px;margin-top:8px}
+  .faq a{color:var(--gold2)}
+
+  .cta{margin-top:20px;display:flex;gap:12px;flex-wrap:wrap}
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;padding:12px 22px;border-radius:12px;
+    font:600 16px Inter,system-ui,sans-serif;color:var(--text);border:1px solid var(--line);background:var(--bg2);transition:.15s;cursor:pointer
+  }
+  .btn:hover{transform:translateY(-2px);border-color:var(--gold)}
+  .btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:var(--gold);color:var(--bg)}
+  .btn.gold:hover{filter:brightness(1.08)}
+  .btn.twitch{background:var(--twitch);border-color:var(--twitch);color:#fff}
+  .btn.twitch:hover{filter:brightness(1.1);border-color:#fff}
+  .btn.discord{background:#5865f2;border-color:#5865f2;color:#fff}
+  .btn.discord:hover{filter:brightness(1.1);border-color:#fff}
+  .btn svg{width:18px;height:18px;fill:currentColor}
+
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
+  footer span{color:var(--gold)}
+  footer a:hover{color:var(--gold2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav><a class="back" href="/">← Back to the tavern</a></nav>
+
+  <header>
+    <div class="orb">📚</div>
+    <div class="sign">THE WORKBENCH</div>
+    <h1>Lorekeeper</h1>
+    <p class="tag">A Windows app that turns your <b>VODs, recordings, screenshots and docs</b> into a library you can ask questions about, with a built-in video editor and a clip finder that knows people <b>by voice</b>.</p>
+    <div class="badges">
+      <span class="pill soon">BETA</span>
+      <span class="pill plain">WINDOWS</span>
+      <span class="pill plain">RUNS OFFLINE</span>
+      <span class="pill plain">NO ACCOUNTS</span>
+    </div>
+    <div class="cta">
+      <a class="btn gold" href="#install">📦 How to install</a>
+      <a class="btn" href="https://github.com/sheastolp/LoreKeeper" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5Z"/></svg>
+        Source on GitHub
+      </a>
+    </div>
+  </header>
+
+  <div class="divider">THE IDEA</div>
+  <div class="scroll">
+    <p>Hours of VODs, a folder of screenshots and a pile of PDFs are hard to search. <b>Lorekeeper reads, watches and listens to all of it</b>, then answers questions with clickable sources that jump to the exact page, passage or video timestamp.</p>
+    <p>The AI ships inside the app and runs on your PC: <b>Gemma 4</b> for answers and vision, <b>EmbeddingGemma</b> for search and <b>Whisper</b> for transcripts. No Ollama, no servers, no accounts, and nothing leaves your machine.</p>
+  </div>
+
+  <div class="divider">WHAT'S IN THE BOX</div>
+  <div class="grid">
+    <div class="card">
+      <div class="icon">🗂️</div>
+      <h3>Library</h3>
+      <p>Drag in video, audio, images, PDFs (scanned ones too), Word, PowerPoint, text and web links. Files are indexed where they are and never changed.</p>
+    </div>
+    <div class="card">
+      <div class="icon">❓</div>
+      <h3>Ask</h3>
+      <p>Every answer comes in four parts, <i>The Answer</i>, <i>The How</i>, <i>The Why</i> and a <i>Deep Cut</i>, with gold citation numbers you can click.</p>
+    </div>
+    <div class="card">
+      <div class="icon">🎬</div>
+      <h3>Clips by voice</h3>
+      <p>Teach it a person once and it finds them in your VODs by voice, scores their best moments and cuts them into 16:9 or vertical clips with word-by-word captions. Pulls VODs straight from Twitch.</p>
+    </div>
+    <div class="card">
+      <div class="icon">✂️</div>
+      <h3>Edit by transcript</h3>
+      <p>Strike words to cut them from the video, auto-strike filler words, cut dead air and export SRT or VTT captions that match your cuts.</p>
+    </div>
+    <div class="card">
+      <div class="icon">🎛️</div>
+      <h3>Studio &amp; timeline</h3>
+      <p>Trim, split, merge, speed, denoise, loudness fixes and conversions, plus a timeline with a facecam overlay track, two audio tracks, fades and undo.</p>
+    </div>
+    <div class="card">
+      <div class="icon">🎮</div>
+      <h3>Plays nice with games</h3>
+      <p>Uses NVIDIA, AMD or Intel GPUs, or just the CPU. The model unloads when idle so your games get the VRAM back.</p>
+    </div>
+  </div>
+
+  <div class="divider" id="install">DOWNLOAD &amp; INSTALL</div>
+  <div class="scroll guide">
+    <p>GitHub builds a fresh Lorekeeper installer every time the app is updated. You download the newest one and run it. All you need is a free <a href="https://github.com/signup" target="_blank" rel="noopener">GitHub account</a>, because GitHub only lets signed-in people download builds. Plan on a few minutes for the installer and a one-time AI model download of 3 to 5 GB.</p>
+    <ol class="steps" style="margin-top:20px">
+      <li><div>
+        <h3>Sign in to GitHub</h3>
+        <p>Sign in at <a href="https://github.com/login" target="_blank" rel="noopener">github.com</a>, or <a href="https://github.com/signup" target="_blank" rel="noopener">make a free account</a> first.</p>
+      </div></li>
+      <li><div>
+        <h3>Open the latest build</h3>
+        <p>Open <a href="https://github.com/sheastolp/LoreKeeper/actions/workflows/build.yml?query=branch%3Amain+is%3Asuccess" target="_blank" rel="noopener">Lorekeeper's finished builds</a>. That's the <b>Actions</b> tab, filtered to <b>Build Windows installer</b> runs that worked. Click the run at the top of the list; it's the newest.</p>
+      </div></li>
+      <li><div>
+        <h3>Download the installer</h3>
+        <p>Scroll to <b>Artifacts</b> at the bottom of the run and click <b>Lorekeeper-Setup-x.y.z</b>. A zip file downloads.</p>
+        <p>Right-click the zip and choose <b>Extract All</b>. Inside is <code>Lorekeeper-Setup-x.y.z.exe</code>.</p>
+      </div></li>
+      <li><div>
+        <h3>Run the installer</h3>
+        <p>Double-click <code>Lorekeeper-Setup-x.y.z.exe</code>. If Windows says <b>"Windows protected your PC"</b>, click <b>More info → Run anyway</b>. That shows up because the app isn't signed with a paid code-signing certificate, not because anything's wrong.</p>
+        <p>It installs just for you, so there's no admin prompt. Its files go in <code>%LOCALAPPDATA%\Programs\Lorekeeper</code>.</p>
+      </div></li>
+      <li><div>
+        <h3>Pick an answer model</h3>
+        <p>The installer asks which AI model to use for answers. Leave it on <b>Pick the best fit for this PC automatically</b> unless you know you want one of these:</p>
+        <ul>
+          <li><b>Gemma 4 E4B</b>: best answers. 4.8 GB download, wants 12 GB+ of RAM or a GPU with 6 GB+.</li>
+          <li><b>Gemma 4 E2B</b>: lighter and faster, same vision skills. 3.2 GB download, runs on 8 GB of RAM or a 4 GB GPU.</li>
+        </ul>
+        <p>Tick <b>Create a desktop shortcut</b> if you want one, then finish the installer.</p>
+      </div></li>
+      <li><div>
+        <h3>First launch</h3>
+        <p>Open <b>Lorekeeper</b> from the Start menu. The first time, it downloads the model you picked, with a progress screen. If your connection drops, it picks up where it left off. Search, transcripts and editing work straight away; questions work as soon as the model lands.</p>
+        <p>After that, everything runs offline.</p>
+      </div></li>
+    </ol>
+    <div class="note">
+      <b>Updating:</b> download the newest build the same way (steps 2 to 4) and run the installer over the old one. Your library, models and settings stay.<br>
+      <b>Needs:</b> Windows 10 or 11, 8 GB of RAM at the least (12 GB+ for the bigger model), and free disk space for the app plus a 3 to 5 GB model. A GPU helps but isn't required.<br>
+      <b>No Artifacts on a run?</b> GitHub deletes old builds after a while. Pick a newer run, or ask in the <a href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">Discord</a> for a fresh build.<br>
+      <b>Where your stuff lives:</b> your library, downloaded models and settings are in <code>%LOCALAPPDATA%\Lorekeeper</code>, and every render goes to <code>Videos\Lorekeeper Exports</code>.<br>
+      The <a href="https://github.com/sheastolp/LoreKeeper#readme" target="_blank" rel="noopener">README</a> covers clips, the watermark and running from source too.
+    </div>
+  </div>
+
+  <div class="divider">QUESTIONS AT THE BAR</div>
+  <div class="scroll faq">
+    <details>
+      <summary>Why isn't the AI model inside the installer?</summary>
+      <p>GitHub caps downloads at 2 GB per file and the model alone is bigger than that. Everything else, the AI engine, the search model, Whisper and FFmpeg, is inside. The model downloads once on first launch and is checked so a broken download can't sneak through.</p>
+    </details>
+    <details>
+      <summary>I already have GGUF models. Can I use those?</summary>
+      <p>Yes. <b>Settings → AI → Add a GGUF file…</b> uses them where they are, with nothing copied. Pick the model and its <code>mmproj-*.gguf</code> together to give it vision.</p>
+    </details>
+    <details>
+      <summary>Can it use my Ollama server instead?</summary>
+      <p>Yes. <b>Settings → AI → Ollama server</b> sends every AI call to Ollama, on this PC or another one on your network.</p>
+    </details>
+    <details>
+      <summary>Will it slow down my games?</summary>
+      <p>Only while it's thinking. <b>Free memory when idle</b> (10 minutes by default) unloads the model so your games get the VRAM back, and it reloads on the next question.</p>
+    </details>
+    <details>
+      <summary>Why is there a tavernworks.dev tag on my exports?</summary>
+      <p>Lorekeeper puts a small watermark in one corner of finished videos. Change the text, corner and size, or switch it off, in <b>Settings → Watermark</b>.</p>
+    </details>
+    <details>
+      <summary>Mac or Linux?</summary>
+      <p>Windows only for now. Say so in the <a href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">Discord</a> if you want it elsewhere.</p>
+    </details>
+  </div>
+
+  <div class="divider">FOLLOW THE FORGE</div>
+  <div class="scroll">
+    <p>Lorekeeper gets built and tested live on stream. Come hang out, or chat about it in the Discord.</p>
+    <div class="cta">
+      <a class="btn twitch" href="https://twitch.tv/stonedsheamus" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M4.3 3 3 6.4v13.4h4.6V22h2.6l2.2-2.2h3.5l4.6-4.6V3H4.3Zm14.6 11.4-2.7 2.7h-4.3L9.6 19.4v-2.3H6V4.7h12.9v9.7ZM16.2 7.9v4.7h-1.7V7.9h1.7Zm-4.6 0v4.7H9.9V7.9h1.7Z"/></svg>
+        Watch on Twitch
+      </a>
+      <a class="btn discord" href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 3l-.6 1.3a18.4 18.4 0 0 0-5.6 0L8.6 3a19.7 19.7 0 0 0-4.9 1.5C.6 9.1-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2.1a13 13 0 0 1-2-1l.5-.4a14.2 14.2 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1l1.3 2.1a19.9 19.9 0 0 0 6-3c.5-5.2-.8-9.7-3.6-13.7ZM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Z"/></svg>
+        Join the Discord
+      </a>
+    </div>
+  </div>
+
+  <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus<br><a href="/overlays">Overlays</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
+</div>
+</body>
+</html>
