@@ -183,11 +183,11 @@
   .chatfeed{
     position:relative;width:100%;height:260px;min-height:260px;max-height:260px;flex:none;contain:strict;overflow-anchor:none;
     margin:30px 0 0;text-align:left;overflow:hidden;
-    display:flex;flex-direction:column;justify-content:flex-end;gap:8px;font-size:14px;line-height:1.45;
-    -webkit-mask-image:linear-gradient(to bottom,transparent,#000 45%);mask-image:linear-gradient(to bottom,transparent,#000 45%)
+    display:flex;flex-direction:column;justify-content:flex-start;gap:8px;font-size:14px;line-height:1.45;
+    -webkit-mask-image:linear-gradient(to top,transparent,#000 45%);mask-image:linear-gradient(to top,transparent,#000 45%)
   }
   .chatfeed .msg{flex-shrink:0;overflow-wrap:anywhere;transition:opacity .8s ease,transform .5s ease;color:var(--text)}
-  .chatfeed .msg.enter{opacity:0;transform:translateY(10px)}
+  .chatfeed .msg.enter{opacity:0;transform:translateY(-10px)}
   .chatfeed .msg.leave{opacity:0}
   .chatfeed .msg.bot{border-left:2px solid var(--gold);padding-left:10px;color:#e9dcc8}
   .chatfeed .u{font-weight:700;margin-right:5px}
@@ -456,10 +456,10 @@
 })();
 </script>
 <script>
-// Example chat under the header: GuildScribe's real reply formats (taken
-// from the bot's code), one message at a time; each fades out after a few
-// seconds. The first exchange plays first, the rest in a shuffled order
-// that reshuffles every loop.
+// Example chat under the header: GuildScribe's reply formats, one message
+// at a time, newest on top; each fades out after a few seconds. The first
+// exchange plays first, the rest in a shuffled order that reshuffles every
+// loop.
 (function () {
   const feed = document.getElementById("chatfeed");
   if (!feed) return;
@@ -490,19 +490,18 @@
      ["MossyDwarf", "!dndduel accept"],
      [B, `${at("MossyDwarf")} ⚔️ QuietRogue vs MossyDwarf — MossyDwarf wins! ❤️ HP left: QuietRogue 0/18, MossyDwarf 7/34. 🪙 Loot: none. 📜 Full battle log: ${GS}/r/1042`]],
     [["BardOfBrie", "!autohunt 30m"],
-     [B, `${at("BardOfBrie")} 🏹 your hero heads into the wilds for 30m. A monster every ~5m at your level, same dice as !dndduel, with a report in chat as bouts are settled. !autohunt status to check in, !autohunt stop to recall.`],
-     [B, `${at("BardOfBrie")} 🏹 autohunt report — 2 bouts (2W/0L): ✔ beat Wolf in 3 rds (you 14/20 HP) · ✔ beat Giant Rat in 2 rds (you 11/20 HP) | +75 XP, 🪙 +6 cp | 20m left.`]],
+     [B, `${at("BardOfBrie")} 🏹 your hero heads into the wilds for 30m. A monster every ~5m at your level, same dice as !dndduel, with reports whispered to you as bouts are settled. !autohunt status to check in, !autohunt stop to recall.`]],
     [["MossyDwarf", "!party create Ironhide"],
      [B, `${at("MossyDwarf")} party Ironhide created. You are the leader and a member. Invite with !party invite @user Ironhide`]],
-    [["QuietRogue", "!raid"],
-     [B, `📯 QuietRogue sounds the war horn against Young Red Dragon (HP 356/356)! Type !raid within 1m to join the raid party (up to 6 heroes). QuietRogue: !raid go to charge early.`],
-     ["MossyDwarf", "!raid"],
+    [["QuietRogue", "!rally"],
+     [B, `📯 QuietRogue sounds the war horn against Young Red Dragon (HP 356/356)! Type !rally within 1m to join the raid party (up to 6 heroes). QuietRogue: !rally go to charge early.`],
+     ["MossyDwarf", "!rally"],
      [B, `🛡️ MossyDwarf joins the raid (2/6: QuietRogue, MossyDwarf). Launching in 41s.`]],
     [["TankardTom", "!bounties"],
      [B, `${at("TankardTom")} 📜 The bounty board reads: #1 Slay 2 Bugbears (CR 1) 0/2 → 4 sp | #2 Slay 3 Ghouls (CR 1) 1/3 → 5 sp + Traveler's Tonic. Take one on with !hunt <monster>, e.g. !hunt Bugbear.`]],
     [["TankardTom", "!hunt bugbear"],
      [B, `${at("TankardTom")} ⚔️ TankardTom vs Bugbear — TankardTom wins! ❤️ HP left: TankardTom 12/28, Bugbear 0/27. 🪙 Loot: 8 cp. 📜 Full battle log: ${GS}/r/1043`]],
-    [["EmberWitch", "!stall"],
+    [["EmberWitch", "!market"],
      [B, `🛒 Tansy Ninefingers is hawking one (1) lucky rabbit's foot, still faintly twitching — 5 copper (🎒 +1 DEX on your sheet). ${at("EmberWitch")} you have 3 haggle attempts left on this one — try !haggle &lt;your pitch&gt;.`],
      ["EmberWitch", "!haggle three copper, it's barely twitching"],
      [B, `🛒 Tansy Ninefingers: Barely?! It kicked me twice this morning. Four copper, and you're robbing a poor woman blind. 🪙 Sold for 4 cp (listed 5 cp, you saved 1 cp) — 2 sp 1 cp left.`]],
@@ -517,7 +516,19 @@
     [["BardOfBrie", "!jar"],
      [B, `🫙 ${at("BardOfBrie")} The swear jar holds 4 sp 6 cp.`]],
     [["EmberWitch", "!watchtime"],
-     [B, `${at("EmberWitch")} 🕯️ The scribes have kept your candle burning in the guild hall for 2d 4h 15m.`]],
+     [B, `${at("EmberWitch")} 🕯️ The scribes have kept your candle burning in the guild hall for 2d 4h 15m, since you swore your oath on Mar 3, 2025.`]],
+    [["TankardTom", "!nick Alebeard"],
+     [B, `${at("TankardTom")} 📜 The scribes strike out "Ironquill" and write you into the guild roll as Alebeard.`]],
+    [["QuietRogue", "!coinflip"],
+     [B, `${at("QuietRogue")} 🪙 The coin spins, wobbles and lands… Heads!`]],
+    [["EmberWitch", "!askme who was Gygax?"],
+     [B, `${at("EmberWitch")} 📚 Gary Gygax co-created Dungeons &amp; Dragons with Dave Arneson in 1974, and is often called the father of role-playing games. Source: https://en.wikipedia.org/wiki/Gary_Gygax`]],
+    [["BardOfBrie", "!clip"],
+     [B, `${at("BardOfBrie")} 🎬 The last 30 seconds are bottled for the archives: https://clips.twitch.tv/BraveTankardDragonRoar`]],
+    [["MossyDwarf", "!silence @BardOfBrie"],
+     [B, `🤫 ${at("MossyDwarf")} pays 5 sp to the town crier, and ${at("bardofbrie")} is gagged for 60 seconds. The tavern breathes a sigh of relief.`]],
+    [["StonedSheamus", "!jar giveaway @QuietRogue"],
+     [B, `🫙 The swear jar is tipped into ${at("QuietRogue")}'s purse: 14 gp 2 sp! The jar starts again from empty.`]],
     [["TankardTom", "!followage"],
      [B, `${at("TankardTom")} 🏰 your oath to the guild has stood for 1 year, 3 months, 12 days (sworn Jun 24, 2025).`]],
     [["MossyDwarf", "!shmash @QuietRogue"],
@@ -548,7 +559,7 @@
     return el;
   };
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    EXCHANGES.slice(0, 3).flat().forEach((m) => feed.appendChild(line(m)));
+    EXCHANGES.slice(0, 3).flat().reverse().forEach((m) => feed.appendChild(line(m)));
     return;
   }
   const shuffled = (a) => { a = a.slice(); for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [a[k], a[j]] = [a[j], a[k]]; } return a; };
@@ -560,7 +571,7 @@
     const m = queue.shift();
     const el = line(m);
     el.classList.add("enter");
-    feed.appendChild(el);
+    feed.prepend(el);
     requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove("enter")));
     setTimeout(() => { el.classList.add("leave"); setTimeout(() => el.remove(), 900); }, LIFE);
     const upcoming = queue[0];
