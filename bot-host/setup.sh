@@ -40,6 +40,7 @@ HOST_URL=${HOST_URL:-https://tavernworks.dev/bot-host}
 BOTS=(
   "guildscribe dnd-twitch-bot 8801"
   "undercoverburn UndercoverBurn 8802"
+  "guildscribe-discord guildscribe-discord 8803"
 )
 
 if [ "$(id -u)" = 0 ]; then
@@ -222,7 +223,7 @@ WantedBy=timers.target
 UNIT
 
 $SYSTEMCTL daemon-reload
-$SYSTEMCTL enable tavernworks-guildscribe tavernworks-undercoverburn >/dev/null 2>&1
+$SYSTEMCTL enable tavernworks-guildscribe tavernworks-undercoverburn tavernworks-guildscribe-discord >/dev/null 2>&1
 $SYSTEMCTL enable --now tavernworks-update.timer tavernworks-backup.timer >/dev/null 2>&1
 if [ "$MODE" = user ]; then
   me=${USER:-$(id -un)}
@@ -240,6 +241,6 @@ cat <<MSG
 Done. Next:
   1. Fill in the settings files in $CONF_DIR/
   2. Copy the old data in (README.md, "Move the data off Val Town")
-  3. Start the bots:  $SYSTEMCTL start tavernworks-guildscribe tavernworks-undercoverburn
+  3. Start the bots:  $SYSTEMCTL start tavernworks-guildscribe tavernworks-undercoverburn tavernworks-guildscribe-discord
   4. Set up the Cloudflare Tunnel (README.md)
 MSG

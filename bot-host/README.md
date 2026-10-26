@@ -8,6 +8,7 @@ Town and GitHub Actions.)
 |-----|------|-----------|----------------|
 | GuildScribe | `sheastolp/dnd-twitch-bot` | 8801 | guildscribe.tavernworks.dev |
 | UndercoverBurn | `sheastolp/UndercoverBurn` (private) | 8802 | burn.tavernworks.dev |
+| GuildScribe for Discord | `sheastolp/guildscribe-discord` | 8803 | guildscribe-discord.tavernworks.dev |
 
 How the pieces fit:
 
@@ -32,7 +33,9 @@ All steps below run as **root** (e.g. a `tailscale ssh root@<yoga>` session).
 `setup.sh` also works as a normal user, with systemd user services and
 everything under the home folder; use `systemctl --user` then.
 
-`<bot>` below is `guildscribe` or `undercoverburn`.
+`<bot>` below is `guildscribe`, `undercoverburn` or `guildscribe-discord`.
+GuildScribe for Discord came later; on a laptop that's already set up, see
+[Adding GuildScribe for Discord](#adding-guildscribe-for-discord).
 
 ## 1. Prepare the Yoga
 
@@ -243,6 +246,41 @@ Then try a command in a channel for each bot, and watch the logs:
   val) vals, and revoke the API token from step 5.
 - GitHub: delete the `VAL_TOWN_API_KEY` secret from `dnd-twitch-bot` and
   `UndercoverBurn`.
+
+## Adding GuildScribe for Discord
+
+The Discord bot is its own process with its own database
+(`guildscribe-discord.sqlite`); it shares no data with the Twitch bot. It
+runs the Twitch bot's game code, copied into its `game/` folder, so it plays
+the same. Discord sends each slash command to it over HTTPS, so it only needs
+the tunnel, like the others. Its own README covers the Discord side in full.
+
+1. **GitHub:** push the bot to `sheastolp/guildscribe-discord` (public, like
+   `dnd-twitch-bot`; make it private and add it to `PRIVATE_REPOS` otherwise).
+2. **Yoga:** run `setup.sh` again. It clones the repo, writes
+   `/etc/tavernworks/guildscribe-discord.env` and the service. Fill the env
+   file in: `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`,
+   `DISCORD_BOT_TOKEN` and `PUBLIC_BASE_URL=https://guildscribe-discord.tavernworks.dev`
+   (plus the AI settings from step 3 for `/haggle`).
+3. **Tunnel:** add the hostname to `/etc/cloudflared/config.yml` (it's in
+   `cloudflared-config.yml` here) and route it:
+
+   ```sh
+   cloudflared tunnel route dns tavernworks-bots guildscribe-discord.tavernworks.dev
+   systemctl restart cloudflared
+   systemctl start tavernworks-guildscribe-discord
+   curl -s https://guildscribe-discord.tavernworks.dev/health   # ok
+   ```
+
+4. **Discord:** in the Developer Portal, set the app's **Interactions
+   Endpoint URL** to `https://guildscribe-discord.tavernworks.dev/interactions`
+   (Discord checks it on save), then register the slash commands once:
+
+   ```sh
+   runuser -u tavernworks -- sh -c 'cd /var/lib/tavernworks/bots/guildscribe-discord && set -a && . /etc/tavernworks/guildscribe-discord.env && deno task register'
+   ```
+
+   Run that again whenever its `commands.ts` changes.
 
 ## Day to day
 

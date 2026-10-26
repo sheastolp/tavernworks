@@ -21,7 +21,7 @@ else
   restart() { systemctl --user restart "tavernworks-$1"; }
 fi
 
-for entry in "guildscribe dnd-twitch-bot" "undercoverburn UndercoverBurn"; do
+for entry in "guildscribe dnd-twitch-bot" "undercoverburn UndercoverBurn" "guildscribe-discord guildscribe-discord"; do
   read -r name repo <<<"$entry"
   dir="$BOTS_DIR/$repo"
   [ -d "$dir/.git" ] || continue

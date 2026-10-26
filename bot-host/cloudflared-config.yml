@@ -8,4 +8,6 @@ ingress:
     service: http://127.0.0.1:8801
   - hostname: burn.tavernworks.dev
     service: http://127.0.0.1:8802
+  - hostname: guildscribe-discord.tavernworks.dev
+    service: http://127.0.0.1:8803
   - service: http_status:404
