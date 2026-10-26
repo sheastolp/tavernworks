@@ -274,13 +274,18 @@ the tunnel, like the others. Its own README covers the Discord side in full.
 
 4. **Discord:** in the Developer Portal, set the app's **Interactions
    Endpoint URL** to `https://guildscribe-discord.tavernworks.dev/interactions`
-   (Discord checks it on save), then register the slash commands once:
+   (Discord checks it on save). The bot registers its slash commands itself
+   when it starts and they've changed, so a deploy never needs a manual step.
+   To force it by hand:
 
    ```sh
    runuser -u tavernworks -- sh -c 'cd /var/lib/tavernworks/bots/guildscribe-discord && set -a && . /etc/tavernworks/guildscribe-discord.env && deno task register'
    ```
 
-   Run that again whenever its `commands.ts` changes.
+5. **Staying in step with the Twitch bot** needs nothing on the laptop: a
+   GitHub Actions workflow in `guildscribe-discord` copies the Twitch bot's
+   game code every 15 minutes and commits it only when its type-check and
+   tests pass. The updater here then deploys it like any other commit.
 
 ## Day to day
 
