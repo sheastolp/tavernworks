@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="canonical" href="https://tavernworks.dev/assistants/aion-2/">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aion 2 Assistant · Tavernworks</title>
+<meta name="description" content="Aion 2 Assistant for the global PC version: daily and weekly checklists that reset themselves, Odyle Energy, Nightmare, Conquest and Transcendence counters, an Abyss hour stopwatch, Artifact Siege and Abyss boss countdowns, field boss respawn timers, maps with your own pins for items, enemies and pet farms, every area of Verteron and Altgard, a pet soul tracker for all 205 pets, monster kills, several characters and servers, an item level planner, enhancement, Arcana, Stigma and Daevanion trackers, plus classes, dungeons, unlocks, the Abyss and guides. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪽</text></svg>">
+<style>
+:root{--bg:#0b0e16;--panel:#121725;--panel2:#1a2133;--line:#2a3450;--tx:#e8ecf6;--dim:#97a1bb;--acc:#e8c066;--acc-ink:#221800;--acc2:#7cc4f0;--ok:#86d39a;--warn:#f2c14e;--err:#ff7a6b}
+body.asmo{--bg:#100b14;--panel:#1a1220;--panel2:#24192d;--line:#3b2948;--acc:#c79bf2;--acc-ink:#1d0b2b;--acc2:#f08aa0}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:220px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 8px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:7px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#nav .grp{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:12px 10px 2px}
+#nav .who{margin:0 6px 8px;width:calc(100% - 12px)}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1,#nav .who{width:100%}#nav .grp{display:none}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+button.sm{padding:2px 8px;font-size:12px}
+input,select,textarea{background:#07090f;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number],input[type=search]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.lock td{opacity:.55}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin:0 4px 2px 0}
+.tag.g{background:#18281a;color:#a6dc94}.tag.r{background:#2b1418;color:#ff9b9b}.tag.b{background:#14232c;color:#9cc9dc}.tag.y{background:#2c2614;color:#f0d283}
+.note{border-left:3px solid var(--warn);background:#221f10;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}.wn{color:var(--warn)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 6px}
+.bar i{display:block;height:100%;background:var(--acc)}
+.bar i.full{background:var(--err)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.big{font:600 20px/1.2 Consolas,"Cascadia Mono",monospace}
+.mono{font-family:Consolas,"Cascadia Mono",monospace;font-variant-numeric:tabular-nums}
+.mech li{margin:4px 0}
+.ctr{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.ctr .card{margin:0}
+.ctr .v{font:600 24px/1.1 Consolas,"Cascadia Mono",monospace;color:var(--acc)}
+.ctr .v small{font-size:13px;color:var(--dim)}
+.timer{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.timer .t{font:600 22px/1.1 Consolas,"Cascadia Mono",monospace}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chips button{border-radius:999px;padding:3px 11px;font-size:13px}
+.chips button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.sc{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:6px;white-space:nowrap}
+.alert{border-left:3px solid var(--err);background:#2a1414;padding:8px 12px;border-radius:0 6px 6px 0;margin:6px 0}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.slot{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.slot b{display:block;margin-bottom:4px}
+.num{width:64px!important}
+.ch{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.ch.on{border-color:var(--acc)}
+.mapbox{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px;align-items:start}
+@media(max-width:1000px){.mapbox{grid-template-columns:minmax(0,1fr)}}
+.mwrap{position:relative}
+.mw{position:relative;overflow:hidden;height:72vh;min-height:340px;background:var(--panel);border:1px solid var(--line);border-radius:10px;touch-action:none;cursor:crosshair;user-select:none}
+.mw.drag{cursor:grabbing}
+.mi{position:absolute;left:0;top:0;transform-origin:0 0}
+.mi img{display:block;width:100%;height:100%;pointer-events:none}
+.pin{position:absolute;transform:translate(-50%,-100%) scale(var(--iz,1));transform-origin:50% 100%;font-size:22px;line-height:1;cursor:pointer;filter:drop-shadow(0 1px 2px #000)}
+.pin.done{opacity:.4}.pin.sel{font-size:30px;filter:drop-shadow(0 0 5px var(--acc))}
+.pin.wait::after{content:'⏳';font-size:11px;position:absolute;right:-9px;top:-4px}
+.mctl{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:4px}
+.mctl button{width:34px;padding:4px 0;background:var(--panel)}
+.mhint{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:var(--acc);color:var(--acc-ink);border-radius:6px;padding:4px 10px;font-weight:600}
+.mside .card{margin-bottom:10px}
+.mside .chips button{font-size:12px;padding:2px 9px}
+.plist{max-height:340px;overflow:auto;margin-top:6px}
+.pl{display:flex;justify-content:space-between;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;border-bottom:1px solid var(--line)}
+.pl:hover,.pl.on{background:var(--panel2)}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js?v=2" data-track="a2_state"></script>
+<script src="/assistants/art.js?v=2"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   conf: true  = from NC's own announcements or several guides that agree.
+   conf: false = sources disagree, a single source, or a Korean-build number that may differ on global; check in-game.
+   Written against the global PC version (Early Access 30 September 2026, launch 5 October 2026):
+   level cap 45, eight classes, Verteron and Altgard, Lower and Middle Reshanta. Korea and Taiwan
+   are ahead (cap 50, the Brawler, Eltnen and Morheim since 1 July 2026), and a lot of what guides
+   say comes from the Korean build, so Korean-only content is labelled and exact counts are marked ○. */
+
+const CLASSES=[
+{id:'gladiator',n:'Gladiator',role:'Melee damage / off-tank',wpn:'Greatsword',diff:'Easy',beg:'High',conf:true,
+ play:"Frontline fighter who hits several enemies at once and heals himself with lifesteal. Can hold aggro in a pinch.",
+ good:['Sturdy for solo play','Good damage on groups','Lifesteal keeps you up while levelling'],bad:['Only hits what the sword reaches','Falls behind on single targets and long fights']},
+{id:'templar',n:'Templar',role:'Main tank',wpn:'Sword and shield',diff:'Easy',beg:'Very high',conf:true,
+ play:"Heavy-armoured tank who soaks hits and controls enemies. Forgives mistakes and always finds a group.",
+ good:['Very forgiving','Instant groups for Expeditions and Sanctuary','Teaches boss patterns safely'],bad:['Low damage, so solo levelling is slow']},
+{id:'assassin',n:'Assassin',role:'Melee burst',wpn:'Daggers',diff:'Hard',beg:'Low',conf:true,
+ play:"Strikes from stealth with very high burst on one target, then gets out. Needs quick reflexes.",
+ good:['Top burst on a single target','Very mobile','Picks off healers and casters in PvP'],bad:['Short reach and weak area damage','Fragile when caught']},
+{id:'ranger',n:'Ranger',role:'Ranged physical damage',wpn:'Bow',diff:'Medium',beg:'Medium',conf:true,
+ play:"Fights from range with traps and control, kiting enemies. Damage near the top once geared.",
+ good:['Near-top damage with good gear','Safe, steady levelling','Traps and slows for PvP'],bad:['Struggles when enemies reach melee','Damage leans heavily on gear and positioning']},
+{id:'sorcerer',n:'Sorcerer',alias:'Wizard in some translations',role:'Magic burst and area damage',wpn:'Spellbook',diff:'Medium',beg:'Medium',conf:true,
+ play:"Big burst and area damage with strong crowd control. Clears packs quickly while levelling.",
+ good:['Fast levelling and pack clearing','Strong control'],bad:['Has to watch mana','Fragile when hit (better after patches)']},
+{id:'spiritmaster',n:'Spiritmaster',alias:'Summoner in some translations',role:'Magic damage with spirits',wpn:'Orb',diff:'Medium',beg:'Medium',conf:true,
+ play:"Summoned spirits deal direct damage while you stack status effects and damage over time.",
+ good:['High damage potential after recent changes','Sturdier than the Sorcerer'],bad:['Juggling the pet and effects is busy in hectic fights']},
+{id:'cleric',n:'Cleric',role:'Healer',wpn:'Mace',diff:'Easy',beg:'Very high',conf:true,
+ play:"The strongest group heals and protection, plus resurrection. Very relaxed to solo thanks to self-healing.",
+ good:['Always wanted in dungeons and raids','Survives almost anything solo'],bad:['Lowest damage of any class','In Korea some loot went by damage dealt, which hurt Clerics; unclear on global ○']},
+{id:'chanter',n:'Chanter',role:'Hybrid support',wpn:'Staff',diff:'Medium',beg:'Medium',conf:true,
+ play:"Auras and buffs with the choice of healing or hitting. Solos faster than a Cleric and has emergency heals.",
+ good:['Faster solo than the Cleric','Buffs make every group better'],bad:['Neither the best healer nor the best damage','No Cleric-level heals or resurrection for the hardest content']},
+{id:'brawler',n:'Brawler',kr:true,role:'Melee damage',wpn:'Gauntlets',diff:'—',beg:'—',conf:true,
+ play:"Builds a Rage gauge and fights up close. Added in Korea and Taiwan with Chapter 1 on 1 July 2026.",
+ good:[],bad:['Not on global yet; NC hasn’t given a date']}
+];
+
+/* Every piece of instanced and repeatable content. gate = level / item level. g = on global (true, false = Korea only, null = unconfirmed). */
+const CONTENT=[
+{n:'Sealed Dungeons',t:'Solo instance',size:'1',lv:1,il:0,lim:'One-time clear rewards',rew:'Daevanion Crystals, Wisdom Stones, Enhancement Stones',g:true,conf:false,d:"About 161 small instances spread through the levelling zones. Clear the ones on your route; don't grind them."},
+{n:"Enemy-faction Sealed Dungeons",t:'Solo instance',size:'1',lv:45,il:0,lim:'One-time, through a Spacetime Rift',rew:'Enhancement Stones, Abyss Points',g:true,conf:true,d:"Reached through Spacetime Rifts into the other faction's region."},
+{n:'Unknown Fissure (Daily Dungeon)',t:'Daily Dungeon',size:'1–5',lv:30,il:0,lim:'14 entries a week, shared by the server',rew:'Enhancement Stones',g:true,conf:true,d:"In the Daeva Bio-Research Base. All your characters on a server share the 14 entries, and an Instant Clear Ticket still uses one."},
+{n:'Krao Cave',t:'Expedition',size:'5',lv:40,il:0,lim:'Cube costs 20 Odyle Energy',rew:'Story arc finale from 40 to 45, gear',g:true,conf:true,d:"The end of the levelling story for both factions."},
+{n:'Draupnir',t:'Expedition',size:'1–5',lv:45,il:700,lim:'Exploration rewards 7 a week',rew:'First endgame gear',g:true,conf:true,d:"Your first endgame dungeon. Can be run solo or with a party."},
+{n:'Urugugu Canyon',t:'Expedition (Conquest)',size:'5',lv:45,il:1400,lim:'Cube costs 20 Odyle Energy',rew:'Gear',g:true,conf:false,d:"A Conquest dungeon. The 1,400 gate is from one guide."},
+{n:'Fire Temple',t:'Expedition',size:'5',lv:45,il:null,lim:'Exploration rewards 7 a week',rew:'Gear',g:true,conf:false,d:"Listed for global; the gate isn't published."},
+{n:'Ferocious Horn Den',t:'Expedition',size:'5',lv:45,il:null,lim:'Exploration rewards 7 a week',rew:'Gear',g:true,conf:false,d:"Listed for global; the gate isn't published."},
+{n:'Conquest tiers 1–5',t:'Conquest',size:'5',lv:45,il:700,lim:'+1 reward every 8 hours, banks for the week; cube 40 Odyle',rew:'Better drops than Exploration',g:true,conf:false,d:"Tiers open at item level 700, 1,400 and 2,100 per one guide; the upper tiers aren't confirmed."},
+{n:'Nightmare',t:'Solo boss challenge',size:'1',lv:45,il:0,lim:'2 attempts a day, bank up to 14; only a clear uses one',rew:'Phantasmal Fragments (trade for Daevanion Crystals and more)',g:true,conf:true,d:"No item level gate, but early bosses want roughly 1,000 to 1,600. Wipes are free practice."},
+{n:'Ascension Trial',t:'Solo trial',size:'1',lv:45,il:1000,lim:'3 entries a week (a failed start may still use one)',rew:'Progression materials at every stage',g:true,conf:true,d:"Easy 1,000 · Normal 1,500 · Hard 2,000 · top launch tier 2,500."},
+{n:'Deus Research Base',t:'Transcendence',size:'5',lv:45,il:1600,lim:'+1 reward every 12 hours, banks; cube 40 Odyle',rew:'Arcana: Bell, Compass, Chalice',g:true,conf:false,d:"Main Arcana source. One guide puts the gate at 1,700."},
+{n:'Shattered Arkanis',t:'Transcendence',size:'5',lv:45,il:1600,lim:'+1 reward every 12 hours, banks; cube 40 Odyle',rew:'Arcana: Parchment, Mirror, Chalice',g:true,conf:false,d:"You need both Transcendence dungeons to fill all five Arcana slots."},
+{n:'Subjugation',t:'Ticketed',size:'—',lv:45,il:0,lim:'3 tickets a week',rew:'Materials',g:true,conf:true,d:"Use the tickets before Wednesday; they don't carry over."},
+{n:'Abyssal Forge: Ludra',t:'Sanctuary raid',size:'10',lv:45,il:2800,lim:'4 attempts a week, 1 final boss kill',rew:'Raid gear',g:null,conf:false,d:"The launch Sanctuary. Reported as pulled from global for rework, with no return date."},
+{n:'Vakron Sky Island',t:'Expedition',size:'5',lv:45,il:1400,lim:'Claim Exploration 3 times for a guaranteed piece',rew:'Vakron Guard (Unique) via Gear Change Vouchers',g:null,conf:false,d:"Guides disagree on whether it's on global yet."},
+{n:'Corroded Decontamination Facility',t:'Sanctuary raid',size:'10',lv:50,il:null,lim:'2 final boss kills a week',rew:'Raid gear',g:false,conf:true,d:'Korea and Taiwan.'},
+{n:'Chalice of Muspel',t:'Sanctuary raid',size:'10',lv:50,il:4500,lim:'2 final boss kills a week',rew:'Raid gear',g:false,conf:false,d:'Korea and Taiwan. Around 4,500 item level.'},
+{n:'Snowfield of Sorrow',t:'Sanctuary raid',size:'10',lv:50,il:null,lim:'—',rew:'Raid gear',g:false,conf:false,d:'Korea and Taiwan; the hardest Sanctuary so far.'},
+{n:'Submerged Life Temple · Mirror of Scarlet Desire · Abyssal Horn Den',t:'Transcendence',size:'5',lv:50,il:null,lim:'—',rew:'Arcana',g:false,conf:true,d:'Korea and Taiwan.'},
+{n:"Dying Dramata's Nest · Cradle of Nihility · Hall of Illusion · Azure Breath Island · Citadel of the Fallen Daeva",t:'Expedition',size:'5',lv:50,il:null,lim:'—',rew:'Gear',g:false,conf:true,d:'Korea and Taiwan, Chapter 1.'},
+{n:'Lower Reshanta (Abyss)',t:'Abyss PvPvE',size:'Open',lv:45,il:1000,lim:'7 hours a week (more with membership ○)',rew:'Abyss Points, Rank, Stigma Shards',g:true,conf:true,d:"Chaotic Lower Reshanta. One guide also asks for 500k Combat Power ○."},
+{n:'Middle Reshanta (Abyss)',t:'Abyss PvPvE',size:'Open',lv:45,il:3000,lim:'7 hours a week',rew:'Abyss Points, Rank',g:true,conf:true,d:'The second layer.'},
+{n:'Upper Reshanta (Abyss)',t:'Abyss PvPvE',size:'Open',lv:50,il:null,lim:'—',rew:'—',g:false,conf:true,d:'Not open on global.'},
+{n:'Battlefield',t:'PvP',size:'10 v 10',lv:45,il:0,lim:'3 victory rewards a week',rew:'PvP rewards',g:true,conf:true,d:"Global uses a normalised 10v10 battleground, so gear matters less."},
+{n:'Arena of Tactics · Arena of Solitude',t:'PvP',size:'Small',lv:45,il:0,lim:'Weekly win and participation rewards',rew:'PvP rewards',g:true,conf:false,d:'Counts not published.'},
+{n:'Spacetime Rifts',t:'Open world',size:'Open',lv:45,il:0,lim:'Respawn every 3 hours per map',rew:'A trickle of Abyss Points, even past the weekly cap',g:true,conf:true,d:'In Verteron and Altgard (and Eltnen and Morheim in Korea).'}
+];
+
+/* What opens at each level, from the global client. */
+const UNLOCKS=[[2,'Journal, Customization, Skills'],[9,'Achievements, Enhancement'],[10,'Substance Morph, Crafting, Gathering, Daeva Pass, Navigator, Item Extraction'],[12,'Daevanion board: Nezekan'],[20,'Daevanion board: Zikel'],[22,'Stigma slot 1 · Odyle Energy starts building'],[25,'Supply Request'],[27,'Stigma slot 2'],[30,'Daily Dungeons (Unknown Fissure and three level 30 instances) · Daevanion board: Vaizel'],[32,'Stigma slot 3'],[37,'Stigma slot 4'],[40,'Daevanion board: Triniel · Krao Cave arc'],[45,'Daevanion board: Azphel · Nightmare, Abyss, Rank, Market, Arena, Battlefield, Conquest tiers, Ascension Trial']];
+
+/* Item level breakpoints. */
+const ILVL=[[700,'Draupnir and Conquest tier 1',true],[1000,'Lower Reshanta (Abyss) and Ascension Trial Easy; Nightmare bosses start to feel fair',true],[1400,'Urugugu Canyon Conquest; Conquest tier 2',false],[1500,'Ascension Trial Normal',true],[1600,'Transcendence (Arcana) and its 12-hour refill',false],[2000,'Ascension Trial Hard',true],[2100,'Conquest tier 3',false],[2500,'Ascension Trial top launch tier',true],[2800,'Sanctuary: Abyssal Forge: Ludra (if it returns)',false],[3000,'Middle Reshanta (Abyss)',true]];
+
+/* Abyss bosses and sieges on a weekly clock, in server time. d = days (0 Sun … 6 Sat). */
+const SCHED=[
+{n:'Artifact Siege',w:'Lower Reshanta',d:[1,4,6],h:21,m:0,conf:true,x:"Fight for Reshanta's Root, Sulfur Tree Island and the Archipelago of Siel's Wings. One, two or three held artifacts give your faction +2.5%, +5% or +7.5% Abyss Points."},
+{n:'Guardian Lord Nahma',w:'Lower Reshanta',d:[0,5],h:21,m:0,conf:true},
+{n:'Enraged Guardian Lord Nahma',w:'Middle Reshanta',d:[0,5],h:21,m:0,conf:true},
+{n:'Executors Tamasa, Kaira and Argo',w:'Lower Reshanta',d:[1,4,6],h:21,m:30,conf:true},
+{n:'Ducal, Marakha and Dramos',w:'Middle Reshanta',d:[1,4,6],h:21,m:30,conf:true}
+];
+
+/* Field bosses with kill-based respawns. hrs = a starting guess; edit it to what the in-game list shows. */
+const FBOSS=[
+{n:'Soul Ruler Kashapa',v:'Verteron (area not confirmed)',a:'Fafnite Deposit',lv:48,hrs:6,x:'Hero-rank Cogni.'},
+{n:'Silent Dartan',v:'Southern Altamia Highland',a:'Basfelt Ruins',lv:null,hrs:6},
+{n:'High Commander Lagta',v:'Drana Plantation',a:'Lagta Fortress',lv:null,hrs:6,x:'Some guides spell it Lagla.'},
+{n:'Immortal Gartua',v:'—',a:'—',lv:null,hrs:6},
+{n:'Watcher Kaira',v:'Lower Reshanta',a:'Lower Reshanta',lv:null,hrs:3,x:'Every 3 hours.'}
+];
+
+/* Active tracking. scope: c = per character, s = shared by every character on the server.
+   kind: day = uses per day · week = uses per week · bank = gains n each daily reset up to cap · regen = gains step every every ms up to cap. */
+const TRACK=[
+{id:'duty',n:'Duty Missions',kind:'day',max:5,scope:'s',conf:true,x:'Only five pay out a day. Wanted bounties: 50,000 bound Kinah and 1,000 Abyss Points each.'},
+{id:'dimkey',n:'Dimensional Invasion key',kind:'day',max:1,scope:'s',conf:true},
+{id:'nightmare',n:'Nightmare attempts',kind:'bank',gain:2,cap:14,scope:'c',conf:true,x:'Only a clear uses one. Start on the lowest tier you haven’t cleared.',spend:[1]},
+{id:'odyle',n:'Odyle Energy',kind:'regen',step:15,every:3*36e5,cap:560,scope:'c',conf:true,x:'Builds from level 22, even offline. Conquest and Transcendence cubes cost 40; Krao Cave and Urugugu Canyon cubes cost 20.',spend:[40,20]},
+{id:'conquest',n:'Conquest rewards',kind:'regen',step:1,every:8*36e5,cap:21,scope:'c',conf:false,x:'+1 every 8 hours, banks for the week. The cap here is a week’s worth ○.',spend:[1]},
+{id:'transc',n:'Transcendence rewards',kind:'regen',step:1,every:12*36e5,cap:14,scope:'c',conf:false,il:1600,x:'+1 every 12 hours once you reach item level 1,600. The cap here is a week’s worth ○.',spend:[1]},
+{id:'dd',n:'Daily Dungeon entries',kind:'week',max:14,scope:'s',conf:true,x:'Unknown Fissure. Two a day keeps you on pace.'},
+{id:'asc',n:'Ascension Trial',kind:'week',max:3,scope:'c',conf:true},
+{id:'subj',n:'Subjugation tickets',kind:'week',max:3,scope:'c',conf:true},
+{id:'explo',n:'Exploration rewards (per dungeon)',kind:'week',max:7,scope:'c',conf:true,x:'Seven per Expedition dungeon; this counts your main one.'},
+{id:'sanct',n:'Sanctuary attempts',kind:'week',max:4,scope:'c',conf:true},
+{id:'bf',n:'Battlefield wins',kind:'week',max:3,scope:'c',conf:true},
+{id:'morphc',n:'Odyle Energy crafts (character)',kind:'week',max:4,scope:'c',conf:true,x:'Substance Morph. Each alt has its own four.'},
+{id:'morphs',n:'Odyle Energy crafts (server)',kind:'week',max:16,scope:'s',conf:true},
+{id:'skips',n:'Unclaimed cube skips',kind:'week',max:10,scope:'s',conf:true,x:'Conquest and Transcendence skips.'}
+];
+const DAILY_CHECK=['Spend Odyle Energy before it caps','Duty Missions (5)','Nightmare: one clear on a new tier','Two Daily Dungeon runs','Shugo Festival and Dimensional Invasion keys','Spacetime Rift in your region','Field bosses that are up'];
+const WEEKLY_CHECK=['Ascension Trial (3)','Subjugation tickets (3)','Sanctuary attempts','Exploration rewards in each Expedition','Battlefield wins (3)','Abyss hours used','Odyle Energy crafts (4 per character)','Season Mission points','Field bosses in Verteron and Altgard before Wednesday'];
+
+const SLOTS=['Weapon','Guard','Helmet','Shoulders','Chest','Gloves','Legs','Boots','Cape','Amulet','Earring 1','Earring 2','Ring 1','Ring 2','Bracelet','Belt'];
+const ARCANA=[['Chalice','Deus Research Base or Shattered Arkanis'],['Parchment','Shattered Arkanis'],['Compass','Deus Research Base'],['Bell','Deus Research Base'],['Mirror','Shattered Arkanis']];
+const AGRADE=[['','Empty',0],['Common','Common',20],['Rare','Rare',null],['Legendary','Legendary',null],['Unique','Unique',80]];
+const DAEV=[['Nezekan',12],['Zikel',20],['Vaizel',30],['Triniel',40],['Azphel',45]];
+const STIG=[22,27,32,37];
+
+const ZONES=[
+{n:'Poeta',f:'Elyos',lv:'3–9',x:'Elyos starter zone. Low-level only; nothing to come back for.'},
+{n:'Ishalgen',f:'Asmodian',lv:'3–7',x:'Asmodian starter zone.'},
+{n:'Verteron',f:'Elyos',lv:'1–51 (zones)',x:'The Elyos main region: the story, Sealed Dungeons, Hidden Cubes, Empyrean Traces, strongholds, field bosses and Spacetime Rifts.'},
+{n:'Altgard',f:'Asmodian',lv:'1–51 (zones)',x:'The Asmodian main region, the mirror of Verteron.'},
+{n:'Reshanta (the Abyss)',f:'Both',lv:'45',x:'Shared PvPvE between the factions. Lower and Middle layers are open on global.'},
+{n:'Eltnen',f:'Elyos',lv:'46–80 (zones)',kr:true,x:'In the global client but locked until global gets Chapter 1.'},
+{n:'Morheim',f:'Asmodian',lv:'46–80 (zones)',kr:true,x:'In the global client but locked.'}
+];
+
+const GLOSS=[
+['Kinah','The gold currency. Some is bound (can’t be traded).'],
+['Quna','The premium currency bought with real money. Global has a limited Quna-to-Kinah exchange.'],
+['Abyss Points','Earned in the Abyss, Duty Missions and Rifts. Buy Stigma Shards, Daevanion Crystal: Azphel and more. A weekly cap applies, split between PvE and PvP.'],
+['Odyle Energy','Regenerates 15 every 3 hours up to 560. Opening Expedition and Transcendence reward cubes costs it.'],
+['Item level','Your gear score. Gates dungeons, the Abyss and Ascension Trial tiers.'],
+['Combat Power','Overall power: gear, enhancement, skills, Stigma, Daevanion, Arcana and collections all add to it.'],
+['Daevanion','Five boards of stat and skill nodes (Nezekan, Zikel, Vaizel, Triniel, Azphel). Start in the centre and spend crystals on neighbouring nodes. Each crystal adds about 1 item level.'],
+['Stigma','Extra skills you choose on top of your class kit, four slots on global (22, 27, 32, 37). Levelled with Stigma Shards, mostly bought with Abyss Points.'],
+['Arcana','Cards in five slots (Chalice, Parchment, Compass, Bell, Mirror) that add stats and skill levels. From Transcendence. Bound to the character.'],
+['Manastones','Socketed into gear for a stat and 1 to 4 item level each. Fill every slot, even with cheap ones.'],
+['Enhancement','+1 item level per level on a piece. Costs climb fast at high levels.'],
+['Soul Binding · Transfer · Potential','Gear systems on global: bind, carry enhancement over to new gear, and roll extra stats.'],
+['Substance Morph','Turn materials into other items, including Odyle Energy and gear vouchers. Opens at level 10.'],
+['Sealed Dungeons','Small one-time instances across the levelling zones.'],
+['Hidden Cubes','Found around the main regions; give cosmetics and materials.'],
+['Empyrean Traces','Collectibles that feed Monoliths for permanent stats.'],
+['Monolith','Permanent stat progression fed by Traces and Abyss Feathers. Also upgrades the Amulet.'],
+['Spacetime Rift','A portal that opens every 3 hours per map, into the other faction’s region.'],
+['Duty Missions','Daily tasks; five pay out per day per server.'],
+['Daeva Pass','The season pass. Season 1 runs 30 September to 16 December 2026, with a weekly EXP cap of 50,000.'],
+['Membership','Paid subscription. Founder’s Packs include 30 days. Reported to double Lower and Middle Abyss hours ○.'],
+['Shugo Festival','Event with daily keys and Centuryroot Tokens you trade for Daevanion Crystals.'],
+['Expedition','5-player dungeons with Exploration (easier) and Conquest (harder) modes.'],
+['Sanctuary','10-player raids (two parties of five). Force content is 20.'],
+['Legion','The guild.']
+];
+
+const TIMELINE=[
+['2025-11-19','Korea and Taiwan launch','PC and mobile. Eight classes, cap 45.',true],
+['2026-01','Season 2 announced','Expedition, Raid, Ascension Trial and Nightmare content, Abyss changes.',true],
+['2026-03','Balance and Chaotic Abyss','New Stigma skills; Chaotic Abyss splits players into Western and Eastern forces.',true],
+['2026-07-01','Chapter 1: Lands of Sand and Snow (Korea, Taiwan)','The Brawler, cap 50, Eltnen and Morheim, party 5 and Sanctuary 10.',true],
+['2026-09-30','Global Early Access','Founder’s Pack owners, five days ahead.',true],
+['2026-10-05','Global launch','Free to play on Steam and PURPLE. Europe, NA East, NA West, South America and Asia.',true],
+['2026-12-16','Daeva Pass Season 1 ends','',false],
+['Later','Chapter 1 on global','Cap 50, Brawler, Eltnen and Morheim. NC hasn’t given a date.',false]
+];
+
+const PROG=[
+['Levelling','Pick a faction and class'],['Levelling','Finish the starter zone'],['Levelling','Unlock wings through the story'],['Levelling','Level 10: try Gathering, Crafting and Substance Morph'],['Levelling','Level 22: first Stigma'],['Levelling','Level 30: first Daily Dungeon'],['Levelling','Krao Cave arc done'],['Levelling','Level 45'],
+['Endgame','Item level 700: Draupnir'],['Endgame','First Nightmare clear'],['Endgame','Item level 1,000: first Abyss session'],['Endgame','Ascension Trial Easy'],['Endgame','Item level 1,600: first Transcendence run'],['Endgame','All five Arcana slots filled'],['Endgame','Full set at +4'],['Endgame','Full set at +8'],['Endgame','Item level 2,000: Ascension Trial Hard'],['Endgame','Item level 3,000: Middle Reshanta'],
+['World','Every Sealed Dungeon on your route'],['World','All Hidden Cubes in your region'],['World','All Empyrean Traces in your region'],['World','Every field boss killed once'],['World','Join a Legion'],['World','Take part in an Artifact Siege']
+];
+
+const GUIDES=[
+{id:'start',title:'Starting out',blurb:'Faction, class, server and your first hours',body:`<p>Aion 2 is a free-to-play MMORPG set about 200 years after the first Aion. You pick the <b>Elyos</b> (start in Poeta, then Verteron) or the <b>Asmodians</b> (Ishalgen, then Altgard). Each server holds one faction, and you meet the other side in the Abyss.</p>
+<ul class="mech"><li><b>Pick your server region with care.</b> Europe, NA East, NA West, South America or Asia. You get one free transfer per account, within the same faction, region and launch wave.</li>
+<li><b>Easiest classes:</b> Templar (tank) and Cleric (healer) are the most forgiving and always find groups. Gladiator is the easiest damage class. Assassin is the hardest.</li>
+<li><b>Server-wide limits:</b> the Daily Dungeon (14 a week), Duty Missions (5 a day) and some Odyle crafts are shared by every character on the server, so alts don't multiply them.</li>
+<li>Global is PC only. The PvP flag is on from the start, and direct player trades are off.</li></ul>
+<div class="tip">Use the character switcher in the sidebar: everything you track here is per character, and the server-wide counters follow the server name you give each one.</div>`},
+{id:'level',title:'Levelling to 45',blurb:'The story route and what to collect on the way',body:`<ol class="mech"><li><b>Follow the main story.</b> It gates class advancement, wings and most systems.</li>
+<li><b>Unlock wings</b> the moment the story offers them ("The Power in the Lake" / "The Being Beneath the Lake"). Flight changes how fast you move around.</li>
+<li><b>Clear Sealed Dungeons on your route</b> for one-time Daevanion Crystals, Wisdom Stones and Enhancement Stones. Don't detour for all 161.</li>
+<li><b>Grab Hidden Cubes and Empyrean Traces as you pass.</b> Traces give permanent stats through the Monolith.</li>
+<li><b>Don't enhance levelling gear.</b> Everything before 45 is replaced. The level 45 story weapon, Guard and Bracelet are the first safe targets.</li>
+<li>Krao Cave (40 to 45) closes the levelling story for both factions.</li></ol>
+<p>See <a href="#unlocks">Unlocks</a> for what each level opens.</p>`},
+{id:'at45',title:'You hit 45: what first',blurb:'The order to open the endgame',body:`<ol class="mech"><li>Do the 45 story and enhance the story weapon, Guard and Bracelet to +4.</li>
+<li>Fill every manastone slot and spend every Daevanion Crystal: both are free item level.</li>
+<li>Run <b>Draupnir</b> at 700, and use your <b>Nightmare</b> attempts every day; only clears count.</li>
+<li>At <b>1,000</b> open the Abyss (Lower Reshanta) and start Ascension Trial Easy.</li>
+<li>Push to <b>1,600</b> for Transcendence, your Arcana source. Run both Transcendence dungeons to fill all five slots.</li>
+<li>From here it's the daily and weekly loop on the <a href="#tracker">Tracker</a>.</li></ol>`},
+{id:'ilvl',title:'Gearing and item level',blurb:'Where item level comes from, cheapest first',body:`<ul class="mech"><li><b>Daevanion Crystals:</b> about +1 each. From Sealed Dungeons, regional quests, the Shugo Festival, Nightmare fragments and Abyss Points (Azphel crystals).</li>
+<li><b>Manastones:</b> +1 to +4 each. Fill every slot.</li>
+<li><b>Enhancement:</b> +1 per level per piece. Spread it: six pieces at +8 beat one at +15 and the rest at +2. Take everything to +4, then +6 to +8, and save +10 and up for gear you'll keep.</li>
+<li><b>Arcana:</b> 20 (Common) to 80 (Unique) per slot, five slots.</li>
+<li><b>Better gear grades</b> carry more base item level. A Vakron Guard (Unique) comes from two Gear Change Vouchers plus Kinah through Substance Morph ○.</li>
+<li><b>Belt</b> upgrades from Stronghold materials; the <b>Amulet</b> through the Monolith.</li></ul>
+<p>The <a href="#planner">Item level planner</a> shows what's next and where your easiest points are.</p>`},
+{id:'loop',title:'An efficient daily and weekly loop',blurb:'What to do each day, and what to finish before Wednesday',body:`<p><b>Every day (about 30 to 60 minutes):</b></p><ol class="mech"><li>Spend Odyle Energy on cubes before it caps at 560 (it fills in about 3 days from empty).</li><li>Five Duty Missions.</li><li>A Nightmare clear if you can beat a new tier.</li><li>Two Daily Dungeon runs.</li><li>Event keys and a Spacetime Rift.</li></ol>
+<p><b>Before the Wednesday reset:</b> Ascension Trial (3), Subjugation (3), Sanctuary, Exploration rewards, Battlefield wins, Abyss hours, Odyle crafts and Season Mission points. Nightmare, Conquest and Transcendence counters bank for about a week, so missing a day isn't a loss; the weekly ones don't bank.</p>
+<div class="note">Guides agree the reset is on Wednesday, but not on the hour. Hover any counter in-game for the countdown and set the matching hour in <a href="#settings">Settings</a>.</div>`},
+{id:'abyss',title:'The Abyss and Artifact Siege',blurb:'Reshanta, Abyss Points, sieges and bosses',body:`<ul class="mech"><li>Opens at level 45. Lower Reshanta at item level 1,000, Middle at 3,000. Upper isn't open on global.</li>
+<li>You get <b>7 hours a week</b> per layer, bankable to 7. Rift Stones add 1 hour (Lower/Middle). The <a href="#tracker">Tracker</a> has a stopwatch for each layer.</li>
+<li><b>Abyss Points</b> buy Stigma Shards and Azphel crystals. There's a weekly cap; past it, Spacetime Rifts still trickle a few.</li>
+<li><b>Artifact Siege:</b> Monday, Thursday and Saturday at 21:00 server time. Land the final strike on a Dimensional Core to take its artifact. Each held artifact boosts your faction's Abyss Points and opens an instanced farming area.</li>
+<li><b>Bosses:</b> Nahma on Sunday and Friday at 21:00; the Executors (Lower) and Ducal, Marakha, Dramos (Middle) on Monday, Thursday and Saturday at 21:30. See <a href="#schedule">Schedule</a> for countdowns.</li></ul>`},
+{id:'odyle',title:'Odyle Energy budgeting',blurb:'Never waste regen',body:`<p>Odyle Energy refills 15 every 3 hours (120 a day) to a cap of 560, even offline. A Conquest or Transcendence cube costs 40, Krao Cave and Urugugu Canyon cubes 20.</p><ul class="mech"><li>120 a day is three 40-cost cubes. If you log in once a day, open three and you'll never cap.</li><li>From empty it takes about 4 days and 16 hours to fill. From 400 it caps in about 33 hours, so don't leave a big stockpile over a long weekend.</li><li>Substance Morph can make extra Odyle Energy: 4 per character and 16 per server a week.</li></ul><p>The <a href="#tracker">Tracker</a> shows when you'll cap.</p>`},
+{id:'stigma',title:'Stigma, Daevanion and Arcana',blurb:'The three skill-and-stat systems',body:`<ul class="mech"><li><b>Stigma:</b> extra skills you choose. Slots at 22, 27, 32 and 37 (four on global). Level them with Stigma Shards from the Abyss. Patches move Stigmas between damage and utility, so check notes after balance updates.</li>
+<li><b>Daevanion:</b> five boards opening at 12, 20, 30, 40 and 45. Spend crystals from the centre outward on nodes for your role.</li>
+<li><b>Arcana:</b> five slots. Each card has a fixed main stat and random sub stats; feed cards in to level them. Some form sets that only work complete.</li></ul>
+<p>Track all three on <a href="#build">Build</a>.</p>`},
+{id:'alts',title:'Alts and server-wide limits',blurb:'What multiplies with more characters and what doesn’t',body:`<table><tr><th>Per character (alts add more)</th><th>Shared by the server</th></tr><tr><td>Odyle Energy · Nightmare · Conquest · Transcendence · Ascension Trial · Subjugation · Sanctuary · Exploration · Abyss hours · 4 Odyle crafts</td><td>Daily Dungeon (14 a week) · Duty Missions (5 a day) · 16 Odyle crafts · 10 cube skips · Shugo and Dimensional Invasion keys</td></tr></table>
+<p>Add each alt on <a href="#chars">Characters</a> with the same server name and the shared counters follow them.</p>`},
+{id:'money',title:'Membership and the shop',blurb:'What’s paid and what isn’t',body:`<ul class="mech"><li>Aion 2 is free to play. Quna is the premium currency.</li><li>Membership is a subscription; every Founder's Pack includes 30 days. In Korea, the link between paid membership, currency and gameplay perks drew complaints.</li><li>NC says store cosmetics give no gameplay advantage.</li><li>Global has a limited Quna-to-Kinah exchange and no direct player trades.</li></ul><div class="note">Membership perks differ between Korea and global and have changed; read the in-game shop text before you buy.</div>`},
+{id:'global',title:'Global vs Korea',blurb:'What global has, and what’s coming',body:`<table><tr><th></th><th>Global</th><th>Korea and Taiwan</th></tr>
+<tr><td>Level cap</td><td>45</td><td>50 (since 1 July 2026)</td></tr><tr><td>Classes</td><td>8</td><td>9 (Brawler)</td></tr><tr><td>Regions</td><td>Verteron, Altgard</td><td>+ Eltnen, Morheim</td></tr><tr><td>Abyss</td><td>Lower, Middle</td><td>+ Upper</td></tr><tr><td>Group sizes</td><td>Party 5, Sanctuary 10, Force 20</td><td>Same since Chapter 1</td></tr></table>
+<p>NC said global would get already-finished content based on data and feedback rather than on a fixed schedule. No dated global roadmap has been published.</p>`},
+{id:'mistakes',title:'Common mistakes',blurb:'Things that cost new Daevas time',body:`<ul class="mech"><li>Enhancing levelling gear.</li><li>Letting Odyle Energy sit at 560.</li><li>Skipping Nightmare because you might wipe; only clears use an attempt.</li><li>Burning the Daily Dungeon's 14 shared entries on one alt early in the week.</li><li>Leaving weekly tickets until after Wednesday's reset; they don't carry over.</li><li>Pushing one piece to +15 instead of the whole set to +8.</li><li>Empty manastone slots.</li><li>Reading Korean-build guides as if everything applies to global.</li></ul>`}
+];
+
+/* ================= MAPS, AREAS, PETS =================
+   Areas as the in-game map names them: 'Area|hunting grounds|villages|other', each list split by ';'.
+   Nobody publishes coordinates under a licence we can use, so the maps take your own screenshot of the
+   in-game map and the pins are yours. */
+const AREAS={
+verteron:["Altamia Canyon|Altamia Canyon|Canyon Campsite|Illusion Hideout;Canyon Thieves Den",
+"Aullaeu Village|Aullaeu Village;Forest of Exiles|Holyaul's Residence;Abandoned Wind Breeze Office|Place of Aulamus",
+"Crimson Isle|Crimson Isle|Crimson Isle Outpost|",
+"Dawn Legion Base||Dawn Legion Base|Dawn Legion Recovery Room;Crematorium;Caelid's Office;Dawn Legion Command Post",
+"Drana Plantation|Drana Plantation;Drana Cultivation Area;Drana Processing Area|Notos Legion Outpost;Laborer's Rest Stop;Drana Transport Hub|",
+"Eastern Altamia Highland|Eastern Altamia Highland;Destroyed Temple Site;Contaminated Sanctum;Ancient Zumion Temple Site|Alert Observation Post;Hill of Purification|Purifying Altar;Plateau Hill Base",
+"Eastern Cantas Valley|Eastern Cantas Valley|Steep Guard Post;Eastern Cantas Campsite|Cantas Valley;Ugaros Thieves Campsite",
+"Ellun River Marsh|Ellun River Marsh;Contaminated Marsh;Ellun River Meadow;Spirit's Rest|Marsh Outpost;Marsh Legion Campsite;Collapsed Verteron Barrier Tower|",
+"Ellun River Midstream|Ellun River Midstream;Anguish Hill|Hideout in Front of the Ruins;Dundu's Rest;Pamos Farm;Illusion Cavaliers' Campsite;Ruin Exploration Campsite|Miros Post;Cohta Outpost",
+"Eternal Isle|Eternal Isle||",
+"Garden of the Illusion God|Garden of the Illusion God|Pilgrim's Rest|Ardus Shrine Entrance;Sacrifice's Rest",
+"Kraka Footpath|Kraka Footpath|Kraka Footpath Campsite|Romlon's Hideout;Mantasch Patrol Base;Sabga Balaur Campsite",
+"Nahid Brigade Fortress|Nahid Brigade Fortress||",
+"Pilgrim's Ridge|Pilgrim's Ridge|Dawn Legion Temporary Outpost|Deserter Encampment;Gargos Thieves Campsite",
+"Scarlet Forest|Scarlet Forest|Scarlet Forest Observation Site|Sehna Outpost;Maktashan Outpost",
+"Southern Altamia Highland|Southern Altamia Highland|Highland's End Campsite|Forest Shade Execution Site;Renegade Hideout",
+"Tolbas Forest|Northern Tolbas Forest;Southern Tolbas Forest;Eastern Tolbas Forest|Wind Breeze Merchants HQ;Southern Shugo Station;Astin Mercenaries Base;Eastern Shugo Station;Aullaeu Village Border;Night Dew Cave;Northern Shugo Station|Kizeri's Cave;Aullaeu Funeral Island;Kochi's Quarters;Astin's Secret Storage;Poacher's Base",
+"Verteron Fortress Ruins|Verteron Fortress Ruins;Destroyed Abyss Gate|Collapsed Pillar|Krall Command Post;Illusion Oratory",
+"Western Altamia Highland|Western Altamia Highland;Rock Tomb Hill|Rock Hill Outpost;Beast Hunter Campsite|",
+"Western Cantas Valley|Western Cantas Valley|Valley Outpost;Cantas Valley Base;Coastal Camp|",
+"Zumion Village||Zumion Village|Notos Legion Office;Blessing Room"],
+altgard:["Basfelt Ruins|Basfelt Ruins|Basfelt Waterfall;Graverobber Campsite;Destroyed Ruins;Shulak Street Stall;Fissure Cave|Flauke Legion Outpost;Legion Base Ruins",
+"Battlescar Mound|Battlescar Mound|Briskwind Shelter|",
+"Black Claw Village|Black Claw Village|Secret Rendezvous Point;Kumrica's Cellar;Muqaka's Quarters|Amurahta Surveillance Base",
+"Dranactus|Dranactus|Hidden Cave;North Laborer's Tent;South Laborer's Tent|Watchtower Camp;Latrima Outpost",
+"Dredgion Crash Site|Dredgion Crash Site|Galorik's Inspection Area;Creion Campsite;Temporary Investigation Base;Searcher Rock;Canyon Dispatch Area;Mire Campsite|Rubek Thieves' Occupied Territory",
+"Eastern Gribade Highland|Eastern Gribade Highland|Amunta's Hideout|Granach's Hideout;Barahta Extermination Unit Outpost",
+"Fafnite Deposit|Fafnite Deposit|Steel Hammer Workcamp|",
+"Immortal Isle|Immortal Isle||",
+"Impetusium Square|Impetusium Square|Collapsed Hall of Fame;Outskirts Stall|Andsha Forward Base",
+"Lagta Fortress|Lagta Fortress||",
+"Mahindel River|Mahindel River|Mahindel Cliff;Steel Hammer Base;Steel Hammer Merchants HQ|",
+"Moslan Forest|Moslan Forest|Odar's Shade;Elim's Rest;Forest Hideout;Collapsed Chasm|Corrupted Forester Ruins;Blades Temporary Outpost;Logger's Rest Ruins",
+"Nameless Cemetery|Nameless Cemetery|Gravekeeper Camp;Neglected Crematorium|Crypt;Graverobber Den",
+"Nornir Assembly||Nornir Assembly|",
+"Purifying Forest|Purifying Forest|Guide Rest Stop;Faded Stump;Healing Spring|Root of the Sacred Tree Entrance;Forest Marauder Campsite;Wind Altar;Fire Altar;Earth Altar;Water Altar",
+"Quai Campsite|Calderon Canyon|Quai Campsite|",
+"Safe Haven||Safe Haven|Shadow Hall",
+"Sanctum Outpost|Sanctum Outpost|Fang Hideout;Temporary Retreat;Watcher's Tent|Zikel's Sanctum;Sanctum Outskirts Watch;Sanctum Dumpsite;Prison Cell",
+"Silent Hill|Silent Hill||",
+"Southern Gribade Highland|Idun's Lake;Southern Gribade Highland|Steel Hammer Temporary Trading Post;Zemurru's Tomb|",
+"Spirit Isle|Spirit Isle|Guide's Dwelling|",
+"Tranein Highland|Tranein Highland;Tranein Pond;Munin's Bridge||",
+"Uruthumheim|Uruthumheim|Abandoned Site;Minushan Site;Victorious Daeva's Statue|",
+"Western Gribade Highland|Western Gribade Highland|Abandoned Campsite|Detlef Thieves Camp"],
+lower:["Reshanta's Root|||Artifact (Artifact Siege)","Sulfur Tree Island|||Artifact (Artifact Siege)","Archipelago of Siel's Wings|||Artifact (Artifact Siege)"]
+};
+const MAPS=[{id:'verteron',n:'Verteron',f:'Elyos'},{id:'altgard',n:'Altgard',f:'Asmodian'},{id:'poeta',n:'Poeta',f:'Elyos'},{id:'ishalgen',n:'Ishalgen',f:'Asmodian'},{id:'lower',n:'Lower Reshanta',f:'Both'},{id:'middle',n:'Middle Reshanta',f:'Both'}];
+/* Region totals from community maps. They count differently, so all are ○. */
+const MAPREF={verteron:'About 560 Empyrean Traces and 1,440 Hidden Cube spawn points (cubes appear at some of them).',altgard:'About 560 Empyrean Traces, 61 Sealed Dungeons, 15 Spacetime Rifts, 61 teleport statues, 89 dungeon entrances and 1,371 Hidden Cube spawn points.'};
+const areaList=m=>(AREAS[m]||[]).map(s=>{const [n,h,v,o]=s.split('|'),sp=x=>x?x.split(';'):[];return {n,h:sp(h),v:sp(v),o:sp(o)};});
+
+/* Pin types: icon, name, category. */
+const PINT={cube:['🧊','Hidden Cube','item'],trace:['🪶','Empyrean Trace','item'],sealed:['🚪','Sealed Dungeon','item'],gather:['⛏️','Gathering node','item'],chest:['🎁','Chest','item'],
+ boss:['💀','Field boss','enemy'],named:['👹','Named monster','enemy'],mob:['⚔️','Hunting spot','enemy'],pet:['🐾','Pet soul farm','pet'],
+ rift:['🌀','Spacetime Rift','travel'],tele:['🗿','Teleport statue','travel'],npc:['💬','NPC or quest','other'],note:['📌','Note','other']};
+const PCAT={item:'Items',enemy:'Enemies',pet:'Pets',travel:'Travel',other:'Other'};
+
+/* Pets by genus: [genus, what its collection boosts, from monster souls, from chests and Black Cloud Merchants only]. */
+const PETG=[
+['Cogni','Offence: Attack and Critical',"Krall Laborer, Krall Warrior, Krall Warshaman, Klaw, Klaw Scout, Elite Klaw, Manduri Fighter, Elite Manduri Fighter, Manduri Trebuchet Worker, Nagarant Guardian Warrior, Aullaeu Shaman, Biruta, Kuru Worker, Kuru Tinkerer, Kuru Overseer, Enhanced Krall Combatant, Enhanced Krall Sentry, Kerubar, Kerubian, Kerubiel, Drakan Watcher, Dracuni Herbalist, Naga Elite Priest, Modified Lupyllini, Decomposed Lupyllini",
+ "Elite Dratona, Dratona, Dratona Tinkerer, Varg Berserker, Aultross's Doppelganger, Mumu Warrior, Mumu Worker, Mumu Overseer, Biruta Herbalist, Urugugu Brawler, Sentinel K'nash, Phantasmal Lakshmi, Pretor Veil Administrator, Furious Feruk, Addicted Shulak Cart Worker, Predator Saraswati"],
+['Fera','Movement and Stamina',"Papis, Crestlich, Male Crestlich, Sparkie, Giant Sparkie, Fossa, Skama, Aberrant Skama, Aberrant Armadon, Starturtle, Aberrant Tog, Brax, Sylphen, Potcrab, Aberrant Potcrab, Baby Aberrant Odyle Spider, Mutated Aberrant Odyle Spider, Skyray, Drakan Guard Dog, Kailin, Young Kailin, Slink, Young Slink, Crasaur, Lupyllini, Airon, Cave Bat, Ursus, Young Ursus, Giant Bee, Aberrant Bee, Scorpion, Spider, Ashen Spider, Unstable Spider, Karnif, Modified Karnif, Aberrant Coradon, Eternal Coradon, Zaif, Aberrant Zaif, Mutated Cadaver Insectoid, Vivel",
+ "Elite Keneire, Kernon, Aberrant Odyle Spider, Elite Ursus, Armadon, Grave Rat, Coradon, Cadaver Insectoid, Tog, Young Tog, Elite Karnif, Tamed Karnif, Tayga, Withered Branch Spider, Tamed Zaif, Ashen Lupyllini, Mutated Ursus, Mutated Insectoid Valka, Venomous Insect Sram, Basilisk, Ashen Basilisk, Flame Barghest"],
+['Natura','Elemental and magic',"Zelophi, Fungie, Fungen, Forest Spirit, Mutated Forest Spirit, Gravi, Large Leaf Gravi, Magic Gravi, Forest Specter, Withered Agrint, Agrint, Korutin Worker, Stone Spirit, Nepenthes, Lesser Wind Spirit, Lesser Fire Spirit, Lesser Water Spirit, Lesser Earth Spirit, Intermediate Wind Spirit, Intermediate Fire Spirit, Intermediate Water Spirit, Intermediate Earth Spirit, Superior Wind Spirit, Superior Fire Spirit, Superior Water Spirit, Superior Earth Spirit, Forest Guardian, Drana Spore, Rufflesia",
+ "Black Smoke Murute, Ultimate Wind Spirit, Ultimate Fire Spirit, Ultimate Water Spirit, Ultimate Earth Spirit, Dionae, Forest Dionae, Ashen Dionae, Red Spark Ignus, Dried Up Forest Guardian, Mutated Forest Guardian, Odyle Store Spirit, Ancient Spirit, Spirit King's Bodyguard Warrior, Elite Poisonous Spore Fungen, Ashen Agrint, Thin Agrint, Dry Leaf Agrint, Black Spirit"],
+['Varian','Defence and HP',"Kalgolem, Blue Kalgolem, Marsh Targon, Swarm, Drana Swarm, Drakan Probe, Oculazen, Pino, Pino Worker, Forest Monster, Drana Predator, Silver Blade Rotan, Guardite, Watcher, Elite Guardite, Dark Spirit",
+ "Drakana Kalgolem, Krao Mutant, Slime, Drana Slime, Contaminated Slime, Vigilant Oculazen, Krao Test Subject, Harcon, Krao Seal Guardian, Swamp Monster, Distorted Mutant, Gatekeeper Pinopi, Drana Mutant Brute, Fated Mutant Brute, Cadaver Cleaner, Parasite Swarm, Drana Contaminant, Drana Mutant, Faded Mutant, Fated Floater, Flame Stone Guardian Statue, Duduka Worker, Duduka Trebuchet Worker, Faded Predator, Mudthorn, Poison Blood, Elite Soulless Corpse Gnat, Congealed Drana, Faded Drana"]];
+const PETS=PETG.flatMap(([g,,a,b])=>[...a.split(', ').map(n=>({n,g,combat:true})),...b.split(', ').map(n=>({n,g,combat:false}))]);
+const PETSP=[['Pagati','Tsenka Merchants or Advance: Pet Chest'],['Black Dragon',"Daeva's Chest of Might"],['Swift Lugi','Daeva Pass (Season 1)'],['Wandering Merchant Lugi','Shugo Festival Trade Shop'],['White Bunny','Atelier Shop'],['Chonky Hamster','Atelier Shop']];
+const PETSTART=[['Pet Selection Chest (mail after you make the character, pick one)',[['Papis','+1 mount ground speed'],['Silver Blade Rotan','−0.1% mount sprint Stamina cost'],['Korutin Worker','+3 Stamina'],['Black Smoke Murute','+3 Stamina']]],
+ ['Episode 1 quest, talk to Kaidros (pick one)',[['Fossa','+1 ground speed, rideable'],['Armadon','+1 mount ground speed'],['Tog','+1 mount ground speed']]]];
+const PETREC=new Set(['Elite Dratona','Varg Berserker','Phantasmal Lakshmi','Predator Saraswati','Aberrant Odyle Spider','Elite Ursus','Ashen Basilisk','Flame Barghest','Ultimate Wind Spirit','Ultimate Fire Spirit','Ultimate Water Spirit','Ultimate Earth Spirit',"Spirit King's Bodyguard Warrior",'Black Spirit','Drakana Kalgolem','Drana Mutant Brute','Flame Stone Guardian Statue']);
+/* 5 souls unlock a pet, 25 more make level 2, 75 more level 3 (Transformation). */
+function petLv(s){s=+s||0;return s>=105?{lv:3,from:105,to:105}:s>=30?{lv:2,from:30,to:105}:s>=5?{lv:1,from:5,to:30}:{lv:0,from:0,to:5};}
+
+/* Newer Steam apps keep their art under a hashed path, so TWArt's /3393110/header.jpg 404s. */
+const HERO='https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3393110/10aa4b096ebe6af0d1dd7882e5ba004271aef6f7/header.jpg';
+const TZS=[['Europe','Europe/Paris'],['NA East','America/New_York'],['NA West','America/Los_Angeles'],['South America','America/Sao_Paulo'],['Asia','Asia/Tokyo']];
+const DAYN=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const TPRESETS=[['Odyle +15',180],['Field boss (6 h guess)',360],['Spacetime Rift',180],['Conquest +1',480],['Transcendence +1',720]];
+
+/* ================= STATE ================= */
+const newChar=(n,srv)=>({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:n||'My Daeva',fac:'Elyos',cls:'templar',lvl:1,ilvl:0,cp:0,server:srv||'',member:false,
+  daily:{},week:{},cnt:{},regen:{},dAt:0,wAt:0,abyss:{lower:{used:0,run:0},middle:{used:0,run:0}},enh:{},enhT:{},arc:{},stig:['','','',''],dae:{},prog:{},got:{},pets:{},petSp:{},kc:{},ac:{}});
+let S={chars:[],cur:'',srv:{},set:{tz:'Europe/Paris',rDay:3,rHour:7,rTz:'UTC'},custom:[],kills:{},bossHrs:{},timers:[],notes:'',pins:[],pk:{},enemies:[],mapPref:{off:{},hide:false,last:'cube'}};
+try{const s=JSON.parse(localStorage.getItem('a2_state'));if(s)S=Object.assign(S,s);}catch(e){}
+if(!S.chars.length){const c=newChar();S.chars.push(c);S.cur=c.id;}
+/* older saves: give every character the map, pet and kill fields */
+S.chars.forEach(c=>{for(const k of ['got','pets','petSp','kc','ac'])c[k]=c[k]||{};});
+const save=()=>{try{localStorage.setItem('a2_state',JSON.stringify(S));}catch(e){}};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const mark=c=>c?'<span class="conf" title="From NC or several guides that agree">●</span>':'<span class="unv" title="Sources disagree, one source, or a Korean number; check in-game">○</span>';
+const C=()=>S.chars.find(c=>c.id===S.cur)||S.chars[0];
+const srvOf=c=>{const k=(c.server||'(no server)').trim();return S.srv[k]||(S.srv[k]={daily:{},week:{},dAt:0,wAt:0});};
+const clsOf=id=>CLASSES.find(x=>x.id===id)||CLASSES[0];
+const fmtN=n=>Number(n||0).toLocaleString();
+function dur(ms){const s=Math.max(0,Math.round(ms/1e3)),d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),x=s%60;return d?`${d}d ${h}h ${String(m).padStart(2,'0')}m`:(h?h+'h ':'')+String(m).padStart(h?2:1,'0')+'m '+String(x).padStart(2,'0')+'s';}
+const when=t=>new Date(t).toLocaleString([],{weekday:'short',hour:'2-digit',minute:'2-digit'});
+
+/* ---- time zones: turn "Wednesday 07:00 in zone X" into a timestamp ---- */
+function tzParts(tz,t){try{const p={};new Intl.DateTimeFormat('en-US',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',second:'numeric',weekday:'short'}).formatToParts(new Date(t)).forEach(x=>p[x.type]=x.value);
+  return {y:+p.year,mo:+p.month-1,d:+p.day,h:+p.hour%24,mi:+p.minute,s:+p.second,wd:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(p.weekday)};}catch(e){return tzParts('UTC',t);}}
+const tzOff=(tz,t)=>{const p=tzParts(tz,t);return Date.UTC(p.y,p.mo,p.d,p.h,p.mi,p.s)-Math.floor(t/1e3)*1e3;};
+function zoned(tz,y,mo,d,h,mi){const g=Date.UTC(y,mo,d,h,mi);let t=g-tzOff(tz,g);return g-tzOff(tz,t);}
+/* the next time at h:mi on one of the weekdays (null = any day) after t */
+function nextAt(tz,days,h,mi,t){const p=tzParts(tz,t);for(let i=0;i<9;i++){const x=zoned(tz,p.y,p.mo,p.d+i,h,mi),w=tzParts(tz,x).wd;if(x>t&&(!days||days.includes(w)))return x;}return t+864e5;}
+function prevAt(tz,days,h,mi,t){const p=tzParts(tz,t);for(let i=0;i<9;i++){const x=zoned(tz,p.y,p.mo,p.d-i,h,mi),w=tzParts(tz,x).wd;if(x<=t&&(!days||days.includes(w)))return x;}return t-864e5;}
+const lastDaily=t=>prevAt(S.set.rTz,null,S.set.rHour,0,t);
+const lastWeekly=t=>prevAt(S.set.rTz,[S.set.rDay],S.set.rHour,0,t);
+const nextDaily=t=>nextAt(S.set.rTz,null,S.set.rHour,0,t);
+const nextWeekly=t=>nextAt(S.set.rTz,[S.set.rDay],S.set.rHour,0,t);
+
+/* ---- resets: clear daily and weekly use, bank Nightmare, roll the Abyss clock ---- */
+function abyssUsed(a,now){return a.used+(a.run?now-a.run:0);}
+function rollover(){const now=Date.now(),d=lastDaily(now),w=lastWeekly(now);let ch=false;
+  for(const c of S.chars){
+    if(c.dAt<d){const n=c.dAt?Math.max(1,Math.round((d-c.dAt)/864e5)):0;c.daily={};
+      const nm=TRACK.find(t=>t.id==='nightmare');c.cnt.nightmare=Math.min(nm.cap,(c.cnt.nightmare==null?nm.gain:c.cnt.nightmare)+n*nm.gain);
+      c.dAt=d;ch=true;}
+    if(c.wAt<w){c.week={};for(const k in c.abyss){const a=c.abyss[k];a.used=0;if(a.run)a.run=w;}c.wAt=w;ch=true;}
+  }
+  for(const k in S.srv){const s=S.srv[k];if(s.dAt<d){s.daily={};s.dAt=d;ch=true;}if(s.wAt<w){s.week={};s.wAt=w;ch=true;}}
+  if(ch)save();return ch;}
+
+/* ---- counters ---- */
+function regenNow(c,t,now){const r=c.regen[t.id];if(!r)return null;const ticks=Math.floor((now-r.at)/t.every);const v=Math.min(t.cap,r.v+ticks*t.step);return {v,next:r.v+ticks*t.step>=t.cap?0:r.at+(ticks+1)*t.every,full:v>=t.cap?0:r.at+Math.ceil((t.cap-r.v)/t.step)*t.every};}
+function regenSet(c,t,v,now){v=Math.max(0,Math.min(t.cap,v));const cur=c.regen[t.id];
+  /* keep the partial tick when spending, so the next +step stays on time */
+  if(cur){const ticks=Math.floor((now-cur.at)/t.every),old=Math.min(t.cap,cur.v+ticks*t.step);c.regen[t.id]=old>=t.cap?{v,at:now}:{v,at:cur.at+ticks*t.every};}
+  else c.regen[t.id]={v,at:now};}
+function used(t,c){const s=srvOf(c),bag=t.kind==='day'?(t.scope==='s'?s.daily:c.daily):(t.scope==='s'?s.week:c.week);return {bag,n:+bag[t.id]||0};}
+function abyssMax(c){return (c.member?14:7)*36e5;}
+
+/* ================= PAGES ================= */
+const PAGES=[['home','Dashboard'],
+ ['_'],['tracker','Tracker'],['checklist','Dailies and weeklies'],['schedule','Schedule'],['timers','Timers'],
+ ['_'],['maps','Maps'],['areas','Areas and collectibles'],['pets','Pets'],['bosses','Enemies and bosses'],
+ ['_'],['chars','Characters'],['planner','Item level planner'],['build','Build: Stigma, Daevanion, Arcana'],['progress','Progression'],
+ ['_'],['lookup','Search'],['guides','Guides'],['classes','Classes'],['content','Dungeons and raids'],['unlocks','Unlocks by level'],['abyss','The Abyss'],['world','Regions'],['glossary','Glossary'],['updates','Global vs Korea, updates'],
+ ['_'],['notes','My Notes'],['settings','Settings']];
+const GROUPS=['Active tracking','Maps and collections','Your Daevas','Lookups and guides','More'];
+const REAL=PAGES.filter(p=>p[0]!=='_');
+function buildNav(cur){let gi=0;const c=C();document.body.classList.toggle('asmo',c.fac==='Asmodian');
+  $('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>AION 2<br>ASSISTANT</h1>'+
+  `<select class="who" id="who" title="Active character">${S.chars.map(x=>`<option value="${x.id}"${x.id===c.id?' selected':''}>${esc(x.name)} · ${esc(clsOf(x.cls).n)} ${x.lvl}</option>`).join('')}</select>`+
+  PAGES.map(([id,n])=>id==='_'?`<div class="grp">${GROUPS[gi++]}</div>`:`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');
+  $('who').onchange=e=>{S.cur=e.target.value;save();route(true);};}
+
+function alerts(c,now){const a=[];
+  for(const t of TRACK.filter(t=>t.kind==='regen')){if(t.il&&c.ilvl<t.il)continue;const r=regenNow(c,t,now);if(r&&r.v>=t.cap)a.push(`<b>${esc(t.n)}</b> is full at ${t.cap}. Spend some or it's wasted.`);else if(r&&r.full&&r.full-now<6*36e5)a.push(`<b>${esc(t.n)}</b> caps in ${dur(r.full-now)}.`);}
+  if((c.cnt.nightmare||0)>=14)a.push('<b>Nightmare</b> is at 14 attempts; new ones are being lost.');
+  const wl=nextWeekly(now)-now;if(wl<24*36e5){const left=TRACK.filter(t=>t.kind==='week').filter(t=>used(t,c).n<t.max).length;if(left)a.push(`Weekly reset in ${dur(wl)}, with ${left} weekly counters not used up.`);}
+  return a;}
+
+function pgHome(){const c=C(),now=Date.now(),cl=clsOf(c.cls),s=srvOf(c);
+  const nd=nextDaily(now),nw=nextWeekly(now),ev=upcoming(now,1)[0];
+  const dDone=DAILY_CHECK.filter((_,i)=>c.daily['c'+i]).length,wDone=WEEKLY_CHECK.filter((_,i)=>c.week['c'+i]).length;
+  const od=regenNow(c,TRACK.find(t=>t.id==='odyle'),now),nextIl=ILVL.find(x=>x[0]>(+c.ilvl||0)),nextU=UNLOCKS.find(u=>u[0]>c.lvl);
+  const al=alerts(c,now);
+  return `<div class="tw-hero">AION 2<img src="${HERO}" alt="AION 2 key art" loading="lazy" onerror="this.remove()"></div><h2>Aion 2 Assistant</h2><p class="sub">For the global PC version (cap 45). Your checklists reset themselves on the server reset, your counters refill on their own clocks, and everything is saved on this device for each character.</p>
+<div class="card ch"><div><b class="big">${esc(c.name)}</b> <span class="tag ${c.fac==='Elyos'?'y':'b'}">${esc(c.fac)}</span><span class="tag">${esc(cl.n)}</span><span class="tag">Level ${c.lvl}</span><span class="tag">Item level ${fmtN(c.ilvl)}</span>${c.server?`<span class="tag">${esc(c.server)}</span>`:''}</div><a class="mob" href="#chars">Edit</a></div>
+${al.map(x=>`<div class="alert">${x}</div>`).join('')}
+<div class="stats"><div class="stat"><small>Daily reset</small><span class="big" data-cd="${nd}">${dur(nd-now)}</span></div><div class="stat"><small>Weekly reset (${DAYN[S.set.rDay].slice(0,3)})</small><span class="big" data-cd="${nw}">${dur(nw-now)}</span></div>
+<div class="stat"><small>Odyle Energy</small><a class="mob big" href="#tracker">${od?od.v:'—'} / 560</a></div><div class="stat"><small>Nightmare</small><a class="mob big" href="#tracker">${c.cnt.nightmare??'—'} / 14</a></div>
+<div class="stat"><small>Dailies</small><a class="mob big" href="#checklist">${dDone} / ${DAILY_CHECK.length}</a></div><div class="stat"><small>Weeklies</small><a class="mob big" href="#checklist">${wDone} / ${WEEKLY_CHECK.length}</a></div>
+<div class="stat"><small>Daily Dungeon (server)</small><a class="mob big" href="#tracker">${14-(+s.week.dd||0)} left</a></div><div class="stat"><small>Lower Abyss left</small><a class="mob big" href="#tracker">${dur(Math.max(0,abyssMax(c)-abyssUsed(c.abyss.lower,now))).replace(/ \d+s$/,'')}</a></div>
+<div class="stat"><small>Next event</small>${ev?`<a class="mob" href="#schedule">${esc(ev.n)}</a><div class="dim mono" data-cd="${ev.t}">${dur(ev.t-now)}</div>`:'—'}</div>
+<div class="stat"><small>Pets unlocked</small><a class="mob big" href="#pets">${PETS.filter(p=>(+c.pets[p.n]||0)>=5).length+PETSP.filter(([n])=>c.petSp[n]).length}</a></div><div class="stat"><small>Map pins</small><a class="mob big" href="#maps">${S.pins.length}</a></div>
+<div class="stat"><small>Next item level step</small>${nextIl?`<a class="mob" href="#planner">${fmtN(nextIl[0])}</a><div class="dim">${fmtN(nextIl[0]-(+c.ilvl||0))} to go</div>`:'<span class="ok">All open</span>'}</div>
+${c.lvl<45&&nextU?`<div class="stat"><small>Next unlock</small><a class="mob" href="#unlocks">Level ${nextU[0]}</a><div class="dim">${esc(nextU[1].split(' · ')[0])}</div></div>`:''}</div>
+<div class="grid">${REAL.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> come from NC or several guides that agree. Facts marked <span class="unv">○</span> come from one source, disagree, or are Korean numbers that may differ on global. Hover the in-game counters for the real timers, and set your reset hour in <a href="#settings">Settings</a>.</div>`;}
+const TILE={tracker:'Odyle, Nightmare, Conquest, Transcendence, weekly counts and Abyss hours',checklist:'Dailies and weeklies that clear on reset',schedule:'Artifact Siege and Abyss bosses with countdowns',bosses:'Field boss respawns, your own bosses, monster kills and souls',maps:'Your map with pins for items, enemies and pets',areas:'Every area of Verteron and Altgard with counters',pets:'All the pets with a soul tracker',timers:'Your own countdowns',chars:'Every character and server',planner:'What your item level opens next, and enhancement',build:'Stigma slots, Daevanion boards, Arcana',progress:'Starter zone to Middle Reshanta',lookup:'Search everything at once',guides:'Starting out to the Abyss, budgeting and alts',classes:'All eight classes, plus the Brawler',content:'Every dungeon with gates and limits',unlocks:'What opens at each level',abyss:'Reshanta, siege, bosses and points',world:'Starter zones to Eltnen and Morheim',glossary:'Kinah to Monolith',updates:'Timeline and what global is missing',notes:'Your own notes',settings:'Server time and the reset hour'};
+
+/* ---- Tracker ---- */
+function pgTracker(){const c=C(),now=Date.now(),s=srvOf(c);
+  const card=t=>{const sc=`<span class="sc">${t.scope==='s'?'server':'character'}</span>`,x=t.x?`<div class="dim" style="font-size:12px">${esc(t.x)}</div>`:'';
+    if(t.kind==='regen'){const r=regenNow(c,t,now),v=r?r.v:null,lock=t.il&&c.ilvl<t.il;
+      return `<div class="card"><b>${esc(t.n)}</b>${sc} ${mark(t.conf)}<div class="row"><span class="v">${v==null?'—':v}<small> / ${t.cap}</small></span></div>
+<div class="bar"><i class="${v>=t.cap?'full':''}" style="width:${v==null?0:v/t.cap*100}%"></i></div>
+${lock?`<div class="wn">Opens at item level ${fmtN(t.il)}.</div>`:r?`<div class="dim mono" style="font-size:12px">${r.next?`+${t.step} in <span data-cd="${r.next}">${dur(r.next-now)}</span>`:'<span class="bad">Full</span>'}${r.full?` · full ${when(r.full)}`:''}</div>`:'<div class="dim">Type your in-game value to start.</div>'}
+<div class="row"><input type="number" class="num" data-rset="${t.id}" placeholder="Set" min="0" max="${t.cap}">${(t.spend||[]).map(n=>`<button class="sm" data-rsp="${t.id}" data-n="${n}">−${n}</button>`).join('')}</div>${x}</div>`;}
+    if(t.kind==='bank'){const v=c.cnt[t.id]??t.gain;return `<div class="card"><b>${esc(t.n)}</b>${sc} ${mark(t.conf)}<div class="row"><span class="v">${v}<small> / ${t.cap}</small></span></div><div class="bar"><i class="${v>=t.cap?'full':''}" style="width:${v/t.cap*100}%"></i></div>
+<div class="dim" style="font-size:12px">+${t.gain} each daily reset</div><div class="row"><button class="sm" data-bk="${t.id}" data-n="-1">Cleared −1</button><button class="sm" data-bk="${t.id}" data-n="1">+1</button><input type="number" class="num" data-bset="${t.id}" placeholder="Set" min="0" max="${t.cap}"></div>${x}</div>`;}
+    const u=used(t,c),left=t.max-u.n;
+    return `<div class="card"><b>${esc(t.n)}</b>${sc} ${mark(t.conf)}<div class="row"><span class="v">${left}<small> left of ${t.max} ${t.kind==='day'?'today':'this week'}</small></span></div><div class="bar"><i style="width:${u.n/t.max*100}%"></i></div>
+<div class="row"><button class="sm" data-use="${t.id}" data-n="1" ${left<=0?'disabled':''}>Used one</button><button class="sm" data-use="${t.id}" data-n="-1" ${u.n<=0?'disabled':''}>Undo</button></div>${x}</div>`;};
+  const ab=k=>{const a=c.abyss[k],u=abyssUsed(a,now),mx=abyssMax(c),left=mx-u;return `<div class="card"><b>${k==='lower'?'Lower':'Middle'} Reshanta hours</b><span class="sc">character</span> ${mark(true)}<div class="row"><span class="v" data-ab="${k}">${dur(Math.max(0,left))}</span></div><div class="bar"><i class="${left<=0?'full':''}" data-abb="${k}" style="width:${Math.min(100,u/mx*100)}%"></i></div>
+<div class="row"><button class="${a.run?'':'pri'} sm" data-abt="${k}">${a.run?'■ Leave the Abyss':'▶ Enter the Abyss'}</button><input type="number" class="num" data-abset="${k}" placeholder="min left" min="0"></div><div class="dim" style="font-size:12px">${c.member?'14':'7'} hours a week${c.member?' with membership ○':''}. Press Enter when you go in and the clock runs until you leave.</div></div>`;};
+  return `<h2>Tracker</h2><p class="sub">Live counters for <b>${esc(C().name)}</b>${c.server?` on ${esc(c.server)}`:''}. Set each one to what the game shows once; after that they refill, bank and reset on their own.</p>
+<h3>Refilling</h3><div class="ctr">${TRACK.filter(t=>t.kind==='regen'||t.kind==='bank').map(card).join('')}</div>
+<h3>Today</h3><div class="ctr">${TRACK.filter(t=>t.kind==='day').map(card).join('')}</div>
+<h3>This week</h3><div class="ctr">${TRACK.filter(t=>t.kind==='week').map(card).join('')}${ab('lower')}${ab('middle')}</div>
+<div class="note">Conquest and Transcendence tick from the moment you set them, which may not line up with the game's own clock ○. Re-type the in-game value now and then.</div>`;}
+function trackerWire(){const c=C();
+  document.querySelectorAll('[data-rset]').forEach(i=>i.onchange=()=>{if(i.value==='')return;const t=TRACK.find(x=>x.id===i.dataset.rset);regenSet(c,t,+i.value,Date.now());save();route(true);});
+  document.querySelectorAll('[data-rsp]').forEach(b=>b.onclick=()=>{const t=TRACK.find(x=>x.id===b.dataset.rsp),now=Date.now(),r=regenNow(c,t,now);if(!r)return;regenSet(c,t,r.v-(+b.dataset.n),now);save();route(true);});
+  document.querySelectorAll('[data-bk]').forEach(b=>b.onclick=()=>{const t=TRACK.find(x=>x.id===b.dataset.bk);c.cnt[t.id]=Math.max(0,Math.min(t.cap,(c.cnt[t.id]??t.gain)+(+b.dataset.n)));save();route(true);});
+  document.querySelectorAll('[data-bset]').forEach(i=>i.onchange=()=>{if(i.value==='')return;const t=TRACK.find(x=>x.id===i.dataset.bset);c.cnt[t.id]=Math.max(0,Math.min(t.cap,+i.value));save();route(true);});
+  document.querySelectorAll('[data-use]').forEach(b=>b.onclick=()=>{const t=TRACK.find(x=>x.id===b.dataset.use),u=used(t,c);u.bag[t.id]=Math.max(0,Math.min(t.max,u.n+(+b.dataset.n)));save();route(true);});
+  document.querySelectorAll('[data-abt]').forEach(b=>b.onclick=()=>{const a=c.abyss[b.dataset.abt],now=Date.now();if(a.run){a.used+=now-a.run;a.run=0;}else a.run=now;save();route(true);});
+  document.querySelectorAll('[data-abset]').forEach(i=>i.onchange=()=>{if(i.value==='')return;const a=c.abyss[i.dataset.abset],now=Date.now();a.used=Math.max(0,abyssMax(c)-(+i.value)*6e4);if(a.run)a.run=now;save();route(true);});
+}
+
+/* ---- Checklist ---- */
+function pgChecklist(){const c=C(),now=Date.now(),nd=nextDaily(now),nw=nextWeekly(now);
+  const list=(arr,bag,key,pre)=>arr.map((x,i)=>`<label class="chk"><input type="checkbox" data-ck="${key}" data-k="${pre+i}"${bag[pre+i]?' checked':''}> ${esc(x)}</label>`).join('');
+  const cust=per=>S.custom.map((x,i)=>x.per===per?`<label class="chk"><input type="checkbox" data-ck="${per==='d'?'daily':'week'}" data-k="u${i}"${(per==='d'?c.daily:c.week)['u'+i]?' checked':''}> ${esc(x.n)} <button class="sm" data-cdel="${i}" title="Remove">✕</button></label>`:'').join('');
+  return `<h2>Dailies and weeklies</h2><p class="sub">For <b>${esc(c.name)}</b>. Ticks clear themselves at the reset.</p>
+<div class="grid"><div class="card"><div class="ch"><h3 style="margin:0">Daily</h3><span class="dim mono">resets in <span data-cd="${nd}">${dur(nd-now)}</span></span></div>${list(DAILY_CHECK,c.daily,'daily','c')}${cust('d')}</div>
+<div class="card"><div class="ch"><h3 style="margin:0">Weekly</h3><span class="dim mono">resets in <span data-cd="${nw}">${dur(nw-now)}</span></span></div>${list(WEEKLY_CHECK,c.week,'week','c')}${cust('w')}</div></div>
+<div class="card"><form class="row" id="cf"><input id="cn" type="text" style="width:240px" placeholder="Add your own (e.g. Legion quest)"><select id="cp"><option value="d">Daily</option><option value="w">Weekly</option></select><button class="pri">Add</button></form><div class="dim" style="font-size:12px">Your own items show for every character.</div></div>
+<h3>Every character at a glance</h3><div class="card tbl"><table><tr><th>Character</th><th class="n">Dailies</th><th class="n">Weeklies</th><th class="n">Odyle</th><th class="n">Nightmare</th></tr>${S.chars.map(x=>{const od=regenNow(x,TRACK.find(t=>t.id==='odyle'),now);
+  const dn=DAILY_CHECK.filter((_,i)=>x.daily['c'+i]).length,wn=WEEKLY_CHECK.filter((_,i)=>x.week['c'+i]).length;
+  return `<tr><td><a class="mob" data-sw="${x.id}">${esc(x.name)}</a> <span class="dim">${esc(clsOf(x.cls).n)}</span></td><td class="n">${dn} / ${DAILY_CHECK.length}</td><td class="n">${wn} / ${WEEKLY_CHECK.length}</td><td class="n ${od&&od.v>=560?'bad':''}">${od?od.v:'—'}</td><td class="n">${x.cnt.nightmare??'—'}</td></tr>`;}).join('')}</table></div>`;}
+function checklistWire(){const c=C();
+  document.querySelectorAll('[data-ck]').forEach(b=>b.onchange=()=>{c[b.dataset.ck][b.dataset.k]=b.checked;save();});
+  document.querySelectorAll('[data-cdel]').forEach(b=>b.onclick=e=>{e.preventDefault();S.custom.splice(+b.dataset.cdel,1);save();route(true);});
+  $('cf').onsubmit=e=>{e.preventDefault();const n=$('cn').value.trim();if(!n)return;S.custom.push({n,per:$('cp').value});save();route(true);};
+}
+
+/* ---- Schedule ---- */
+function upcoming(now,days){const out=[],end=now+days*864e5;
+  for(const e of SCHED){let t=now;for(;;){t=nextAt(S.set.tz,e.d,e.h,e.m,t);if(t>end)break;out.push({n:e.n,w:e.w,t,conf:e.conf});}}
+  out.push({n:'Daily reset',w:'',t:nextDaily(now),conf:false});out.push({n:'Weekly reset',w:'',t:nextWeekly(now),conf:false});
+  return out.filter(x=>x.t<=end||x.n.includes('reset')).sort((a,b)=>a.t-b.t);}
+function pgSchedule(){const now=Date.now(),ev=upcoming(now,7),sp=tzParts(S.set.tz,now);
+  return `<h2>Schedule</h2><p class="sub">The fixed weekly events for the next seven days, in your own time. Server time is ${esc(S.set.tz)} (now ${String(sp.h).padStart(2,'0')}:${String(sp.mi).padStart(2,'0')}); change it in <a href="#settings">Settings</a>.</p>
+<div class="card tbl"><table><tr><th>Event</th><th>Where</th><th>Your time</th><th class="n">Starts in</th></tr>${ev.map(e=>`<tr><td>${mark(e.conf)} <b>${esc(e.n)}</b></td><td>${esc(e.w)}</td><td>${when(e.t)}</td><td class="n mono" data-cd="${e.t}">${dur(e.t-now)}</td></tr>`).join('')}</table></div>
+<h3>The weekly pattern (server time)</h3><div class="card tbl"><table><tr><th>Event</th><th>Where</th><th>Days</th><th>Time</th></tr>${SCHED.map(e=>`<tr><td><b>${esc(e.n)}</b>${e.x?`<div class="dim" style="font-size:12px">${esc(e.x)}</div>`:''}</td><td>${esc(e.w)}</td><td>${e.d.map(d=>DAYN[d].slice(0,3)).join(', ')}</td><td class="mono">${String(e.h).padStart(2,'0')}:${String(e.m).padStart(2,'0')}</td></tr>`).join('')}</table></div>
+<div class="note">Spawn times are from guides, in server time. Which time zone each global server region uses isn't published, so the defaults in Settings are guesses ○. Watcher Kaira (every 3 hours) and Spacetime Rifts (every 3 hours) have no fixed start, so log them on <a href="#bosses">Field bosses</a> or <a href="#timers">Timers</a>.</div>`;}
+
+/* ---- Field bosses ---- */
+/* ---- Maps ---- */
+/* Screenshots live in IndexedDB (too big for the synced state). mapImg[id]: undefined = not looked yet, 0 = loading, null = none. */
+const mapImg={},mapView={};
+let pinMove='',mapId='',pinSel='',pinDraft=null,mapArea='',pinQ='';
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('a2_maps',1);r.onupgradeneeded=()=>r.result.createObjectStore('img');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function imgGet(id){try{const db=await idb();return await new Promise(res=>{const q=db.transaction('img').objectStore('img').get(id);q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null);});}catch(e){return null;}}
+async function imgPut(id,blob){const db=await idb();await new Promise((res,rej)=>{const t=db.transaction('img','readwrite'),st=t.objectStore('img');blob?st.put(blob,id):st.delete(id);t.oncomplete=res;t.onerror=()=>rej(t.error);});}
+function loadImg(id){mapImg[id]=0;imgGet(id).then(b=>{if(!b){mapImg[id]=null;return;}const url=URL.createObjectURL(b),im=new Image();im.onload=()=>{mapImg[id]={url,w:im.naturalWidth,h:im.naturalHeight};route(true);};im.onerror=()=>{mapImg[id]=null;};im.src=url;});}
+async function setImg(id,blob){try{await imgPut(id,blob);}catch(e){alert('This browser won’t store the picture here (private window or storage blocked).');return;}
+  if(mapImg[id]&&mapImg[id].url)URL.revokeObjectURL(mapImg[id].url);delete mapImg[id];delete mapView[id];route(true);}
+const mapPref=()=>S.mapPref||(S.mapPref={off:{},hide:false,last:'cube'});
+function curMap(){if(!mapId)mapId=C().fac==='Asmodian'?'altgard':'verteron';return MAPS.find(m=>m.id===mapId)||MAPS[0];}
+const grid=p=>'ABCDEFGHIJ'[Math.min(9,Math.floor(p.x*10))]+(Math.min(9,Math.floor(p.y*10))+1);
+const pinCat=p=>(PINT[p.t]||PINT.note)[2];
+function pinDone(p,c){const k=pinCat(p);if(k==='item'||k==='travel')return !!c.got[p.id];if(k==='pet')return !!p.pet&&(+c.pets[p.pet]||0)>=105;return false;}
+function pinUp(p){const k=S.pk[p.id];return k&&p.h?k.last+p.h*36e5:0;}
+function pinStatus(p,c,now){const k=pinCat(p);
+  if(k==='item')return c.got[p.id]?'<span class="ok">✔ Collected</span>':'';
+  if(k==='travel')return c.got[p.id]?'<span class="ok">✔ Attuned</span>':'';
+  if(k==='pet'){if(!p.pet)return '';const s=+c.pets[p.pet]||0;return `${s} souls · ${petLv(s).lv?'Lv '+petLv(s).lv:'locked'}`;}
+  if(k==='enemy'){const k2=S.pk[p.id],up=pinUp(p);return (up>now?`<span class="mono" data-cd="${up}">${dur(up-now)}</span>`:k2&&p.h?'<span class="ok">Up</span>':'')+(k2?` <span class="dim">${k2.n} kill${k2.n>1?'s':''}</span>`:'');}
+  return '';}
+const pinVis=(p,c)=>!mapPref().off[p.t]&&(!mapPref().hide||!pinDone(p,c))&&(!mapArea||p.a===mapArea)&&(!pinQ||(p.l+' '+(p.a||'')+' '+(p.pet||'')+' '+(p.note||'')).toLowerCase().includes(pinQ.toLowerCase()));
+const typeOpts=sel=>Object.entries(PCAT).map(([cat,cn])=>`<optgroup label="${cn}">${Object.entries(PINT).filter(([,v])=>v[2]===cat).map(([k,[ic,n]])=>`<option value="${k}"${sel===k?' selected':''}>${ic} ${n}</option>`).join('')}</optgroup>`).join('');
+const areaOpts=(m,sel)=>`<option value="">No area</option>`+areaList(m).map(a=>`<option${a.n===sel?' selected':''}>${esc(a.n)}</option>`).join('');
+
+function pgMaps(){const c=C(),m=curMap(),now=Date.now();if(mapImg[m.id]===undefined)loadImg(m.id);
+  const img=mapImg[m.id]||null,W=img?img.w:1000,H=img?img.h:1000,pins=S.pins.filter(p=>p.m===m.id),vis=pins.filter(p=>pinVis(p,c));
+  if(mapArea&&!areaList(m.id).some(a=>a.n===mapArea))mapArea='';
+  const board=`<svg width="1000" height="1000" viewBox="0 0 1000 1000" style="display:block"><defs><radialGradient id="mg" cx="50%" cy="45%" r="75%"><stop offset="0" style="stop-color:var(--panel2)"/><stop offset="1" style="stop-color:var(--bg)"/></radialGradient></defs><rect width="1000" height="1000" fill="url(#mg)"/>
+${[1,2,3,4,5,6,7,8,9].map(i=>`<line x1="${i*100}" y1="0" x2="${i*100}" y2="1000" stroke="var(--line)"/><line x1="0" y1="${i*100}" x2="1000" y2="${i*100}" stroke="var(--line)"/>`).join('')}
+${[...'ABCDEFGHIJ'].map((l,i)=>`<text x="${i*100+50}" y="22" text-anchor="middle" fill="var(--dim)" font-size="16">${l}</text>`).join('')}${[1,2,3,4,5,6,7,8,9,10].map(n=>`<text x="10" y="${n*100-44}" fill="var(--dim)" font-size="16">${n}</text>`).join('')}
+<text x="500" y="470" text-anchor="middle" fill="var(--acc)" font-size="44" font-weight="700" opacity=".8">${esc(m.n)}</text><text x="500" y="515" text-anchor="middle" fill="var(--dim)" font-size="20">Paste a screenshot of the in-game map here (Ctrl+V)</text><text x="500" y="545" text-anchor="middle" fill="var(--dim)" font-size="20">or click anywhere to drop a pin on the grid</text></svg>`;
+  const pinHtml=vis.map(p=>`<div class="pin${p.id===pinSel?' sel':''}${pinDone(p,c)?' done':''}${pinUp(p)>now?' wait':''}" data-pin="${p.id}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(p.l)}">${PINT[p.t][0]}</div>`).join('');
+  const p=pinSel&&S.pins.find(x=>x.id===pinSel);
+  let edit='';
+  if(pinDraft){const t=pinDraft.t||mapPref().last;edit=`<div class="card"><b>New pin at ${grid(pinDraft)}</b>
+<div class="row"><select id="dt">${typeOpts(t)}</select></div><input type="text" id="dl" placeholder="Name (e.g. Cube behind the waterfall)" style="width:100%">
+<div class="row"><select id="da">${areaOpts(m.id,mapArea)}</select></div>
+<div class="row" data-for="pet enemy"><input type="text" id="dp" list="petl" placeholder="Pet or monster" style="width:100%"></div>
+<div class="row" data-for="enemy"><label>Respawn hours <input type="number" class="num" id="dh" min="0" step="0.25" placeholder="—"></label></div>
+<textarea id="dn" placeholder="Note" style="width:100%;height:50px"></textarea><div class="row"><button class="pri" id="dadd">Add pin</button><button id="dcan">Cancel</button></div></div>`;}
+  else if(p){const k=pinCat(p),kk=S.pk[p.id],up=pinUp(p),souls=+c.pets[p.pet]||0;
+    edit=`<div class="card"><div class="ch"><b>${PINT[p.t][0]} ${esc(p.l)}</b><span class="dim mono">${grid(p)}</span></div>
+<input type="text" data-pe="l" value="${esc(p.l)}" style="width:100%;margin:6px 0"><div class="row"><select data-pe="t">${typeOpts(p.t)}</select><select data-pe="a">${areaOpts(m.id,p.a)}</select></div>
+${k==='item'||k==='travel'?`<label class="chk"><input type="checkbox" id="pgot"${c.got[p.id]?' checked':''}> ${k==='item'?'Collected':'Attuned'} by ${esc(c.name)}</label>`:''}
+${k==='pet'||k==='enemy'?`<div class="row"><input type="text" data-pe="pet" list="petl" value="${esc(p.pet||'')}" placeholder="${k==='pet'?'Which pet':'Monster (optional)'}" style="width:100%"></div>`:''}
+${k==='pet'&&p.pet?`<div class="row"><span class="mono">${souls} souls · ${petLv(souls).lv?'level '+petLv(souls).lv:'not unlocked'}</span><button class="sm pri" data-ps="1">+1 soul</button><button class="sm" data-ps="5">+5</button><button class="sm" data-ps="-1">−1</button></div>`:''}
+${k==='enemy'?`<div class="row"><label>Respawn hours <input type="number" class="num" data-pe="h" min="0" step="0.25" value="${p.h||''}"></label></div><div class="row"><button class="sm pri" id="pkill">Killed</button>${kk?`<span class="dim">${kk.n} kill${kk.n>1?'s':''}, last ${when(kk.last)}</span>`:''}</div>${up>now?`<div>Respawns in <b class="mono" data-cd="${up}">${dur(up-now)}</b> (${when(up)})</div>`:kk&&p.h?'<div class="ok">Up now</div>':''}`:''}
+<textarea data-pe="note" placeholder="Note" style="width:100%;height:50px;margin-top:6px">${esc(p.note||'')}</textarea>
+<div class="row"><button class="sm" id="pmove">Move</button><button class="sm" id="pdel">Delete</button><button class="sm" id="pcls">Close</button></div></div>`;}
+  const counts=t=>pins.filter(x=>x.t===t).length;
+  return `<h2>Maps</h2><p class="sub">Your own pins for cubes, Traces, Sealed Dungeons, gathering nodes, bosses, monsters and pet farms, with what <b>${esc(c.name)}</b> has collected, killed and farmed. Drag to pan, scroll or use the buttons to zoom, click to add a pin.</p>
+<div class="mapbox"><div class="mwrap"><div id="mw" class="mw"><div id="mi" class="mi" style="width:${W}px;height:${H}px">${img?`<img src="${img.url}" alt="${esc(m.n)} map" draggable="false">`:board}${pinHtml}${pinDraft?`<div class="pin sel" style="left:${pinDraft.x*100}%;top:${pinDraft.y*100}%">📍</div>`:''}</div></div>
+<div class="mctl"><button data-mz="1.3" title="Zoom in">+</button><button data-mz="0.77" title="Zoom out">−</button><button data-mz="fit" title="Fit">⤢</button></div>${pinMove?'<div class="mhint">Click the new spot for this pin</div>':''}</div>
+<div class="mside"><div class="card"><div class="chips">${MAPS.map(x=>`<button data-map="${x.id}" class="${x.id===m.id?'on':''}">${esc(x.n)}</button>`).join('')}</div>
+<div class="row"><button id="mimg">${img?'Replace':'Add'} map picture</button>${img?'<button id="mimgx">Remove picture</button>':''}<input type="file" id="mfile" accept="image/*" hidden></div>
+<div class="dim" style="font-size:12px">Open the world map in game, zoom all the way out and take a screenshot, then paste it here (Ctrl+V) or pick the file. Do it before placing pins and keep the same framing: pins sit at a spot on the picture. The picture stays in this browser and doesn't sync.</div></div>
+${edit}
+<div class="card"><b>Layers</b><div class="chips">${Object.entries(PINT).map(([k,[ic,n]])=>`<button data-lay="${k}" class="${mapPref().off[k]?'':'on'}">${ic} ${n}${counts(k)?` <span class="dim">${counts(k)}</span>`:''}</button>`).join('')}</div>
+<div class="row"><label class="chk"><input type="checkbox" id="mhide"${mapPref().hide?' checked':''}> Hide collected</label>${areaList(m.id).length?`<select id="marea"><option value="">All areas</option>${areaList(m.id).map(a=>`<option${a.n===mapArea?' selected':''}>${esc(a.n)}</option>`).join('')}</select>`:''}</div></div>
+<div class="card"><input type="search" id="pq" placeholder="Find a pin" value="${esc(pinQ)}" style="width:100%"><div class="plist">${vis.length?vis.slice().sort((a,b)=>a.t.localeCompare(b.t)||a.l.localeCompare(b.l)).map(x=>`<div class="pl${x.id===pinSel?' on':''}" data-pgo="${x.id}"><span>${PINT[x.t][0]} ${esc(x.l)} <span class="dim mono">${grid(x)}</span>${x.a?`<div class="dim" style="font-size:12px">${esc(x.a)}</div>`:''}</span><span style="font-size:12px;text-align:right">${pinStatus(x,c,now)}</span></div>`).join(''):`<div class="dim">${pins.length?'No pins match.':'No pins on this map yet. Click the map to add one.'}</div>`}</div></div>
+${MAPREF[m.id]?`<div class="note">${esc(MAPREF[m.id])} ○ For every marker, see a community interactive map.</div>`:''}</div></div>
+<datalist id="petl">${PETS.map(x=>`<option value="${esc(x.n)}">`).join('')}</datalist>`;}
+
+function applyView(){const v=mapView[mapId],mi=$('mi');if(!mi||!v)return;mi.style.transform=`translate(${v.x}px,${v.y}px) scale(${v.z})`;mi.style.setProperty('--iz',1/v.z);}
+function fitView(W,H){const r=$('mw').getBoundingClientRect(),z=Math.min(r.width/W,r.height/H)||1;mapView[mapId]={z,min:z/2,x:(r.width-W*z)/2,y:(r.height-H*z)/2,W,H};applyView();}
+function zoomAt(f,mx,my){const v=mapView[mapId],z=Math.max(v.min,Math.min(v.min*40,v.z*f)),k=z/v.z;v.x=mx-(mx-v.x)*k;v.y=my-(my-v.y)*k;v.z=z;applyView();}
+function mapsWire(){const c=C(),m=curMap(),img=mapImg[m.id]||null,W=img?img.w:1000,H=img?img.h:1000,mw=$('mw'),v=mapView[m.id];
+  if(!v||v.W!==W||v.H!==H)fitView(W,H);else applyView();
+  let d=null;
+  mw.onpointerdown=e=>{if(e.button)return;d={x:e.clientX,y:e.clientY,mv:false,pin:(e.target.closest('[data-pin]')||{}).dataset?.pin};mw.setPointerCapture(e.pointerId);};
+  mw.onpointermove=e=>{if(!d)return;const dx=e.clientX-d.x,dy=e.clientY-d.y;if(!d.mv&&Math.hypot(dx,dy)<5)return;d.mv=true;mw.classList.add('drag');const v=mapView[m.id];v.x+=dx;v.y+=dy;d.x=e.clientX;d.y=e.clientY;applyView();};
+  mw.onpointerup=e=>{mw.classList.remove('drag');const q=d;d=null;if(!q||q.mv)return;
+    const r=mw.getBoundingClientRect(),v=mapView[m.id],x=(e.clientX-r.left-v.x)/v.z/W,y=(e.clientY-r.top-v.y)/v.z/H,inside=x>=0&&y>=0&&x<=1&&y<=1;
+    if(pinMove){const p=S.pins.find(z=>z.id===pinMove);if(p&&inside){p.x=x;p.y=y;}pinMove='';save();route(true);return;}
+    if(q.pin){pinSel=q.pin;pinDraft=null;route(true);return;}
+    if(inside){pinDraft={x,y};pinSel='';route(true);}};
+  mw.onwheel=e=>{e.preventDefault();const r=mw.getBoundingClientRect();zoomAt(e.deltaY<0?1.2:1/1.2,e.clientX-r.left,e.clientY-r.top);};
+  document.querySelectorAll('[data-mz]').forEach(b=>b.onclick=()=>{const z=b.dataset.mz;if(z==='fit')fitView(W,H);else{const r=mw.getBoundingClientRect();zoomAt(+z,r.width/2,r.height/2);}});
+  document.querySelectorAll('[data-map]').forEach(b=>b.onclick=()=>{mapId=b.dataset.map;pinSel='';pinDraft=null;mapArea='';route(true);});
+  $('mimg').onclick=()=>$('mfile').click();$('mfile').onchange=e=>{const f=e.target.files[0];if(f)setImg(m.id,f);};
+  if($('mimgx'))$('mimgx').onclick=()=>{if(confirm('Remove the map picture? Your pins stay.'))setImg(m.id,null);};
+  document.querySelectorAll('[data-lay]').forEach(b=>b.onclick=()=>{const o=mapPref().off;o[b.dataset.lay]=!o[b.dataset.lay];save();route(true);});
+  $('mhide').onchange=e=>{mapPref().hide=e.target.checked;save();route(true);};
+  if($('marea'))$('marea').onchange=e=>{mapArea=e.target.value;route(true);};
+  $('pq').oninput=e=>{pinQ=e.target.value;const s=e.target.selectionStart;route(true);const i=$('pq');i.focus();i.setSelectionRange(s,s);};
+  document.querySelectorAll('[data-pgo]').forEach(r=>r.onclick=()=>{const p=S.pins.find(x=>x.id===r.dataset.pgo),v=mapView[m.id],rc=mw.getBoundingClientRect();pinSel=p.id;pinDraft=null;v.x=rc.width/2-p.x*W*v.z;v.y=rc.height/2-p.y*H*v.z;route(true);});
+  if(pinDraft){const show=()=>{const cat=PINT[$('dt').value][2];document.querySelectorAll('[data-for]').forEach(e=>e.style.display=e.dataset.for.split(' ').includes(cat)?'':'none');};show();
+    $('dt').onchange=()=>{pinDraft.t=$('dt').value;show();};$('dl').focus();
+    $('dcan').onclick=()=>{pinDraft=null;route(true);};
+    $('dadd').onclick=()=>{const t=$('dt').value,n=S.pins.filter(x=>x.m===m.id&&x.t===t).length+1,p={id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),m:m.id,x:pinDraft.x,y:pinDraft.y,t,l:$('dl').value.trim()||`${PINT[t][1]} ${n}`,a:$('da').value,note:$('dn').value.trim()};
+      const cat=PINT[t][2];if(cat==='pet'||cat==='enemy')p.pet=$('dp').value.trim();if(cat==='enemy'&&+$('dh').value)p.h=+$('dh').value;
+      S.pins.push(p);mapPref().last=t;pinDraft=null;pinSel=p.id;save();route(true);};
+    $('dl').onkeydown=e=>{if(e.key==='Enter')$('dadd').click();};}
+  const p=pinSel&&S.pins.find(x=>x.id===pinSel);if(!p)return;
+  document.querySelectorAll('[data-pe]').forEach(i=>{const k=i.dataset.pe,set=()=>{p[k]=k==='h'?Math.max(0,+i.value||0):i.value;save();};
+    if(i.tagName==='SELECT'||k==='h'||k==='pet')i.onchange=()=>{set();route(true);};else i.oninput=set;});
+  if($('pgot'))$('pgot').onchange=e=>{if(e.target.checked)c.got[p.id]=Date.now();else delete c.got[p.id];save();route(true);};
+  document.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>{c.pets[p.pet]=Math.max(0,(+c.pets[p.pet]||0)+(+b.dataset.ps));save();route(true);});
+  if($('pkill'))$('pkill').onclick=()=>{const k=S.pk[p.id]||{n:0};S.pk[p.id]={n:k.n+1,last:Date.now()};if(p.pet)c.kc[p.pet]=(+c.kc[p.pet]||0)+1;save();route(true);};
+  $('pmove').onclick=()=>{pinMove=p.id;route(true);};
+  $('pdel').onclick=()=>{if(!confirm('Delete '+p.l+'?'))return;S.pins=S.pins.filter(x=>x!==p);delete S.pk[p.id];S.chars.forEach(x=>delete x.got[p.id]);pinSel='';save();route(true);};
+  $('pcls').onclick=()=>{pinSel='';route(true);};
+}
+document.addEventListener('paste',e=>{if((location.hash.slice(1)||'home').split('/')[0]!=='maps')return;const it=[...((e.clipboardData||{}).items||[])].find(i=>i.type.startsWith('image/'));if(!it)return;e.preventDefault();
+  const m=curMap();if(mapImg[m.id]&&!confirm('Replace the '+m.n+' picture?'))return;setImg(m.id,it.getAsFile());});
+
+/* ---- Areas and collectibles ---- */
+let arMap='';
+function pgAreas(){const c=C();if(!arMap)arMap=c.fac==='Asmodian'?'altgard':'verteron';const al=areaList(arMap),now=Date.now();
+  const pins=S.pins.filter(p=>p.m===arMap),key=a=>arMap+'/'+a,ac=a=>c.ac[key(a)]||{};
+  const sum=f=>al.reduce((s,a)=>s+(+ac(a.n)[f]||0),0);
+  const pinSum=cat=>{const l=S.pins.filter(p=>pinCat(p)===cat);return `${l.filter(p=>pinDone(p,c)).length} / ${l.length}`;};
+  return `<h2>Areas and collectibles</h2><p class="sub">Every area as the in-game map names it, with what <b>${esc(c.name)}</b> has found there. Use the counters for things you don't pin, and pins for the spots you want to find again.</p>
+<div class="stats"><div class="stat"><small>Hidden Cubes counted</small><span class="big">${sum('cube')}</span></div><div class="stat"><small>Empyrean Traces counted</small><span class="big">${sum('trace')}</span></div><div class="stat"><small>Sealed Dungeons counted</small><span class="big">${sum('sealed')}</span></div>
+<div class="stat"><small>Item pins collected</small><a class="mob big" href="#maps">${pinSum('item')}</a></div><div class="stat"><small>Teleports attuned</small><a class="mob big" href="#maps">${pinSum('travel')}</a></div><div class="stat"><small>Pets unlocked</small><a class="mob big" href="#pets">${PETS.filter(p=>(+c.pets[p.n]||0)>=5).length+PETSP.filter(([n])=>c.petSp[n]).length}</a></div></div>
+<div class="chips">${MAPS.filter(m=>AREAS[m.id]).map(m=>`<button data-arm="${m.id}" class="${m.id===arMap?'on':''}">${esc(m.n)}</button>`).join('')}</div>
+${MAPREF[arMap]?`<div class="note">${esc(MAPREF[arMap])} ○</div>`:''}
+<div class="card tbl"><table><tr><th>Area</th><th>Places</th><th>Bosses</th><th>Pins</th><th class="n">🧊 Cubes</th><th class="n">🪶 Traces</th><th class="n">🚪 Sealed</th></tr>${al.map(a=>{const ap=pins.filter(p=>p.a===a.n),bs=FBOSS.filter(b=>b.v===a.n||b.a===a.n),x=ac(a.n);
+  const ctr=f=>`<td class="n" style="white-space:nowrap"><button class="sm" data-ac="${esc(a.n)}" data-f="${f}" data-n="-1">−</button> <b class="mono">${+x[f]||0}</b> <button class="sm" data-ac="${esc(a.n)}" data-f="${f}" data-n="1">+</button></td>`;
+  return `<tr><td><b>${esc(a.n)}</b><div><a class="mob" style="font-size:12px" data-amap="${esc(a.n)}">Show on map</a></div></td><td style="max-width:420px">${a.h.map(s=>`<span class="tag g" title="Hunting ground">${esc(s)}</span>`).join('')}${a.v.map(s=>`<span class="tag y" title="Village or camp">${esc(s)}</span>`).join('')}${a.o.map(s=>`<span class="tag">${esc(s)}</span>`).join('')}</td>
+<td>${bs.map(b=>{const k=S.kills[b.n],up=k?k+(+(S.bossHrs[b.n]||b.hrs))*36e5:0;return `<div>💀 ${esc(b.n)} ${up>now?`<span class="dim mono" data-cd="${up}">${dur(up-now)}</span>`:''}</div>`;}).join('')}</td>
+<td style="white-space:nowrap">${ap.length?Object.keys(PCAT).map(cat=>{const l=ap.filter(p=>pinCat(p)===cat);return l.length?`<div>${PCAT[cat]}: ${cat==='item'||cat==='travel'?l.filter(p=>pinDone(p,c)).length+' / ':''}${l.length}</div>`:'';}).join(''):'<span class="dim">—</span>'}</td>${ctr('cube')}${ctr('trace')}${ctr('sealed')}</tr>`;}).join('')}</table></div>
+<div class="note">Area and place names are from the global client as listed by community maps. Green is a hunting ground, yellow a village or camp.</div>`;}
+function areasWire(){const c=C();
+  document.querySelectorAll('[data-arm]').forEach(b=>b.onclick=()=>{arMap=b.dataset.arm;route(true);});
+  document.querySelectorAll('[data-ac]').forEach(b=>b.onclick=()=>{const k=arMap+'/'+b.dataset.ac,o=c.ac[k]||(c.ac[k]={});o[b.dataset.f]=Math.max(0,(+o[b.dataset.f]||0)+(+b.dataset.n));save();route(true);});
+  document.querySelectorAll('[data-amap]').forEach(b=>b.onclick=()=>{mapId=arMap;mapArea=b.dataset.amap;pinSel='';pinDraft=null;location.hash='maps';});}
+
+/* ---- Pets ---- */
+let ptQ='',ptF='all';
+function pgPets(){const c=C(),q=ptQ.toLowerCase(),sp=PETSP.filter(([n])=>c.petSp[n]).length;
+  const s=p=>+c.pets[p.n]||0,unl=PETS.filter(p=>s(p)>=5).length,max=PETS.filter(p=>s(p)>=105).length;
+  const pinsFor=n=>S.pins.filter(p=>p.pet===n).length;
+  const list=PETS.filter(p=>(!q||p.n.toLowerCase().includes(q))&&(ptF==='all'||ptF===p.g||(ptF==='combat'&&p.combat)||(ptF==='chest'&&!p.combat)||(ptF==='locked'&&s(p)<5)||(ptF==='going'&&s(p)>=5&&s(p)<105)||(ptF==='rec'&&PETREC.has(p.n))));
+  return `<h2>Pets</h2><p class="sub">Every pet comes from souls: kill its monster and collect them. 5 souls unlock it, 25 more make level 2, 75 more level 3 and Transformation. ${esc(c.name)}'s collection is saved here.</p>
+<div class="stats"><div class="stat"><small>Unlocked</small><span class="big">${unl+sp} / ${PETS.length+PETSP.length}</span></div><div class="stat"><small>Level 3</small><span class="big">${max}</span></div>${PETG.map(([g,b])=>{const l=PETS.filter(p=>p.g===g);return `<div class="stat" title="${esc(b)}"><small>${g}</small><span class="big">${l.filter(p=>s(p)>=5).length} / ${l.length}</span><div class="dim" style="font-size:11px">${esc(b)}</div></div>`;}).join('')}</div>
+<div class="grid"><div class="card"><b>Starter pets</b>${PETSTART.map(([w,l])=>`<div class="dim" style="font-size:12px;margin-top:6px">${esc(w)}</div>${l.map(([n,b])=>`<label class="chk"><input type="checkbox" data-pst="${esc(n)}"${s({n})>=5?' checked':''}> ${esc(n)} <span class="dim">${esc(b)}</span></label>`).join('')}`).join('')}</div>
+<div class="card"><b>Special pets</b> <span class="dim">(no souls)</span>${PETSP.map(([n,w])=>`<label class="chk"><input type="checkbox" data-psp="${esc(n)}"${c.petSp[n]?' checked':''}> ${esc(n)} <span class="dim">${esc(w)}</span></label>`).join('')}</div></div>
+<div class="row"><input type="search" id="ptq" placeholder="Find a pet" value="${esc(ptQ)}" style="width:200px"></div>
+<div class="chips">${[['all','All'],...PETG.map(([g])=>[g,g]),['combat','From monster souls'],['chest','Chests and merchants'],['locked','Not unlocked'],['going','In progress'],['rec','★ Recommended']].map(([k,n])=>`<button data-ptf="${k}" class="${ptF===k?'on':''}">${n}</button>`).join('')}</div>
+<div class="card tbl"><table><tr><th>Pet</th><th>Genus</th><th>Souls</th><th>Level</th><th>Where</th></tr>${list.map(p=>{const v=s(p),L=petLv(v),pc=pinsFor(p.n);
+  return `<tr><td>${PETREC.has(p.n)?'<span class="wn" title="Recommended">★</span> ':''}<b>${esc(p.n)}</b><div class="dim" style="font-size:12px">${p.combat?'Monster souls':'Reward chests or Black Cloud Merchants'}</div></td><td><span class="tag">${p.g}</span></td>
+<td style="white-space:nowrap"><input type="number" class="num" min="0" data-pv="${esc(p.n)}" value="${v}"> <button class="sm" data-pa="${esc(p.n)}" data-n="1">+1</button> <button class="sm" data-pa="${esc(p.n)}" data-n="5">+5</button></td>
+<td style="min-width:130px">${L.lv?`<b class="${L.lv===3?'ok':''}">Lv ${L.lv}</b>`:'<span class="dim">Locked</span>'}${L.lv<3?`<div class="bar"><i style="width:${(v-L.from)/(L.to-L.from)*100}%"></i></div><div class="dim mono" style="font-size:11px">${L.to-v} to ${L.lv?'level '+(L.lv+1):'unlock'}</div>`:''}</td>
+<td>${pc?`<a class="mob" data-pmap="${esc(p.n)}">${pc} pin${pc>1?'s':''}</a>`:'<span class="dim">—</span>'}</td></tr>`;}).join('')||'<tr><td colspan="5" class="dim">No pets match.</td></tr>'}</table></div>
+<div class="note">The list follows community guides; totals run from 200 to 208 depending on the source, and the in-game collection's Source tab names where each soul drops. Add a 🐾 pin on <a href="#maps">Maps</a> where you farm one and it shows up here. Guides suggest widening the collection early instead of maxing one pet.</div>`;}
+function petsWire(){const c=C();
+  $('ptq').oninput=e=>{ptQ=e.target.value;const p=e.target.selectionStart;route(true);const i=$('ptq');i.focus();i.setSelectionRange(p,p);};
+  document.querySelectorAll('[data-ptf]').forEach(b=>b.onclick=()=>{ptF=b.dataset.ptf;route(true);});
+  document.querySelectorAll('[data-pv]').forEach(i=>i.onchange=()=>{c.pets[i.dataset.pv]=Math.max(0,+i.value||0);save();route(true);});
+  document.querySelectorAll('[data-pa]').forEach(b=>b.onclick=()=>{c.pets[b.dataset.pa]=(+c.pets[b.dataset.pa]||0)+(+b.dataset.n);save();route(true);});
+  document.querySelectorAll('[data-pst]').forEach(i=>i.onchange=()=>{const n=i.dataset.pst;c.pets[n]=i.checked?Math.max(5,+c.pets[n]||0):0;save();route(true);});
+  document.querySelectorAll('[data-psp]').forEach(i=>i.onchange=()=>{if(i.checked)c.petSp[i.dataset.psp]=true;else delete c.petSp[i.dataset.psp];save();route(true);});
+  document.querySelectorAll('[data-pmap]').forEach(b=>b.onclick=()=>{const p=S.pins.find(x=>x.pet===b.dataset.pmap);mapId=p.m;mapArea='';pinQ='';pinSel=p.id;pinDraft=null;location.hash='maps';});}
+
+/* ---- Enemies and bosses ---- */
+let enQ='';
+function bossRows(){return FBOSS.concat(S.enemies.map((e,i)=>({n:e.n,v:e.w,a:e.w,hrs:e.h,custom:i})));}
+function pgBosses(){const now=Date.now(),c=C(),side=c.fac==='Asmodian'?'a':'v',q=enQ.toLowerCase();
+  const pinned=S.pins.filter(p=>pinCat(p)==='enemy'&&p.h);
+  const mobs=PETS.filter(p=>p.combat&&(!q||p.n.toLowerCase().includes(q)));
+  return `<h2>Enemies and bosses</h2><p class="sub">Field bosses respawn a set time after they die: press Killed when one drops and the countdown starts. The hours are guesses until you set them; in game, open the map, then Exploration, then Field Boss for the real timer.</p>
+<div class="card tbl"><table><tr><th>Boss</th><th>Where (${c.fac==='Asmodian'?'Altgard':'Verteron'})</th><th>Respawn hours</th><th>Status</th><th></th></tr>${bossRows().map(b=>{const k=S.kills[b.n],h=+(S.bossHrs[b.n]||b.hrs),up=k?k+h*36e5:0;
+  return `<tr><td><b>${esc(b.n)}</b>${b.lv?` <span class="tag">Lv ${b.lv}</span>`:''}${b.custom!=null?' <span class="tag">yours</span>':''}${b.x?`<div class="dim" style="font-size:12px">${esc(b.x)}</div>`:''}</td><td>${esc(b[side])}</td><td><input type="number" class="num" step="0.25" min="0.25" data-bh="${esc(b.n)}" value="${h}"></td>
+<td class="mono">${!k?'<span class="dim">Unknown</span>':up<=now?'<span class="ok">Up (respawned '+when(up)+')</span>':`<span data-cd="${up}">${dur(up-now)}</span> <span class="dim">(${when(up)})</span>`}</td><td style="white-space:nowrap"><button class="sm pri" data-kill="${esc(b.n)}">Killed</button> ${k?`<button class="sm" data-kclr="${esc(b.n)}" title="Clear the timer">↺</button>`:''}${b.custom!=null?` <button class="sm" data-edel="${b.custom}" title="Remove">✕</button>`:''}</td></tr>`;}).join('')}</table></div>
+<div class="card"><form class="row" id="ef"><input id="en" type="text" style="width:200px" placeholder="Add a boss or named enemy"><input id="ew" type="text" style="width:180px" placeholder="Where"><label>Respawn hours <input id="eh" type="number" class="num" min="0.25" step="0.25" value="1"></label><button class="pri">Add</button></form></div>
+${pinned.length?`<h3>Pinned enemies with a respawn</h3><div class="card tbl"><table><tr><th>Pin</th><th>Map</th><th>Status</th><th></th></tr>${pinned.map(p=>{const up=pinUp(p),k=S.pk[p.id];return `<tr><td>${PINT[p.t][0]} <b>${esc(p.l)}</b>${p.a?` <span class="dim">${esc(p.a)}</span>`:''}</td><td>${esc((MAPS.find(m=>m.id===p.m)||{}).n||'')} <span class="dim mono">${grid(p)}</span></td><td class="mono">${up>now?`<span data-cd="${up}">${dur(up-now)}</span>`:k?'<span class="ok">Up</span>':'<span class="dim">Unknown</span>'}</td><td><button class="sm pri" data-pkill="${p.id}">Killed</button></td></tr>`;}).join('')}</table></div>`:''}
+<h3>Monsters</h3><p class="dim">Count kills and souls for the monsters behind each pet. Souls go to the <a href="#pets">pet collection</a>.</p>
+<div class="row"><input type="search" id="enq" placeholder="Find a monster" value="${esc(enQ)}" style="width:200px"></div>
+<div class="card tbl"><table><tr><th>Monster</th><th>Genus</th><th class="n">Kills</th><th class="n">Souls</th><th>Pins</th></tr>${mobs.map(p=>{const pc=S.pins.filter(x=>x.pet===p.n).length,sv=+c.pets[p.n]||0;return `<tr><td><b>${esc(p.n)}</b></td><td><span class="tag">${p.g}</span></td><td class="n" style="white-space:nowrap"><b class="mono">${+c.kc[p.n]||0}</b> <button class="sm" data-kc="${esc(p.n)}" data-n="1">+1</button> <button class="sm" data-kc="${esc(p.n)}" data-n="10">+10</button></td>
+<td class="n" style="white-space:nowrap"><b class="mono ${sv>=105?'ok':''}">${sv}</b> <button class="sm" data-sl="${esc(p.n)}">+1</button></td><td>${pc?`<a class="mob" data-pmap="${esc(p.n)}">${pc}</a>`:'<span class="dim">—</span>'}</td></tr>`;}).join('')}</table></div>
+<div class="note">Korean notes from 27 May 2026 say field boss health in Verteron and Altgard went up two to three times; global may differ ○. Guides give respawns anywhere from 1 to 12 hours.</div>`;}
+function bossWire(){const c=C();
+  document.querySelectorAll('[data-kill]').forEach(b=>b.onclick=()=>{S.kills[b.dataset.kill]=Date.now();save();route(true);});
+  document.querySelectorAll('[data-kclr]').forEach(b=>b.onclick=()=>{delete S.kills[b.dataset.kclr];save();route(true);});
+  document.querySelectorAll('[data-bh]').forEach(i=>i.onchange=()=>{S.bossHrs[i.dataset.bh]=Math.max(.25,+i.value||1);save();route(true);});
+  document.querySelectorAll('[data-edel]').forEach(b=>b.onclick=()=>{const e=S.enemies[+b.dataset.edel];if(confirm('Remove '+e.n+'?')){S.enemies.splice(+b.dataset.edel,1);delete S.kills[e.n];save();route(true);}});
+  $('ef').onsubmit=e=>{e.preventDefault();const n=$('en').value.trim();if(!n)return;if(bossRows().some(b=>b.n===n)){alert(n+' is already on the list.');return;}S.enemies.push({n,w:$('ew').value.trim(),h:Math.max(.25,+$('eh').value||1)});save();route(true);};
+  document.querySelectorAll('[data-pkill]').forEach(b=>b.onclick=()=>{const p=S.pins.find(x=>x.id===b.dataset.pkill),k=S.pk[p.id]||{n:0};S.pk[p.id]={n:k.n+1,last:Date.now()};if(p.pet)c.kc[p.pet]=(+c.kc[p.pet]||0)+1;save();route(true);});
+  $('enq').oninput=e=>{enQ=e.target.value;const p=e.target.selectionStart;route(true);const i=$('enq');i.focus();i.setSelectionRange(p,p);};
+  document.querySelectorAll('[data-kc]').forEach(b=>b.onclick=()=>{c.kc[b.dataset.kc]=(+c.kc[b.dataset.kc]||0)+(+b.dataset.n);save();route(true);});
+  document.querySelectorAll('[data-sl]').forEach(b=>b.onclick=()=>{c.pets[b.dataset.sl]=(+c.pets[b.dataset.sl]||0)+1;save();route(true);});
+  document.querySelectorAll('[data-pmap]').forEach(b=>b.onclick=()=>{const p=S.pins.find(x=>x.pet===b.dataset.pmap);mapId=p.m;mapArea='';pinQ='';pinSel=p.id;pinDraft=null;location.hash='maps';});}
+
+/* ---- Timers ---- */
+function pgTimers(){const now=Date.now();
+  return `<h2>Timers</h2><p class="sub">Your own countdowns for rifts, buffs or anything else. They keep running when you close the page.</p>
+<div class="card"><form id="tf"><div class="row"><label>What <input id="tn" type="text" style="width:200px" placeholder="e.g. Rift in Altgard"></label><label>Minutes <input id="tm" type="number" min="1" value="180" style="width:80px"></label><button class="pri">Start</button></div>
+<div class="chips">${TPRESETS.map(([n],i)=>`<button type="button" data-tp="${i}">${esc(n)}</button>`).join('')}</div></form></div>
+${S.timers.length?S.timers.map((t,i)=>{const left=t.end-now;return `<div class="card timer"><div><b>${esc(t.n||'Timer')}</b><div class="dim">Done at ${when(t.end)}</div></div><div class="row">${left<=0?'<span class="t ok">Done</span>':`<span class="t" data-cd="${t.end}">${dur(left)}</span>`}<button data-tr="${i}" title="Restart">↻</button><button data-tdel="${i}" title="Remove">✕</button></div></div>`;}).join(''):'<div class="dim">No timers. Start one above.</div>'}`;}
+function timerWire(){
+  document.querySelectorAll('[data-tp]').forEach(b=>b.onclick=()=>{const p=TPRESETS[+b.dataset.tp];$('tn').value=p[0];$('tm').value=p[1];});
+  $('tf').onsubmit=e=>{e.preventDefault();const m=Math.max(1,+$('tm').value||1),now=Date.now();S.timers.push({n:$('tn').value.trim(),start:now,end:now+m*6e4});save();route(true);};
+  document.querySelectorAll('[data-tdel]').forEach(b=>b.onclick=()=>{S.timers.splice(+b.dataset.tdel,1);save();route(true);});
+  document.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>{const t=S.timers[+b.dataset.tr],len=t.end-t.start,now=Date.now();t.start=now;t.end=now+len;save();route(true);});}
+
+/* ---- Characters ---- */
+function pgChars(){const c=C();
+  return `<h2>Characters</h2><p class="sub">Each character keeps its own checklists, counters and build. Give alts on the same server the same server name so the shared counters line up.</p>
+${S.chars.map(x=>`<div class="card ch ${x.id===c.id?'on':''}"><div><b>${esc(x.name)}</b> <span class="tag ${x.fac==='Elyos'?'y':'b'}">${esc(x.fac)}</span><span class="tag">${esc(clsOf(x.cls).n)}</span><span class="tag">Lv ${x.lvl}</span><span class="tag">iLv ${fmtN(x.ilvl)}</span>${x.server?`<span class="tag">${esc(x.server)}</span>`:''}</div><div class="row">${x.id===c.id?'<span class="ok">Active</span>':`<button class="sm" data-sw="${x.id}">Switch</button>`}${S.chars.length>1?`<button class="sm" data-cdl="${x.id}" title="Delete">✕</button>`:''}</div></div>`).join('')}
+<h3>Edit ${esc(c.name)}</h3><div class="card"><div class="row"><label>Name <input type="text" data-cf="name" value="${esc(c.name)}" style="width:160px"></label><label>Server <input type="text" data-cf="server" value="${esc(c.server)}" placeholder="e.g. Siel" style="width:140px"></label>
+<label>Faction <select data-cf="fac">${['Elyos','Asmodian'].map(f=>`<option${c.fac===f?' selected':''}>${f}</option>`).join('')}</select></label>
+<label>Class <select data-cf="cls">${CLASSES.map(k=>`<option value="${k.id}"${c.cls===k.id?' selected':''}>${esc(k.n)}${k.kr?' (Korea)':''}</option>`).join('')}</select></label></div>
+<div class="row"><label>Level <input type="number" class="num" data-cf="lvl" min="1" max="50" value="${c.lvl}"></label><label>Item level <input type="number" data-cf="ilvl" min="0" value="${c.ilvl}" style="width:90px"></label><label>Combat Power <input type="number" data-cf="cp" min="0" value="${c.cp}" style="width:110px"></label><label class="chk"><input type="checkbox" data-cf="member"${c.member?' checked':''}> Membership</label></div></div>
+<div class="card"><form class="row" id="nf"><input id="nn" type="text" style="width:160px" placeholder="New character name"><button class="pri">Add character</button></form></div>`;}
+function charsWire(){const c=C();
+  document.querySelectorAll('[data-cf]').forEach(i=>i.onchange=()=>{const k=i.dataset.cf;c[k]=i.type==='checkbox'?i.checked:i.type==='number'?Math.max(0,+i.value||0):i.value.trim();if(k==='lvl')c.lvl=Math.max(1,Math.min(50,c.lvl));if(k==='server')rollover();save();route(true);});
+  document.querySelectorAll('[data-cdl]').forEach(b=>b.onclick=()=>{const x=S.chars.find(y=>y.id===b.dataset.cdl);if(!confirm('Delete '+x.name+' and everything tracked for them?'))return;S.chars=S.chars.filter(y=>y!==x);if(S.cur===x.id)S.cur=S.chars[0].id;save();route(true);});
+  $('nf').onsubmit=e=>{e.preventDefault();const x=newChar($('nn').value.trim()||'New Daeva',c.server);x.fac=c.fac;x.dAt=lastDaily(Date.now());x.wAt=lastWeekly(Date.now());S.chars.push(x);S.cur=x.id;save();route(true);};}
+
+/* ---- Item level planner ---- */
+function pgPlanner(){const c=C(),il=+c.ilvl||0,nx=ILVL.find(x=>x[0]>il);
+  const enh=SLOTS.reduce((a,s)=>a+(+c.enh[s]||0),0),tgt=SLOTS.reduce((a,s)=>a+Math.max(+c.enh[s]||0,+c.enhT[s]||0),0);
+  const arcE=ARCANA.filter(a=>!c.arc[a[0]]||!c.arc[a[0]].g).length,low=SLOTS.filter(s=>(+c.enh[s]||0)<4);
+  return `<h2>Item level planner</h2><p class="sub">${esc(c.name)} is at item level <b>${fmtN(il)}</b>. <a href="#chars">Change it</a>.</p>
+<div class="card tbl"><table><tr><th class="n">Item level</th><th>Opens</th><th class="n">Gap</th></tr>${ILVL.map(([n,t,cf])=>`<tr class="${n<=il?'':'lock'}"><td class="n mono">${n<=il?'<span class="ok">✔</span> ':''}${fmtN(n)}</td><td>${mark(cf)} ${esc(t)}</td><td class="n mono">${n<=il?'':fmtN(n-il)}</td></tr>`).join('')}</table></div>
+${nx?`<div class="tip"><b>Next: ${fmtN(nx[0])}</b> (${esc(nx[1])}), ${fmtN(nx[0]-il)} to go. Cheapest first: ${[arcE&&il>=1600?`${arcE} empty Arcana slot${arcE>1?'s':''} (20 to 80 each)`:'',low.length?`${low.length} piece${low.length>1?'s':''} under +4`:'','any empty manastone slots (1 to 4 each)','unspent Daevanion Crystals (about 1 each)'].filter(Boolean).join(', ')}.</div>`:'<div class="tip ok">Every listed breakpoint is open.</div>'}
+<h3>Enhancement</h3><p class="dim">Each level adds 1 item level to that piece. Set where each piece is and where you want it. Current: <b>+${enh}</b> in total. Your targets add <b>+${tgt-enh}</b> item level.</p>
+<div class="slots">${SLOTS.map(s=>`<div class="slot"><b>${s}</b><div class="row"><label>Now <input type="number" class="num" min="0" max="25" data-en="${s}" value="${+c.enh[s]||0}"></label><label>Goal <input type="number" class="num" min="0" max="25" data-et="${s}" value="${c.enhT[s]??''}"></label></div></div>`).join('')}</div>
+<div class="row"><button data-eall="4">Goal +4 on all</button><button data-eall="8">Goal +8 on all</button><button data-eall="">Clear goals</button></div>
+<div class="note">The slot list is from guides and may not match the global client exactly ○. Spreading enhancement wins: six pieces at +8 give more than one at +15 with the rest at +2, and costs climb fast past +10.</div>`;}
+function plannerWire(){const c=C();
+  document.querySelectorAll('[data-en]').forEach(i=>i.onchange=()=>{c.enh[i.dataset.en]=Math.max(0,+i.value||0);save();route(true);});
+  document.querySelectorAll('[data-et]').forEach(i=>i.onchange=()=>{if(i.value==='')delete c.enhT[i.dataset.et];else c.enhT[i.dataset.et]=Math.max(0,+i.value||0);save();route(true);});
+  document.querySelectorAll('[data-eall]').forEach(b=>b.onclick=()=>{const v=b.dataset.eall;SLOTS.forEach(s=>{if(v==='')delete c.enhT[s];else c.enhT[s]=+v;});save();route(true);});}
+
+/* ---- Build ---- */
+function pgBuild(){const c=C(),cl=clsOf(c.cls),ai=ARCANA.reduce((a,[s])=>{const x=c.arc[s]||{};return a+(+x.il||0);},0);
+  return `<h2>Build</h2><p class="sub">${esc(c.name)}, ${esc(cl.n)} level ${c.lvl}. Write down what you run so you can rebuild it after a respec or patch.</p>
+<h3>Stigma</h3><div class="slots">${STIG.map((l,i)=>`<div class="slot"><b>Slot ${i+1} <span class="dim">(level ${l})</span></b>${c.lvl<l?'<div class="dim">Locked</div>':''}<input type="text" data-sg="${i}" value="${esc(c.stig[i]||'')}" placeholder="Stigma and level" style="width:100%"></div>`).join('')}</div>
+<h3>Daevanion boards</h3><div class="slots">${DAEV.map(([n,l])=>{const d=c.dae[n]||{};return `<div class="slot"><b>${n} <span class="dim">(level ${l})</span></b>${c.lvl<l?'<div class="dim">Locked</div>':`<div class="row"><label>Nodes <input type="number" class="num" min="0" data-dn="${n}" value="${d.n||0}"></label><label class="chk"><input type="checkbox" data-dd="${n}"${d.done?' checked':''}> Done</label></div>`}<input type="text" data-dt="${n}" value="${esc(d.t||'')}" placeholder="Path or priority" style="width:100%"></div>`;}).join('')}</div>
+<h3>Arcana</h3><p class="dim">Arcana item level so far: <b>${ai}</b> of up to 400.</p><div class="slots">${ARCANA.map(([s,src])=>{const x=c.arc[s]||{};return `<div class="slot"><b>${s}</b><div class="dim" style="font-size:12px">${esc(src)}</div><div class="row"><select data-ag="${s}">${AGRADE.map(([v,n])=>`<option value="${v}"${(x.g||'')===v?' selected':''}>${n}</option>`).join('')}</select><label>iLv <input type="number" class="num" min="0" max="80" data-ai="${s}" value="${x.il||''}"></label></div><input type="text" data-at="${s}" value="${esc(x.t||'')}" placeholder="Main stat, set" style="width:100%"></div>`;}).join('')}</div>
+<div class="note">Common is 20 item level and Unique 80; the grades between aren't published, so type the number from the card ○. Some guides say season one has four Arcana slots, the global client shows five.</div>
+<h3>Your class: ${esc(cl.n)}</h3><div class="card">${classCard(cl)}</div>`;}
+function buildWire(){const c=C();
+  document.querySelectorAll('[data-sg]').forEach(i=>i.oninput=()=>{c.stig[+i.dataset.sg]=i.value;save();});
+  const dae=n=>c.dae[n]||(c.dae[n]={});
+  document.querySelectorAll('[data-dn]').forEach(i=>i.onchange=()=>{dae(i.dataset.dn).n=Math.max(0,+i.value||0);save();});
+  document.querySelectorAll('[data-dd]').forEach(i=>i.onchange=()=>{dae(i.dataset.dd).done=i.checked;save();});
+  document.querySelectorAll('[data-dt]').forEach(i=>i.oninput=()=>{dae(i.dataset.dt).t=i.value;save();});
+  const arc=s=>c.arc[s]||(c.arc[s]={});
+  document.querySelectorAll('[data-ag]').forEach(i=>i.onchange=()=>{const a=arc(i.dataset.ag),g=AGRADE.find(x=>x[0]===i.value);a.g=i.value;if(g&&g[2]!=null&&!a.il)a.il=g[2];if(!i.value)a.il=0;save();route(true);});
+  document.querySelectorAll('[data-ai]').forEach(i=>i.onchange=()=>{arc(i.dataset.ai).il=Math.max(0,Math.min(80,+i.value||0));save();route(true);});
+  document.querySelectorAll('[data-at]').forEach(i=>i.oninput=()=>{arc(i.dataset.at).t=i.value;save();});}
+
+/* ---- Progression ---- */
+function pgProgress(){const c=C(),done=PROG.filter((_,i)=>c.prog[i]).length,groups=[...new Set(PROG.map(p=>p[0]))];
+  return `<h2>Progression</h2><p class="sub" id="pdone">${esc(c.name)}: ${done} of ${PROG.length} done</p><div class="bar"><i id="pbar" style="width:${done/PROG.length*100}%"></i></div>
+${groups.map(g=>`<h3>${g}</h3><div class="card">${PROG.map((p,i)=>p[0]===g?`<label class="chk"><input type="checkbox" data-p="${i}"${c.prog[i]?' checked':''}> ${esc(p[1])}</label>`:'').join('')}</div>`).join('')}
+<button onclick="if(confirm('Clear the progression ticks for this character?')){C().prog={};save();route()}">Reset</button>`;}
+
+/* ---- Lookups ---- */
+function classCard(k){return `<div class="ch"><div><b class="big">${esc(k.n)}</b>${k.alias?` <span class="dim">(${esc(k.alias)})</span>`:''}${k.kr?' <span class="tag r">Korea only</span>':''}</div><div><span class="tag">${esc(k.role)}</span><span class="tag">${esc(k.wpn)}</span>${k.diff!=='—'?`<span class="tag">Difficulty: ${esc(k.diff)}</span><span class="tag ${/high/i.test(k.beg)?'g':''}">For beginners: ${esc(k.beg)}</span>`:''}</div></div><p>${esc(k.play)}</p>
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">${k.good.length?`<div><b class="ok">Strengths</b><ul class="mech">${k.good.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}${k.bad.length?`<div><b class="bad">Weaknesses</b><ul class="mech">${k.bad.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}</div>`;}
+function pgClasses(){return `<h2>Classes</h2><p class="sub">Eight classes on global. Some Korean translations call the Sorcerer a Wizard and the Spiritmaster a Summoner. NC doesn't publish a tier list, and balance patches move things, so the ratings below are about how forgiving each class is, not how strong.</p>
+${CLASSES.map(k=>`<div class="card" id="cls-${k.id}">${classCard(k)}</div>`).join('')}`;}
+
+let ctQ='',ctF='all';
+function contentRows(list,c){return list.map(x=>{const lockL=c.lvl<x.lv,lockI=x.il&&(+c.ilvl||0)<x.il,open=!lockL&&!lockI&&x.g!==false;
+  return `<tr class="${open?'':'lock'}"><td>${mark(x.conf)} <b>${esc(x.n)}</b>${x.g===false?' <span class="tag r">Korea only</span>':x.g===null?' <span class="tag y">Global unconfirmed</span>':''}<div class="dim" style="font-size:12px">${esc(x.d)}</div></td><td>${esc(x.t)}</td><td>${esc(x.size)}</td><td class="mono">Lv ${x.lv}${x.il?` · iLv ${fmtN(x.il)}`:x.il===null?' · iLv ?':''}</td><td>${esc(x.lim)}</td><td>${esc(x.rew)}</td><td>${x.g===false?'':open?'<span class="ok">Open</span>':`<span class="dim">${lockL?'Level '+x.lv:'iLv '+fmtN(x.il)}</span>`}</td></tr>`;}).join('');}
+function pgContent(){const c=C(),types=['all','open','Expedition','Transcendence','Sanctuary','Abyss','PvP','Solo','Korea only'];
+  const q=ctQ.toLowerCase(),list=CONTENT.filter(x=>(!q||(x.n+' '+x.d+' '+x.rew+' '+x.t).toLowerCase().includes(q))&&(ctF==='all'||(ctF==='open'?(c.lvl>=x.lv&&(!x.il||c.ilvl>=x.il)&&x.g!==false):ctF==='Korea only'?x.g===false:ctF==='Solo'?/solo/i.test(x.t):x.t.includes(ctF))));
+  return `<h2>Dungeons and raids</h2><p class="sub">Every instance and repeatable activity, checked against ${esc(c.name)} (level ${c.lvl}, item level ${fmtN(c.ilvl)}).</p>
+<div class="row"><input type="search" id="ctq" placeholder="Search" value="${esc(ctQ)}" style="width:200px"></div><div class="chips">${types.map(t=>`<button data-ctf="${t}" class="${ctF===t?'on':''}">${t==='all'?'All':t==='open'?'Open to me':t}</button>`).join('')}</div>
+<div class="card tbl"><table><tr><th>Content</th><th>Type</th><th>Size</th><th>Gate</th><th>Limit</th><th>Rewards</th><th></th></tr>${contentRows(list,c)||'<tr><td colspan="7" class="dim">Nothing matches.</td></tr>'}</table></div>
+<div class="note">Item level gates differ between guides, and many come from the Korean build. Treat ○ gates as roughly right.</div>`;}
+function contentWire(){$('ctq').oninput=e=>{ctQ=e.target.value;const p=e.target.selectionStart;route(true);const i=$('ctq');i.focus();i.setSelectionRange(p,p);};document.querySelectorAll('[data-ctf]').forEach(b=>b.onclick=()=>{ctF=b.dataset.ctf;route(true);});}
+
+function pgUnlocks(){const c=C();return `<h2>Unlocks by level</h2><p class="sub">What the global client opens as you level. Wings come from the story, not a set level. ${esc(c.name)} is level ${c.lvl}.</p>
+<div class="card tbl"><table><tr><th class="n">Level</th><th>Opens</th></tr>${UNLOCKS.map(([l,t])=>`<tr class="${l<=c.lvl?'':'lock'}"><td class="n mono">${l<=c.lvl?'<span class="ok">✔</span> ':''}${l}</td><td>${esc(t)}</td></tr>`).join('')}</table></div>`;}
+
+function pgAbyss(){const c=C(),now=Date.now();
+  return `<h2>The Abyss</h2><p class="sub">Reshanta is shared PvPvE between the Elyos and Asmodians. It opens at level 45.</p>
+<div class="card tbl"><table><tr><th>Layer</th><th>Item level</th><th>Weekly time</th><th>On global</th></tr><tr><td><b>Lower Reshanta</b> (Chaotic)</td><td>1,000 (one guide adds 500k Combat Power ○)</td><td>7 h</td><td class="ok">Yes</td></tr><tr><td><b>Middle Reshanta</b></td><td>3,000</td><td>7 h</td><td class="ok">Yes</td></tr><tr><td><b>Upper Reshanta</b></td><td>—</td><td>—</td><td class="bad">Korea only</td></tr></table></div>
+<h3>Time</h3><ul class="mech"><li>7 hours a week per layer, bankable to 7. Membership is reported to double Lower and Middle to 14 ○.</li><li>Rift Stones add 1 hour (Lower/Middle) or 30 minutes (lesser).</li><li>${esc(c.name)} has <b>${dur(Math.max(0,abyssMax(c)-abyssUsed(c.abyss.lower,now)))}</b> left in Lower Reshanta. <a href="#tracker">Start the clock</a>.</li></ul>
+<h3>Abyss Points and rank</h3><ul class="mech"><li>From kills, Abyss bosses, Duty Missions (1,000 per Wanted bounty), enemy Sealed Dungeons and Spacetime Rifts.</li><li>A weekly cap, tracked separately for PvE and PvP. Past it, only Rifts add a little.</li><li>Spend them on Stigma Shards and Daevanion Crystal: Azphel.</li><li>Ranks go by placement in your class: Supreme Commander is first, 5-Star Officer is 7th to 20th ○.</li></ul>
+<h3>Artifact Siege</h3><div class="card">${esc(SCHED[0].x)} Monday, Thursday and Saturday at 21:00 server time. Every artifact your faction holds also opens an instanced farming area. <a href="#schedule">See countdowns</a>.</div>
+<h3>Abyss bosses</h3><div class="card tbl"><table><tr><th>Boss</th><th>Layer</th><th>When (server time)</th></tr>${SCHED.slice(1).map(e=>`<tr><td><b>${esc(e.n)}</b></td><td>${esc(e.w)}</td><td>${e.d.map(d=>DAYN[d].slice(0,3)).join(', ')} ${String(e.h).padStart(2,'0')}:${String(e.m).padStart(2,'0')}</td></tr>`).join('')}<tr><td><b>Watcher Kaira</b></td><td>Lower Reshanta</td><td>Every 3 hours</td></tr></table></div>`;}
+
+function pgWorld(){const c=C();return `<h2>Regions</h2><p class="sub">NC says the world is about 36 times the size of the first game's, built for flight and diving.</p>
+<div class="card tbl"><table><tr><th>Region</th><th>Faction</th><th>Levels</th><th>Notes</th></tr>${ZONES.map(z=>`<tr${z.f===c.fac||z.f==='Both'?'':' class="lock"'}><td><b>${esc(z.n)}</b>${z.kr?' <span class="tag r">Korea only</span>':''}</td><td>${esc(z.f)}</td><td>${esc(z.lv)}</td><td>${esc(z.x)}</td></tr>`).join('')}</table></div>
+<h3>Field bosses</h3><div class="card tbl"><table><tr><th>Boss</th><th>Verteron</th><th>Altgard</th></tr>${FBOSS.filter(b=>b.v!=='Lower Reshanta').map(b=>`<tr><td><b>${esc(b.n)}</b>${b.lv?` <span class="tag">Lv ${b.lv}</span>`:''}</td><td>${esc(b.v)}</td><td>${esc(b.a)}</td></tr>`).join('')}</table></div>
+<p><a href="#bosses">Track respawns</a>. Guides list 23 named monsters in Verteron and 22 in Altgard.</p>`;}
+
+function pgGlossary(){return `<h2>Glossary</h2><p class="sub">The words Aion 2 throws at you.</p><div class="card tbl"><table>${GLOSS.map(([a,b])=>`<tr><td style="white-space:nowrap"><b>${esc(a)}</b></td><td>${esc(b)}</td></tr>`).join('')}</table></div>`;}
+
+function pgUpdates(){const today=new Date().toISOString().slice(0,10);
+  return `<h2>Global vs Korea, updates</h2><p class="sub">Korea and Taiwan are about a season ahead. What they have now is roughly what global gets next.</p>${GUIDES.find(g=>g.id==='global').body}
+<h3>Timeline</h3><div class="card tbl"><table><tr><th>When</th><th>Update</th><th>What's in it</th></tr>${TIMELINE.map(([d,n,t,cf])=>`<tr${d>today?' class="lock"':''}><td style="white-space:nowrap">${esc(d)}</td><td>${mark(cf)} <b>${esc(n)}</b>${d>today?' <span class="tag">ahead</span>':''}</td><td>${esc(t)}</td></tr>`).join('')}</table></div>`;}
+
+let lkQ='';
+function pgLookup(){const q=lkQ.trim().toLowerCase(),hit=s=>s.toLowerCase().includes(q),res=[];
+  if(q){CLASSES.forEach(k=>{if(hit(k.n+' '+(k.alias||'')+' '+k.role+' '+k.wpn+' '+k.play))res.push(['Class',k.n,k.role+' · '+k.wpn,'classes']);});
+    CONTENT.forEach(x=>{if(hit(x.n+' '+x.t+' '+x.d+' '+x.rew))res.push(['Content',x.n,x.t+' · Lv '+x.lv+(x.il?' · iLv '+x.il:'')+' · '+x.lim,'content']);});
+    GLOSS.forEach(([a,b])=>{if(hit(a+' '+b))res.push(['Term',a,b,'glossary']);});
+    UNLOCKS.forEach(([l,t])=>{if(hit(t))res.push(['Unlock','Level '+l,t,'unlocks']);});
+    ILVL.forEach(([n,t])=>{if(hit(t))res.push(['Item level',fmtN(n),t,'planner']);});
+    FBOSS.concat(SCHED).forEach(b=>{if(hit(b.n+' '+(b.v||'')+' '+(b.a||'')+' '+(b.w||'')))res.push(['Boss / event',b.n,b.w||(b.v+' / '+b.a),b.w?'schedule':'bosses']);});
+    ZONES.forEach(z=>{if(hit(z.n+' '+z.x))res.push(['Region',z.n,z.f+' · '+z.lv,'world']);});
+    for(const m in AREAS)areaList(m).forEach(a=>{const f=[a.n,...a.h,...a.v,...a.o].find(hit);if(f)res.push(['Area',a.n,(MAPS.find(x=>x.id===m)||{}).n+(f!==a.n?' · '+f:''),'areas']);});
+    PETS.forEach(p=>{if(hit(p.n))res.push(['Pet',p.n,p.g+' · '+(p.combat?'monster souls':'chests and merchants'),'pets']);});
+    S.pins.forEach(p=>{if(hit(p.l+' '+(p.note||'')+' '+(p.pet||'')))res.push(['Your pin',p.l,PINT[p.t][1]+' · '+((MAPS.find(x=>x.id===p.m)||{}).n||'')+(p.a?' · '+p.a:''),'maps']);});
+    GUIDES.forEach(g=>{if(hit(g.title+' '+g.body.replace(/<[^>]+>/g,'')))res.push(['Guide',g.title,g.blurb,'guides/'+g.id]);});}
+  return `<h2>Search</h2><p class="sub">Look up a dungeon, boss, term, class or guide.</p><input type="search" id="lkq" placeholder="e.g. Arcana, Nahma, Draupnir, Odyle" value="${esc(lkQ)}" style="width:min(420px,100%)">
+<div class="chips">${['Odyle','Arcana','Nightmare','Abyss Points','Stigma','Daily Dungeon','Siege','Transcendence'].map(s=>`<button data-lk="${s}">${s}</button>`).join('')}</div>
+${q?`<div class="card tbl"><table>${res.map(([t,n,d,h])=>`<tr><td><span class="tag">${t}</span></td><td><a class="mob" href="#${h}">${esc(n)}</a></td><td>${esc(d)}</td></tr>`).join('')||'<tr><td class="dim">Nothing found.</td></tr>'}</table></div>`:''}`;}
+function lookupWire(){const i=$('lkq');i.oninput=e=>{lkQ=e.target.value;const p=e.target.selectionStart;route(true);const j=$('lkq');j.focus();j.setSelectionRange(p,p);};if(!lkQ)i.focus();
+  document.querySelectorAll('[data-lk]').forEach(b=>b.onclick=()=>{lkQ=b.dataset.lk;route(true);});}
+
+function pgGuides(sub){
+  if(sub){const g=GUIDES.find(x=>x.id===sub);if(g)return `<p><a href="#guides">&larr; All guides</a></p><h2>${g.title}</h2><div class="card">${g.body}</div>`;}
+  return `<h2>Guides</h2><p class="sub">Short, practical guides for the global version.</p><div class="grid">${GUIDES.map(g=>`<div class="tile" onclick="location.hash='guides/${g.id}'"><b>${g.title}</b><div class="dim">${g.blurb}</div></div>`).join('')}</div>`;}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Legion name, Stigma rotation, where the Hidden Cubes you missed are, which alt holds what...">${esc(S.notes)}</textarea>`;}
+
+function pgSettings(){const now=Date.now(),st=S.set,loc=new Date(nextWeekly(now));
+  return `<h2>Settings</h2><p class="sub">Times the tracker uses. Match them to the game once and every countdown follows.</p>
+<div class="card"><h3 style="margin-top:0">Server time</h3><p class="dim">Used for the Artifact Siege and Abyss bosses ("21:00 server time"). Which zone each global region uses isn't published ○; compare the in-game clock with these.</p>
+<div class="row"><select id="stz">${TZS.map(([n,z])=>`<option value="${z}"${st.tz===z?' selected':''}>${n} · ${z}</option>`).join('')}${TZS.some(x=>x[1]===st.tz)?'':`<option selected>${esc(st.tz)}</option>`}</select><input type="text" id="stz2" placeholder="or any zone, e.g. Europe/Berlin" style="width:220px"></div></div>
+<div class="card"><h3 style="margin-top:0">Reset</h3><p class="dim">Guides agree on Wednesday but not the hour; two say 07:00 UTC ○. Hover any counter in-game for the "recharge in" countdown and set it here.</p>
+<div class="row"><label>Weekly on <select id="rd">${DAYN.map((d,i)=>`<option value="${i}"${+st.rDay===i?' selected':''}>${d}</option>`).join('')}</select></label><label>at <input type="number" class="num" id="rh" min="0" max="23" value="${st.rHour}">:00</label><label>in <select id="rtz"><option${st.rTz==='UTC'?' selected':''}>UTC</option><option value="${esc(st.tz)}"${st.rTz===st.tz&&st.rTz!=='UTC'?' selected':''}>server time</option></select></label></div>
+<p>Next weekly reset in your time: <b>${loc.toLocaleString([],{weekday:'long',hour:'2-digit',minute:'2-digit'})}</b>. Daily resets happen at the same hour every day.</p></div>
+<div class="card"><h3 style="margin-top:0">Data</h3><p class="dim">Everything is in this browser under <code>a2_state</code>. Sign in on the <a href="/assistants/">assistants page</a> to sync it through your Google Drive.</p><button id="exp">Download a backup</button> <label><button id="impb">Restore a backup</button><input type="file" id="imp" accept=".json" hidden></label></div>`;}
+function settingsWire(){
+  const setTz=z=>{try{new Intl.DateTimeFormat('en',{timeZone:z});}catch(e){alert('Unknown time zone: '+z);return;}const wasSrv=S.set.rTz===S.set.tz&&S.set.rTz!=='UTC';S.set.tz=z;if(wasSrv)S.set.rTz=z;save();route(true);};
+  $('stz').onchange=e=>setTz(e.target.value);$('stz2').onchange=e=>{if(e.target.value.trim())setTz(e.target.value.trim());};
+  /* moving the reset only affects future resets, so don't wipe today's ticks */
+  const re=()=>{const now=Date.now();S.set.rDay=+$('rd').value;S.set.rHour=Math.max(0,Math.min(23,+$('rh').value||0));S.set.rTz=$('rtz').value;const d=lastDaily(now),w=lastWeekly(now);
+    S.chars.forEach(c=>{c.dAt=Math.max(c.dAt,d);c.wAt=Math.max(c.wAt,w);});for(const k in S.srv){S.srv[k].dAt=Math.max(S.srv[k].dAt,d);S.srv[k].wAt=Math.max(S.srv[k].wAt,w);}save();route(true);};
+  $('rd').onchange=re;$('rh').onchange=re;$('rtz').onchange=re;
+  $('exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download='aion2-assistant.json';a.click();};
+  $('impb').onclick=()=>$('imp').click();
+  $('imp').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{try{const s=JSON.parse(t);if(!s.chars)throw 0;if(confirm('Replace everything here with this backup?')){S=Object.assign(S,s);save();rollover();route();}}catch(x){alert('That file isn’t an Aion 2 Assistant backup.');}});};}
+
+/* ================= ROUTER ================= */
+let tick=0;
+function route(keepScroll){
+  rollover();
+  const [pg,sub]=(location.hash.slice(1)||'home').split('/');
+  const page=REAL.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main'),top=m.scrollTop;
+  m.innerHTML=({home:pgHome,tracker:pgTracker,checklist:pgChecklist,schedule:pgSchedule,bosses:pgBosses,maps:pgMaps,areas:pgAreas,pets:pgPets,timers:pgTimers,chars:pgChars,planner:pgPlanner,build:pgBuild,progress:pgProgress,lookup:pgLookup,guides:()=>pgGuides(sub),classes:pgClasses,content:pgContent,unlocks:pgUnlocks,abyss:pgAbyss,world:pgWorld,glossary:pgGlossary,updates:pgUpdates,notes:pgNotes,settings:pgSettings})[page]();
+  m.scrollTop=keepScroll===true?top:0;
+  m.querySelectorAll('input[type=checkbox][data-p]').forEach(cb=>{cb.onchange=()=>{const c=C();c.prog[cb.dataset.p]=cb.checked;save();const d=PROG.filter((_,i)=>c.prog[i]).length;$('pdone').textContent=c.name+': '+d+' of '+PROG.length+' done';$('pbar').style.width=d/PROG.length*100+'%';};});
+  m.querySelectorAll('[data-sw]').forEach(b=>b.onclick=()=>{S.cur=b.dataset.sw;save();route(true);});
+  ({tracker:trackerWire,checklist:checklistWire,bosses:bossWire,maps:mapsWire,areas:areasWire,pets:petsWire,timers:timerWire,chars:charsWire,planner:plannerWire,build:buildWire,content:contentWire,lookup:lookupWire,settings:settingsWire})[page]?.();
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+  /* one clock for every countdown on the page; redraw when something finishes or a reset passes */
+  clearInterval(tick);tick=setInterval(()=>{const now=Date.now();let redraw=false;
+    document.querySelectorAll('[data-cd]').forEach(el=>{const t=+el.dataset.cd;if(t<=now){redraw=true;return;}el.textContent=dur(t-now);});
+    const c=C();for(const k of ['lower','middle']){const a=c.abyss[k];if(!a.run)continue;const el=document.querySelector(`[data-ab="${k}"]`),b=document.querySelector(`[data-abb="${k}"]`),u=abyssUsed(a,now),mx=abyssMax(c);if(el)el.textContent=dur(Math.max(0,mx-u));if(b)b.style.width=Math.min(100,u/mx*100)+'%';}
+    const typing=document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+    if((redraw||rollover())&&!typing)route(true);},1000);
+}
+window.addEventListener('hashchange',()=>route());
+window.addEventListener('storage',e=>{if(e.key==='a2_state'){try{S=Object.assign(S,JSON.parse(e.newValue));route(true);}catch(x){}}});
+route();
+</script>
+</body>
+</html>

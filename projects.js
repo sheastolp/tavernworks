@@ -191,7 +191,7 @@ window.TAVERN_PROJECTS = {
       "card": {
         "section": "workbench",
         "title": "Game Assistants",
-        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i>, <i>Icarus</i>, <i>How to Fish</i>, <i>Raft</i>, <i>PEAK</i>, <i>Conan Exiles</i>, <i>Valheim</i>, <i>Crusader Kings III</i>, <i>Stellaris</i>, <i>RuneScape: Dragonwilds</i>, <i>Hollow Knight</i>, <i>Hollow Knight: Silksong</i>, <i>Fortnite</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games, GOG, the Xbox app or Windows.",
+        "text": "Browser companions for the games we play: guides, references, planners and calculators. Now with <i>Stationeers</i>, <i>Oddsparks: An Automation Adventure</i>, <i>Icarus</i>, <i>How to Fish</i>, <i>Raft</i>, <i>PEAK</i>, <i>Conan Exiles</i>, <i>Valheim</i>, <i>Crusader Kings III</i>, <i>Stellaris</i>, <i>RuneScape: Dragonwilds</i>, <i>Hollow Knight</i>, <i>Hollow Knight: Silksong</i>, <i>Aion 2</i>, <i>Fortnite</i> and <i>Minecraft</i> (Bedrock with Realms, and Java), and a companion for every game you link from Steam, Epic Games, GOG, the Xbox app or Windows.",
         "href": "/assistants/",
         "url": "tavernworks.dev/assistants",
         "pill": "BETA",
@@ -318,6 +318,14 @@ window.TAVERN_PROJECTS = {
       "name": "Silksong Assistant",
       "href": "/assistants/silksong/",
       "dir": "assistants/silksong",
+      "card": null
+    },
+    {
+      "key": "aion2",
+      "icon": "🪽",
+      "name": "Aion 2 Assistant",
+      "href": "/assistants/aion-2/",
+      "dir": "assistants/aion-2",
       "card": null
     },
     {
@@ -598,6 +606,7 @@ window.TAVERN_PROJECTS = {
     ["guildscribe","2026-10-24","On-screen alerts, Spotify song requests and a tip page","https://guildscribe.tavernworks.dev/"],
     ["guildscribe","2026-10-24","YouTube and YouTube Music in Now playing, and a mods-only list for other song requests","https://guildscribe.tavernworks.dev/"],
     ["guildscribe","2026-10-26","Whisper replies: !whisperme, or whisper the bot a command and get every answer by whisper","https://guildscribe.tavernworks.dev/"],
+    ["aion2","2026-10-26","Aion 2 Assistant: dailies and weeklies that reset themselves, Odyle and Nightmare counters, an Abyss stopwatch, siege and boss countdowns, field boss respawns, maps with item, enemy and pet pins, a pet soul tracker and an item level planner for every character","/assistants/aion-2/"],
     ["guildscribe","2026-10-27","Replies go by whisper on their own when chat gets busy (10+ messages a minute), and back to chat when it calms down","https://guildscribe.tavernworks.dev/"]
   ]
 };
