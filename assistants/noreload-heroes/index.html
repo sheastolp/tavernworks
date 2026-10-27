@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="canonical" href="https://tavernworks.dev/assistants/noreload-heroes/">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NoReload Heroes Assistant · Tavernworks</title>
+<meta name="description" content="NoReload Heroes Assistant: a live run tracker for the whole squad with power-up stacks and revives, a level-up vote with the roulette wheel, the three tower bosses, weapons with your own ratings, how the tower works, the Original and Enhanced Editions, tips and a run log. Runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔫</text></svg>">
+<style>
+:root{--bg:#0e0d16;--panel:#161522;--panel2:#201e30;--line:#34304d;--tx:#eeecf6;--dim:#a29fbb;--acc:#ff5ad1;--acc-ink:#2a0020;--acc2:#5ae0ff;--ok:#7ad37f;--warn:#f2c14e;--err:#ff7a6b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+#app{display:flex;height:100vh}
+#nav{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;overflow:auto}
+#nav h1{font-size:15px;margin:4px 8px 12px;color:var(--acc);letter-spacing:.5px}
+#nav a{display:block;padding:8px 10px;margin:2px 0;border-radius:6px;color:var(--tx);text-decoration:none;cursor:pointer}
+#nav a:hover{background:var(--panel2)}
+#nav a.home{color:var(--dim);font-size:13px}
+#nav a.on{background:var(--acc);color:var(--acc-ink);font-weight:600}
+#main{flex:1;overflow:auto;padding:20px 24px}
+h2{margin:0 0 4px;font-size:22px}
+h3{margin:18px 0 6px;color:var(--acc2);font-size:16px}
+p.sub{color:var(--dim);margin:0 0 16px}
+a{color:var(--acc2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer}
+.tile:hover{border-color:var(--acc)}
+.tile b{color:var(--acc)}
+@media(max-width:760px){#app{flex-direction:column;height:auto;min-height:100vh}#nav{width:auto;display:flex;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}#nav h1{width:100%}#main{padding:16px}}
+button,select,input,textarea{font:inherit;color:var(--tx)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+input,select,textarea{background:#0a0c11;border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+input[type=text],input[type=number]{width:130px}
+input[type=checkbox]{width:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+.tbl{overflow-x:auto}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--panel2);color:var(--dim);margin-left:6px}
+.tag.p{color:#a6dd8c}.tag.d{color:#f2dc8b}.tag.a{color:#ffb3a6}.tag.b{color:#d7b4ff}.tag.t{color:#a9d6f5}
+.note{border-left:3px solid var(--warn);background:#2a2519;padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0;color:#eadca6}
+.tip{border-left:3px solid var(--acc);background:var(--panel2);padding:8px 12px;border-radius:0 6px 6px 0;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.res{background:#0a0c11;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:8px}
+.ok{color:var(--ok)}.bad{color:var(--err)}.dim{color:var(--dim)}
+label.chk{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.conf{color:var(--ok)}.unv{color:var(--warn)}
+.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--acc)}
+a.mob{font-weight:600;color:var(--acc);text-decoration:none;cursor:pointer}
+a.mob:hover{text-decoration:underline}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat small{display:block;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.mech li{margin:4px 0}
+.big{font:600 26px/1.1 Consolas,"Cascadia Mono",monospace;color:var(--acc)}
+.mono{font-family:Consolas,"Cascadia Mono",monospace}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chips button{border-radius:999px;padding:3px 11px;font-size:13px}
+.chips button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+button.sm{padding:2px 9px;font-size:13px}
+.tower{display:grid;grid-template-columns:repeat(18,1fr);gap:4px;margin:10px 0 14px}
+.tower span{height:34px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font:600 12px Consolas,monospace;color:var(--dim)}
+.tower span.done{background:#26324a;color:var(--acc2)}
+.tower span.boss{border-color:var(--warn);font-size:17px;color:var(--warn)}
+.tower span.cur{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+@media(max-width:760px){.tower{grid-template-columns:repeat(9,1fr)}}
+.squad{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.hero{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.hero.down{border-color:var(--err);background:#24161a}
+.hero input[type=text]{width:100%;font-weight:600}
+.pips{display:flex;gap:5px;margin:8px 0}
+.pips i{flex:1;height:14px;border-radius:4px;background:var(--panel2);border:1px solid var(--line)}
+.pips i.on{background:var(--acc);border-color:var(--acc);box-shadow:0 0 6px var(--acc)}
+.wheel{position:relative;width:240px;height:240px;margin:10px auto}
+.wheel svg{width:100%;height:100%;transition:transform 3.2s cubic-bezier(.12,.75,.15,1)}
+.wheel .ptr{position:absolute;left:50%;top:-6px;transform:translateX(-50%);width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-top:20px solid var(--tx)}
+.vote{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vote .opt{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px}
+.vote .opt.win{border-color:var(--ok);box-shadow:0 0 0 1px var(--ok)}
+.res-big{font-size:20px;font-weight:700;text-align:center;margin:8px 0}
+.stars button{background:none;border:0;padding:0 1px;font-size:17px;color:var(--line)}
+.stars button.on{color:var(--warn)}
+</style>
+<script src="/bot-sandbox/app/config.js"></script>
+<script src="/google-signin.js"></script>
+<script src="/assistants/sync.js?v=2" data-track="nrh_state"></script>
+<script src="/assistants/art.js?v=2"></script>
+</head>
+<body>
+<div id="app"><nav id="nav"></nav><main id="main"></main></div>
+<script>
+/* ================= DATA =================
+   NoReload Heroes (Stupid Stupid Games, published by Forever Entertainment) is a 1 to 4 player top-down
+   co-op shooter: climb a tower of randomly generated floors with random weapon drops.
+   conf: true  = the store pages, the publisher or several reviews agree.
+   conf: false = one fan source or a single review; check in game.
+   There is no full public weapon list, so the Weapons page keeps your own log next to the known ones. */
+
+const FLOORS=18,BOSSF={6:0,12:1,18:2};
+const BOSSES=[
+{f:6,n:'Refino-Bot',conf:false,d:'The first boss, at the top of the first six floors.',tips:['Spread out so its attacks can only follow one of you at a time.','Keep at least one player well back and alive: as long as one hero stands, the others can be revived.','Save your best weapon pickups for this fight rather than swapping them away on floor 5.']},
+{f:12,n:'Rubix MK6',conf:false,d:'The second boss, guarding floor 12.',tips:['Clear the adds first if it summons them; stray hits cost power-ups.','Rotate who draws its fire so nobody loses their whole power-up stack.','Revive between its attack waves, not in the middle of one.']},
+{f:18,n:'Mephisto',conf:true,d:'The mighty wizbot at the top of the tower and the final boss. Beat him to finish the run.',tips:['Go in with full health and as many power-ups as you can hold.','Long-range, rapid weapons let you keep moving while you shoot.','If two of you are down, the last hero should play safe and stay alive first; a wipe sends everyone back to floor 1.']}
+];
+const BOSS_NOTE='Three bosses can turn up in a run and all of them have a health percentage to whittle down together. The floor numbers and the first two names come from a fan site that marks them as pending validation.';
+
+/* Known weapons. r = fan rating out of 5 (0 = no opinion), ed = which edition the note is about. */
+const WEAPONS=[
+{n:'Missile Salvo',conf:true,r:5,ed:'Both',d:'Throws missiles non-stop. Called the most powerful weapon by the fan wiki and the best weapon in the Enhanced Edition by the fan site.'},
+{n:'Hail Blaster',conf:false,r:5,ed:'Enhanced',d:'"If you get this, keep it", per the fan site: only Missile Salvo is better.'},
+{n:'Shurikan',conf:false,r:5,ed:'Original',d:'Listed as overpowered in the Original Edition.'},
+{n:'Trident',conf:false,r:5,ed:'Original',d:'Listed as overpowered in the Original Edition.'},
+{n:'Triple Lazer',conf:false,r:5,ed:'Original',d:'Listed as overpowered in the Original Edition.'},
+{n:'Storm',conf:false,r:3,ed:'Both',d:'Overpowered in the Original Edition. In the Enhanced Edition it reportedly only hits each enemy once as it passes, so it is much weaker.'},
+{n:'Envenomer',conf:true,r:0,ed:'Both',d:'Poisons targets for continual damage. Tag tough enemies and move on to the next.'},
+{n:'Firebolt',conf:true,r:0,ed:'Both',d:'Engulfs the target in flame for continuing damage.'},
+{n:'Homer',conf:true,r:0,ed:'Both',d:'Rapid fire with weak homing projectiles. Good for keeping on the move; weak against bosses.'}
+];
+
+const EDITIONS=[
+['Released','April 2018 on PC (Steam); July 2018 on Switch','2021 on Switch'],
+['Players','1 to 4, local and online, with hot join so late friends can drop in','1 to 4 couch co-op'],
+['Weapons','70+ magitech weapons','150+ weapons'],
+['Enemies','43 enemy types','40+ enemy types'],
+['Tower','Randomly generated floors and 3 bosses','18 levels and 3 bosses'],
+['Level-ups','Vote on group upgrades','Vote; if anyone votes differently, a roulette wheel decides']
+];
+
+const MECH=[
+['The tower',true,'Each floor is generated at random and the weapons that drop are random too, so no two runs are the same. Fight up the floors to the boss at the top.'],
+['No reloading',true,'True to the name, you never reload: hold fire and keep moving.'],
+['Drops',true,'Robots drop loot: a health potion, a power-up or a new weapon.'],
+['Power-ups',true,'You can carry up to five. Each adds 5% to your damage, so a full stack is +25%. Every hit you take knocks one off.'],
+['Experience and level-ups',true,'Destroyed robots give experience. Each level-up offers two random stat boosts and you get one of them.'],
+['The vote',true,'In co-op everyone votes for one of the two upgrades. If anyone votes differently, a roulette wheel picks.'],
+['Revives',true,'A downed hero can be revived by a teammate holding the action button (A on Switch), as long as one hero is still standing.'],
+['Team wipe',true,'If the whole team goes down, it\'s back to the bottom of the tower.'],
+['Hidden pickups',false,'In the Original Edition, items and guns sometimes turn invisible; you can still pick them up if you remember where they were. The fan site says this seems to be changed in the Enhanced Edition.']
+];
+
+const TIPS=[
+['Keep your power-ups','A full stack is +25% damage, and every hit costs one. Dodging matters more than standing still and shooting.'],
+['Don\'t all die','A revive only needs one hero standing. When most of the team is down, the last one should play safe and get back to them.'],
+['Revive between waves','Holding the button leaves you open. Clear the nearby robots first, then revive.'],
+['Damage over time weapons','Envenomer and Firebolt keep hurting a target after you look away: tag the big robots, then deal with the rest.'],
+['Weapons to keep','Fans rate Missile Salvo highest, then Hail Blaster. If one drops, don\'t walk over another gun by accident.'],
+['Settle the vote','Agree on upgrades before you vote: one different vote and the wheel decides. Use the vote helper here when the couch can\'t agree.'],
+['Spread out on bosses','Bosses can only aim at one of you at a time. Spreading out also keeps one hero safe for revives.'],
+['Late friends','On PC, hot join lets a friend jump into a run at any point; no need to restart.']
+];
+
+const PAGES=[['home','Home'],['run','Run tracker'],['vote','Level-up vote'],['bosses','Bosses'],['weapons','Weapons'],['how','How the tower works'],['tips','Tips'],['editions','Editions'],['runs','Run log'],['notes','My Notes']];
+
+/* ================= STATE ================= */
+let S={squad:['Player 1','Player 2'],run:null,runs:[],wl:{},myW:[],notes:'',vote:null};
+try{const s=JSON.parse(localStorage.getItem('nrh_state'));if(s)S=Object.assign(S,s);}catch(e){}
+const save=()=>{try{localStorage.setItem('nrh_state',JSON.stringify(S));}catch(e){}};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const mark=c=>c?'<span class="conf" title="Store pages, the publisher or several reviews">●</span>':'<span class="unv" title="One fan source or a single review; check in game">○</span>';
+function dur(ms){const s=Math.max(0,Math.round(ms/1e3)),h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0');}
+const best=()=>S.runs.reduce((b,r)=>Math.max(b,r.floor),0);
+
+function buildNav(cur){$('nav').innerHTML='<a class="home" href="/">&larr; Tavernworks</a><a class="home" href="/assistants/">&larr; All assistants</a><h1>NORELOAD HEROES<br>ASSISTANT</h1>'+PAGES.map(([id,n])=>`<a href="#${id}" class="${cur===id?'on':''}">${n}</a>`).join('');}
+
+const TILE={run:'Floor, power-ups, revives and a timer for the whole squad',vote:'Vote on the two upgrades, and spin the wheel when you disagree',bosses:'Refino-Bot, Rubix MK6 and Mephisto',weapons:'Known weapons, fan ratings and your own log',how:'Floors, drops, power-ups, revives and wipes',tips:'How to get further up the tower',editions:'Original vs Enhanced Edition',runs:'Every run, how high you got and who was there',notes:'Your own notes'};
+function pgHome(){const wins=S.runs.filter(r=>r.win).length;
+return `${TWArt.hero(806770,'NoReload Heroes')}<h2>NoReload Heroes Assistant</h2><p class="sub">A companion for <i>NoReload Heroes</i>, the 1 to 4 player co-op shooter where you never reload. Your squad, runs and notes are saved on this device.</p>
+<div class="stats"><div class="stat"><small>Run in progress</small>${S.run?`<a class="mob" href="#run">Floor ${S.run.floor}</a>`:'<a class="mob" href="#run">Start one</a>'}</div><div class="stat"><small>Runs logged</small><span class="big">${S.runs.length}</span></div><div class="stat"><small>Highest floor</small><span class="big">${best()||'—'}</span></div><div class="stat"><small>Mephisto beaten</small><span class="big">${wins}</span></div><div class="stat"><small>Weapons rated</small><span class="big">${Object.keys(S.wl).length}</span></div></div>
+<div class="grid">${PAGES.slice(1).map(([id,n])=>`<div class="tile" onclick="location.hash='${id}'"><b>${n}</b><div class="dim">${TILE[id]}</div></div>`).join('')}</div>
+<div class="note">Facts marked <span class="conf">●</span> come from the store pages, the publisher or several reviews. Facts marked <span class="unv">○</span> come from one fan source; check them in game. Nobody has published a full weapon or enemy list, so the Weapons page lets you build your own.</div>`;}
+
+/* ---- Run tracker ---- */
+function newRun(){S.run={floor:1,start:Date.now(),heroes:S.squad.map(n=>({n,pu:0,down:false,hits:0,revives:0,w:''})),lv:[],notes:''};save();}
+function pgRun(){const r=S.run;
+  if(!r)return `<h2>Run tracker</h2><p class="sub">Track the climb while you play: the floor you're on, everyone's power-up stack, who's down, and how long the run has taken.</p>
+<div class="card"><b>Squad</b> <span class="dim">(1 to 4)</span><div class="row">${[0,1,2,3].map(i=>`<input type="text" data-sq="${i}" value="${esc(S.squad[i]||'')}" placeholder="${i<S.squad.length?'Player '+(i+1):'Empty seat'}">`).join('')}</div>
+<button class="pri" id="rgo">Start a run</button></div>${towerBar(0)}<div class="note">The tower has ${FLOORS} floors in the Enhanced Edition, with a boss on floors 6, 12 and 18 ○.</div>`;
+  const alive=r.heroes.filter(h=>!h.down).length,bf=BOSSF[r.floor];
+  return `<h2>Run tracker</h2><p class="sub">Floor <b>${r.floor}</b> of ${FLOORS} · <span class="mono" id="rclock">${dur(Date.now()-r.start)}</span> · ${alive} of ${r.heroes.length} standing</p>
+${towerBar(r.floor)}
+${bf!=null?`<div class="tip"><b>Boss floor: ${esc(BOSSES[bf].n)}</b> ${mark(BOSSES[bf].conf)} ${esc(BOSSES[bf].tips[0])} <a href="#bosses">More</a></div>`:''}
+<div class="row"><button class="pri" id="rnext">${r.floor>=FLOORS?'Beat Mephisto 🏆':'Floor cleared ▲'}</button><button id="rback">▼ Back a floor</button><button id="rwipe">💀 Team wipe</button><button id="rquit">End run</button></div>
+<div class="squad">${r.heroes.map((h,i)=>`<div class="hero${h.down?' down':''}"><input type="text" data-hn="${i}" value="${esc(h.n)}">
+<div class="pips" title="+${h.pu*5}% damage">${[1,2,3,4,5].map(k=>`<i class="${k<=h.pu?'on':''}"></i>`).join('')}</div>
+<div class="row"><span class="dim">Power-ups ${h.pu}/5 · <b class="mono">+${h.pu*5}%</b></span></div>
+<div class="row"><button class="sm pri" data-pu="${i}">+1 power-up</button><button class="sm" data-hit="${i}">Hit −1</button></div>
+<div class="row">${h.down?`<button class="sm pri" data-rev="${i}">Revived</button>`:`<button class="sm" data-dn="${i}">Down</button>`}<span class="dim" style="font-size:12px">${h.hits} hits · ${h.revives} revives</span></div>
+<input type="text" data-hw="${i}" value="${esc(h.w)}" placeholder="Weapon in hand" list="wlist" style="width:100%;margin-top:4px"></div>`).join('')}</div>
+${alive===0?'<div class="note">Everyone is down: that\'s a wipe. Press Team wipe to log the run.</div>':''}
+<h3>Level-ups this run</h3><div class="card"><form class="row" id="lvf"><input type="text" id="lvn" placeholder="Upgrade you got (e.g. Fire rate)" style="width:260px"><button>Add</button><a class="mob" href="#vote">Vote helper</a></form>
+${r.lv.length?r.lv.map((l,i)=>`<span class="tag" style="margin:2px">${esc(l)} <a class="mob" data-lvx="${i}">✕</a></span>`).join(''):'<span class="dim">None yet.</span>'}</div>
+<textarea id="rnote" placeholder="Run notes" style="width:100%;height:60px">${esc(r.notes)}</textarea>
+<datalist id="wlist">${allWeapons().map(w=>`<option value="${esc(w.n)}">`).join('')}</datalist>`;}
+function towerBar(cur){return `<div class="tower">${Array.from({length:FLOORS},(_,i)=>i+1).map(f=>`<span class="${f<cur?'done':''}${f===cur?' cur':''}${BOSSF[f]!=null?' boss':''}" title="${BOSSF[f]!=null?'Boss: '+BOSSES[BOSSF[f]].n:'Floor '+f}">${BOSSF[f]!=null?'☠':f}</span>`).join('')}</div>`;}
+function endRun(win,wipe){const r=S.run;S.runs.push({at:Date.now(),floor:win?FLOORS:r.floor,win:!!win,wipe:!!wipe,ms:Date.now()-r.start,squad:r.heroes.map(h=>h.n),lv:r.lv,notes:r.notes,w:r.heroes.map(h=>h.w).filter(Boolean)});S.run=null;save();}
+let clockT=0;
+function runWire(){clearInterval(clockT);
+  if(!S.run){document.querySelectorAll('[data-sq]').forEach(i=>i.oninput=()=>{const v=[...document.querySelectorAll('[data-sq]')].map(x=>x.value.trim());S.squad=v.filter(Boolean);save();});
+    $('rgo').onclick=()=>{S.squad=[...document.querySelectorAll('[data-sq]')].map(x=>x.value.trim()).filter(Boolean);if(!S.squad.length)S.squad=['Player 1'];newRun();route();};return;}
+  const r=S.run,re=()=>{save();route();};
+  clockT=setInterval(()=>{const c=$('rclock');if(c&&S.run)c.textContent=dur(Date.now()-S.run.start);else clearInterval(clockT);},1000);
+  $('rnext').onclick=()=>{if(r.floor>=FLOORS){endRun(true);location.hash='runs';return;}r.floor++;r.heroes.forEach(h=>h.down=false);re();};
+  $('rback').onclick=()=>{r.floor=Math.max(1,r.floor-1);re();};
+  $('rwipe').onclick=()=>{if(confirm('Log a team wipe on floor '+r.floor+'? Back to the bottom of the tower.')){endRun(false,true);location.hash='runs';}};
+  $('rquit').onclick=()=>{if(confirm('End this run and log it at floor '+r.floor+'?')){endRun(false,false);location.hash='runs';}};
+  document.querySelectorAll('[data-pu]').forEach(b=>b.onclick=()=>{const h=r.heroes[+b.dataset.pu];h.pu=Math.min(5,h.pu+1);re();});
+  document.querySelectorAll('[data-hit]').forEach(b=>b.onclick=()=>{const h=r.heroes[+b.dataset.hit];h.pu=Math.max(0,h.pu-1);h.hits++;re();});
+  document.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{const h=r.heroes[+b.dataset.dn];h.down=true;re();});
+  document.querySelectorAll('[data-rev]').forEach(b=>b.onclick=()=>{const h=r.heroes[+b.dataset.rev];h.down=false;h.revives++;re();});
+  document.querySelectorAll('[data-hn]').forEach(i=>i.oninput=()=>{r.heroes[+i.dataset.hn].n=i.value;save();});
+  document.querySelectorAll('[data-hw]').forEach(i=>i.onchange=()=>{r.heroes[+i.dataset.hw].w=i.value.trim();save();});
+  $('lvf').onsubmit=e=>{e.preventDefault();const v=$('lvn').value.trim();if(v){r.lv.push(v);re();}};
+  document.querySelectorAll('[data-lvx]').forEach(a=>a.onclick=()=>{r.lv.splice(+a.dataset.lvx,1);re();});
+  $('rnote').oninput=e=>{r.notes=e.target.value;save();};}
+
+/* ---- Level-up vote ---- */
+function pgVote(){const names=S.run?S.run.heroes.map(h=>h.n):S.squad,v=S.vote||(S.vote={a:'',b:'',votes:{},res:''});
+  return `<h2>Level-up vote</h2><p class="sub">Each level-up offers two random upgrades and the squad votes. If anyone votes differently, a roulette wheel decides. Type the two options, take the votes, and let the wheel settle it like the game does.</p>
+<div class="vote">${['a','b'].map(k=>`<div class="opt${v.res===k?' win':''}"><input type="text" data-vo="${k}" value="${esc(v[k])}" placeholder="Upgrade ${k.toUpperCase()}" style="width:100%;font-weight:600">
+<div style="margin-top:8px">${names.map((n,i)=>`<label class="chk"><input type="radio" name="v${i}" data-vv="${i}" value="${k}"${v.votes[i]===k?' checked':''}> ${esc(n)}</label>`).join('')}</div></div>`).join('')}</div>
+<div class="row"><button class="pri" id="vgo">Count the votes</button><button id="vclr">New level-up</button>${S.run?'':'<span class="dim">Voters come from your squad on the Run tracker.</span>'}</div>
+<div class="wheel" id="wh" style="display:none"><div class="ptr"></div><svg viewBox="-100 -100 200 200" id="whs"></svg></div>
+<div class="res-big" id="vres">${v.res?'Winner: '+esc(v[v.res]||'Upgrade '+v.res.toUpperCase()):''}</div>
+${v.res&&S.run?'<div class="row" style="justify-content:center"><button id="vadd">Add to this run\'s level-ups</button></div>':''}`;}
+function wheelSvg(a,b,ca,cb){const seg=12;let s='';for(let i=0;i<seg;i++){const a0=i/seg*Math.PI*2-Math.PI/2,a1=(i+1)/seg*Math.PI*2-Math.PI/2,k=i%2;
+  s+=`<path d="M0,0L${(Math.cos(a0)*95).toFixed(2)},${(Math.sin(a0)*95).toFixed(2)}A95,95 0 0 1 ${(Math.cos(a1)*95).toFixed(2)},${(Math.sin(a1)*95).toFixed(2)}Z" fill="${k?cb:ca}" stroke="#0f1117" stroke-width="1.5"/>`;
+  const am=(a0+a1)/2;s+=`<text x="${(Math.cos(am)*62).toFixed(1)}" y="${(Math.sin(am)*62+4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="700" fill="#0f1117">${k?'B':'A'}</text>`;}
+  return s+'<circle r="10" fill="#0f1117"/>';}
+function voteWire(){const v=S.vote,names=S.run?S.run.heroes.map(h=>h.n):S.squad;
+  document.querySelectorAll('[data-vo]').forEach(i=>i.oninput=()=>{v[i.dataset.vo]=i.value;save();});
+  document.querySelectorAll('[data-vv]').forEach(i=>i.onchange=()=>{v.votes[i.dataset.vv]=i.value;save();});
+  $('vclr').onclick=()=>{S.vote={a:'',b:'',votes:{},res:''};save();route();};
+  $('vgo').onclick=()=>{const vs=names.map((_,i)=>v.votes[i]).filter(Boolean);
+    if(!vs.length){alert('Nobody has voted yet.');return;}
+    if(vs.length===names.length&&vs.every(x=>x===vs[0])){v.res=vs[0];save();route();return;}
+    /* Disagreement (or a missing vote): spin. */
+    const res=Math.random()<.5?'a':'b',wh=$('wh'),svg=$('whs');wh.style.display='';svg.innerHTML=wheelSvg(v.a,v.b,'#ff5ad1','#5ae0ff');
+    const seg=12,pick=[...Array(seg).keys()].filter(i=>(i%2?'b':'a')===res),i=pick[Math.floor(Math.random()*pick.length)],centre=(i+.5)/seg*360;
+    svg.style.transition='none';svg.style.transform='rotate(0deg)';svg.getBoundingClientRect();svg.style.transition='';svg.style.transform=`rotate(${5*360-centre}deg)`;
+    $('vres').textContent='The squad disagrees: spinning…';
+    setTimeout(()=>{v.res=res;save();$('vres').textContent='Winner: '+(v[res]||'Upgrade '+res.toUpperCase());if(S.run&&!$('vadd')){const d=document.createElement('div');d.className='row';d.style.justifyContent='center';d.innerHTML='<button id="vadd">Add to this run\'s level-ups</button>';$('vres').after(d);$('vadd').onclick=addWin;}},3300);};
+  const addWin=()=>{const n=v[v.res]||('Upgrade '+v.res.toUpperCase());S.run.lv.push(n);S.vote={a:'',b:'',votes:{},res:''};save();location.hash='run';};
+  if($('vadd'))$('vadd').onclick=addWin;}
+
+/* ---- Bosses ---- */
+function pgBosses(){const kills=f=>S.runs.filter(r=>r.floor>f||(r.win&&f===FLOORS)).length;
+  return `<h2>Bosses</h2><p class="sub">${esc(BOSS_NOTE)} ○</p>${BOSSES.map(b=>`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">☠ ${esc(b.n)} ${mark(b.conf)}</h3><span class="tag">Floor ${b.f}</span></div><p>${esc(b.d)}</p><ul class="mech">${b.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul><div class="dim">Beaten in ${kills(b.f)} of your logged runs.</div></div>`).join('')}`;}
+
+/* ---- Weapons ---- */
+let wQ='';
+const allWeapons=()=>WEAPONS.concat(S.myW.map((w,i)=>({n:w.n,d:w.d,ed:w.ed||'',mine:i,r:0,conf:null})));
+function stars(n,v){return `<span class="stars">${[1,2,3,4,5].map(k=>`<button data-st="${esc(n)}" data-v="${k}" class="${k<=v?'on':''}" title="${k} of 5">★</button>`).join('')}</span>`;}
+function pgWeapons(){const q=wQ.toLowerCase(),list=allWeapons().filter(w=>!q||(w.n+' '+w.d).toLowerCase().includes(q));
+  return `<h2>Weapons</h2><p class="sub">The game has 70+ magitech weapons (150+ in the Enhanced Edition), but there's no full public list. These are the ones guides and fans name; add the rest as you find them and rate each one yourself.</p>
+<div class="row"><input type="search" id="wq" placeholder="Find a weapon" value="${esc(wQ)}" style="width:220px"></div>
+<div class="card tbl"><table><tr><th>Weapon</th><th>What it does</th><th>Fans</th><th>Your rating</th><th>Your note</th></tr>${list.map(w=>{const me=S.wl[w.n]||{};return `<tr><td><b>${esc(w.n)}</b> ${w.conf==null?'<span class="tag">yours</span>':mark(w.conf)}${w.ed?`<div class="dim" style="font-size:12px">${esc(w.ed)}</div>`:''}</td><td>${esc(w.d)}</td><td class="mono">${w.r?'★'.repeat(w.r):'<span class="dim">—</span>'}</td><td>${stars(w.n,me.r||0)}</td><td><input type="text" data-wn="${esc(w.n)}" value="${esc(me.note||'')}" placeholder="Note" style="width:170px">${w.mine!=null?` <button class="sm" data-wx="${w.mine}" title="Remove">✕</button>`:''}</td></tr>`;}).join('')||'<tr><td colspan="5" class="dim">No weapons match.</td></tr>'}</table></div>
+<div class="card"><b>Add a weapon you found</b><form class="row" id="wf"><input type="text" id="wn" placeholder="Name" style="width:180px"><input type="text" id="wd" placeholder="What it does" style="width:300px"><select id="we"><option value="">Edition</option><option>Original</option><option>Enhanced</option><option>Both</option></select><button class="pri">Add</button></form></div>
+<div class="note">The fan ratings are one fan's opinions from the fan site and the Switch shmups wiki ○.</div>`;}
+function weaponsWire(){$('wq').oninput=e=>{wQ=e.target.value;const p=e.target.selectionStart;route();const i=$('wq');i.focus();i.setSelectionRange(p,p);};
+  document.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{const n=b.dataset.st,o=S.wl[n]||(S.wl[n]={});o.r=o.r===+b.dataset.v?0:+b.dataset.v;save();route();});
+  document.querySelectorAll('[data-wn]').forEach(i=>i.oninput=()=>{const n=i.dataset.wn;(S.wl[n]||(S.wl[n]={})).note=i.value;save();});
+  document.querySelectorAll('[data-wx]').forEach(b=>b.onclick=()=>{const w=S.myW[+b.dataset.wx];if(confirm('Remove '+w.n+'?')){S.myW.splice(+b.dataset.wx,1);delete S.wl[w.n];save();route();}});
+  $('wf').onsubmit=e=>{e.preventDefault();const n=$('wn').value.trim();if(!n)return;if(allWeapons().some(w=>w.n.toLowerCase()===n.toLowerCase())){alert(n+' is already on the list.');return;}S.myW.push({n,d:$('wd').value.trim(),ed:$('we').value});save();route();};}
+
+/* ---- Reference pages ---- */
+function pgHow(){return `<h2>How the tower works</h2><p class="sub">The rules of a run, in the order you meet them.</p><div class="card tbl"><table>${MECH.map(([n,c,d])=>`<tr><td style="white-space:nowrap"><b>${esc(n)}</b> ${mark(c)}</td><td>${esc(d)}</td></tr>`).join('')}</table></div>
+<h3>Power-up maths</h3><div class="card"><div class="squad">${[0,1,2,3,4,5].map(n=>`<div class="stat"><small>${n} power-up${n===1?'':'s'}</small><span class="big">+${n*5}%</span><div class="dim" style="font-size:12px">${n?n+' hit'+(n>1?'s':'')+' to lose it all':'Nothing to lose'}</div></div>`).join('')}</div></div>`;}
+function pgTips(){return `<h2>Tips</h2><p class="sub">Getting further up the tower, alone or with a full couch.</p><div class="grid">${TIPS.map(([n,d])=>`<div class="card"><b style="color:var(--acc)">${esc(n)}</b><div>${esc(d)}</div></div>`).join('')}</div>`;}
+function pgEditions(){return `<h2>Editions</h2><p class="sub">The original game came out on PC and Switch in 2018; the Enhanced Edition followed on Switch in 2021 with more weapons and a reworked level-up vote.</p>
+<div class="card tbl"><table><tr><th></th><th>Original</th><th>Enhanced Edition</th></tr>${EDITIONS.map(([k,a,b])=>`<tr><td><b>${esc(k)}</b></td><td>${esc(a)}</td><td>${esc(b)}</td></tr>`).join('')}</table></div>
+<div class="note">Developer: Stupid Stupid Games. Publisher: Forever Entertainment. Some reviews of the Switch original said online play was missing there; check your platform's store page before planning an online night ○.</div>`;}
+
+/* ---- Run log ---- */
+function pgRuns(){const wins=S.runs.filter(r=>r.win).length,avg=S.runs.length?(S.runs.reduce((s,r)=>s+r.floor,0)/S.runs.length).toFixed(1):'—';
+  return `<h2>Run log</h2><p class="sub">Every run you finish on the Run tracker lands here. You can also log one by hand.</p>
+<div class="stats"><div class="stat"><small>Runs</small><span class="big">${S.runs.length}</span></div><div class="stat"><small>Highest floor</small><span class="big">${best()||'—'}</span></div><div class="stat"><small>Average floor</small><span class="big">${avg}</span></div><div class="stat"><small>Wins</small><span class="big">${wins}</span></div></div>
+<div class="card"><form class="row" id="lf"><label>Reached floor <input type="number" id="lfl" min="1" max="${FLOORS}" value="1" class="mono" style="width:70px"></label><label class="chk" style="margin:0"><input type="checkbox" id="lwin"> Beat Mephisto</label><input type="text" id="lsq" placeholder="Who played" value="${esc(S.squad.join(', '))}" style="width:220px"><input type="text" id="lno" placeholder="Note" style="width:220px"><button class="pri">Log run</button></form></div>
+<div class="card tbl"><table><tr><th>When</th><th>Result</th><th>Time</th><th>Squad</th><th>Level-ups and weapons</th><th></th></tr>${S.runs.map((r,i)=>({r,i})).reverse().map(({r,i})=>`<tr><td>${new Date(r.at).toLocaleDateString()}</td><td>${r.win?'<span class="ok">🏆 Beat Mephisto</span>':`Floor ${r.floor}${r.wipe?' <span class="bad">wipe</span>':''}`}</td><td class="mono">${r.ms?dur(r.ms):'—'}</td><td>${esc((r.squad||[]).join(', '))}</td><td>${(r.lv||[]).map(l=>`<span class="tag">${esc(l)}</span>`).join('')}${(r.w||[]).length?`<div class="dim" style="font-size:12px">${esc(r.w.join(', '))}</div>`:''}${r.notes?`<div class="dim">${esc(r.notes)}</div>`:''}</td><td><button data-del="${i}" title="Delete">✕</button></td></tr>`).join('')||'<tr><td colspan="6" class="dim">No runs yet.</td></tr>'}</table></div>`;}
+function runsWire(){$('lf').onsubmit=e=>{e.preventDefault();const win=$('lwin').checked;S.runs.push({at:Date.now(),floor:win?FLOORS:Math.max(1,Math.min(FLOORS,+$('lfl').value||1)),win,squad:$('lsq').value.split(',').map(s=>s.trim()).filter(Boolean),notes:$('lno').value.trim(),lv:[]});save();route();};
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(confirm('Delete this run?')){S.runs.splice(+b.dataset.del,1);save();route();}});}
+
+function pgNotes(){return `<h2>My Notes</h2><p class="sub">Saved automatically on this device.</p><textarea id="nt" style="width:100%;height:60vh" placeholder="Weapons worth keeping, who plays what, boss patterns...">${esc(S.notes)}</textarea>`;}
+
+/* ================= ROUTER ================= */
+function route(){
+  const [pg]=(location.hash.slice(1)||'home').split('/');
+  const page=PAGES.some(p=>p[0]===pg)?pg:'home';
+  buildNav(page);
+  const m=$('main'),keep=m.dataset.pg===page?m.scrollTop:0;m.dataset.pg=page;
+  m.innerHTML=({home:pgHome,run:pgRun,vote:pgVote,bosses:pgBosses,weapons:pgWeapons,how:pgHow,tips:pgTips,editions:pgEditions,runs:pgRuns,notes:pgNotes})[page]();
+  m.scrollTop=keep;
+  if(page!=='run')clearInterval(clockT);
+  ({run:runWire,vote:voteWire,weapons:weaponsWire,runs:runsWire})[page]?.();
+  if(page==='notes')$('nt').oninput=e=>{S.notes=e.target.value;save();};
+}
+window.addEventListener('hashchange',route);
+route();
+</script>
+</body>
+</html>

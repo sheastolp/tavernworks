@@ -36,6 +36,7 @@
     { re: /^(runescape)?dragonwilds/, href: '/assistants/dragonwilds/', icon: '🐉' },
     { re: /^(hollowknight)?silksong/, href: '/assistants/silksong/', icon: '🧵' },
     { re: /^aion(2|ii)$/, href: '/assistants/aion-2/', icon: '🪽' },
+    { re: /^noreloadheroes(enhancededition)?$/, href: '/assistants/noreload-heroes/', icon: '🔫' },
     { re: /^hollowknight(voidheartedition)?$/, href: '/assistants/hollow-knight/', icon: '🪲' },
     { re: /^fortnite(battleroyale)?$/, href: '/assistants/fortnite/', icon: '🪂' },
     { re: /^minecraft(launcher|forwindows|uwp|javaedition|bedrock(edition)?)?$/, href: '/assistants/minecraft/', icon: '⛏️' },

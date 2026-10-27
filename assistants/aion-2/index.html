@@ -90,7 +90,7 @@ a.mob:hover{text-decoration:underline}
 .mi{position:absolute;left:0;top:0;transform-origin:0 0}
 .mi img{display:block;width:100%;height:100%;pointer-events:none}
 .pin{position:absolute;transform:translate(-50%,-100%) scale(var(--iz,1));transform-origin:50% 100%;font-size:22px;line-height:1;cursor:pointer;filter:drop-shadow(0 1px 2px #000)}
-.pin.done{opacity:.4}.pin.sel{font-size:30px;filter:drop-shadow(0 0 5px var(--acc))}
+.pin.b{font-size:17px}.pin.done{opacity:.4}.pin.sel{font-size:30px;filter:drop-shadow(0 0 5px var(--acc))}
 .pin.wait::after{content:'⏳';font-size:11px;position:absolute;right:-9px;top:-4px}
 .mctl{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:4px}
 .mctl button{width:34px;padding:4px 0;background:var(--panel)}
@@ -336,8 +336,7 @@ const GUIDES=[
 
 /* ================= MAPS, AREAS, PETS =================
    Areas as the in-game map names them: 'Area|hunting grounds|villages|other', each list split by ';'.
-   Nobody publishes coordinates under a licence we can use, so the maps take your own screenshot of the
-   in-game map and the pins are yours. */
+   The maps are drawn from these lists (see Drawn maps below). */
 const AREAS={
 verteron:["Altamia Canyon|Altamia Canyon|Canyon Campsite|Illusion Hideout;Canyon Thieves Den",
 "Aullaeu Village|Aullaeu Village;Forest of Exiles|Holyaul's Residence;Abandoned Wind Breeze Office|Place of Aulamus",
@@ -384,7 +383,10 @@ altgard:["Basfelt Ruins|Basfelt Ruins|Basfelt Waterfall;Graverobber Campsite;Des
 "Tranein Highland|Tranein Highland;Tranein Pond;Munin's Bridge||",
 "Uruthumheim|Uruthumheim|Abandoned Site;Minushan Site;Victorious Daeva's Statue|",
 "Western Gribade Highland|Western Gribade Highland|Abandoned Campsite|Detlef Thieves Camp"],
-lower:["Reshanta's Root|||Artifact (Artifact Siege)","Sulfur Tree Island|||Artifact (Artifact Siege)","Archipelago of Siel's Wings|||Artifact (Artifact Siege)"]
+poeta:["Daminu Forest|Daminu Forest||","Dawn Legion Forward Base||Dawn Legion Forward Base|","Lacrima Cliff|Lacrima Cliff||","Migzatu Brigade Base|Migzatu Brigade Base||"],
+ishalgen:["Aldelle Village||Aldelle Village|","Anturn Cliff|Anturn Cliff||","Azrakar Brigade Stationing Base|Azrakar Brigade Stationing Base||","Duraro Vine Gorge|Duraro Vine Gorge||","Munihelle Forest|Munihelle Forest;Tunapre Lake||"],
+lower:["Reshanta's Root|||Artifact (Artifact Siege)","Sulfur Tree Island|||Artifact at Branding Island (Artifact Siege)","Archipelago of Siel's Wings|||Artifact at the Grave of Steel (Artifact Siege)","Devastated Remnants|Dusk Battlefield;Shade Island;Weathered Outcrop;Exile Island||"],
+middle:["Latesran Western Ridge||Latesran Western Ridge|","Latesran Eastern Ridge||Latesran Eastern Ridge|","Steel Titan's Grave|Steel Titan's Grave||","Eroded Fragment Area|Eroded Fragment Area||","Corroded Heart|||Artifact, unconfirmed (Artifact Siege)","Contaminated Marsh|||Artifact, unconfirmed (Artifact Siege)","Distorted Old Growth Forest|||Artifact, unconfirmed (Artifact Siege)"]
 };
 const MAPS=[{id:'verteron',n:'Verteron',f:'Elyos'},{id:'altgard',n:'Altgard',f:'Asmodian'},{id:'poeta',n:'Poeta',f:'Elyos'},{id:'ishalgen',n:'Ishalgen',f:'Asmodian'},{id:'lower',n:'Lower Reshanta',f:'Both'},{id:'middle',n:'Middle Reshanta',f:'Both'}];
 /* Region totals from community maps. They count differently, so all are ○. */
@@ -394,8 +396,98 @@ const areaList=m=>(AREAS[m]||[]).map(s=>{const [n,h,v,o]=s.split('|'),sp=x=>x?x.
 /* Pin types: icon, name, category. */
 const PINT={cube:['🧊','Hidden Cube','item'],trace:['🪶','Empyrean Trace','item'],sealed:['🚪','Sealed Dungeon','item'],gather:['⛏️','Gathering node','item'],chest:['🎁','Chest','item'],
  boss:['💀','Field boss','enemy'],named:['👹','Named monster','enemy'],mob:['⚔️','Hunting spot','enemy'],pet:['🐾','Pet soul farm','pet'],
- rift:['🌀','Spacetime Rift','travel'],tele:['🗿','Teleport statue','travel'],npc:['💬','NPC or quest','other'],note:['📌','Note','other']};
+ rift:['🌀','Spacetime Rift','travel'],tele:['🗿','Teleport statue','travel'],camp:['⛺','Village or camp','travel'],npc:['💬','NPC or quest','other'],poi:['🏛️','Landmark','other'],artifact:['🔮','Artifact','other'],note:['📌','Note','other']};
 const PCAT={item:'Items',enemy:'Enemies',pet:'Pets',travel:'Travel',other:'Other'};
+/* ---- Drawn maps ----
+   Each map is drawn here from its area list, so nothing has to be uploaded. No source publishes coordinates
+   we can use, so the layout is a schematic: areas sit roughly where guides place them (Dawn Legion Base above
+   Cantas Valley, Altamia in the east, Mahindel linking north and south Altgard) and the rest follows the
+   levelling route. a: [area, x, y, terrain, radius] on a 1000 board. Pins for every village, hunting ground,
+   landmark, artifact and field boss are placed around their area and can be moved. */
+const TERR={forest:'#3f6a3c',scarlet:'#7b4436',grass:'#6d8a45',high:'#9c8c5c',canyon:'#9a6744',marsh:'#4b7867',ruin:'#77705f',town:'#a08f62',isle:'#6d8a45',rock:'#5a5272'};
+const LAYOUT={
+verteron:{a:[["Nahid Brigade Fortress",420,110,'ruin'],["Eternal Isle",930,85,'isle'],["Altamia Canyon",790,215,'canyon'],["Verteron Fortress Ruins",590,230,'ruin'],["Garden of the Illusion God",280,270,'grass'],
+ ["Pilgrim's Ridge",440,330,'high'],["Eastern Altamia Highland",905,320,'high'],["Western Altamia Highland",710,370,'high'],["Zumion Village",825,405,'town',70],["Ellun River Midstream",565,430,'marsh'],
+ ["Kraka Footpath",270,440,'grass'],["Scarlet Forest",125,480,'scarlet'],["Ellun River Marsh",420,530,'marsh'],["Southern Altamia Highland",860,535,'high'],["Drana Plantation",680,590,'grass'],
+ ["Aullaeu Village",230,610,'forest'],["Tolbas Forest",420,690,'forest'],["Eastern Cantas Valley",640,800,'canyon'],["Western Cantas Valley",300,810,'canyon'],["Crimson Isle",85,860,'isle'],["Dawn Legion Base",470,905,'town',80]],
+ river:[[105,650],[290,600],[420,530],[565,430],[650,320],[700,190],[720,40]],
+ src:'Dawn Legion Base sits above Cantas Valley and Altamia is in the east, per guides; the rest of the layout follows the levelling route.'},
+altgard:{a:[["Lagta Fortress",520,70,'ruin'],["Western Gribade Highland",330,120,'high'],["Eastern Gribade Highland",760,130,'high'],["Silent Hill",160,180,'high'],["Southern Gribade Highland",560,210,'high'],
+ ["Fafnite Deposit",900,230,'canyon'],["Sanctum Outpost",400,265,'ruin'],["Uruthumheim",690,280,'ruin'],["Nameless Cemetery",180,340,'ruin'],["Tranein Highland",830,350,'high'],["Dranactus",320,410,'canyon'],
+ ["Impetusium Square",510,400,'town',85],["Dredgion Crash Site",690,430,'ruin'],["Spirit Isle",65,540,'isle'],["Mahindel River",510,545,'marsh',75],["Basfelt Ruins",270,650,'ruin'],["Battlescar Mound",730,660,'canyon'],
+ ["Moslan Forest",460,700,'forest'],["Purifying Forest",170,770,'forest'],["Nornir Assembly",610,790,'town',80],["Quai Campsite",790,810,'canyon'],["Black Claw Village",350,830,'town',85],["Immortal Isle",935,700,'isle'],["Safe Haven",480,910,'town',75]],
+ river:[[560,130],[540,300],[510,545],[555,700],[600,960]],
+ src:'Mahindel links northern and southern Altgard and Fafnite Deposit is in the Gribade Highland, per guides; the rest of the layout follows the levelling route.'},
+poeta:{a:[["Migzatu Brigade Base",480,280,'ruin',150],["Lacrima Cliff",690,470,'high',140],["Daminu Forest",330,530,'forest',160],["Dawn Legion Forward Base",510,760,'town',140]],
+ river:[[150,700],[330,600],[470,560],[620,640],[900,700]],src:'Area names from community maps; the layout is a sketch.'},
+ishalgen:{a:[["Azrakar Brigade Stationing Base",410,270,'ruin',140],["Anturn Cliff",720,320,'high',140],["Munihelle Forest",300,560,'forest',150],["Duraro Vine Gorge",660,590,'canyon',140],["Aldelle Village",480,800,'town',130]],
+ river:[[120,480],[300,560],[470,650],[480,800]],src:'Area names from community maps; the layout is a sketch.'},
+lower:{abyss:1,a:[["Devastated Remnants",280,260,'rock',115],["Archipelago of Siel's Wings",760,270,'rock',115],["Reshanta's Root",500,510,'rock',135],["Sulfur Tree Island",250,740,'rock',115]],boss:"Reshanta's Root",
+ src:'Artifact sites from guides; island positions are a sketch.'},
+middle:{abyss:1,a:[["Steel Titan's Grave",500,150,'rock',110],["Contaminated Marsh",290,330,'rock',95],["Latesran Western Ridge",120,520,'rock',95],["Corroded Heart",500,500,'rock',120],["Latesran Eastern Ridge",880,520,'rock',95],["Distorted Old Growth Forest",700,690,'rock',95],["Eroded Fragment Area",500,860,'rock',110]],boss:'Corroded Heart',
+ src:'Steel Titan’s Grave is in the north, Eroded Fragment Area in the south and the Latesran Ridges are the faction bases, per guides; which areas hold artifacts is unconfirmed.'}};
+const areaR=a=>a[4]||(a[3]==='isle'?55:100);
+function rng(s){let h=2166136261;for(const ch of s)h=Math.imul(h^ch.charCodeAt(0),16777619);return ()=>{h=Math.imul(h^h>>>15,2246822507);h=Math.imul(h^h>>>13,3266489909);return ((h^=h>>>16)>>>0)/4294967296;};}
+function blob(x,y,r,seed){const R=rng(seed),n=14;return Array.from({length:n},(_,i)=>{const a=i/n*Math.PI*2,rr=r*(.8+R()*.38);return [x+Math.cos(a)*rr,y+Math.sin(a)*rr];});}
+const f1=v=>v.toFixed(1);
+/* Catmull-Rom through the points as cubic Béziers; closed for coasts, open for rivers. */
+function curve(p,closed){const n=p.length,P=i=>p[closed?(i+n)%n:Math.max(0,Math.min(n-1,i))];let d=`M${f1(p[0][0])},${f1(p[0][1])}`;
+  for(let i=0;i<(closed?n:n-1);i++){const a=P(i-1),b=P(i),c=P(i+1),e=P(i+2);d+=`C${f1(b[0]+(c[0]-a[0])/6)},${f1(b[1]+(c[1]-a[1])/6)} ${f1(c[0]-(e[0]-b[0])/6)},${f1(c[1]-(e[1]-b[1])/6)} ${f1(c[0])},${f1(c[1])}`;}return d+(closed?'Z':'');}
+/* Voronoi cell of seed i: the board clipped by the half-plane nearer i than each other seed. */
+function cell(i,pts){let poly=[[0,0],[1000,0],[1000,1000],[0,1000]];const [px,py]=pts[i];
+  pts.forEach(([qx,qy],j)=>{if(j===i)return;const nx=qx-px,ny=qy-py,k=(qx*qx+qy*qy-px*px-py*py)/2,s=p=>p[0]*nx+p[1]*ny-k,out=[];
+    poly.forEach((A,t)=>{const B=poly[(t+1)%poly.length],sa=s(A),sb=s(B);if(sa<=0)out.push(A);if((sa<=0)!==(sb<=0)){const u=sa/(sa-sb);out.push([A[0]+(B[0]-A[0])*u,A[1]+(B[1]-A[1])*u]);}});poly=out;});
+  return 'M'+poly.map(p=>f1(p[0])+','+f1(p[1])).join('L')+'Z';}
+function wrapName(n){if(n.length<15)return [n];const w=n.split(' '),h=Math.ceil(n.length/2);let a='';while(w.length&&(a+' '+w[0]).trim().length<=h+3)a=(a+' '+w.shift()).trim();return w.length?[a,w.join(' ')]:[a];}
+/* Little trees, ridges and stones so areas read at a glance. */
+function glyphs(a){const [n,x,y,t]=a,r=areaR(a),R=rng(n+'g');let s='';
+  for(let i=0;i<(t==='isle'?3:7);i++){const ang=R()*Math.PI*2,d=r*(.35+R()*.4),gx=x+Math.cos(ang)*d,gy=y+Math.sin(ang)*d;if(Math.abs(gy-y)<24&&Math.abs(gx-x)<70)continue;
+    if(t==='forest'||t==='scarlet'||t==='isle')s+=`<circle cx="${f1(gx)}" cy="${f1(gy)}" r="7" fill="${t==='scarlet'?'#a3533d':'#2c5230'}"/><circle cx="${f1(gx+6)}" cy="${f1(gy+3)}" r="6" fill="${t==='scarlet'?'#8e4535':'#355f35'}"/>`;
+    else if(t==='high'||t==='canyon')s+=`<path d="M${f1(gx-11)},${f1(gy+6)}L${f1(gx)},${f1(gy-9)}L${f1(gx+11)},${f1(gy+6)}" fill="none" stroke="${t==='canyon'?'#6e4429':'#6f6240'}" stroke-width="3" stroke-linejoin="round"/>`;
+    else if(t==='marsh')s+=`<path d="M${f1(gx-9)},${f1(gy)}q4.5,-5 9,0t9,0" fill="none" stroke="#7fb3c2" stroke-width="2.5"/>`;
+    else if(t==='ruin'||t==='rock')s+=`<rect x="${f1(gx-4)}" y="${f1(gy-9)}" width="8" height="14" fill="${t==='rock'?'#3d3752':'#5a5446'}"/>`;
+    else s+=`<rect x="${f1(gx-6)}" y="${f1(gy-5)}" width="12" height="10" fill="#6c5e3e"/><path d="M${f1(gx-8)},${f1(gy-5)}L${f1(gx)},${f1(gy-12)}L${f1(gx+8)},${f1(gy-5)}Z" fill="#8a4a3a"/>`;}
+  return s;}
+const mapSvgCache={};
+function mapSvg(id){if(mapSvgCache[id])return mapSvgCache[id];const L=LAYOUT[id],m=MAPS.find(x=>x.id===id),A=L.a,pts=A.map(a=>[a[1],a[2]]);
+  const blobs=A.map(a=>curve(blob(a[1],a[2],areaR(a),a[0]),true)),R=rng(id);
+  const label=a=>{const ln=wrapName(a[0]),fs=a[3]==='isle'?13:15;return `<text x="${a[1]}" y="${a[2]-(ln.length-1)*fs/2+5}" text-anchor="middle" font-size="${fs}" font-weight="700" fill="#f6eed6" stroke="#15130e" stroke-width="4" paint-order="stroke" stroke-linejoin="round">${ln.map((l,i)=>`<tspan x="${a[1]}" dy="${i?fs+1:0}">${esc(l)}</tspan>`).join('')}</text>`;};
+  let s=`<svg width="1000" height="1000" viewBox="0 0 1000 1000" style="display:block" font-family="Segoe UI,system-ui,sans-serif"><defs><mask id="lc-${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="1000" height="1000">${blobs.map(d=>`<path d="${d}" fill="#fff" stroke="#fff" stroke-width="24" stroke-linejoin="round"/>`).join('')}</mask>`;
+  if(L.abyss){s+=`<radialGradient id="sk-${id}" cx="50%" cy="50%" r="70%"><stop offset="0" stop-color="#2a1f4a"/><stop offset="1" stop-color="#07060d"/></radialGradient></defs><rect width="1000" height="1000" fill="url(#sk-${id})"/>`;
+    for(let i=0;i<140;i++)s+=`<circle cx="${f1(R()*1000)}" cy="${f1(R()*1000)}" r="${f1(R()*1.6+.3)}" fill="#cfc6ff" opacity="${f1(R()*.6+.2)}"/>`;
+    A.forEach((a,i)=>A.slice(i+1).forEach(b=>{if(Math.hypot(a[1]-b[1],a[2]-b[2])<480)s+=`<line x1="${a[1]}" y1="${a[2]}" x2="${b[1]}" y2="${b[2]}" stroke="#8f7fe0" stroke-width="2" stroke-dasharray="3 9" opacity=".45"/>`;}));
+    s+=blobs.map(d=>`<path d="${d}" fill="none" stroke="#9b87ff" stroke-width="16" opacity=".18"/><path d="${d}" fill="${TERR.rock}" stroke="#2a2440" stroke-width="5"/>`).join('');}
+  else{s+=`<radialGradient id="sea-${id}" cx="50%" cy="50%" r="72%"><stop offset="0" stop-color="#2d5a78"/><stop offset="1" stop-color="#132a3c"/></radialGradient></defs><rect width="1000" height="1000" fill="url(#sea-${id})"/>`;
+    for(let i=0;i<40;i++){const x=R()*1000,y=R()*1000;s+=`<path d="M${f1(x)},${f1(y)}q6,-5 12,0t12,0" fill="none" stroke="#5f8eae" stroke-width="2" opacity=".5"/>`;}
+    s+=blobs.map(d=>`<path d="${d}" fill="#d8c896" stroke="#d8c896" stroke-width="40" stroke-linejoin="round"/>`).join('');
+    s+=`<g mask="url(#lc-${id})">${A.map((a,i)=>`<path d="${cell(i,pts)}" fill="${TERR[a[3]]}" stroke="#1d1a12" stroke-opacity=".45" stroke-width="2.5" stroke-dasharray="7 5"/>`).join('')}`;
+    if(L.river)s+=`<path d="${curve(L.river,false)}" fill="none" stroke="#3f7fa8" stroke-width="9" stroke-linecap="round"/><path d="${curve(L.river,false)}" fill="none" stroke="#6aa7cc" stroke-width="3" stroke-linecap="round"/>`;
+    s+='</g>';}
+  s+=A.map(glyphs).join('');
+  s+=[1,2,3,4,5,6,7,8,9].map(i=>`<line x1="${i*100}" y1="0" x2="${i*100}" y2="1000" stroke="#fff" stroke-opacity=".07"/><line x1="0" y1="${i*100}" x2="1000" y2="${i*100}" stroke="#fff" stroke-opacity=".07"/>`).join('');
+  s+=[...'ABCDEFGHIJ'].map((l,i)=>`<text x="${i*100+50}" y="18" text-anchor="middle" fill="#fff" fill-opacity=".45" font-size="14">${l}</text>`).join('')+[1,2,3,4,5,6,7,8,9,10].map(n=>`<text x="6" y="${n*100-46}" fill="#fff" fill-opacity=".45" font-size="14">${n}</text>`).join('');
+  s+=A.map(label).join('');
+  s+=`<g transform="translate(940,935)"><circle r="30" fill="#15130e" fill-opacity=".55" stroke="#d8c896" stroke-width="1.5"/><path d="M0,-24L7,0L0,24L-7,0Z" fill="#d8c896"/><path d="M0,-24L7,0L-7,0Z" fill="#c0392b"/><text y="-30" text-anchor="middle" font-size="13" font-weight="700" fill="#f6eed6">N</text></g>`;
+  s+=`<g transform="translate(30,940)"><rect x="0" y="-26" width="${esc(m.n).length*13+150}" height="40" rx="6" fill="#15130e" fill-opacity=".6" stroke="#d8c896" stroke-opacity=".6"/><text x="12" y="1" font-size="20" font-weight="700" fill="#e8c066">${esc(m.n)}</text><text x="${esc(m.n).length*12+22}" y="0" font-size="12" fill="#cfc6aa">sketch, not to scale</text></g></svg>`;
+  return mapSvgCache[id]=s;}
+
+/* Built-in pins, ids b:map:name. Their state (collected, kills) is keyed by id like your own pins; notes,
+   respawn hours, moves and hiding are kept in S.bpe so the list itself can grow in later versions. */
+const BPINS=(()=>{const out=[];
+  Object.entries(LAYOUT).forEach(([m,L])=>{const ids=new Set();
+    L.a.forEach(a=>{const [n,x,y]=a,r=areaR(a),ar=areaList(m).find(z=>z.n===n)||{h:[],v:[],o:[]};
+      const items=[...ar.v.map(l=>['camp',l]),...ar.h.filter(l=>l!==n).map(l=>['mob',l]),...ar.o.map(l=>[/^Artifact/.test(l)?'artifact':'poi',/^Artifact/.test(l)?n+' '+l.replace(/^Artifact/,'artifact'):l])];
+      FBOSS.forEach(b=>{if((m==='verteron'&&b.v===n)||(m==='altgard'&&b.a===n)||(L.boss===n&&(b.v===MAPS.find(z=>z.id===m).n)))items.push(['boss',b.n]);});
+      if(L.boss===n)SCHED.forEach(e=>{if(e.w===MAPS.find(z=>z.id===m).n&&!/Siege/.test(e.n))items.push(['boss',e.n]);});
+      if(!items.length)items.push(['poi',n]);
+      const R=rng(m+n),off=R()*Math.PI*2,N=items.length;
+      items.forEach(([t,l],i)=>{const ang=off+i*2.39996,d=Math.min(r*.85,34+r*.55*Math.sqrt((i+1)/N));let id='b:'+m+':'+l;while(ids.has(id))id+='+';ids.add(id);
+        out.push({id,b:1,m,t,l,a:n,x:Math.max(.01,Math.min(.99,(x+Math.cos(ang)*d)/1000)),y:Math.max(.02,Math.min(.99,(y+Math.sin(ang)*d*.85+(Math.sin(ang)>0?14:-6))/1000))});});});});
+  return out;})();
+function allPins(){return BPINS.map(p=>Object.assign({},p,S.bpe[p.id])).filter(p=>!p.hid).concat(S.pins);}
+const pinById=id=>allPins().find(p=>p.id===id);
+function pinSet(p,k,v){if(p.b)(S.bpe[p.id]||(S.bpe[p.id]={}))[k]=v;else{const q=S.pins.find(x=>x.id===p.id);if(q)q[k]=v;}p[k]=v;}
+
 
 /* Pets by genus: [genus, what its collection boosts, from monster souls, from chests and Black Cloud Merchants only]. */
 const PETG=[
@@ -424,7 +516,7 @@ const TPRESETS=[['Odyle +15',180],['Field boss (6 h guess)',360],['Spacetime Rif
 /* ================= STATE ================= */
 const newChar=(n,srv)=>({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:n||'My Daeva',fac:'Elyos',cls:'templar',lvl:1,ilvl:0,cp:0,server:srv||'',member:false,
   daily:{},week:{},cnt:{},regen:{},dAt:0,wAt:0,abyss:{lower:{used:0,run:0},middle:{used:0,run:0}},enh:{},enhT:{},arc:{},stig:['','','',''],dae:{},prog:{},got:{},pets:{},petSp:{},kc:{},ac:{}});
-let S={chars:[],cur:'',srv:{},set:{tz:'Europe/Paris',rDay:3,rHour:7,rTz:'UTC'},custom:[],kills:{},bossHrs:{},timers:[],notes:'',pins:[],pk:{},enemies:[],mapPref:{off:{},hide:false,last:'cube'}};
+let S={chars:[],cur:'',srv:{},set:{tz:'Europe/Paris',rDay:3,rHour:7,rTz:'UTC'},custom:[],kills:{},bossHrs:{},timers:[],notes:'',pins:[],bpe:{},pk:{},enemies:[],mapPref:{off:{},hide:false,last:'cube'}};
 try{const s=JSON.parse(localStorage.getItem('a2_state'));if(s)S=Object.assign(S,s);}catch(e){}
 if(!S.chars.length){const c=newChar();S.chars.push(c);S.cur=c.id;}
 /* older saves: give every character the map, pet and kill fields */
@@ -575,7 +667,8 @@ function pgSchedule(){const now=Date.now(),ev=upcoming(now,7),sp=tzParts(S.set.t
 
 /* ---- Field bosses ---- */
 /* ---- Maps ---- */
-/* Screenshots live in IndexedDB (too big for the synced state). mapImg[id]: undefined = not looked yet, 0 = loading, null = none. */
+/* An optional screenshot of your own replaces the drawn map. It lives in IndexedDB (too big for the synced state).
+   mapImg[id]: undefined = not looked yet, 0 = loading, null = none. */
 const mapImg={},mapView={};
 let pinMove='',mapId='',pinSel='',pinDraft=null,mapArea='',pinQ='';
 function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('a2_maps',1);r.onupgradeneeded=()=>r.result.createObjectStore('img');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
@@ -592,7 +685,7 @@ function pinDone(p,c){const k=pinCat(p);if(k==='item'||k==='travel')return !!c.g
 function pinUp(p){const k=S.pk[p.id];return k&&p.h?k.last+p.h*36e5:0;}
 function pinStatus(p,c,now){const k=pinCat(p);
   if(k==='item')return c.got[p.id]?'<span class="ok">✔ Collected</span>':'';
-  if(k==='travel')return c.got[p.id]?'<span class="ok">✔ Attuned</span>':'';
+  if(k==='travel')return c.got[p.id]?`<span class="ok">✔ ${p.t==='camp'?'Visited':'Attuned'}</span>`:'';
   if(k==='pet'){if(!p.pet)return '';const s=+c.pets[p.pet]||0;return `${s} souls · ${petLv(s).lv?'Lv '+petLv(s).lv:'locked'}`;}
   if(k==='enemy'){const k2=S.pk[p.id],up=pinUp(p);return (up>now?`<span class="mono" data-cd="${up}">${dur(up-now)}</span>`:k2&&p.h?'<span class="ok">Up</span>':'')+(k2?` <span class="dim">${k2.n} kill${k2.n>1?'s':''}</span>`:'');}
   return '';}
@@ -601,14 +694,11 @@ const typeOpts=sel=>Object.entries(PCAT).map(([cat,cn])=>`<optgroup label="${cn}
 const areaOpts=(m,sel)=>`<option value="">No area</option>`+areaList(m).map(a=>`<option${a.n===sel?' selected':''}>${esc(a.n)}</option>`).join('');
 
 function pgMaps(){const c=C(),m=curMap(),now=Date.now();if(mapImg[m.id]===undefined)loadImg(m.id);
-  const img=mapImg[m.id]||null,W=img?img.w:1000,H=img?img.h:1000,pins=S.pins.filter(p=>p.m===m.id),vis=pins.filter(p=>pinVis(p,c));
+  const img=mapImg[m.id]||null,W=img?img.w:1000,H=img?img.h:1000,pins=(img?S.pins:allPins()).filter(p=>p.m===m.id),vis=pins.filter(p=>pinVis(p,c)),hidN=BPINS.filter(p=>p.m===m.id&&(S.bpe[p.id]||{}).hid).length;
   if(mapArea&&!areaList(m.id).some(a=>a.n===mapArea))mapArea='';
-  const board=`<svg width="1000" height="1000" viewBox="0 0 1000 1000" style="display:block"><defs><radialGradient id="mg" cx="50%" cy="45%" r="75%"><stop offset="0" style="stop-color:var(--panel2)"/><stop offset="1" style="stop-color:var(--bg)"/></radialGradient></defs><rect width="1000" height="1000" fill="url(#mg)"/>
-${[1,2,3,4,5,6,7,8,9].map(i=>`<line x1="${i*100}" y1="0" x2="${i*100}" y2="1000" stroke="var(--line)"/><line x1="0" y1="${i*100}" x2="1000" y2="${i*100}" stroke="var(--line)"/>`).join('')}
-${[...'ABCDEFGHIJ'].map((l,i)=>`<text x="${i*100+50}" y="22" text-anchor="middle" fill="var(--dim)" font-size="16">${l}</text>`).join('')}${[1,2,3,4,5,6,7,8,9,10].map(n=>`<text x="10" y="${n*100-44}" fill="var(--dim)" font-size="16">${n}</text>`).join('')}
-<text x="500" y="470" text-anchor="middle" fill="var(--acc)" font-size="44" font-weight="700" opacity=".8">${esc(m.n)}</text><text x="500" y="515" text-anchor="middle" fill="var(--dim)" font-size="20">Paste a screenshot of the in-game map here (Ctrl+V)</text><text x="500" y="545" text-anchor="middle" fill="var(--dim)" font-size="20">or click anywhere to drop a pin on the grid</text></svg>`;
-  const pinHtml=vis.map(p=>`<div class="pin${p.id===pinSel?' sel':''}${pinDone(p,c)?' done':''}${pinUp(p)>now?' wait':''}" data-pin="${p.id}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(p.l)}">${PINT[p.t][0]}</div>`).join('');
-  const p=pinSel&&S.pins.find(x=>x.id===pinSel);
+  const board=mapSvg(m.id);
+  const pinHtml=vis.map(p=>`<div class="pin${p.b?' b':''}${p.id===pinSel?' sel':''}${pinDone(p,c)?' done':''}${pinUp(p)>now?' wait':''}" data-pin="${esc(p.id)}" style="left:${p.x*100}%;top:${p.y*100}%" title="${esc(p.l)}">${PINT[p.t][0]}</div>`).join('');
+  const p=pinSel&&pins.find(x=>x.id===pinSel);
   let edit='';
   if(pinDraft){const t=pinDraft.t||mapPref().last;edit=`<div class="card"><b>New pin at ${grid(pinDraft)}</b>
 <div class="row"><select id="dt">${typeOpts(t)}</select></div><input type="text" id="dl" placeholder="Name (e.g. Cube behind the waterfall)" style="width:100%">
@@ -618,24 +708,25 @@ ${[...'ABCDEFGHIJ'].map((l,i)=>`<text x="${i*100+50}" y="22" text-anchor="middle
 <textarea id="dn" placeholder="Note" style="width:100%;height:50px"></textarea><div class="row"><button class="pri" id="dadd">Add pin</button><button id="dcan">Cancel</button></div></div>`;}
   else if(p){const k=pinCat(p),kk=S.pk[p.id],up=pinUp(p),souls=+c.pets[p.pet]||0;
     edit=`<div class="card"><div class="ch"><b>${PINT[p.t][0]} ${esc(p.l)}</b><span class="dim mono">${grid(p)}</span></div>
-<input type="text" data-pe="l" value="${esc(p.l)}" style="width:100%;margin:6px 0"><div class="row"><select data-pe="t">${typeOpts(p.t)}</select><select data-pe="a">${areaOpts(m.id,p.a)}</select></div>
-${k==='item'||k==='travel'?`<label class="chk"><input type="checkbox" id="pgot"${c.got[p.id]?' checked':''}> ${k==='item'?'Collected':'Attuned'} by ${esc(c.name)}</label>`:''}
+${p.b?`<div class="dim" style="margin:4px 0">${PINT[p.t][1]}${p.a&&p.a!==p.l?' in '+esc(p.a):''} · on the map</div>`:`<input type="text" data-pe="l" value="${esc(p.l)}" style="width:100%;margin:6px 0"><div class="row"><select data-pe="t">${typeOpts(p.t)}</select><select data-pe="a">${areaOpts(m.id,p.a)}</select></div>`}
+${k==='item'||k==='travel'?`<label class="chk"><input type="checkbox" id="pgot"${c.got[p.id]?' checked':''}> ${k==='item'?'Collected':p.t==='camp'?'Visited':'Attuned'} by ${esc(c.name)}</label>`:''}
 ${k==='pet'||k==='enemy'?`<div class="row"><input type="text" data-pe="pet" list="petl" value="${esc(p.pet||'')}" placeholder="${k==='pet'?'Which pet':'Monster (optional)'}" style="width:100%"></div>`:''}
 ${k==='pet'&&p.pet?`<div class="row"><span class="mono">${souls} souls · ${petLv(souls).lv?'level '+petLv(souls).lv:'not unlocked'}</span><button class="sm pri" data-ps="1">+1 soul</button><button class="sm" data-ps="5">+5</button><button class="sm" data-ps="-1">−1</button></div>`:''}
 ${k==='enemy'?`<div class="row"><label>Respawn hours <input type="number" class="num" data-pe="h" min="0" step="0.25" value="${p.h||''}"></label></div><div class="row"><button class="sm pri" id="pkill">Killed</button>${kk?`<span class="dim">${kk.n} kill${kk.n>1?'s':''}, last ${when(kk.last)}</span>`:''}</div>${up>now?`<div>Respawns in <b class="mono" data-cd="${up}">${dur(up-now)}</b> (${when(up)})</div>`:kk&&p.h?'<div class="ok">Up now</div>':''}`:''}
 <textarea data-pe="note" placeholder="Note" style="width:100%;height:50px;margin-top:6px">${esc(p.note||'')}</textarea>
-<div class="row"><button class="sm" id="pmove">Move</button><button class="sm" id="pdel">Delete</button><button class="sm" id="pcls">Close</button></div></div>`;}
+<div class="row"><button class="sm" id="pmove">Move</button><button class="sm" id="pdel">${p.b?'Hide':'Delete'}</button><button class="sm" id="pcls">Close</button></div></div>`;}
   const counts=t=>pins.filter(x=>x.t===t).length;
-  return `<h2>Maps</h2><p class="sub">Your own pins for cubes, Traces, Sealed Dungeons, gathering nodes, bosses, monsters and pet farms, with what <b>${esc(c.name)}</b> has collected, killed and farmed. Drag to pan, scroll or use the buttons to zoom, click to add a pin.</p>
+  return `<h2>Maps</h2><p class="sub">Every area, village and camp, hunting ground, landmark and field boss is already on the map. Add your own pins for cubes, Traces, Sealed Dungeons, gathering nodes and pet farms, and keep track of what <b>${esc(c.name)}</b> has visited, collected, killed and farmed. Drag to pan, scroll or use the buttons to zoom, click to add a pin.</p>
 <div class="mapbox"><div class="mwrap"><div id="mw" class="mw"><div id="mi" class="mi" style="width:${W}px;height:${H}px">${img?`<img src="${img.url}" alt="${esc(m.n)} map" draggable="false">`:board}${pinHtml}${pinDraft?`<div class="pin sel" style="left:${pinDraft.x*100}%;top:${pinDraft.y*100}%">📍</div>`:''}</div></div>
 <div class="mctl"><button data-mz="1.3" title="Zoom in">+</button><button data-mz="0.77" title="Zoom out">−</button><button data-mz="fit" title="Fit">⤢</button></div>${pinMove?'<div class="mhint">Click the new spot for this pin</div>':''}</div>
 <div class="mside"><div class="card"><div class="chips">${MAPS.map(x=>`<button data-map="${x.id}" class="${x.id===m.id?'on':''}">${esc(x.n)}</button>`).join('')}</div>
-<div class="row"><button id="mimg">${img?'Replace':'Add'} map picture</button>${img?'<button id="mimgx">Remove picture</button>':''}<input type="file" id="mfile" accept="image/*" hidden></div>
-<div class="dim" style="font-size:12px">Open the world map in game, zoom all the way out and take a screenshot, then paste it here (Ctrl+V) or pick the file. Do it before placing pins and keep the same framing: pins sit at a spot on the picture. The picture stays in this browser and doesn't sync.</div></div>
+<div class="dim" style="font-size:12px">${img?'Showing your own picture, so the built-in pins are hidden: they follow the drawn map.':`A sketch drawn from the in-game area list. ${esc(LAYOUT[m.id].src)} ○ If a pin is off, open it and press Move.`}</div>
+<details${img?' open':''}><summary class="dim" style="font-size:12px;cursor:pointer">Use your own screenshot instead (optional)</summary><div class="row"><button id="mimg">${img?'Replace':'Add'} map picture</button>${img?'<button id="mimgx">Back to the drawn map</button>':''}<input type="file" id="mfile" accept="image/*" hidden></div>
+<div class="dim" style="font-size:12px">Paste a screenshot of the in-game world map (Ctrl+V) or pick the file. Your own pins sit at a spot on whichever picture is showing. The picture stays in this browser and doesn't sync.</div></details></div>
 ${edit}
 <div class="card"><b>Layers</b><div class="chips">${Object.entries(PINT).map(([k,[ic,n]])=>`<button data-lay="${k}" class="${mapPref().off[k]?'':'on'}">${ic} ${n}${counts(k)?` <span class="dim">${counts(k)}</span>`:''}</button>`).join('')}</div>
-<div class="row"><label class="chk"><input type="checkbox" id="mhide"${mapPref().hide?' checked':''}> Hide collected</label>${areaList(m.id).length?`<select id="marea"><option value="">All areas</option>${areaList(m.id).map(a=>`<option${a.n===mapArea?' selected':''}>${esc(a.n)}</option>`).join('')}</select>`:''}</div></div>
-<div class="card"><input type="search" id="pq" placeholder="Find a pin" value="${esc(pinQ)}" style="width:100%"><div class="plist">${vis.length?vis.slice().sort((a,b)=>a.t.localeCompare(b.t)||a.l.localeCompare(b.l)).map(x=>`<div class="pl${x.id===pinSel?' on':''}" data-pgo="${x.id}"><span>${PINT[x.t][0]} ${esc(x.l)} <span class="dim mono">${grid(x)}</span>${x.a?`<div class="dim" style="font-size:12px">${esc(x.a)}</div>`:''}</span><span style="font-size:12px;text-align:right">${pinStatus(x,c,now)}</span></div>`).join(''):`<div class="dim">${pins.length?'No pins match.':'No pins on this map yet. Click the map to add one.'}</div>`}</div></div>
+<div class="row"><label class="chk"><input type="checkbox" id="mhide"${mapPref().hide?' checked':''}> Hide collected</label>${hidN&&!img?`<button class="sm" id="mrest">Show ${hidN} hidden</button>`:''}${areaList(m.id).length?`<select id="marea"><option value="">All areas</option>${areaList(m.id).map(a=>`<option${a.n===mapArea?' selected':''}>${esc(a.n)}</option>`).join('')}</select>`:''}</div></div>
+<div class="card"><input type="search" id="pq" placeholder="Find a pin" value="${esc(pinQ)}" style="width:100%"><div class="plist">${vis.length?vis.slice().sort((a,b)=>a.t.localeCompare(b.t)||a.l.localeCompare(b.l)).map(x=>`<div class="pl${x.id===pinSel?' on':''}" data-pgo="${esc(x.id)}"><span>${PINT[x.t][0]} ${esc(x.l)} <span class="dim mono">${grid(x)}</span>${x.a?`<div class="dim" style="font-size:12px">${esc(x.a)}</div>`:''}</span><span style="font-size:12px;text-align:right">${pinStatus(x,c,now)}</span></div>`).join(''):`<div class="dim">${pins.length?'No pins match.':'No pins on this map yet. Click the map to add one.'}</div>`}</div></div>
 ${MAPREF[m.id]?`<div class="note">${esc(MAPREF[m.id])} ○ For every marker, see a community interactive map.</div>`:''}</div></div>
 <datalist id="petl">${PETS.map(x=>`<option value="${esc(x.n)}">`).join('')}</datalist>`;}
 
@@ -649,7 +740,7 @@ function mapsWire(){const c=C(),m=curMap(),img=mapImg[m.id]||null,W=img?img.w:10
   mw.onpointermove=e=>{if(!d)return;const dx=e.clientX-d.x,dy=e.clientY-d.y;if(!d.mv&&Math.hypot(dx,dy)<5)return;d.mv=true;mw.classList.add('drag');const v=mapView[m.id];v.x+=dx;v.y+=dy;d.x=e.clientX;d.y=e.clientY;applyView();};
   mw.onpointerup=e=>{mw.classList.remove('drag');const q=d;d=null;if(!q||q.mv)return;
     const r=mw.getBoundingClientRect(),v=mapView[m.id],x=(e.clientX-r.left-v.x)/v.z/W,y=(e.clientY-r.top-v.y)/v.z/H,inside=x>=0&&y>=0&&x<=1&&y<=1;
-    if(pinMove){const p=S.pins.find(z=>z.id===pinMove);if(p&&inside){p.x=x;p.y=y;}pinMove='';save();route(true);return;}
+    if(pinMove){const p=pinById(pinMove);if(p&&inside){pinSet(p,'x',x);pinSet(p,'y',y);}pinMove='';save();route(true);return;}
     if(q.pin){pinSel=q.pin;pinDraft=null;route(true);return;}
     if(inside){pinDraft={x,y};pinSel='';route(true);}};
   mw.onwheel=e=>{e.preventDefault();const r=mw.getBoundingClientRect();zoomAt(e.deltaY<0?1.2:1/1.2,e.clientX-r.left,e.clientY-r.top);};
@@ -661,7 +752,7 @@ function mapsWire(){const c=C(),m=curMap(),img=mapImg[m.id]||null,W=img?img.w:10
   $('mhide').onchange=e=>{mapPref().hide=e.target.checked;save();route(true);};
   if($('marea'))$('marea').onchange=e=>{mapArea=e.target.value;route(true);};
   $('pq').oninput=e=>{pinQ=e.target.value;const s=e.target.selectionStart;route(true);const i=$('pq');i.focus();i.setSelectionRange(s,s);};
-  document.querySelectorAll('[data-pgo]').forEach(r=>r.onclick=()=>{const p=S.pins.find(x=>x.id===r.dataset.pgo),v=mapView[m.id],rc=mw.getBoundingClientRect();pinSel=p.id;pinDraft=null;v.x=rc.width/2-p.x*W*v.z;v.y=rc.height/2-p.y*H*v.z;route(true);});
+  document.querySelectorAll('[data-pgo]').forEach(r=>r.onclick=()=>{const p=pinById(r.dataset.pgo),v=mapView[m.id],rc=mw.getBoundingClientRect();pinSel=p.id;pinDraft=null;v.x=rc.width/2-p.x*W*v.z;v.y=rc.height/2-p.y*H*v.z;route(true);});
   if(pinDraft){const show=()=>{const cat=PINT[$('dt').value][2];document.querySelectorAll('[data-for]').forEach(e=>e.style.display=e.dataset.for.split(' ').includes(cat)?'':'none');};show();
     $('dt').onchange=()=>{pinDraft.t=$('dt').value;show();};$('dl').focus();
     $('dcan').onclick=()=>{pinDraft=null;route(true);};
@@ -669,14 +760,15 @@ function mapsWire(){const c=C(),m=curMap(),img=mapImg[m.id]||null,W=img?img.w:10
       const cat=PINT[t][2];if(cat==='pet'||cat==='enemy')p.pet=$('dp').value.trim();if(cat==='enemy'&&+$('dh').value)p.h=+$('dh').value;
       S.pins.push(p);mapPref().last=t;pinDraft=null;pinSel=p.id;save();route(true);};
     $('dl').onkeydown=e=>{if(e.key==='Enter')$('dadd').click();};}
-  const p=pinSel&&S.pins.find(x=>x.id===pinSel);if(!p)return;
-  document.querySelectorAll('[data-pe]').forEach(i=>{const k=i.dataset.pe,set=()=>{p[k]=k==='h'?Math.max(0,+i.value||0):i.value;save();};
+  if($('mrest'))$('mrest').onclick=()=>{BPINS.forEach(b=>{const o=S.bpe[b.id];if(b.m===m.id&&o)delete o.hid;});save();route(true);};
+  const p=pinSel&&pinById(pinSel);if(!p)return;
+  document.querySelectorAll('[data-pe]').forEach(i=>{const k=i.dataset.pe,set=()=>{pinSet(p,k,k==='h'?Math.max(0,+i.value||0):i.value);save();};
     if(i.tagName==='SELECT'||k==='h'||k==='pet')i.onchange=()=>{set();route(true);};else i.oninput=set;});
   if($('pgot'))$('pgot').onchange=e=>{if(e.target.checked)c.got[p.id]=Date.now();else delete c.got[p.id];save();route(true);};
   document.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>{c.pets[p.pet]=Math.max(0,(+c.pets[p.pet]||0)+(+b.dataset.ps));save();route(true);});
   if($('pkill'))$('pkill').onclick=()=>{const k=S.pk[p.id]||{n:0};S.pk[p.id]={n:k.n+1,last:Date.now()};if(p.pet)c.kc[p.pet]=(+c.kc[p.pet]||0)+1;save();route(true);};
   $('pmove').onclick=()=>{pinMove=p.id;route(true);};
-  $('pdel').onclick=()=>{if(!confirm('Delete '+p.l+'?'))return;S.pins=S.pins.filter(x=>x!==p);delete S.pk[p.id];S.chars.forEach(x=>delete x.got[p.id]);pinSel='';save();route(true);};
+  $('pdel').onclick=()=>{if(p.b){pinSet(p,'hid',true);pinSel='';save();route(true);return;}if(!confirm('Delete '+p.l+'?'))return;S.pins=S.pins.filter(x=>x!==p);delete S.pk[p.id];S.chars.forEach(x=>delete x.got[p.id]);pinSel='';save();route(true);};
   $('pcls').onclick=()=>{pinSel='';route(true);};
 }
 document.addEventListener('paste',e=>{if((location.hash.slice(1)||'home').split('/')[0]!=='maps')return;const it=[...((e.clipboardData||{}).items||[])].find(i=>i.type.startsWith('image/'));if(!it)return;e.preventDefault();
@@ -685,12 +777,12 @@ document.addEventListener('paste',e=>{if((location.hash.slice(1)||'home').split(
 /* ---- Areas and collectibles ---- */
 let arMap='';
 function pgAreas(){const c=C();if(!arMap)arMap=c.fac==='Asmodian'?'altgard':'verteron';const al=areaList(arMap),now=Date.now();
-  const pins=S.pins.filter(p=>p.m===arMap),key=a=>arMap+'/'+a,ac=a=>c.ac[key(a)]||{};
+  const pins=allPins().filter(p=>p.m===arMap),key=a=>arMap+'/'+a,ac=a=>c.ac[key(a)]||{};
   const sum=f=>al.reduce((s,a)=>s+(+ac(a.n)[f]||0),0);
-  const pinSum=cat=>{const l=S.pins.filter(p=>pinCat(p)===cat);return `${l.filter(p=>pinDone(p,c)).length} / ${l.length}`;};
+  const pinSum=cat=>{const l=allPins().filter(p=>pinCat(p)===cat);return `${l.filter(p=>pinDone(p,c)).length} / ${l.length}`;};
   return `<h2>Areas and collectibles</h2><p class="sub">Every area as the in-game map names it, with what <b>${esc(c.name)}</b> has found there. Use the counters for things you don't pin, and pins for the spots you want to find again.</p>
 <div class="stats"><div class="stat"><small>Hidden Cubes counted</small><span class="big">${sum('cube')}</span></div><div class="stat"><small>Empyrean Traces counted</small><span class="big">${sum('trace')}</span></div><div class="stat"><small>Sealed Dungeons counted</small><span class="big">${sum('sealed')}</span></div>
-<div class="stat"><small>Item pins collected</small><a class="mob big" href="#maps">${pinSum('item')}</a></div><div class="stat"><small>Teleports attuned</small><a class="mob big" href="#maps">${pinSum('travel')}</a></div><div class="stat"><small>Pets unlocked</small><a class="mob big" href="#pets">${PETS.filter(p=>(+c.pets[p.n]||0)>=5).length+PETSP.filter(([n])=>c.petSp[n]).length}</a></div></div>
+<div class="stat"><small>Item pins collected</small><a class="mob big" href="#maps">${pinSum('item')}</a></div><div class="stat"><small>Camps and teleports</small><a class="mob big" href="#maps">${pinSum('travel')}</a></div><div class="stat"><small>Pets unlocked</small><a class="mob big" href="#pets">${PETS.filter(p=>(+c.pets[p.n]||0)>=5).length+PETSP.filter(([n])=>c.petSp[n]).length}</a></div></div>
 <div class="chips">${MAPS.filter(m=>AREAS[m.id]).map(m=>`<button data-arm="${m.id}" class="${m.id===arMap?'on':''}">${esc(m.n)}</button>`).join('')}</div>
 ${MAPREF[arMap]?`<div class="note">${esc(MAPREF[arMap])} ○</div>`:''}
 <div class="card tbl"><table><tr><th>Area</th><th>Places</th><th>Bosses</th><th>Pins</th><th class="n">🧊 Cubes</th><th class="n">🪶 Traces</th><th class="n">🚪 Sealed</th></tr>${al.map(a=>{const ap=pins.filter(p=>p.a===a.n),bs=FBOSS.filter(b=>b.v===a.n||b.a===a.n),x=ac(a.n);
@@ -735,14 +827,14 @@ function petsWire(){const c=C();
 let enQ='';
 function bossRows(){return FBOSS.concat(S.enemies.map((e,i)=>({n:e.n,v:e.w,a:e.w,hrs:e.h,custom:i})));}
 function pgBosses(){const now=Date.now(),c=C(),side=c.fac==='Asmodian'?'a':'v',q=enQ.toLowerCase();
-  const pinned=S.pins.filter(p=>pinCat(p)==='enemy'&&p.h);
+  const pinned=allPins().filter(p=>pinCat(p)==='enemy'&&p.h);
   const mobs=PETS.filter(p=>p.combat&&(!q||p.n.toLowerCase().includes(q)));
   return `<h2>Enemies and bosses</h2><p class="sub">Field bosses respawn a set time after they die: press Killed when one drops and the countdown starts. The hours are guesses until you set them; in game, open the map, then Exploration, then Field Boss for the real timer.</p>
 <div class="card tbl"><table><tr><th>Boss</th><th>Where (${c.fac==='Asmodian'?'Altgard':'Verteron'})</th><th>Respawn hours</th><th>Status</th><th></th></tr>${bossRows().map(b=>{const k=S.kills[b.n],h=+(S.bossHrs[b.n]||b.hrs),up=k?k+h*36e5:0;
   return `<tr><td><b>${esc(b.n)}</b>${b.lv?` <span class="tag">Lv ${b.lv}</span>`:''}${b.custom!=null?' <span class="tag">yours</span>':''}${b.x?`<div class="dim" style="font-size:12px">${esc(b.x)}</div>`:''}</td><td>${esc(b[side])}</td><td><input type="number" class="num" step="0.25" min="0.25" data-bh="${esc(b.n)}" value="${h}"></td>
 <td class="mono">${!k?'<span class="dim">Unknown</span>':up<=now?'<span class="ok">Up (respawned '+when(up)+')</span>':`<span data-cd="${up}">${dur(up-now)}</span> <span class="dim">(${when(up)})</span>`}</td><td style="white-space:nowrap"><button class="sm pri" data-kill="${esc(b.n)}">Killed</button> ${k?`<button class="sm" data-kclr="${esc(b.n)}" title="Clear the timer">↺</button>`:''}${b.custom!=null?` <button class="sm" data-edel="${b.custom}" title="Remove">✕</button>`:''}</td></tr>`;}).join('')}</table></div>
 <div class="card"><form class="row" id="ef"><input id="en" type="text" style="width:200px" placeholder="Add a boss or named enemy"><input id="ew" type="text" style="width:180px" placeholder="Where"><label>Respawn hours <input id="eh" type="number" class="num" min="0.25" step="0.25" value="1"></label><button class="pri">Add</button></form></div>
-${pinned.length?`<h3>Pinned enemies with a respawn</h3><div class="card tbl"><table><tr><th>Pin</th><th>Map</th><th>Status</th><th></th></tr>${pinned.map(p=>{const up=pinUp(p),k=S.pk[p.id];return `<tr><td>${PINT[p.t][0]} <b>${esc(p.l)}</b>${p.a?` <span class="dim">${esc(p.a)}</span>`:''}</td><td>${esc((MAPS.find(m=>m.id===p.m)||{}).n||'')} <span class="dim mono">${grid(p)}</span></td><td class="mono">${up>now?`<span data-cd="${up}">${dur(up-now)}</span>`:k?'<span class="ok">Up</span>':'<span class="dim">Unknown</span>'}</td><td><button class="sm pri" data-pkill="${p.id}">Killed</button></td></tr>`;}).join('')}</table></div>`:''}
+${pinned.length?`<h3>Pinned enemies with a respawn</h3><div class="card tbl"><table><tr><th>Pin</th><th>Map</th><th>Status</th><th></th></tr>${pinned.map(p=>{const up=pinUp(p),k=S.pk[p.id];return `<tr><td>${PINT[p.t][0]} <b>${esc(p.l)}</b>${p.a?` <span class="dim">${esc(p.a)}</span>`:''}</td><td>${esc((MAPS.find(m=>m.id===p.m)||{}).n||'')} <span class="dim mono">${grid(p)}</span></td><td class="mono">${up>now?`<span data-cd="${up}">${dur(up-now)}</span>`:k?'<span class="ok">Up</span>':'<span class="dim">Unknown</span>'}</td><td><button class="sm pri" data-pkill="${esc(p.id)}">Killed</button></td></tr>`;}).join('')}</table></div>`:''}
 <h3>Monsters</h3><p class="dim">Count kills and souls for the monsters behind each pet. Souls go to the <a href="#pets">pet collection</a>.</p>
 <div class="row"><input type="search" id="enq" placeholder="Find a monster" value="${esc(enQ)}" style="width:200px"></div>
 <div class="card tbl"><table><tr><th>Monster</th><th>Genus</th><th class="n">Kills</th><th class="n">Souls</th><th>Pins</th></tr>${mobs.map(p=>{const pc=S.pins.filter(x=>x.pet===p.n).length,sv=+c.pets[p.n]||0;return `<tr><td><b>${esc(p.n)}</b></td><td><span class="tag">${p.g}</span></td><td class="n" style="white-space:nowrap"><b class="mono">${+c.kc[p.n]||0}</b> <button class="sm" data-kc="${esc(p.n)}" data-n="1">+1</button> <button class="sm" data-kc="${esc(p.n)}" data-n="10">+10</button></td>
@@ -754,7 +846,7 @@ function bossWire(){const c=C();
   document.querySelectorAll('[data-bh]').forEach(i=>i.onchange=()=>{S.bossHrs[i.dataset.bh]=Math.max(.25,+i.value||1);save();route(true);});
   document.querySelectorAll('[data-edel]').forEach(b=>b.onclick=()=>{const e=S.enemies[+b.dataset.edel];if(confirm('Remove '+e.n+'?')){S.enemies.splice(+b.dataset.edel,1);delete S.kills[e.n];save();route(true);}});
   $('ef').onsubmit=e=>{e.preventDefault();const n=$('en').value.trim();if(!n)return;if(bossRows().some(b=>b.n===n)){alert(n+' is already on the list.');return;}S.enemies.push({n,w:$('ew').value.trim(),h:Math.max(.25,+$('eh').value||1)});save();route(true);};
-  document.querySelectorAll('[data-pkill]').forEach(b=>b.onclick=()=>{const p=S.pins.find(x=>x.id===b.dataset.pkill),k=S.pk[p.id]||{n:0};S.pk[p.id]={n:k.n+1,last:Date.now()};if(p.pet)c.kc[p.pet]=(+c.kc[p.pet]||0)+1;save();route(true);});
+  document.querySelectorAll('[data-pkill]').forEach(b=>b.onclick=()=>{const p=pinById(b.dataset.pkill),k=S.pk[p.id]||{n:0};S.pk[p.id]={n:k.n+1,last:Date.now()};if(p.pet)c.kc[p.pet]=(+c.kc[p.pet]||0)+1;save();route(true);});
   $('enq').oninput=e=>{enQ=e.target.value;const p=e.target.selectionStart;route(true);const i=$('enq');i.focus();i.setSelectionRange(p,p);};
   document.querySelectorAll('[data-kc]').forEach(b=>b.onclick=()=>{c.kc[b.dataset.kc]=(+c.kc[b.dataset.kc]||0)+(+b.dataset.n);save();route(true);});
   document.querySelectorAll('[data-sl]').forEach(b=>b.onclick=()=>{c.pets[b.dataset.sl]=(+c.pets[b.dataset.sl]||0)+1;save();route(true);});
@@ -877,7 +969,7 @@ function pgLookup(){const q=lkQ.trim().toLowerCase(),hit=s=>s.toLowerCase().incl
     ZONES.forEach(z=>{if(hit(z.n+' '+z.x))res.push(['Region',z.n,z.f+' · '+z.lv,'world']);});
     for(const m in AREAS)areaList(m).forEach(a=>{const f=[a.n,...a.h,...a.v,...a.o].find(hit);if(f)res.push(['Area',a.n,(MAPS.find(x=>x.id===m)||{}).n+(f!==a.n?' · '+f:''),'areas']);});
     PETS.forEach(p=>{if(hit(p.n))res.push(['Pet',p.n,p.g+' · '+(p.combat?'monster souls':'chests and merchants'),'pets']);});
-    S.pins.forEach(p=>{if(hit(p.l+' '+(p.note||'')+' '+(p.pet||'')))res.push(['Your pin',p.l,PINT[p.t][1]+' · '+((MAPS.find(x=>x.id===p.m)||{}).n||'')+(p.a?' · '+p.a:''),'maps']);});
+    allPins().forEach(p=>{if(hit(p.l+' '+(p.note||'')+' '+(p.pet||'')))res.push([p.b?'Map place':'Your pin',p.l,PINT[p.t][1]+' · '+((MAPS.find(x=>x.id===p.m)||{}).n||'')+(p.a?' · '+p.a:''),'maps']);});
     GUIDES.forEach(g=>{if(hit(g.title+' '+g.body.replace(/<[^>]+>/g,'')))res.push(['Guide',g.title,g.blurb,'guides/'+g.id]);});}
   return `<h2>Search</h2><p class="sub">Look up a dungeon, boss, term, class or guide.</p><input type="search" id="lkq" placeholder="e.g. Arcana, Nahma, Draupnir, Odyle" value="${esc(lkQ)}" style="width:min(420px,100%)">
 <div class="chips">${['Odyle','Arcana','Nightmare','Abyss Points','Stigma','Daily Dungeon','Siege','Transcendence'].map(s=>`<button data-lk="${s}">${s}</button>`).join('')}</div>
