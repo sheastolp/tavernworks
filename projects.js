@@ -617,6 +617,9 @@ window.TAVERN_PROJECTS = {
     ["aion2","2026-10-26","Aion 2 Assistant: dailies and weeklies that reset themselves, Odyle and Nightmare counters, an Abyss stopwatch, siege and boss countdowns, field boss respawns, maps with item, enemy and pet pins, a pet soul tracker and an item level planner for every character","/assistants/aion-2/"],
     ["aion2","2026-10-27","Aion 2 Assistant: the maps come drawn, with every area, village, camp, hunting ground, landmark, artifact and field boss already pinned; no screenshot needed","/assistants/aion-2/"],
     ["nrh","2026-10-27","NoReload Heroes Assistant: a squad run tracker with power-ups and revives, a level-up vote with the roulette wheel, bosses, weapons with your own ratings and a run log","/assistants/noreload-heroes/"],
-    ["guildscribe","2026-10-27","Replies go by whisper on their own when chat gets busy (10+ messages a minute), and back to chat when it calms down","https://guildscribe.tavernworks.dev/"]
+    ["guildscribe","2026-10-27","Replies go by whisper on their own when chat gets busy (10+ messages a minute), and back to chat when it calms down","https://guildscribe.tavernworks.dev/"],
+    ["localai","2026-10-27","Browser chat searches the web with DuckDuckGo, on by default","/local-ai/chat/"],
+    ["localai","2026-10-27","The Claude Code bridge is here to run, and the setup steps match the real laptop","/local-ai/"],
+    ["guildscribe","2026-10-27","!askme searches the web, not just Wikipedia, for current answers","https://guildscribe.tavernworks.dev/"]
   ]
 };

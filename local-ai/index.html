@@ -63,6 +63,7 @@
 
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
   .grid.four{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  .grid.three{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
   .card{
     background:linear-gradient(180deg,var(--card),var(--bg2));
     border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:8px
@@ -155,36 +156,46 @@
       <a class="btn" id="openLocalAi" href="/local-ai/chat/?settings">↗ Open Local AI</a>
       <a class="btn" href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener">↗ Open Tailscale</a>
     </div>
-    <p class="hero-note">The chat and Open Local AI only work from devices on my tailnet.</p>
+    <p class="hero-note">The chat and Open Local AI only work from my own devices: the tailnet, or the laptop's home network.</p>
   </header>
 
   <div class="divider">THE IDEA</div>
   <div class="scroll">
     <p>Most AI chat is a thin window onto someone else's server. Every message goes off to a data centre and gets logged somewhere you can't see.</p>
-    <p><b>This one lives at home.</b> An ASUS TUF Gaming FX705DT runs headless Ubuntu with the lid shut, serving a large language model on its GeForce GTX 1650. The chats stay on hardware I own.</p>
+    <p><b>This one lives at home.</b> An ASUS TUF Gaming FX705DT runs headless Ubuntu 26.04 with the lid shut, serving a large language model on its GeForce GTX 1650. The chats stay on hardware I own.</p>
   </div>
 
   <div class="divider">THE RIG</div>
-  <div class="grid four">
+  <div class="grid three">
     <div class="card">
       <div class="icon">💻</div>
       <h3>ASUS TUF FX705DT</h3>
-      <p>A 17" gaming laptop with a Ryzen CPU and a GeForce GTX 1650, put to work as a server. Headless Ubuntu, no monitor, no desktop.</p>
+      <p>A 17" gaming laptop with a Ryzen CPU and a GeForce GTX 1650 (4 GB), put to work as a server. Headless Ubuntu 26.04 LTS, no monitor, no desktop.</p>
     </div>
     <div class="card">
       <div class="icon">🦙</div>
       <h3>Ollama</h3>
-      <p>Downloads and runs the models on the GTX 1650 through CUDA, spilling over to the CPU when a model doesn't fit in 4 GB. Listens on port 11434 and powers both chat pages.</p>
+      <p>Downloads and runs the models on the GTX 1650 through CUDA, spilling over to the CPU when a model doesn't fit in 4 GB. Listens on port 11434 and powers both chat pages. Runs as a systemd service.</p>
     </div>
     <div class="card">
       <div class="icon">💬</div>
       <h3>Open WebUI</h3>
-      <p>A ChatGPT-style chat page sitting on top of Ollama, on port 3000 of the laptop's tailnet address.</p>
+      <p>A ChatGPT-style chat page sitting on top of Ollama, with DuckDuckGo web search, on port 8080. Installed with uv in its own Python 3.11 environment and run as a systemd service.</p>
     </div>
     <div class="card">
       <div class="icon">🔗</div>
       <h3>Tailscale</h3>
-      <p>A private network between my own devices. I SSH in over it, and <code>tailscale serve</code> gives Ollama an HTTPS address for the browser chat.</p>
+      <p>A private network between my own devices. I SSH in over it, and <code>tailscale serve</code> gives Ollama, the web search server and the Claude Code bridge HTTPS addresses for the browser chat.</p>
+    </div>
+    <div class="card">
+      <div class="icon">🌐</div>
+      <h3>Web search</h3>
+      <p>A tiny no-dependency Node server that searches DuckDuckGo and reads pages, so the browser chat's models (and GuildScribe's <code>!askme</code>) can look things up. No API key.</p>
+    </div>
+    <div class="card">
+      <div class="icon">✳️</div>
+      <h3>Claude Code bridge</h3>
+      <p>Optional and rarely used: puts Claude Code in the browser chat's model list, running in a work folder on the laptop as its own user.</p>
     </div>
   </div>
 
@@ -198,14 +209,16 @@
       <div class="node box">
         <b>TUF FX705DT · Ubuntu</b>
         <div class="inner">
-          <div><strong>Open WebUI</strong>port 3000</div>
-          <div><strong>tailscale serve</strong>HTTPS → 11434</div>
+          <div><strong>Open WebUI</strong>port 8080</div>
+          <div><strong>tailscale serve</strong>HTTPS :443 / :8444 / :8445</div>
           <div><strong>Ollama</strong>port 11434</div>
+          <div><strong>Web search</strong>port 8791</div>
+          <div><strong>Claude Code bridge</strong>port 8792</div>
           <div><strong>GTX 1650</strong>does the work</div>
         </div>
       </div>
     </div>
-    <p class="note" style="margin-top:14px">Two ways in: <b>Open WebUI</b> on port 3000 of the laptop's tailnet address, or the <b>browser chat</b> on this site, which reaches Ollama through the HTTPS address <code>tailscale serve</code> provides. Both only answer devices on the tailnet.</p>
+    <p class="note" style="margin-top:14px">Two ways in: <b>Open WebUI</b> on port 8080 of the laptop's tailnet address, or the <b>browser chat</b> on this site, which reaches Ollama, web search and the Claude Code bridge through the HTTPS addresses <code>tailscale serve</code> provides (443, 8444 and 8445, tailnet only). Nothing is opened to the internet.</p>
   </div>
 
   <div class="divider">CHAT FROM THE BROWSER</div>
@@ -227,16 +240,22 @@ Environment="OLLAMA_ORIGINS=https://tavernworks.dev"
 
 sudo systemctl restart ollama
 systemctl show ollama --property=Environment   # should list it</pre>
+        <p class="note">This laptop also sets <code>OLLAMA_HOST</code> to <code>0.0.0.0:11434</code> there, so Ollama answers on the home network too. The browser chat doesn't need that.</p>
       </li>
       <li>
         <h4>Check it, then connect</h4>
-        <p>From a device on the tailnet, open the address from step 1 in a tab. It should say <b>"Ollama is running"</b>. Then open the <a href="/local-ai/chat/" style="color:var(--gold2)">chat</a>, paste it into <b>⚙ Connection settings</b>, add Open WebUI's address (the laptop's tailnet IP or name, port 3000) so <b>Open Local AI</b> goes straight there, hit <b>Test connection</b>, then <b>Save</b>.</p>
+        <p>From a device on the tailnet, open the address from step 1 in a tab. It should say <b>"Ollama is running"</b>. Then open the <a href="/local-ai/chat/" style="color:var(--gold2)">chat</a>, paste it into <b>⚙ Connection settings</b>, add Open WebUI's address (the laptop's tailnet name, port 8080) so <b>Open Local AI</b> goes straight there, hit <b>Test connection</b>, then <b>Save</b>.</p>
       </li>
       <li>
         <h4>Optional: let it search the web</h4>
-        <p>A small search server on the laptop lets models look things up on DuckDuckGo and read pages, no API key needed. Run it (setup in its <a href="https://github.com/sheastolp/tavernworks/tree/main/local-ai/web-search" target="_blank" rel="noopener" style="color:var(--gold2)">README</a>), give it its own HTTPS address, and paste that into <b>Search server address</b> in the chat's settings:</p>
+        <p>A small search server on the laptop lets models look things up on DuckDuckGo and read pages, no API key needed. It runs as a systemd service from <code>/opt/local-ai-search</code> (setup in its <a href="https://github.com/sheastolp/tavernworks/tree/main/local-ai/web-search" target="_blank" rel="noopener" style="color:var(--gold2)">README</a>), with its own HTTPS address. Paste that into <b>Search server address</b> in the chat's settings:</p>
 <pre>sudo tailscale serve --bg --https=8444 http://127.0.0.1:8791</pre>
-        <p class="note">🌐 next to 📎 turns search on and off, and it starts on. It needs a model that can use tools, like <code>qwen3:4b</code> or <code>llama3.2:3b</code>.</p>
+        <p class="note">🌐 next to 📎 turns search on and off, and it starts on. It needs a model that can use tools, like <code>llama3.2</code>.</p>
+      </li>
+      <li>
+        <h4>Optional: Claude Code</h4>
+        <p>The Claude Code bridge adds Claude Code to the chat's model list. It runs Claude Code on my Claude account as its own <code>claude-bridge</code> user, in a work folder on the laptop, and only answers requests carrying its token. Setup in its <a href="https://github.com/sheastolp/tavernworks/tree/main/local-ai/claude-bridge" target="_blank" rel="noopener" style="color:var(--gold2)">README</a>; its address goes in <b>Bridge address</b>:</p>
+<pre>sudo tailscale serve --bg --https=8445 http://127.0.0.1:8792</pre>
       </li>
     </ol>
   </div>
@@ -261,11 +280,11 @@ systemctl show ollama --property=Environment   # should list it</pre>
     </details>
     <details>
       <summary>Open WebUI works but the browser chat doesn't</summary>
-      <p>They take different routes: Open WebUI is reached directly on port 3000, while the browser chat needs the HTTPS address from <code>tailscale serve</code> plus the <code>OLLAMA_ORIGINS</code> setting. Steps 1 and 2 above cover both.</p>
+      <p>They take different routes: Open WebUI is reached directly on port 8080, while the browser chat needs the HTTPS address from <code>tailscale serve</code> plus the <code>OLLAMA_ORIGINS</code> setting. Steps 1 and 2 above cover both.</p>
     </details>
     <details>
       <summary>Web search is on, but the model never searches</summary>
-      <p>The reply says why underneath. "No search server is set up": add its address in <b>⚙ Connection settings</b>. "Can't use tools": pick a model that can, like <code>qwen3:4b</code> or <code>llama3.2:3b</code>. A search marked <i>failed</i>: <b>Test connection</b> shows whether the search server is reachable, and <code>journalctl --user -u local-ai-search</code> on the laptop shows what went wrong. Small models also sometimes just answer from memory; asking them to "search for" something helps.</p>
+      <p>The reply says why underneath. "No search server is set up": add its address in <b>⚙ Connection settings</b>. "Can't use tools": pick a model that can, like <code>llama3.2</code>. A search marked <i>failed</i>: <b>Test connection</b> shows whether the search server is reachable, and <code>journalctl -u local-ai-search</code> on the laptop shows what went wrong. Small models also sometimes just answer from memory; asking them to "search for" something helps.</p>
     </details>
     <details>
       <summary>Connected, but no models in the list</summary>
@@ -283,7 +302,7 @@ systemctl show ollama --property=Environment   # should list it</pre>
     <div class="card">
       <div class="icon">⚖️</div>
       <h3>Mid-size models</h3>
-      <p>Quantized models up to about 4B fit entirely in the 4 GB of VRAM. Bigger ones still run, split between GPU and CPU, just slower. The giant ones don't.</p>
+      <p>Quantized models up to about 4B fit entirely in the 4 GB of VRAM: <code>llama3.2</code> (2 GB) is the everyday one. Bigger ones still run, split between GPU and CPU, just slower: <code>qwen3.5-abliterated</code> is 17 GB, so most of it runs on the CPU.</p>
     </div>
     <div class="card">
       <div class="icon">🪙</div>
@@ -295,19 +314,42 @@ systemctl show ollama --property=Environment   # should list it</pre>
   <div class="divider">FORGE YOUR OWN</div>
   <div class="scroll">
     <p>Got an old laptop or gaming rig gathering dust? The basic recipe on Ubuntu is short. Check each project's docs for the current install steps.</p>
-    <h4>1. Install Ollama and pull a small model</h4>
+    <h4>1. Install the NVIDIA driver</h4>
+<pre>sudo ubuntu-drivers install
+sudo reboot
+nvidia-smi   # should list the GPU</pre>
+    <h4>2. Install Ollama and pull a small model</h4>
 <pre>curl -fsSL https://ollama.com/install.sh | sh
 ollama run llama3.2</pre>
-    <h4>2. Put Open WebUI in front of it (with Docker)</h4>
-<pre>docker run -d -p 3000:8080 \
-  --add-host=host.docker.internal:host-gateway \
-  -v open-webui:/app/backend/data \
-  --name open-webui --restart always \
-  ghcr.io/open-webui/open-webui:main</pre>
-    <h4>3. Join it to your Tailscale network</h4>
+    <h4>3. Put Open WebUI in front of it</h4>
+    <p>Open WebUI wants Python 3.11, which newer Ubuntu doesn't ship. <code>uv</code> fetches it and makes a separate environment for it:</p>
+<pre>curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv --python 3.11 /opt/open-webui/venv
+uv pip install --python /opt/open-webui/venv/bin/python open-webui</pre>
+    <p>Then run it as a service, in <code>/etc/systemd/system/open-webui.service</code>:</p>
+<pre>[Unit]
+Description=Open WebUI
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/open-webui
+Environment=DATA_DIR=/opt/open-webui/data
+Environment=OLLAMA_BASE_URL=http://127.0.0.1:11434
+Environment=PORT=8080
+ExecStart=/opt/open-webui/venv/bin/open-webui serve
+Restart=always
+
+[Install]
+WantedBy=multi-user.target</pre>
+<pre>sudo systemctl daemon-reload
+sudo systemctl enable --now open-webui</pre>
+    <p class="note">Updating later: <code>uv pip install --python /opt/open-webui/venv/bin/python -U open-webui</code>, then <code>sudo systemctl restart open-webui</code>.</p>
+    <h4>4. Join it to your Tailscale network</h4>
 <pre>curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up</pre>
-    <p class="note">Then open <code>http://&lt;machine-name&gt;:3000</code> from any device on your tailnet, or SSH in to manage it. No ports opened to the internet.</p>
+    <p class="note">Then open <code>http://&lt;machine-name&gt;:8080</code> from any device on your tailnet, or SSH in to manage it. The first account you make is the admin. No ports opened to the internet.</p>
   </div>
 
   <div class="divider">QUESTIONS AT THE BAR</div>

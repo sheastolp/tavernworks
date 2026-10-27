@@ -141,6 +141,7 @@
   dialog fieldset.cc{border:1px solid var(--line);border-radius:12px;padding:4px 14px 12px;margin-top:16px}
   dialog fieldset.cc legend{padding:0 6px;font-weight:600;font-size:14px;color:var(--gold2)}
   dialog fieldset.cc legend small{color:var(--muted);font-weight:400}
+  dialog fieldset.cc legend small a{color:var(--gold2)}
   dialog p.small{font-size:13px;margin-top:6px}
   dialog label.check{display:flex;gap:8px;align-items:flex-start;font-weight:600}
   dialog label.check input{width:auto;margin-top:4px}
@@ -223,15 +224,15 @@
       <small>The HTTPS address <code>tailscale serve</code> gives Ollama (<code>tailscale serve status</code> on the laptop shows it)</small>
       <input id="apiUrl" type="url" placeholder="https://your-machine.your-tailnet.ts.net" autocomplete="off" spellcheck="false">
     </label>
-    <label>Open WebUI address <small>Used by the "Open Local AI" links. Open WebUI listens on port 3000.</small>
-      <input id="webuiUrl" type="url" placeholder="http://your-machine:3000" autocomplete="off" spellcheck="false">
+    <label>Open WebUI address <small>Used by the "Open Local AI" links. Open WebUI listens on port 8080.</small>
+      <input id="webuiUrl" type="url" placeholder="http://your-machine.your-tailnet.ts.net:8080" autocomplete="off" spellcheck="false">
     </label>
     <fieldset class="cc">
-      <legend>Claude Code <small>(optional, runs on the laptop)</small></legend>
-      <label>Bridge address <small>The HTTPS address <code>tailscale serve</code> gives the bridge, e.g. <code>https://…ts.net:8443</code></small>
-        <input id="bridgeUrl" type="url" placeholder="https://your-machine.your-tailnet.ts.net:8443" autocomplete="off" spellcheck="false">
+      <legend>Claude Code <small>(optional, runs on the laptop; setup in the bridge's <a href="https://github.com/sheastolp/tavernworks/tree/main/local-ai/claude-bridge" target="_blank" rel="noopener">README</a>)</small></legend>
+      <label>Bridge address <small>The HTTPS address <code>tailscale serve</code> gives the bridge, e.g. <code>https://…ts.net:8445</code></small>
+        <input id="bridgeUrl" type="url" placeholder="https://your-machine.your-tailnet.ts.net:8445" autocomplete="off" spellcheck="false">
       </label>
-      <label>Bridge token <small>From <code>~/.config/claude-bridge/token</code> on the laptop</small>
+      <label>Bridge token <small>On the laptop: <code>sudo -u claude-bridge node /opt/claude-bridge/server.mjs token</code></small>
         <input id="bridgeToken" type="password" autocomplete="off" spellcheck="false">
       </label>
     </fieldset>
@@ -925,21 +926,21 @@
         if (reply.content.trim()) reply.stats += " · ended early: " + why; else reply.error = String(why);
       }
     } else if (!reply.content.trim()) {
-      reply.error = "Claude Code finished without a reply. Check the bridge's log on the laptop (journalctl --user -u claude-bridge).";
+      reply.error = "Claude Code finished without a reply. Check the bridge's log on the laptop (journalctl -u claude-bridge).";
     }
   }
   async function diagnoseBridge(err) {
     const base = settings.bridge;
     if (!base) return "Claude Code isn't set up. Add the bridge address and token in ⚙ Connection settings.";
     if (location.protocol === "https:" && /^http:/i.test(base)) return "The bridge address must be https:// (from `tailscale serve`).";
-    if (err && /^HTTP 401/.test(err.message)) return "The bridge rejected the token. Copy it again from ~/.config/claude-bridge/token on the laptop.";
+    if (err && /^HTTP 401/.test(err.message)) return "The bridge rejected the token. Copy it again: on the laptop, sudo -u claude-bridge node /opt/claude-bridge/server.mjs token";
     if (err && /^HTTP 403/.test(err.message)) return "The bridge doesn't allow this website. Check CLAUDE_BRIDGE_ORIGINS on the laptop.";
     if (err && /^HTTP \d/.test(err.message)) return err.message.replace(/^HTTP \d+: /, "");
     if (err && !(err instanceof TypeError)) return err.message;
     let reachable = false;
     try { await fetch(base + "/", { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(6000) }); reachable = true; } catch {}
     if (reachable) return "The bridge answered, but the browser blocked the reply. Check CLAUDE_BRIDGE_ORIGINS on the laptop includes https://tavernworks.dev.";
-    return "Can't reach the Claude Code bridge. Check: this device is on Tailscale; any browser VPN is off; the bridge is running (systemctl --user status claude-bridge); and `tailscale serve status` lists port 8443.";
+    return "Can't reach the Claude Code bridge. Check: this device is on Tailscale; any browser VPN is off; the bridge is running (systemctl status claude-bridge); and `tailscale serve status` lists port 8445.";
   }
 
   async function checkSearch(base) {
@@ -954,7 +955,7 @@
     let reachable = false;
     try { await fetch(base + "/", { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(6000) }); reachable = true; } catch {}
     if (reachable) return "The search server answered, but the browser blocked the reply. Check SEARCH_ORIGINS on the laptop includes https://tavernworks.dev.";
-    return "Can't reach the search server. Check: this device is on Tailscale; any browser VPN is off; the server is running (systemctl --user status local-ai-search); and `tailscale serve status` lists port 8444.";
+    return "Can't reach the search server. Check: this device is on Tailscale; any browser VPN is off; the server is running (systemctl status local-ai-search); and `tailscale serve status` lists port 8444.";
   }
 
   // ── Attachments ──
