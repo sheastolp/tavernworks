@@ -232,6 +232,12 @@ systemctl show ollama --property=Environment   # should list it</pre>
         <h4>Check it, then connect</h4>
         <p>From a device on the tailnet, open the address from step 1 in a tab. It should say <b>"Ollama is running"</b>. Then open the <a href="/local-ai/chat/" style="color:var(--gold2)">chat</a>, paste it into <b>⚙ Connection settings</b>, add Open WebUI's address (the laptop's tailnet IP or name, port 3000) so <b>Open Local AI</b> goes straight there, hit <b>Test connection</b>, then <b>Save</b>.</p>
       </li>
+      <li>
+        <h4>Optional: let it search the web</h4>
+        <p>A small search server on the laptop lets models look things up on DuckDuckGo and read pages, no API key needed. Run it (setup in its <a href="https://github.com/sheastolp/tavernworks/tree/main/local-ai/web-search" target="_blank" rel="noopener" style="color:var(--gold2)">README</a>), give it its own HTTPS address, and paste that into <b>Search server address</b> in the chat's settings:</p>
+<pre>sudo tailscale serve --bg --https=8444 http://127.0.0.1:8791</pre>
+        <p class="note">🌐 next to 📎 turns search on and off, and it starts on. It needs a model that can use tools, like <code>qwen3:4b</code> or <code>llama3.2:3b</code>.</p>
+      </li>
     </ol>
   </div>
 
@@ -256,6 +262,10 @@ systemctl show ollama --property=Environment   # should list it</pre>
     <details>
       <summary>Open WebUI works but the browser chat doesn't</summary>
       <p>They take different routes: Open WebUI is reached directly on port 3000, while the browser chat needs the HTTPS address from <code>tailscale serve</code> plus the <code>OLLAMA_ORIGINS</code> setting. Steps 1 and 2 above cover both.</p>
+    </details>
+    <details>
+      <summary>Web search is on, but the model never searches</summary>
+      <p>The reply says why underneath. "No search server is set up": add its address in <b>⚙ Connection settings</b>. "Can't use tools": pick a model that can, like <code>qwen3:4b</code> or <code>llama3.2:3b</code>. A search marked <i>failed</i>: <b>Test connection</b> shows whether the search server is reachable, and <code>journalctl --user -u local-ai-search</code> on the laptop shows what went wrong. Small models also sometimes just answer from memory; asking them to "search for" something helps.</p>
     </details>
     <details>
       <summary>Connected, but no models in the list</summary>

@@ -100,6 +100,8 @@
   .box.drop{border-color:var(--arcane);box-shadow:0 0 0 2px rgba(155,123,216,.35)}
   .attach{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);color:var(--muted);font-size:17px;flex-shrink:0}
   .attach:hover{border-color:var(--gold);color:var(--gold2)}
+  .attach.web{filter:grayscale(1);opacity:.55}
+  .attach.web.on{filter:none;opacity:1;border-color:var(--gold);background:rgba(212,160,74,.12)}
   .pending{display:flex;flex-wrap:wrap;gap:8px;width:100%}
   .pending:empty{display:none}
   .chip{display:flex;align-items:center;gap:6px;max-width:240px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:4px 4px 4px 6px;font-size:12.5px;color:var(--muted)}
@@ -150,6 +152,11 @@
   .tools{list-style:none;margin:0 0 8px;font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
   .tools li{font-family:ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
   .tools li.fail{color:#ff9b7a}
+  .sources{margin-top:8px;font-size:12.5px;color:var(--muted)}
+  .sources summary{cursor:pointer}
+  .sources ol{margin:6px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:3px}
+  .sources a{color:var(--gold2);overflow-wrap:anywhere}
+  .sources small{color:var(--muted)}
   dialog code{font-family:ui-monospace,Consolas,monospace;font-size:.92em;color:var(--gold2)}
 
   .scrim{display:none}
@@ -197,12 +204,13 @@
         <div class="pending" id="pending"></div>
         <button class="attach" id="attach" type="button" aria-label="Attach images or files" title="Attach images or files (or drop / paste them here)">📎</button>
         <button class="attach" id="attachDir" type="button" aria-label="Attach a folder" title="Attach a project folder">🗂</button>
+        <button class="attach web" id="webToggle" type="button" aria-pressed="true">🌐</button>
         <input type="file" id="fileInput" multiple hidden>
         <input type="file" id="dirInput" webkitdirectory multiple hidden>
         <textarea id="input" rows="1" placeholder="Ask your local model anything…" aria-label="Message"></textarea>
         <button class="send" id="send" type="submit" aria-label="Send">↑</button>
       </form>
-      <p class="hint">Runs on your own hardware over Tailscale. Chats are saved in this browser only. Attach images, text files, zips or folders with 📎 / 🗂, drag-and-drop, or paste.</p>
+      <p class="hint">Runs on your own hardware over Tailscale. Chats are saved in this browser only. Attach images, text files, zips or folders with 📎 / 🗂, drag-and-drop, or paste. 🌐 lets the model search the web.</p>
     </div>
   </main>
 </div>
@@ -225,6 +233,12 @@
       </label>
       <label>Bridge token <small>From <code>~/.config/claude-bridge/token</code> on the laptop</small>
         <input id="bridgeToken" type="password" autocomplete="off" spellcheck="false">
+      </label>
+    </fieldset>
+    <fieldset class="cc">
+      <legend>Web search <small>(optional, runs on the laptop)</small></legend>
+      <label>Search server address <small>The HTTPS address <code>tailscale serve</code> gives the web search server, e.g. <code>https://…ts.net:8444</code>. Searches go through DuckDuckGo.</small>
+        <input id="searchUrl" type="url" placeholder="https://your-machine.your-tailnet.ts.net:8444" autocomplete="off" spellcheck="false">
       </label>
     </fieldset>
     <label>System prompt <small>Optional, for Ollama models. Sent at the start of every new message.</small>
@@ -261,8 +275,10 @@
     get(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
     set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { return false; } },
   };
-  const SETTINGS_KEY = "localai.settings", CHATS_KEY = "localai.chats", MODEL_KEY = "localai.model";
-  let settings = Object.assign({ api: "", webui: "", system: "", bridge: "", bridgeToken: "" }, store.get(SETTINGS_KEY, {}));
+  const SETTINGS_KEY = "localai.settings", CHATS_KEY = "localai.chats", MODEL_KEY = "localai.model", WEB_KEY = "localai.websearch";
+  let settings = Object.assign({ api: "", webui: "", system: "", bridge: "", bridgeToken: "", search: "" }, store.get(SETTINGS_KEY, {}));
+  let webOn = store.get(WEB_KEY, true);   // 🌐 web search, on unless turned off
+  const noTools = new Set();              // models Ollama said can't use tools
   let bridgeOk = false;     // Claude Code bridge answered /health
   const CC = "cc:";         // model values starting with this go to Claude Code
   const isCC = (model) => String(model || "").startsWith(CC);
@@ -388,7 +404,7 @@
   function messageEl(m) {
     const el = document.createElement("div");
     el.className = "msg " + m.role;
-    el.innerHTML = `<div class="av">${m.role === "user" ? "🍺" : "🔮"}</div><div class="body"><div class="who"></div><div class="think" hidden><details open><summary>Thinking…</summary><div></div></details></div><ul class="tools" hidden></ul><div class="content"></div><div class="meta"></div></div>`;
+    el.innerHTML = `<div class="av">${m.role === "user" ? "🍺" : "🔮"}</div><div class="body"><div class="who"></div><div class="think" hidden><details open><summary>Thinking…</summary><div></div></details></div><ul class="tools" hidden></ul><div class="content"></div><details class="sources" hidden><summary></summary><ol></ol></details><div class="meta"></div></div>`;
     el.querySelector(".who").textContent = m.role === "user" ? "You" : (modelLabel(m.model) || "Assistant");
     fillMessage(el, m);
     return el;
@@ -419,6 +435,20 @@
     if (m.tools && m.tools.length) {
       tools.innerHTML = "";
       for (const t of m.tools) { const li = document.createElement("li"); li.textContent = t.text; if (t.failed) li.className = "fail"; tools.appendChild(li); }
+    }
+    const sources = el.querySelector(".sources");
+    sources.hidden = !(m.sources && m.sources.length);
+    if (m.sources && m.sources.length) {
+      sources.querySelector("summary").textContent = `${m.sources.length} source${m.sources.length === 1 ? "" : "s"}`;
+      const ol = sources.querySelector("ol");
+      ol.innerHTML = "";
+      for (const src of m.sources) {
+        const li = document.createElement("li"), a = document.createElement("a");
+        a.href = src.url; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = src.title || src.url;
+        li.appendChild(a);
+        try { const host = document.createElement("small"); host.textContent = " · " + new URL(src.url).hostname.replace(/^www\./, ""); li.appendChild(host); } catch {}
+        ol.appendChild(li);
+      }
     }
     const meta = el.querySelector(".meta");
     meta.innerHTML = "";
@@ -616,56 +646,42 @@
       if (imgs.length) h.images = imgs;
       return h;
     });
-    if (settings.system.trim()) history.unshift({ role: "system", content: settings.system.trim() });
+    const useWeb = webOn && !!settings.search && !isCC(reply.model) && !noTools.has(reply.model);
+    const system = [settings.system.trim(), useWeb ? webPrompt() : ""].filter(Boolean).join("\n\n");
+    if (system) history.unshift({ role: "system", content: system });
 
     busy = new AbortController();
     setSending(true);
     const started = performance.now();
     try {
       if (isCC(reply.model)) { await streamClaude(c, reply, el, started); return; }
-      const res = await fetch(settings.api + "/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(Object.assign({ model: reply.model, messages: history, stream: true }, ctxOptions(history))),
-        signal: busy.signal,
-      });
-      if (!res.ok || !res.body) {
-        let detail = "";
-        try { detail = (await res.json()).error || ""; } catch {}
-        throw new Error(`HTTP ${res.status}${detail ? ": " + detail : ""}`);
-      }
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let buf = "", last = null;
-      // One line of the stream. Ollama sends NDJSON; also accept a single
-      // non-streamed JSON body and OpenAI-style "data: {...}" lines, so a
-      // proxy in between can't leave the reply blank.
-      const take = (lineText) => {
-        lineText = lineText.trim().replace(/^data:\s*/, "");
-        if (!lineText || lineText === "[DONE]") return;
-        let chunk;
-        try { chunk = JSON.parse(lineText); } catch { return; }
-        if (chunk.error) throw new Error(typeof chunk.error === "string" ? chunk.error : chunk.error.message || "Ollama error");
-        const msg = chunk.message || chunk.choices?.[0]?.delta || chunk.choices?.[0]?.message || {};
-        const thinkPart = msg.thinking ?? msg.reasoning_content ?? chunk.thinking;
-        const textPart = msg.content ?? chunk.response;
-        if (thinkPart) reply.thinking = (reply.thinking || "") + thinkPart;
-        if (textPart) reply.content += textPart;
-        if (chunk.done) last = chunk;
-      };
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        let nl;
-        while ((nl = buf.indexOf("\n")) !== -1) {
-          take(buf.slice(0, nl));
-          buf = buf.slice(nl + 1);
+      const notes = [];
+      if (webOn && !settings.search) notes.push("🌐 web search is on, but no search server is set up in ⚙ Connection settings");
+      else if (webOn && noTools.has(reply.model)) notes.push(`🌐 ${reply.model} can't use tools, so no web search`);
+      // With web search, the model may ask for searches or pages (tool calls)
+      // before it answers: run each one, hand back the results, and let it go
+      // again. The last round goes without tools so it has to answer.
+      let messages = history.slice(), tools = useWeb ? WEB_TOOLS : null, last = null;
+      for (let round = 0; ; round++) {
+        if (round === MAX_TOOL_ROUNDS) tools = null;
+        let r;
+        try { r = await streamOllama(reply, el, messages, tools); }
+        catch (e) {
+          if (!tools || !/does not support tools/i.test(e.message)) throw e;
+          // This model can't use tools: answer without web search (and stop offering it).
+          noTools.add(reply.model);
+          notes.push(`🌐 ${reply.model} can't use tools, so it answered without web search`);
+          tools = null;
+          if (settings.system.trim()) messages[0] = { role: "system", content: settings.system.trim() }; else messages.shift();
+          round--; continue;
         }
-        fillMessage(el, reply, true);
-        scrollDown();
+        last = r.last;
+        if (!r.calls.length || !tools) break;
+        messages.push({ role: "assistant", content: r.content, tool_calls: r.calls });
+        for (const call of r.calls) messages.push({ role: "tool", tool_name: call.function?.name || "", content: await runTool(call, reply, el) });
+        // Keep any "let me look that up" text apart from the answer that follows.
+        if (reply.content.trim() && !reply.content.endsWith("\n\n")) reply.content += "\n\n";
       }
-      take(buf + dec.decode());
       if (!reply.content.trim() && !(reply.thinking || "").trim()) {
         reply.error = "The model sent back an empty reply. Try sending it again, or pick another model from the list.";
       }
@@ -673,6 +689,7 @@
         const tps = last.eval_count / (last.eval_duration / 1e9);
         reply.stats = `${tps.toFixed(1)} tokens/s · ${((performance.now() - started) / 1000).toFixed(1)}s`;
       }
+      if (notes.length) reply.stats = [reply.stats, ...notes].filter(Boolean).join(" · ");
       const est = estTokens(history);
       if (est > 32768) reply.stats = (reply.stats ? reply.stats + " · " : "") + `⚠ this chat is about ${Math.round(est / 1000)}k tokens, past the 32k the model was given, so it only saw part of it. Attach fewer files, or start a new chat.`;
     } catch (e) {
@@ -689,6 +706,129 @@
       setSending(false);
       fillMessage(el, reply, false);
       save();
+      scrollDown();
+    }
+  }
+  // One request to Ollama, streamed into the reply. Returns this round's text,
+  // any tool calls the model made, and the final chunk (for the stats).
+  async function streamOllama(reply, el, messages, tools) {
+    const body = { model: reply.model, messages, stream: true };
+    if (tools) body.tools = tools;
+    Object.assign(body, ctxOptions(messages, tools ? 8192 : 0));
+    const res = await fetch(settings.api + "/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: busy.signal,
+    });
+    if (!res.ok || !res.body) {
+      let detail = "";
+      try { detail = (await res.json()).error || ""; } catch {}
+      throw new Error(`HTTP ${res.status}${detail ? ": " + detail : ""}`);
+    }
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    const from = reply.content.length, calls = [];
+    let buf = "", last = null;
+    // One line of the stream. Ollama sends NDJSON; also accept a single
+    // non-streamed JSON body and OpenAI-style "data: {...}" lines, so a
+    // proxy in between can't leave the reply blank.
+    const take = (lineText) => {
+      lineText = lineText.trim().replace(/^data:\s*/, "");
+      if (!lineText || lineText === "[DONE]") return;
+      let chunk;
+      try { chunk = JSON.parse(lineText); } catch { return; }
+      if (chunk.error) throw new Error(typeof chunk.error === "string" ? chunk.error : chunk.error.message || "Ollama error");
+      const msg = chunk.message || chunk.choices?.[0]?.delta || chunk.choices?.[0]?.message || {};
+      const thinkPart = msg.thinking ?? msg.reasoning_content ?? chunk.thinking;
+      const textPart = msg.content ?? chunk.response;
+      if (thinkPart) reply.thinking = (reply.thinking || "") + thinkPart;
+      if (textPart) reply.content += textPart;
+      if (Array.isArray(msg.tool_calls)) calls.push(...msg.tool_calls.filter((t) => t.function?.name));
+      if (chunk.done) last = chunk;
+    };
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) !== -1) {
+        take(buf.slice(0, nl));
+        buf = buf.slice(nl + 1);
+      }
+      fillMessage(el, reply, true);
+      scrollDown();
+    }
+    take(buf + dec.decode());
+    return { content: reply.content.slice(from), calls, last };
+  }
+
+  // ── Web search (through the search server on the laptop) ──
+  const MAX_TOOL_ROUNDS = 4;
+  const WEB_TOOLS = [
+    { type: "function", function: { name: "web_search", description: "Search the web with DuckDuckGo. Returns titles, links and short snippets of the top results.", parameters: { type: "object", properties: { query: { type: "string", description: "What to search for, worded like you'd type it into a search engine" } }, required: ["query"] } } },
+    { type: "function", function: { name: "fetch_page", description: "Read a web page as plain text. Use it on a link from web_search when the snippets don't hold the answer.", parameters: { type: "object", properties: { url: { type: "string", description: "The page's full http(s) address" } }, required: ["url"] } } },
+  ];
+  function webPrompt() {
+    const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    return `Today is ${today}. You can search the web with the web_search tool and read a page with fetch_page. ` +
+      "Search when the question is about news, recent events, prices, releases, schedules, specific people, products or places, or anything you aren't sure of, and whenever the user asks you to look something up. " +
+      "Don't search for things you already know well, like general knowledge, math, code or creative writing. " +
+      "After searching, answer from what you found and mention the sites you used as markdown links, like [title](url).";
+  }
+  async function searchApi(path) {
+    const signal = AbortSignal.any ? AbortSignal.any([busy.signal, AbortSignal.timeout(30000)]) : busy.signal;
+    const res = await fetch(settings.search + path, { signal });
+    let data = {};
+    try { data = await res.json(); } catch {}
+    if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+    return data;
+  }
+  function addSource(reply, title, url) {
+    if (!/^https?:\/\//i.test(url || "")) return;
+    reply.sources = reply.sources || [];
+    const had = reply.sources.find((s) => s.url === url);
+    if (had) { if (!had.title && title) had.title = title; return; }
+    reply.sources.push({ title: title || "", url });
+  }
+  // Runs one tool call and returns what the model gets to read back.
+  async function runTool(call, reply, el) {
+    const name = call.function?.name;
+    let args = call.function?.arguments || {};
+    if (typeof args === "string") { try { args = JSON.parse(args); } catch { args = {}; } }
+    reply.tools = reply.tools || [];
+    const t = { text: "" };
+    reply.tools.push(t);
+    try {
+      if (name === "web_search") {
+        const q = String(args.query || args.q || "").trim();
+        t.text = `🌐 Searching: ${q}`; fillMessage(el, reply, true);
+        if (!q) throw new Error("no search was given");
+        const data = await searchApi("/search?n=5&q=" + encodeURIComponent(q));
+        const results = data.results || [];
+        t.text = `🌐 Searched: ${q} · ${results.length} result${results.length === 1 ? "" : "s"}`;
+        for (const r of results) addSource(reply, r.title, r.url);
+        if (!results.length) return `No results for "${q}". Try other words.`;
+        return results.map((r, i) => `${i + 1}. ${r.title}\n${r.url}\n${r.snippet}`).join("\n\n");
+      }
+      if (name === "fetch_page") {
+        const url = String(args.url || "").trim();
+        t.text = `📖 Reading ${url}`; fillMessage(el, reply, true);
+        if (!url) throw new Error("no address was given");
+        const data = await searchApi("/fetch?url=" + encodeURIComponent(url));
+        t.text = `📖 Read ${data.title || url}`;
+        addSource(reply, data.title, data.url || url);
+        return `${data.title ? "Title: " + data.title + "\n" : ""}URL: ${data.url || url}\n\n${data.text || "(the page had no readable text)"}`;
+      }
+      throw new Error(`there's no tool called ${name}`);
+    } catch (e) {
+      if (e.name === "AbortError") throw e;
+      t.failed = true;
+      const why = e.name === "TimeoutError" ? "the search server took too long" : e instanceof TypeError ? "couldn't reach the search server" : e.message;
+      t.text += ` (failed: ${why})`;
+      return `Error: ${why}. Answer from what you already know, and say the web search didn't work.`;
+    } finally {
+      fillMessage(el, reply, true);
       scrollDown();
     }
   }
@@ -802,6 +942,21 @@
     return "Can't reach the Claude Code bridge. Check: this device is on Tailscale; any browser VPN is off; the bridge is running (systemctl --user status claude-bridge); and `tailscale serve status` lists port 8443.";
   }
 
+  async function checkSearch(base) {
+    const res = await fetch(base + "/health", { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) { let d = ""; try { d = (await res.json()).error || ""; } catch {} throw new Error(`HTTP ${res.status}${d ? ": " + d : ""}`); }
+    return res.json();
+  }
+  async function diagnoseSearch(err, base) {
+    if (location.protocol === "https:" && /^http:/i.test(base)) return "The search server address must be https:// (from `tailscale serve`).";
+    if (err && /^HTTP 403/.test(err.message)) return "The search server doesn't allow this website. Check SEARCH_ORIGINS on the laptop.";
+    if (err && /^HTTP \d/.test(err.message)) return err.message;
+    let reachable = false;
+    try { await fetch(base + "/", { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(6000) }); reachable = true; } catch {}
+    if (reachable) return "The search server answered, but the browser blocked the reply. Check SEARCH_ORIGINS on the laptop includes https://tavernworks.dev.";
+    return "Can't reach the search server. Check: this device is on Tailscale; any browser VPN is off; the server is running (systemctl --user status local-ai-search); and `tailscale serve status` lists port 8444.";
+  }
+
   // ── Attachments ──
   // Images go to Ollama as base64 (vision models such as llava, gemma3 or
   // qwen2.5vl can see them). Text files are pasted into the message.
@@ -829,9 +984,9 @@
   // Ollama only reads the first few thousand tokens unless asked for more,
   // which would silently cut off a long file or a whole project. Ask for a
   // window that fits (about 3.5 characters per token), up to 32k.
-  const estTokens = (history) => history.reduce((n, m) => n + m.content.length, 0) / 3.5 + 1024;
-  function ctxOptions(history) {
-    const tokens = estTokens(history);
+  const estTokens = (history) => history.reduce((n, m) => n + (m.content || "").length, 0) / 3.5 + 1024;
+  function ctxOptions(history, min) {
+    const tokens = Math.max(estTokens(history), min || 0);
     if (tokens <= 4096) return {};
     return { options: { num_ctx: [8192, 16384, 32768].find((n) => n >= tokens) || 32768 } };
   }
@@ -1096,13 +1251,13 @@
   // ── Settings dialog ──
   function openSettings() {
     $("apiUrl").value = settings.api; $("webuiUrl").value = settings.webui; $("system").value = settings.system;
-    $("bridgeUrl").value = settings.bridge; $("bridgeToken").value = settings.bridgeToken;
+    $("bridgeUrl").value = settings.bridge; $("bridgeToken").value = settings.bridgeToken; $("searchUrl").value = settings.search;
     $("testResult").textContent = "";
     $("settings").showModal();
     closeMenu();
   }
   $("testBtn").onclick = async () => {
-    const base = trimUrl($("apiUrl").value), bridge = trimUrl($("bridgeUrl").value), token = $("bridgeToken").value.trim();
+    const base = trimUrl($("apiUrl").value), bridge = trimUrl($("bridgeUrl").value), token = $("bridgeToken").value.trim(), search = trimUrl($("searchUrl").value);
     const out = $("testResult");
     if (!base && !bridge) { out.textContent = "Enter the Ollama address, the Claude Code bridge, or both."; return; }
     out.textContent = "Testing…"; out.style.color = "";
@@ -1123,14 +1278,20 @@
       } catch (e) { good = false; lines.push("✘ Claude Code: " + await diagnoseBridge(e)); }
       settings = saved;
     }
+    if (search) {
+      try {
+        const h = await checkSearch(search);
+        lines.push(`✔ Web search: ready (${h.engine || "search server"})`);
+      } catch (e) { good = false; lines.push("✘ Web search: " + await diagnoseSearch(e, search)); }
+    }
     out.textContent = lines.join("\n");
     out.style.color = good ? "var(--green)" : "#ff9b7a";
   };
   $("settingsForm").addEventListener("submit", (e) => {
     if (e.submitter?.value !== "save") return;
-    settings = { api: trimUrl($("apiUrl").value), webui: trimUrl($("webuiUrl").value), system: $("system").value, bridge: trimUrl($("bridgeUrl").value), bridgeToken: $("bridgeToken").value.trim() };
+    settings = formSettings();
     store.set(SETTINGS_KEY, settings);
-    updateWebuiLink(); connect(); renderThread();
+    updateWebuiLink(); showWeb(); connect(); renderThread();
   });
   function updateWebuiLink() {
     const a = $("webuiLink");
@@ -1151,6 +1312,15 @@
   $("menu").onclick = () => $("app").classList.add("open");
   $("scrim").onclick = closeMenu;
   $("model").onchange = () => store.set(MODEL_KEY, $("model").value);
+  function showWeb() {
+    const b = $("webToggle");
+    b.classList.toggle("on", webOn);
+    b.setAttribute("aria-pressed", String(webOn));
+    b.setAttribute("aria-label", webOn ? "Web search is on" : "Web search is off");
+    b.title = (webOn ? "Web search is on: Ollama models can look things up with DuckDuckGo. Click to turn it off." : "Web search is off. Click to let Ollama models look things up with DuckDuckGo.") +
+      (settings.search ? "" : "\n(Set up the search server in ⚙ Connection settings first.)");
+  }
+  $("webToggle").onclick = () => { webOn = !webOn; store.set(WEB_KEY, webOn); showWeb(); };
   $("thread").addEventListener("click", (e) => {
     const b = e.target.closest(".copycode");
     if (!b) return;
@@ -1163,11 +1333,11 @@
   const b64e = (str) => btoa(String.fromCharCode(...new TextEncoder().encode(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   const b64d = (str) => new TextDecoder().decode(Uint8Array.from(atob(str.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)));
   function formSettings() {
-    return { api: trimUrl($("apiUrl").value), webui: trimUrl($("webuiUrl").value), system: $("system").value, bridge: trimUrl($("bridgeUrl").value), bridgeToken: $("bridgeToken").value.trim() };
+    return { api: trimUrl($("apiUrl").value), webui: trimUrl($("webuiUrl").value), system: $("system").value, bridge: trimUrl($("bridgeUrl").value), bridgeToken: $("bridgeToken").value.trim(), search: trimUrl($("searchUrl").value) };
   }
   function setupLink() {
     const f = formSettings();
-    const data = { v: 1, api: f.api, webui: f.webui, bridge: f.bridge, system: f.system, model: $("model").value || store.get(MODEL_KEY, "") };
+    const data = { v: 1, api: f.api, webui: f.webui, bridge: f.bridge, search: f.search, system: f.system, model: $("model").value || store.get(MODEL_KEY, "") };
     if ($("shareToken").checked && f.bridgeToken) data.token = f.bridgeToken;
     for (const k of Object.keys(data)) if (data[k] === "" || data[k] == null) delete data[k];
     return location.origin + location.pathname + "#setup=" + b64e(JSON.stringify(data));
@@ -1178,17 +1348,17 @@
     const d = JSON.parse(b64d(m[1]));
     if (!d || d.v !== 1) throw new Error("That setup link is from a different version.");
     const url = (u) => { u = trimUrl(u); if (u && !/^https?:\/\/[^\s]+$/i.test(u)) throw new Error("The link has a bad address in it."); return u; };
-    return { api: url(d.api), webui: url(d.webui), bridge: url(d.bridge), bridgeToken: typeof d.token === "string" ? d.token : "", system: typeof d.system === "string" ? d.system : "", model: typeof d.model === "string" ? d.model : "" };
+    return { api: url(d.api), webui: url(d.webui), bridge: url(d.bridge), search: url(d.search), bridgeToken: typeof d.token === "string" ? d.token : "", system: typeof d.system === "string" ? d.system : "", model: typeof d.model === "string" ? d.model : "" };
   }
   function applySetup(d) {
-    settings = { api: d.api, webui: d.webui, system: d.system, bridge: d.bridge, bridgeToken: d.bridgeToken || settings.bridgeToken || "" };
+    settings = { api: d.api, webui: d.webui, system: d.system, bridge: d.bridge, bridgeToken: d.bridgeToken || settings.bridgeToken || "", search: d.search };
     store.set(SETTINGS_KEY, settings);
     if (d.model) store.set(MODEL_KEY, d.model);
-    updateWebuiLink(); connect(); renderThread();
+    updateWebuiLink(); showWeb(); connect(); renderThread();
   }
   function confirmSetup(d) {
     return confirm("Set up this chat with these settings?\n\n" +
-      `Ollama: ${d.api || "(none)"}\nOpen WebUI: ${d.webui || "(none)"}\nClaude Code bridge: ${d.bridge || "(none)"}${d.bridgeToken ? " (with token)" : ""}\n\n` +
+      `Ollama: ${d.api || "(none)"}\nOpen WebUI: ${d.webui || "(none)"}\nClaude Code bridge: ${d.bridge || "(none)"}${d.bridgeToken ? " (with token)" : ""}\nWeb search: ${d.search || "(none)"}\n\n` +
       "Only accept a link you made yourself.");
   }
   const flash = (btn, text) => { const old = btn.textContent; btn.textContent = text; setTimeout(() => (btn.textContent = old), 1800); };
@@ -1221,7 +1391,7 @@
       if (!confirmSetup(d)) return;
       applySetup(d);
       $("apiUrl").value = settings.api; $("webuiUrl").value = settings.webui; $("system").value = settings.system;
-      $("bridgeUrl").value = settings.bridge; $("bridgeToken").value = settings.bridgeToken; $("importLink").value = "";
+      $("bridgeUrl").value = settings.bridge; $("bridgeToken").value = settings.bridgeToken; $("searchUrl").value = settings.search; $("importLink").value = "";
       $("testResult").textContent = "✔ Settings imported. Hit Test connection to check them.";
       $("testResult").style.color = "var(--green)";
     } catch (e) {
@@ -1240,6 +1410,7 @@
   }
 
   updateWebuiLink();
+  showWeb();
   renderList();
   renderThread();
   if ((!settings.api && !settings.bridge) || new URLSearchParams(location.search).has("settings")) openSettings();
