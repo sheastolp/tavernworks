@@ -51,7 +51,7 @@
   <header>
     <a class="back" href="/">← Back to the tavern</a>
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated October 8, 2026</p>
+    <p class="updated">Last updated October 27, 2026</p>
   </header>
   <div class="doc">
     <h2>The short version</h2>
@@ -85,7 +85,7 @@
     <h3>Admin pages</h3>
     <p>Signing in with Google on the tip jar or suggestion box admin pages only works for an account the admin has linked. For a linked account we keep a one-way hash of its Google account ID, so we can recognize it next time, and nothing else. If an account that isn't linked tries to sign in, nothing about it is stored.</p>
     <h3>Twitch bots</h3>
-    <p>GuildScribe, UndercoverBurn and The Wandering Clerk work in Twitch chat (and GuildScribe in Discord). To do their job they read chat messages in channels where they're enabled and store what they need: things like usernames, character sheets, game progress and channel settings. When a streamer connects a bot, Twitch asks them to approve the access it needs, and the bot keeps the token Twitch issues so it can keep working. GuildScribe lists the channels that run it on the homepage; a channel can leave that list with <code>!dndbot showcase off</code>.</p>
+    <p>GuildScribe, UndercoverBurn and The Wandering Clerk work in Twitch chat (and GuildScribe in Discord). To do their job they read chat messages in channels where they're enabled and store what they need: things like usernames, character sheets, game progress and channel settings. GuildScribe also remembers whether you asked for its replies by whisper or in chat, and reads whispers you send it so it can run them as commands. To decide when chat is busy enough to answer by whisper, it counts each channel's messages from the last minute in memory only, and never stores them for that. When a streamer connects a bot, Twitch asks them to approve the access it needs, and the bot keeps the token Twitch issues so it can keep working. GuildScribe lists the channels that run it on the homepage; a channel can leave that list with <code>!dndbot showcase off</code>.</p>
     <h3>Server logs and rate limits</h3>
     <p>Like any website, the servers that handle requests see your IP address and browser details. We use IP addresses briefly, in memory, to rate-limit forms and sign-ins against spam and password guessing, and don't keep them with your suggestions or projects.</p>
 

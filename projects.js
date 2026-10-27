@@ -29,7 +29,7 @@ window.TAVERN_PROJECTS = {
       "card": {
         "section": "bots",
         "title": "GuildScribe",
-        "text": "The D&amp;D chat bot behind the stream. Dice rolls, saves and skill checks, spell and monster lookups, and full character sheets with HP tracking.",
+        "text": "The D&amp;D chat bot behind the stream. Dice rolls, saves and skill checks, spell and monster lookups, and full character sheets with HP tracking. When chat gets busy it answers by whisper, so replies don't get buried.",
         "href": "",
         "url": "guildscribe.tavernworks.dev",
         "pill": "LIVE",
@@ -596,6 +596,8 @@ window.TAVERN_PROJECTS = {
     ["guildscribe","2026-10-24","Overlay looks: presets, colours, fonts and images","https://guildscribe.tavernworks.dev/"],
     ["guildscribe","2026-10-24","A new home page and a guide to switching from StreamElements or Nightbot","https://guildscribe.tavernworks.dev/"],
     ["guildscribe","2026-10-24","On-screen alerts, Spotify song requests and a tip page","https://guildscribe.tavernworks.dev/"],
-    ["guildscribe","2026-10-24","YouTube and YouTube Music in Now playing, and a mods-only list for other song requests","https://guildscribe.tavernworks.dev/"]
+    ["guildscribe","2026-10-24","YouTube and YouTube Music in Now playing, and a mods-only list for other song requests","https://guildscribe.tavernworks.dev/"],
+    ["guildscribe","2026-10-26","Whisper replies: !whisperme, or whisper the bot a command and get every answer by whisper","https://guildscribe.tavernworks.dev/"],
+    ["guildscribe","2026-10-27","Replies go by whisper on their own when chat gets busy (10+ messages a minute), and back to chat when it calms down","https://guildscribe.tavernworks.dev/"]
   ]
 };
