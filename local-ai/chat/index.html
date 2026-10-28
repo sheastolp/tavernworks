@@ -533,6 +533,10 @@
   // Works out why a request failed. A browser hides the difference between
   // "server unreachable" and "server refused this site (CORS)", so this
   // re-asks in no-cors mode: that resolves whenever anything answered at all.
+  // A reply of nothing but "?" is the model itself misfiring on the laptop
+  // (often the GPU running short of memory), not anything this page did.
+  const garbled = (text) => /^[?\s]{8,}$/.test(text);
+  const GARBLED = "⚠ The model only sent question marks, which means it misfired on the laptop. Resend; if it keeps happening, restart Ollama there (`sudo systemctl restart ollama`) or pick a smaller model.";
   async function diagnose(err, base) {
     if (location.protocol === "https:" && /^http:/i.test(base)) return "This page is HTTPS, so the browser blocks plain http:// addresses. Use the https://….ts.net address from `tailscale serve`.";
     if (err && /^HTTP 403/.test(err.message)) return "Ollama refused this site (403). On the laptop, set OLLAMA_ORIGINS=https://tavernworks.dev and restart Ollama (see the Local AI page).";
@@ -685,6 +689,8 @@
       }
       if (!reply.content.trim() && !(reply.thinking || "").trim()) {
         reply.error = "The model sent back an empty reply. Try sending it again, or pick another model from the list.";
+      } else if (garbled(reply.content)) {
+        reply.stats = GARBLED;
       }
       if (last && last.eval_count && last.eval_duration) {
         const tps = last.eval_count / (last.eval_duration / 1e9);
@@ -698,8 +704,13 @@
         reply.stats = "stopped";
         if (!reply.content) reply.error = "Stopped before the model replied.";
       } else {
-        const msg = isCC(reply.model) ? await diagnoseBridge(e) : /^HTTP [45]\d\d: /.test(e.message) ? e.message : await diagnose(e, settings.api);
-        if (reply.content) reply.stats = "cut off: " + msg; else reply.error = msg;
+        // Once text has streamed in, the site was let in fine, so a failure now
+        // is the connection or Ollama dropping mid-reply, not CORS.
+        const msg = isCC(reply.model) ? await diagnoseBridge(e)
+          : /^HTTP [45]\d\d: /.test(e.message) ? e.message
+          : reply.content || reply.thinking ? "the connection to Ollama dropped mid-reply. If it keeps happening, check the laptop (`journalctl -u ollama -n 50`); the model may have crashed."
+          : await diagnose(e, settings.api);
+        if (reply.content) reply.stats = "cut off: " + msg + (garbled(reply.content) ? " " + GARBLED : ""); else reply.error = msg;
         setStatus("bad", "Error");
       }
     } finally {
