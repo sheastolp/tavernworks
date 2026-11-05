@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
 <title>Orrery Explorer · Tavernworks</title>
 <meta name="description" content="Browse the Grand Orrery: its maps, documents and character roster, and everything written about each person.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
@@ -28,6 +27,7 @@
   header{padding:26px 0 18px}
   h1{font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,6vw,46px);line-height:1.1;
     background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sign{display:inline-block;font-family:Cinzel,serif;font-size:12px;letter-spacing:.3em;color:var(--gold);border:1px solid var(--line);padding:5px 14px;border-radius:999px;background:rgba(0,0,0,.25);margin-bottom:12px}
   .tag{color:var(--muted);margin-top:6px;max-width:680px}
   .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px;align-items:center}
   .tabs a{font-family:Cinzel,serif;font-size:13px;letter-spacing:.12em;text-decoration:none;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:7px 16px;background:rgba(0,0,0,.2)}
@@ -84,6 +84,7 @@
 <div class="wrap">
   <nav class="top"><a class="back" href="/">← Tavernworks</a></nav>
   <header>
+    <div class="sign">THE WORKBENCH</div>
     <h1>Orrery Explorer</h1>
     <p class="tag">The Grand Orrery's maps, documents and people, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Pick a person to see everything written about them.</p>
     <div class="tabs">

@@ -226,6 +226,23 @@ window.TAVERN_PROJECTS = {
       }
     },
     {
+      "key": "orrery",
+      "icon": "🪐",
+      "name": "Orrery Explorer",
+      "href": "/orrery/",
+      "dir": "orrery",
+      "card": {
+        "section": "workbench",
+        "title": "Orrery Explorer",
+        "text": "Browse the Grand Orrery, the universe behind <i>Wake in Verrowen</i>: its maps, documents and character roster, read live from GitHub. Pick a person to see everything written about them.",
+        "href": "/orrery/",
+        "url": "tavernworks.dev/orrery",
+        "pill": "BETA",
+        "pillKind": "beta",
+        "links": []
+      }
+    },
+    {
       "key": "verrowen",
       "icon": "🕯️",
       "name": "Wake in Verrowen",
@@ -640,6 +657,7 @@ window.TAVERN_PROJECTS = {
     ["guildscribe","2026-10-27","!askme searches the web, not just Wikipedia, for current answers","https://guildscribe.tavernworks.dev/"],
     ["verrowen","2026-11-04","Wake in Verrowen: wake with no memory in the Grand Orrery universe, narrated by our own laptop","/verrowen/"],
     ["verrowen","2026-11-04","Play from the home page; optionally bring back a character or ask for a D&D character sheet","#verrowen"],
-    ["home","2026-11-04","Wake in Verrowen takes the Journal's spot under the path; the Journal moves to the workbench","#verrowen"]
+    ["home","2026-11-04","Wake in Verrowen takes the Journal's spot under the path; the Journal moves to the workbench","#verrowen"],
+    ["orrery","2026-11-05","Orrery Explorer gets a card on the workbench: the Grand Orrery's maps, documents and roster in one page","/orrery/"]
   ]
 };
