@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Orrery Explorer · Tavernworks</title>
+<meta name="description" content="Browse the Grand Orrery: its maps, documents and character roster, and everything written about each person.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069; --mark:rgba(224,168,74,.32);
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none!important}
+  body{font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;min-height:100vh;
+    background:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,120,60,.14), transparent 70%),var(--bg)}
+  a{color:var(--gold2)}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 16px}
+  nav.top{padding:22px 0 0}
+  .back{font-size:14px;color:var(--muted);text-decoration:none}
+  header{padding:26px 0 18px}
+  h1{font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,6vw,46px);line-height:1.1;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tag{color:var(--muted);margin-top:6px;max-width:680px}
+  .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px;align-items:center}
+  .tabs a{font-family:Cinzel,serif;font-size:13px;letter-spacing:.12em;text-decoration:none;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:7px 16px;background:rgba(0,0,0,.2)}
+  .tabs a.on{color:var(--bg);background:var(--gold);border-color:var(--gold)}
+  form.find{margin-left:auto;display:flex;gap:6px;flex:1 1 240px;max-width:360px}
+  form.find input{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 14px;font:inherit;font-size:14px}
+  form.find button,.btn{background:transparent;border:1px solid var(--line);color:var(--gold2);border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
+  .status{color:var(--muted);font-size:14px;margin:8px 0}
+  .status.err{color:var(--ember)}
+  main{padding:10px 0 50px}
+  h2.sec{font-family:Cinzel,serif;color:var(--gold);letter-spacing:.08em;font-size:18px;margin:26px 0 12px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:12px}
+  .card{display:block;text-decoration:none;color:var(--text);background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .card:hover{border-color:var(--gold)}
+  .card b{display:block;font-family:Cinzel,serif;color:var(--gold2);font-size:16px}
+  .card span{display:block;color:var(--muted);font-size:13.5px;margin-top:2px}
+  .card .count{margin-top:8px;font-size:12px;color:var(--muted)}
+  .panel{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:12px 0}
+  .crumb{font-size:12px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+  .crumb a{color:var(--muted)}
+  details.doc{margin:16px 0}
+  details.doc>summary{cursor:pointer;font-family:Cinzel,serif;color:var(--gold);font-size:17px;letter-spacing:.06em;padding:6px 0}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.06);color:var(--muted);margin-left:6px;font-family:Inter,sans-serif;letter-spacing:0;vertical-align:middle}
+  .who{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+  /* Rendered Markdown */
+  .md{font-family:Spectral,Georgia,serif;font-size:17px;line-height:1.6;overflow-wrap:anywhere}
+  .md h1,.md h2,.md h3,.md h4{font-family:Cinzel,serif;color:var(--gold2);line-height:1.25;margin:1.1em 0 .4em}
+  .md h1{font-size:26px;background:none;-webkit-background-clip:initial;color:var(--gold2)}
+  .md h2{font-size:21px}.md h3{font-size:18px}.md h4{font-size:16px}
+  .md>:first-child{margin-top:0}
+  .md p,.md ul,.md ol,.md table,.md blockquote,.md pre{margin:.55em 0}
+  .md ul,.md ol{padding-left:1.4em}
+  .md li{margin:.2em 0}
+  .md blockquote{border-left:3px solid var(--line);padding-left:12px;color:var(--muted)}
+  .md code{font-family:ui-monospace,Menlo,monospace;font-size:.85em;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px}
+  .md pre{background:rgba(0,0,0,.3);padding:10px;border-radius:8px;overflow-x:auto}
+  .md .tablewrap{overflow-x:auto}
+  .md table{border-collapse:collapse;font-family:Inter,sans-serif;font-size:14.5px;min-width:100%}
+  .md th,.md td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+  .md th{color:var(--gold);background:rgba(0,0,0,.2)}
+  .md img{max-width:100%;border-radius:10px;border:1px solid var(--line)}
+  .md hr{border:0;border-top:1px solid var(--line);margin:1em 0}
+  mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 2px}
+  .toc{columns:2 220px;font-size:14px;margin:8px 0 0;padding-left:1.2em}
+  .toc a{color:var(--muted);text-decoration:none}.toc a:hover{color:var(--gold2)}
+  .missing{border:1px dashed var(--line);border-radius:10px;padding:28px 16px;text-align:center;color:var(--muted);font-size:14px}
+  .maps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px}
+  .maps figure img{width:100%;border-radius:10px;border:1px solid var(--line);display:block}
+  .maps figcaption{font-size:14px;color:var(--muted);margin-top:6px}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:30px 0 40px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="top"><a class="back" href="/">← Tavernworks</a></nav>
+  <header>
+    <h1>Orrery Explorer</h1>
+    <p class="tag">The Grand Orrery's maps, documents and people, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Pick a person to see everything written about them.</p>
+    <div class="tabs">
+      <a href="#roster" data-tab="roster">Roster</a>
+      <a href="#maps" data-tab="maps">Maps</a>
+      <a href="#docs" data-tab="docs">Documents</a>
+      <form class="find" id="find"><input type="search" id="q" placeholder="Find anyone or anything…" aria-label="Search the orrery"><button type="submit">Find</button></form>
+    </div>
+    <p class="status" id="status">Loading the orrery…</p>
+  </header>
+  <main id="view"></main>
+  <footer><a href="/">Tavernworks</a> · <a href="/verrowen/">Wake in Verrowen</a> · <button class="btn" type="button" id="reload">Reload from GitHub</button></footer>
+</div>
+<script>
+// Orrery Explorer: reads the grand-orrery repo's Markdown straight from
+// GitHub (like Wake in Verrowen reads lore.md), so it's always current.
+// Views (in the URL hash): #roster, #person/<id>, #maps, #docs, #doc/<id>,
+// #find/<text>. A person's page gathers every section of every document that
+// mentions them, the way a search would, so new notes show up on their own.
+const RAW = "https://raw.githubusercontent.com/sheastolp/grand-orrery/main/";
+const DOCS = [
+  { id: "universe", file: "universe.md", title: "Stoutwell & Beyond", sub: "The universe draft · decided" },
+  { id: "notes", file: "working-notes.md", title: "Village Hero", sub: "Working notes · tagged per section" },
+  { id: "lore", file: "lore.md", title: "Narrator lore", sub: "What Wake in Verrowen reads every turn" },
+  { id: "readme", file: "README.md", title: "About the repo", sub: "README · where everyone shows up" },
+  { id: "maps", file: "maps/README.md", title: "Maps notes", sub: "maps/README.md" },
+];
+const MAPS = [
+  { file: "maps/region.png", title: "The region", caption: "The Kingdom, the Monster Wood, the Woodland Road, the croplands, Stoutwell, the river and the mills." },
+  { file: "maps/stoutwell.png", title: "Stoutwell", caption: "Districts, the Gathering Hall, the dried well, the Wellhouse, Monstradius, Doric's smithy, the lumber yard and the river mills." },
+];
+// The roster. `names` are case-sensitive patterns matched as whole words.
+const PEOPLE = [
+  { group: "Stoutwell", id: "tobin", name: "Tobin Ashby", role: "Halfling, 33 · blacksmith's apprentice", names: ["Tobin"] },
+  { group: "Stoutwell", id: "doric", name: "Doric", role: "Halfling, 67 · master blacksmith", names: ["Doric"] },
+  { group: "Stoutwell", id: "osric", name: "Osric", role: "Halfling, 142 · Leader of the Elderhold", names: ["Osric"] },
+  { group: "Stoutwell", id: "hesketh", name: "Hesketh Reeve", role: "Human, 48 · Captain of the Guard", names: ["Hesketh"] },
+  { group: "Stoutwell", id: "murrow", name: "Murrow", role: "Artificer, 550+ · keeper of Monstradius", names: ["Murrow"] },
+  { group: "Stoutwell", id: "wellhouse", name: "The Wellhouse family", role: "Elves · owners of the village tavern", names: ["Wellhouse"] },
+  { group: "The Elderhold", id: "wendeline", name: "Wendeline Brackenford", role: "Halfling, 149 · the eldest, keeper of customs", names: ["Wendeline"] },
+  { group: "The Elderhold", id: "fenwick", name: "Fenwick Larkspur", role: "Halfling, 145 · ex-Guard, leans to survival", names: ["Fenwick(?! Loose-Coin)"] },
+  { group: "The Elderhold", id: "bertram", name: "Bertram Quillby", role: "Halfling, 138 · ledgers and tithe counts", names: ["Bertram", "Quillby"] },
+  { group: "The Elderhold", id: "ysolde", name: "Ysolde Ambergate", role: "Halfling, 133 · harvest stores and rationing", names: ["Ysolde"] },
+  { group: "The Elderhold", id: "clementine", name: "Clementine Rook", role: "Halfling, 131 · the newest Elder, deals with Murrow", names: ["Clementine"] },
+  { group: "The Kingdom", id: "glumtom", name: "Glumtom", role: "Rock gnome · the Kingdom's artificer", names: ["Glumtom"] },
+  { group: "The Kingdom", id: "uncle", name: "Glumtom's uncle", role: "Gnome · believed to be in the cult", names: ["uncle"] },
+  { group: "The Kingdom", id: "scribe", name: "The Scribe", role: "GuildScribe's senior guildscribe", names: ["[Tt]he Scribe"] },
+  { group: "The Kingdom", id: "peddlers", name: "The peddlers", role: "Tansy Ninefingers and the market stall's traders", names: ["peddlers?", "Peddlers?", "Tansy Ninefingers"] },
+  { group: "The Kingdom", id: "clerk", name: "The Wandering Clerk", role: "A guildscribe who broke from the hall", names: ["Wandering Clerk", "the Clerk"] },
+  { group: "The Kingdom", id: "taxrep", name: "The tax representative", role: "Collects the Kingdom's tax from Stoutwell", names: ["tax representative"] },
+  { group: "Other worlds", id: "arandur", name: "Arandur", role: "Elf ranger and pickpocket, pulled between worlds", names: ["Arandur"] },
+  { group: "Other worlds", id: "silwen", name: "Silwen", role: "Arandur's hunter mother", names: ["Silwen"] },
+  { group: "Other worlds", id: "faelan", name: "Faelan", role: "Arandur's distant father", names: ["Faelan"] },
+];
+
+const $ = (id) => document.getElementById(id);
+const view = $("view");
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+const text = {}; // doc id -> markdown
+
+// ── Markdown (the subset the orrery uses) ──
+function inline(s) {
+  let out = esc(s);
+  out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
+  out = out.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_, alt, src) => `<img alt="${alt}" src="${/^https?:/.test(src) ? src : RAW + src}" loading="lazy">`);
+  out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, href) => {
+    const local = DOCS.find((d) => d.file === href);
+    const url = local ? `#doc/${local.id}` : /^https?:/.test(href) ? href : "https://github.com/sheastolp/grand-orrery/blob/main/" + href;
+    return `<a href="${url}"${local ? "" : ' target="_blank" rel="noopener"'}>${t}</a>`;
+  });
+  out = out.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, "$1<i>$2</i>").replace(/(^|\W)_([^_\n]+)_(?!\w)/g, "$1<i>$2</i>");
+  return out;
+}
+function md(src) {
+  const lines = src.replace(/\r/g, "").split("\n");
+  let html = "", i = 0;
+  const isList = (l) => /^(\s*)([-*]|\d+\.)\s+/.test(l);
+  while (i < lines.length) {
+    const l = lines[i];
+    if (!l.trim()) { i++; continue; }
+    let m;
+    if ((m = l.match(/^(#{1,6})\s+(.*)$/))) {
+      const n = m[1].length;
+      html += `<h${n} id="${slug(m[2])}">${inline(m[2])}</h${n}>`; i++; continue;
+    }
+    if (/^```/.test(l)) {
+      const body = []; i++;
+      while (i < lines.length && !/^```/.test(lines[i])) body.push(lines[i++]);
+      i++; html += `<pre><code>${esc(body.join("\n"))}</code></pre>`; continue;
+    }
+    if (/^(-{3,}|\*{3,})\s*$/.test(l)) { html += "<hr>"; i++; continue; }
+    if (/^\s*\|/.test(l) && i + 1 < lines.length && /^\s*\|?\s*:?-{3,}/.test(lines[i + 1])) {
+      const cells = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const head = cells(l); i += 2;
+      let rows = "";
+      while (i < lines.length && /^\s*\|/.test(lines[i])) rows += "<tr>" + cells(lines[i++]).map((c) => `<td>${inline(c)}</td>`).join("") + "</tr>";
+      html += `<div class="tablewrap"><table><thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
+      continue;
+    }
+    if (/^>\s?/.test(l)) {
+      const body = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) body.push(lines[i++].replace(/^>\s?/, ""));
+      html += `<blockquote>${md(body.join("\n"))}</blockquote>`; continue;
+    }
+    if (isList(l)) {
+      const items = [];
+      while (i < lines.length && (isList(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && items.length))) items.push(lines[i++]);
+      html += list(items); continue;
+    }
+    const para = [];
+    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|```|>|\s*\|)/.test(lines[i]) && !isList(lines[i])) para.push(lines[i++].trim());
+    html += `<p>${inline(para.join(" "))}</p>`;
+  }
+  return html;
+}
+function list(items) {
+  const indent = (l) => l.match(/^\s*/)[0].length;
+  const base = indent(items[0]);
+  const ordered = /^\s*\d+\./.test(items[0]);
+  let html = ordered ? "<ol>" : "<ul>", k = 0;
+  while (k < items.length) {
+    let item = items[k].replace(/^\s*([-*]|\d+\.)\s+/, "");
+    k++;
+    const sub = [];
+    while (k < items.length && indent(items[k]) > base) sub.push(items[k++]);
+    const kids = sub.filter((s) => /^\s*([-*]|\d+\.)\s+/.test(s));
+    const extra = sub.filter((s) => !/^\s*([-*]|\d+\.)\s+/.test(s)).map((s) => s.trim()).join(" ");
+    html += `<li>${inline(item + (extra ? " " + extra : ""))}${kids.length ? list(kids) : ""}</li>`;
+  }
+  return html + (ordered ? "</ol>" : "</ul>");
+}
+const slug = (s) => s.toLowerCase().replace(/[*_`()]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+// ── Sections: every heading starts one, with the path of headings above it ──
+function sections(doc) {
+  const src = text[doc.id] || "";
+  if (doc.id === "lore") {
+    // lore.md is one "KEY: text" line per topic; each sentence is a section.
+    return src.split("\n").filter((l) => /^[A-Z][A-Z &]+:/.test(l)).flatMap((l) => {
+      const key = l.slice(0, l.indexOf(":"));
+      const body = l.slice(l.indexOf(":") + 1).trim();
+      return body.split(/(?<=[.!?])\s+(?=[A-Z])/).map((s) => ({ path: [key], heading: key, body: s, sentence: true }));
+    });
+  }
+  let cur = { level: 0, heading: doc.title, path: [doc.title], lines: [] };
+  const out = [cur], stack = [];
+  for (const line of src.split("\n")) {
+    const m = line.match(/^(#{1,6})\s+(.*)$/);
+    if (m) {
+      const level = m[1].length;
+      while (stack.length && stack[stack.length - 1].level >= level) stack.pop();
+      cur = { level, heading: m[2], path: [...stack.map((s) => s.heading), m[2]], lines: [line] };
+      stack.push({ level, heading: m[2] });
+      out.push(cur);
+    } else cur.lines.push(line);
+  }
+  return out.map((s) => ({ ...s, body: s.lines.join("\n") })).filter((s) => s.body.replace(/^#.*$/m, "").trim());
+}
+const patternFor = (names) => new RegExp(`(?<![\\w-])(?:${names.join("|")})(?![\\w])`, "g");
+function matches(re) {
+  return DOCS.map((doc) => ({ doc, hits: sections(doc).filter((s) => { re.lastIndex = 0; return re.test(s.body); }) })).filter((d) => d.hits.length);
+}
+function highlight(root, re) {
+  const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walk.nextNode()) nodes.push(walk.currentNode);
+  for (const n of nodes) {
+    re.lastIndex = 0;
+    if (!re.test(n.nodeValue)) continue;
+    const span = document.createElement("span");
+    re.lastIndex = 0;
+    span.innerHTML = esc(n.nodeValue).replace(new RegExp(re.source, "g"), (m) => `<mark>${m}</mark>`);
+    n.replaceWith(...span.childNodes);
+  }
+}
+function renderHits(found, re) {
+  const html = found.map(({ doc, hits }) => `<details class="doc" open><summary>${esc(doc.title)}<span class="pill">${hits.length} section${hits.length === 1 ? "" : "s"}</span></summary>${
+    hits.map((s) => `<div class="panel"><div class="crumb"><a href="#doc/${doc.id}${s.sentence ? "" : "/" + slug(s.heading)}">${s.path.map(esc).join(" › ")}</a></div><div class="md">${s.sentence ? `<p>${inline(s.body)}</p>` : md(s.body)}</div></div>`).join("")
+  }</details>`).join("");
+  return html;
+}
+
+// ── Views ──
+function roster() {
+  const groups = [...new Set(PEOPLE.map((p) => p.group))];
+  return groups.map((g) => `<h2 class="sec">${esc(g)}</h2><div class="grid">${PEOPLE.filter((p) => p.group === g).map((p) => {
+    const n = matches(patternFor(p.names)).reduce((a, d) => a + d.hits.length, 0);
+    return `<a class="card" href="#person/${p.id}"><b>${esc(p.name)}</b><span>${esc(p.role)}</span><div class="count">${n} section${n === 1 ? "" : "s"} written</div></a>`;
+  }).join("")}</div>`).join("");
+}
+function person(id) {
+  const p = PEOPLE.find((x) => x.id === id);
+  if (!p) return `<p>No one by that id. <a href="#roster">Back to the roster</a>.</p>`;
+  const re = patternFor(p.names);
+  const found = matches(re);
+  const total = found.reduce((a, d) => a + d.hits.length, 0);
+  // Who else shares their sections, for quick hopping around.
+  const near = PEOPLE.filter((o) => o.id !== p.id).map((o) => {
+    const ore = patternFor(o.names);
+    return [o, found.reduce((a, d) => a + d.hits.filter((s) => { ore.lastIndex = 0; return ore.test(s.body); }).length, 0)];
+  }).filter(([, n]) => n).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  return { html: `<div class="crumb"><a href="#roster">Roster</a> › ${esc(p.group)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(p.name)}</h2><p class="tag">${esc(p.role)} · ${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}.</p>${
+    near.length ? `<div class="who">${near.map(([o, n]) => `<a class="pill" href="#person/${o.id}">${esc(o.name)} · ${n}</a>`).join("")}</div>` : ""
+  }${renderHits(found, re) || "<p>Nothing written yet.</p>"}`, re };
+}
+function find(q) {
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+  const found = matches(re);
+  const total = found.reduce((a, d) => a + d.hits.length, 0);
+  const plain = new RegExp(re.source, "i");
+  const people = PEOPLE.filter((p) => plain.test(p.name + " " + p.role) || p.names.some((n) => new RegExp(`^(?:${n})$`).test(q)));
+  return { html: `<h2 class="sec">“${esc(q)}”</h2><p class="tag">${total} section${total === 1 ? "" : "s"} mention it.</p>${
+    people.length ? `<div class="who">${people.map((p) => `<a class="pill" href="#person/${p.id}">${esc(p.name)}</a>`).join("")}</div>` : ""
+  }${renderHits(found, re) || "<p>Nothing found.</p>"}`, re };
+}
+function docs() {
+  return `<div class="grid">${DOCS.map((d) => `<a class="card" href="#doc/${d.id}"><b>${esc(d.title)}</b><span>${esc(d.sub)}</span><div class="count">${esc(d.file)} · ${(text[d.id] || "").split(/\s+/).filter(Boolean).length.toLocaleString()} words</div></a>`).join("")}</div>`;
+}
+function doc(id) {
+  const d = DOCS.find((x) => x.id === id);
+  if (!d) return `<p>No such document. <a href="#docs">All documents</a>.</p>`;
+  const heads = sections(d).filter((s) => s.level === 2 || s.level === 3);
+  return `<div class="crumb"><a href="#docs">Documents</a> › ${esc(d.file)} · <a href="https://github.com/sheastolp/grand-orrery/blob/main/${d.file}" target="_blank" rel="noopener">on GitHub</a></div>${
+    heads.length > 3 ? `<div class="panel"><ul class="toc">${heads.map((s) => `<li style="margin-left:${(s.level - 2) * 14}px"><a href="#doc/${d.id}/${slug(s.heading)}">${inline(s.heading)}</a></li>`).join("")}</ul></div>` : ""
+  }<div class="panel md">${md(text[d.id] || "")}</div>`;
+}
+function maps() {
+  return `<div class="maps">${MAPS.map((m) => `<figure><img src="${RAW + m.file}" alt="${esc(m.title)} map" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'Not uploaded yet: save it into grand-orrery/${m.file}'}))"><figcaption><b>${esc(m.title)}.</b> ${esc(m.caption)}</figcaption></figure>`).join("")}</div><div class="panel md">${md(text.maps || "")}</div>`;
+}
+
+function route() {
+  const [tab, ...rest] = (location.hash.slice(1) || "roster").split("/");
+  const arg = decodeURIComponent(rest[0] || ""), extra = rest[1] ? decodeURIComponent(rest[1]) : "";
+  if (tab === "find") rest.splice(0, rest.length, rest.join("/"));
+  document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === (tab === "person" ? "roster" : tab === "doc" ? "docs" : tab)));
+  let out, re = null;
+  if (tab === "person") ({ html: out, re } = person(arg));
+  else if (tab === "find") ({ html: out, re } = find(decodeURIComponent(rest[0] || "")));
+  else if (tab === "maps") out = maps();
+  else if (tab === "docs") out = docs();
+  else if (tab === "doc") out = doc(arg, extra);
+  else out = roster();
+  view.innerHTML = out;
+  if (re) view.querySelectorAll(".md").forEach((el) => highlight(el, re));
+  const target = extra && document.getElementById(extra);
+  if (target) target.scrollIntoView(); else window.scrollTo(0, 0);
+}
+
+async function load() {
+  $("status").hidden = false;
+  $("status").className = "status";
+  $("status").textContent = "Loading the orrery…";
+  const got = await Promise.all(DOCS.map((d) => fetch(RAW + d.file, { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).catch(() => "")));
+  DOCS.forEach((d, k) => (text[d.id] = got[k]));
+  const missing = DOCS.filter((d) => !text[d.id]);
+  if (missing.length === DOCS.length) {
+    $("status").className = "status err";
+    $("status").textContent = "Couldn't reach GitHub to read the orrery. Try Reload in a moment.";
+  } else {
+    $("status").hidden = !missing.length;
+    $("status").textContent = missing.length ? `Couldn't load ${missing.map((d) => d.file).join(", ")}.` : "";
+  }
+  route();
+}
+
+$("find").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = $("q").value.trim();
+  if (q) location.hash = "find/" + encodeURIComponent(q);
+});
+$("reload").addEventListener("click", load);
+addEventListener("hashchange", route);
+load();
+</script>
+</body>
+</html>
