@@ -88,8 +88,8 @@
 
   .feature{
     background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:22px;
-    display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:24px;align-items:start
   }
+  .feature .play{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:24px;align-items:start}
   .feature h3{font-family:Cinzel,serif;color:var(--gold2);font-size:21px;display:flex;align-items:center;gap:10px}
   .feature .txt p{color:var(--muted);font-size:14.5px;margin-top:8px}
   .feature h4{font-family:Cinzel,serif;font-size:13px;letter-spacing:.08em;color:var(--gold);margin:18px 0 10px}
@@ -97,7 +97,23 @@
   .feature .txt .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
   .feature .chip{font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%}
   .feature button.chip:hover{border-color:var(--gold);transform:translateY(-2px)}
-  @media (max-width:720px){.feature{grid-template-columns:1fr}.feature .txt{order:-1}}
+  @media (max-width:720px){.feature .play{grid-template-columns:1fr}.feature .txt{order:-1}}
+
+  /* The Grand Orrery: the universe first, with ways into the Explorer, then
+     Wake in Verrowen as the game set inside it. */
+  .orr p{color:var(--muted);font-size:15px;margin-top:8px;max-width:760px}
+  .orr .chips{margin-top:16px}
+  .orr .chip .dot{font-family:inherit;font-size:16px;background:rgba(224,168,74,.14);color:inherit}
+  .orr .chip .role{color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .orr .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:16px}
+  .orr form{display:flex;gap:6px;flex:1 1 240px;max-width:360px;margin-left:auto}
+  .orr form input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:7px 12px;font:inherit;font-size:14px}
+  .orr form input:focus{outline:2px solid var(--gold);outline-offset:1px}
+  .orr form button{cursor:pointer;font-family:inherit;color:inherit}
+  .orr .folk{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;font-size:13px;color:var(--muted);align-items:center}
+  .orr .folk a{color:var(--gold2);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:3px 11px}
+  .orr .folk a:hover{border-color:var(--gold)}
+  .feature .play-head{font-size:17px;margin:26px 0 14px;padding-top:20px;border-top:1px solid var(--line)}
 
   /* The Verrowen window: the top of /verrowen/'s story box, with the latest
      turn of this browser's story. Its buttons open the chat or the picker. */
@@ -298,8 +314,25 @@
     <p class="trail-note" id="trail-note" aria-live="polite"></p>
   </div>
 
-  <div class="divider" id="verrowen">WAKE IN VERROWEN</div>
+  <div class="divider" id="orrery">THE GRAND ORRERY</div>
   <div class="feature">
+    <div class="orr">
+      <h3>🪐 The Grand Orrery <span class="pill beta">BETA</span></h3>
+      <p>Our homebrew fantasy universe, written in the open on GitHub: Stoutwell, a halfling village kept by its Elderhold, the Kingdom past the Monster Wood, and everyone who lives there. The Orrery Explorer reads it live, so its maps, documents and people are always current. Pick a person to see everything written about them.</p>
+      <div class="chips">
+        <a class="chip" href="/orrery/#roster"><span class="dot">👥</span><span class="who"><div class="name">The roster</div><div class="role">Stoutwell, the Elderhold, the Kingdom</div></span></a>
+        <a class="chip" href="/orrery/#maps"><span class="dot">🗺️</span><span class="who"><div class="name">The maps</div><div class="role">The region and the village</div></span></a>
+        <a class="chip" href="/orrery/#docs"><span class="dot">📜</span><span class="who"><div class="name">The documents</div><div class="role">The universe draft, notes and lore</div></span></a>
+      </div>
+      <div class="folk">Meet: <a href="/orrery/#person/tobin">Tobin Ashby</a><a href="/orrery/#person/doric">Doric</a><a href="/orrery/#person/osric">Osric</a><a href="/orrery/#person/murrow">Murrow</a><a href="/orrery/#person/clementine">Clementine Rook</a></div>
+      <div class="row">
+        <a class="btn gold" href="/orrery/">🪐 Open the Orrery Explorer</a>
+        <a class="btn sm" href="https://github.com/sheastolp/grand-orrery" target="_blank" rel="noopener">📜 On GitHub</a>
+        <form id="orr-find" role="search"><input type="search" id="orr-q" placeholder="Find anyone or anything…" aria-label="Search the Grand Orrery"><button class="btn sm" type="submit">Find</button></form>
+      </div>
+    </div>
+    <h3 class="play-head" id="verrowen">🕯️ Play in it: Wake in Verrowen</h3>
+    <div class="play">
     <div class="snip" id="vw">
       <div class="bar">
         <button class="brand" type="button" data-vw="chat" title="Open the chat">🕯️</button>
@@ -322,16 +355,15 @@ Open the chat, press Begin, and answer the narrator however you like. Who you ar
       </div>
     </div>
     <div class="txt">
-      <h3>🕯️ Wake in Verrowen <span class="pill beta">BETA</span></h3>
-      <p>A roleplay in the Grand Orrery universe. You wake with no memory, and a narrator running on our own laptop reveals who you are through your choices. Just open the chat and start. If you like, you can also bring back an old character, or describe your own. At the end, choose a story or a D&amp;D character sheet.</p>
+      <p>A roleplay set in the Grand Orrery. You wake with no memory, and a narrator on our own laptop, reading the Orrery's lore every turn, reveals who you are through your choices. Open the chat and start, or bring back an old character. At the end, choose a story or a D&amp;D character sheet.</p>
       <div class="row">
-        <a class="btn sm" href="https://github.com/sheastolp/grand-orrery" target="_blank" rel="noopener">📜 The universe on GitHub</a>
         <a class="btn sm" href="/verrowen/">Full page ↗</a>
       </div>
       <div id="vw-recent" hidden>
         <h4>Your characters</h4>
         <div class="chips" id="vw-chars"></div>
       </div>
+    </div>
     </div>
   </div>
 
@@ -889,6 +921,13 @@ const PEOPLE = [];
   [chat, pick].forEach((d) => d.addEventListener("click", (e) => { if (e.target === d) d.close(); }));
   chat.addEventListener("close", draw);
 })();
+
+// The Orrery's search box hands its words to the Explorer.
+document.getElementById("orr-find").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = document.getElementById("orr-q").value.trim();
+  location.href = "/orrery/" + (q ? "#find/" + encodeURIComponent(q) : "");
+});
 
 // Folded sections open when a link points at them or inside them.
 (function () {
