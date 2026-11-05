@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Orrery Explorer · Tavernworks</title>
-<meta name="description" content="Browse the Grand Orrery: its maps, documents and character roster, and everything written about each person.">
+<meta name="description" content="Browse the Grand Orrery: its maps, documents, character roster and enchanted items, and everything written about each one.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -77,6 +77,12 @@
   .maps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px}
   .maps figure img{width:100%;border-radius:10px;border:1px solid var(--line);display:block}
   .maps figcaption{font-size:14px;color:var(--muted);margin-top:6px}
+  /* An item's facts: what it does, how it's made, its limits. */
+  .facts{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px}
+  .facts dt{font-family:Cinzel,serif;color:var(--gold);font-size:13px;letter-spacing:.06em;padding-top:3px}
+  .facts dd{font-family:Spectral,Georgia,serif;font-size:17px;line-height:1.5}
+  @media (max-width:560px){.facts{grid-template-columns:1fr;gap:2px}.facts dd{margin-bottom:8px}}
+  .card .icon{font-size:22px;line-height:1;margin-bottom:6px}
   footer{text-align:center;color:var(--muted);font-size:13px;padding:30px 0 40px}
 </style>
 </head>
@@ -86,9 +92,10 @@
   <header>
     <div class="sign">THE WORKBENCH</div>
     <h1>Orrery Explorer</h1>
-    <p class="tag">The Grand Orrery's maps, documents and people, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Pick a person to see everything written about them.</p>
+    <p class="tag">The Grand Orrery's maps, documents, people and items, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Pick a person or an item to see everything written about it.</p>
     <div class="tabs">
       <a href="#roster" data-tab="roster">Roster</a>
+      <a href="#items" data-tab="items">Items</a>
       <a href="#maps" data-tab="maps">Maps</a>
       <a href="#docs" data-tab="docs">Documents</a>
       <form class="find" id="find"><input type="search" id="q" placeholder="Find anyone or anything…" aria-label="Search the orrery"><button type="submit">Find</button></form>
@@ -101,7 +108,7 @@
 <script>
 // Orrery Explorer: reads the grand-orrery repo's Markdown straight from
 // GitHub (like Wake in Verrowen reads lore.md), so it's always current.
-// Views (in the URL hash): #roster, #person/<id>, #maps, #docs, #doc/<id>,
+// Views (in the URL hash): #roster, #person/<id>, #items, #item/<id>, #maps, #docs, #doc/<id>,
 // #find/<text>. A person's page gathers every section of every document that
 // mentions them, the way a search would, so new notes show up on their own.
 const RAW = "https://raw.githubusercontent.com/sheastolp/grand-orrery/main/";
@@ -137,6 +144,36 @@ const PEOPLE = [
   { group: "Other worlds", id: "arandur", name: "Arandur", role: "Elf ranger and pickpocket, pulled between worlds", names: ["Arandur"] },
   { group: "Other worlds", id: "silwen", name: "Silwen", role: "Arandur's hunter mother", names: ["Silwen"] },
   { group: "Other worlds", id: "faelan", name: "Faelan", role: "Arandur's distant father", names: ["Faelan"] },
+];
+
+// Murrow's enchanted items. Each one shows how the rules of magic work.
+// `names` match like the roster's; `by` links the people who make them.
+const ITEMS = [
+  { id: "hearthstone", icon: "🔥", name: "Hearthstone", names: ["Hearthstones?"], by: ["murrow"],
+    does: "Keeps a stove warm through the night without new wood.",
+    made: "A fire user charges a smooth river stone in Murrow's shop. Murrow sets the charge so it releases slowly instead of all at once.",
+    limits: "It lasts one night per charge and still needs embers to work with. It warms the fire but doesn't replace it.",
+    rules: "Magic needs something to work with, and objects hold magic but don't make it." },
+  { id: "featherhook", icon: "🪝", name: "Featherhook", names: ["Featherhooks?"], by: ["doric", "murrow"],
+    does: "Cuts a log's weight about in half while it's being dragged.",
+    made: "Iron hooks forged by Doric, then imprinted by Murrow with a wind pattern.",
+    limits: "It draws on the latent wind in whoever holds it, so it works better for humans than halflings. Holding it for too long leaves you winded.",
+    rules: "Latent magic, attunement, and the personal well." },
+  { id: "wardbell", icon: "🔔", name: "Wardbell", names: ["Wardbells?"], by: ["murrow"],
+    does: "Rings by itself when something large comes out of the Monster Wood.",
+    made: "A detection user's sense is set into the bell's metal and pointed toward the wood.",
+    limits: "It needs a detection user to refresh it every few weeks. It can't tell goblins from trolls, only big from small.",
+    rules: "Objects run dry, and magic stays limited." },
+  { id: "truthglass", icon: "🔍", name: "Truthglass", names: ["Truthglass(?:es)?"], by: ["murrow"],
+    does: "Shows whether a coin, seal or signed paper is real.",
+    made: "A rare piece of clear quartz, charged with detection magic.",
+    limits: "It only answers real or fake. It can't tell you who forged something or why.",
+    story: "It's dangerous for anyone skimming the guard tithe, or for a crooked tax representative." },
+  { id: "rift-compass", icon: "🧭", name: "Rift compass", sub: "Murrow's secret project", names: ["[Rr]ift compass(?:es)?"], by: ["murrow"],
+    does: "Points toward places where the worlds are thin.",
+    made: "Unknown, even to Murrow. It may use a kind of magic nobody in the village has.",
+    limits: "About 80% complete, and still a secret.",
+    story: "It ties the village to Arandur, the rifts, and the wider universe." },
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -285,9 +322,28 @@ function person(id) {
     const ore = patternFor(o.names);
     return [o, found.reduce((a, d) => a + d.hits.filter((s) => { ore.lastIndex = 0; return ore.test(s.body); }).length, 0)];
   }).filter(([, n]) => n).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const makes = ITEMS.filter((it) => it.by.includes(p.id));
   return { html: `<div class="crumb"><a href="#roster">Roster</a> › ${esc(p.group)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(p.name)}</h2><p class="tag">${esc(p.role)} · ${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}.</p>${
     near.length ? `<div class="who">${near.map(([o, n]) => `<a class="pill" href="#person/${o.id}">${esc(o.name)} · ${n}</a>`).join("")}</div>` : ""
-  }${renderHits(found, re) || "<p>Nothing written yet.</p>"}`, re };
+  }${makes.length ? `<div class="who"><span class="pill">Makes</span>${makes.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}${renderHits(found, re) || "<p>Nothing written yet.</p>"}`, re };
+}
+function items() {
+  return `<p class="tag" style="margin:4px 0 14px">Made or sold in Murrow's shop, Monstradius. Each item shows how the rules of magic work.</p><div class="grid">${ITEMS.map((it) => {
+    const n = matches(patternFor(it.names)).reduce((a, d) => a + d.hits.length, 0);
+    return `<a class="card" href="#item/${it.id}"><div class="icon">${it.icon}</div><b>${esc(it.name)}</b><span>${esc(it.does)}</span><div class="count">${it.sub ? esc(it.sub) + " · " : ""}${n} section${n === 1 ? "" : "s"} written</div></a>`;
+  }).join("")}</div>`;
+}
+function item(id) {
+  const it = ITEMS.find((x) => x.id === id);
+  if (!it) return { html: `<p>No such item. <a href="#items">All items</a>.</p>`, re: null };
+  const re = patternFor(it.names);
+  const found = matches(re);
+  const total = found.reduce((a, d) => a + d.hits.length, 0);
+  const by = it.by.map((pid) => PEOPLE.find((p) => p.id === pid)).filter(Boolean);
+  const facts = [["What it does", it.does], ["How it's made", it.made], ["Limits", it.limits], ["Rules it shows", it.rules], ["Story use", it.story]].filter(([, v]) => v);
+  return { html: `<div class="crumb"><a href="#items">Items</a> › Monstradius</div><h2 class="sec" style="margin-top:4px;font-size:26px">${it.icon} ${esc(it.name)}</h2><p class="tag">${it.sub ? esc(it.sub) + " · " : ""}${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}.</p>${
+    by.length ? `<div class="who">${by.map((p) => `<a class="pill" href="#person/${p.id}">${esc(p.name)}</a>`).join("")}</div>` : ""
+  }<div class="panel"><dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div>${renderHits(found, re) || "<p>Nothing else written yet.</p>"}`, re };
 }
 function find(q) {
   const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
@@ -295,8 +351,10 @@ function find(q) {
   const total = found.reduce((a, d) => a + d.hits.length, 0);
   const plain = new RegExp(re.source, "i");
   const people = PEOPLE.filter((p) => plain.test(p.name + " " + p.role) || p.names.some((n) => new RegExp(`^(?:${n})$`).test(q)));
+  const things = ITEMS.filter((it) => plain.test(it.name + " " + it.does) || it.names.some((n) => new RegExp(`^(?:${n})$`).test(q)));
+  const pills = people.map((p) => `<a class="pill" href="#person/${p.id}">${esc(p.name)}</a>`).concat(things.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`));
   return { html: `<h2 class="sec">“${esc(q)}”</h2><p class="tag">${total} section${total === 1 ? "" : "s"} mention it.</p>${
-    people.length ? `<div class="who">${people.map((p) => `<a class="pill" href="#person/${p.id}">${esc(p.name)}</a>`).join("")}</div>` : ""
+    pills.length ? `<div class="who">${pills.join("")}</div>` : ""
   }${renderHits(found, re) || "<p>Nothing found.</p>"}`, re };
 }
 function docs() {
@@ -318,10 +376,12 @@ function route() {
   const [tab, ...rest] = (location.hash.slice(1) || "roster").split("/");
   const arg = decodeURIComponent(rest[0] || ""), extra = rest[1] ? decodeURIComponent(rest[1]) : "";
   if (tab === "find") rest.splice(0, rest.length, rest.join("/"));
-  document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === (tab === "person" ? "roster" : tab === "doc" ? "docs" : tab)));
+  document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === (tab === "person" ? "roster" : tab === "item" ? "items" : tab === "doc" ? "docs" : tab)));
   let out, re = null;
   if (tab === "person") ({ html: out, re } = person(arg));
   else if (tab === "find") ({ html: out, re } = find(decodeURIComponent(rest[0] || "")));
+  else if (tab === "item") ({ html: out, re } = item(arg));
+  else if (tab === "items") out = items();
   else if (tab === "maps") out = maps();
   else if (tab === "docs") out = docs();
   else if (tab === "doc") out = doc(arg, extra);

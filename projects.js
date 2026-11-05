@@ -659,6 +659,7 @@ window.TAVERN_PROJECTS = {
     ["verrowen","2026-11-04","Play from the home page; optionally bring back a character or ask for a D&D character sheet","#verrowen"],
     ["home","2026-11-04","Wake in Verrowen takes the Journal's spot under the path; the Journal moves to the workbench","#verrowen"],
     ["orrery","2026-11-05","Orrery Explorer gets a card on the workbench: the Grand Orrery's maps, documents and roster in one page","/orrery/"],
-    ["home","2026-11-05","The Grand Orrery takes the spot under the path, with Wake in Verrowen as the game set inside it","#orrery"]
+    ["home","2026-11-05","The Grand Orrery takes the spot under the path, with Wake in Verrowen as the game set inside it","#orrery"],
+    ["orrery","2026-11-05","Orrery Explorer gets an Items tab: the Hearthstone, Featherhook, Wardbell, Truthglass and Rift compass, each with what it does, how it's made and its limits","/orrery/#items"]
   ]
 };
