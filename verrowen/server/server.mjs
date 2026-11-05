@@ -128,14 +128,23 @@ async function narrate(messages, left) {
   if (waiting >= MAX_WAITING) throw Object.assign(new Error("The narrator is busy with other players. Try again in a minute."), { status: 503 });
   waiting++;
   try {
-    const r = await fetch(OLLAMA + "/api/chat", {
+    // Small models sometimes get stuck saying the same token over and over,
+    // and Ollama stops them with "token repeat limit reached". A repeat
+    // penalty makes that rare; if it still happens, try once more with a
+    // stronger penalty and a cooler temperature before giving up.
+    const ask = (options) => fetch(OLLAMA + "/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages, stream: false, keep_alive: "30m", options: { num_predict: MAX_REPLY_TOKENS, num_ctx: 8192, temperature: 0.9 } }),
+      body: JSON.stringify({ model: MODEL, messages, stream: false, keep_alive: "30m", options: { num_predict: MAX_REPLY_TOKENS, num_ctx: 8192, top_p: 0.9, repeat_last_n: 256, ...options } }),
       signal: left ? eitherSignal(AbortSignal.timeout(180000), left) : AbortSignal.timeout(180000),
     });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw Object.assign(new Error(j.error ? `Ollama: ${j.error}` : `Ollama answered ${r.status}`), { status: 502 });
+    let r = await ask({ temperature: 0.9, repeat_penalty: 1.15 });
+    let j = await r.json().catch(() => ({}));
+    if (!r.ok && /repeat/i.test(j.error || "")) {
+      r = await ask({ temperature: 0.7, repeat_penalty: 1.3, presence_penalty: 0.5 });
+      j = await r.json().catch(() => ({}));
+    }
+    if (!r.ok) throw Object.assign(new Error(/repeat/i.test(j.error || "") ? "The narrator got stuck repeating itself twice. Press Resend, or reword your message." : j.error ? `Ollama: ${j.error}` : `Ollama answered ${r.status}`), { status: 502 });
     const text = stripThinking(j?.message?.content);
     if (!text) throw Object.assign(new Error("The narrator returned nothing"), { status: 502 });
     return text;
