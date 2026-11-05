@@ -120,6 +120,9 @@
   .atts .skipped{color:var(--muted);font-size:12px;margin-top:6px}
   .atts details pre{margin-top:6px;max-height:300px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;white-space:pre-wrap;overflow-wrap:anywhere}
   .box textarea{flex:1;min-width:0;background:none;border:0;outline:none;resize:none;max-height:200px;padding:6px 0;line-height:1.5}
+  .attach.mic.listening{border-color:var(--ember);background:var(--ember);color:#fff;animation:blink 1.2s infinite}
+  .hint.voice{color:var(--gold2)}
+  .hint.voice.err{color:var(--ember)}
   .send{width:38px;height:38px;border-radius:10px;border:0;background:var(--gold);color:var(--bg);font-weight:800;font-size:17px;flex-shrink:0}
   .send:disabled{opacity:.4;cursor:default}
   .send.stop{background:var(--ember);color:#fff}
@@ -207,9 +210,10 @@
         <input type="file" id="fileInput" multiple hidden>
         <input type="file" id="dirInput" webkitdirectory multiple hidden>
         <textarea id="input" rows="1" placeholder="Ask your local model anything…" aria-label="Message"></textarea>
+        <button class="attach mic" id="mic" type="button" aria-label="Voice typing" title="Speak your message" hidden>🎤</button>
         <button class="send" id="send" type="submit" aria-label="Send">↑</button>
       </form>
-      <p class="hint">Runs on the FX705 laptop in the back room, no cloud. Chats are saved in this browser only. Attach images, text files, zips or folders with 📎 / 🗂, drag-and-drop, or paste. 🌐 lets the model search the web.</p>
+      <p class="hint" id="hint" aria-live="polite">Runs on the FX705 laptop in the back room, no cloud. Chats are saved in this browser only. Attach images, text files, zips or folders with 📎 / 🗂, drag-and-drop, or paste. 🌐 lets the model search the web. 🎤 types what you say.</p>
     </div>
   </main>
 </div>
@@ -250,6 +254,7 @@
   </form>
 </dialog>
 
+<script src="/voice-input.js"></script>
 <script>
 (function () {
   "use strict";
@@ -578,6 +583,7 @@
   // ── Sending ──
   async function send() {
     const input = $("input");
+    voice.stop();
     const text = input.value.trim();
     if (busy) { busy.abort(); return; }
     if (pending.some((p) => p.loading)) return;
@@ -1279,6 +1285,16 @@
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
   });
   $("form").addEventListener("submit", (e) => { e.preventDefault(); send(); });
+  // 🎤 voice typing: the browser turns speech into text in the message box.
+  // While it's listening (or if it fails) the hint line says so.
+  const hintText = $("hint").textContent;
+  const voice = VoiceInput.attach($("mic"), $("input"), {
+    onStatus(t, err) {
+      const h = $("hint");
+      h.textContent = t || hintText;
+      h.classList.toggle("voice", !!t); h.classList.toggle("err", !!err);
+    },
+  });
   $("newChat").onclick = newChat;
   $("openSettings").onclick = openSettings;
   $("menu").onclick = () => $("app").classList.add("open");

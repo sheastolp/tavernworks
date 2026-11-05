@@ -88,6 +88,9 @@
   button.quiet{border-color:var(--line);color:var(--muted)}
   button:disabled{opacity:.45;cursor:default}
   .chip{font-family:Inter,sans-serif;font-size:14px;letter-spacing:0;border-color:var(--line);color:var(--text)}
+  button.mic{font-family:Inter,sans-serif;letter-spacing:0;padding:10px 13px}
+  button.mic.listening{background:var(--ember);border-color:var(--ember);color:#fff;animation:micpulse 1.2s ease-in-out infinite}
+  @keyframes micpulse{50%{opacity:.7}}
   .chip[aria-pressed="true"]{border-color:var(--gold);background:var(--gold);color:var(--bg)}
 
   .composer{border-top:1px solid var(--line);padding:12px 16px 14px;display:flex;flex-direction:column;gap:8px;background:rgba(0,0,0,.18)}
@@ -114,7 +117,7 @@
   footer button.link{background:none;border:0;padding:0;font:inherit;letter-spacing:0;color:inherit;cursor:pointer}
   footer button.link:hover{color:var(--gold2)}
   @media (max-width:520px){ .turn{font-size:17px} .box{height:80vh} .boxhead .who{display:none} }
-  @media (prefers-reduced-motion:reduce){ .log{scroll-behavior:auto} }
+  @media (prefers-reduced-motion:reduce){ .log{scroll-behavior:auto} button.mic.listening{animation:none} }
 
   /* Embedded in the home page's chat window: just the story. */
   .embed nav,.embed header,.embed .about,.embed footer{display:none}
@@ -179,7 +182,7 @@
     <div class="status" id="status" role="status" aria-live="polite"></div>
     <div class="composer" id="composer" hidden>
       <label class="sr" for="reply">Your reply</label>
-      <textarea id="reply" placeholder="What do you do?  (Ctrl+Enter sends)"></textarea>
+      <textarea id="reply" placeholder="What do you do?  (Ctrl+Enter sends, or 🎤 to speak)"></textarea>
       <div class="finish" id="finishPanel" hidden>
         <div class="fieldlabel">How would you like your character?</div>
         <div class="row">
@@ -191,6 +194,7 @@
       </div>
       <div class="row" id="composerRow">
         <button class="primary" id="sendBtn">Send</button>
+        <button class="mic" id="micBtn" type="button" title="Speak your reply" aria-label="Voice typing" hidden>🎤</button>
         <button id="wrapBtn">Wrap it up</button>
         <button class="quiet" id="resetBtn" title="Back to the start. This story is kept, so you can continue it later.">← Back</button>
       </div>
@@ -224,6 +228,7 @@
   </dialog>
 </div>
 
+<script src="/voice-input.js"></script>
 <script>
 // Wake in Verrowen: the whole game runs in this page. It loads the lore from
 // the universe repo and sends each turn to the narrator gate on the laptop
@@ -523,12 +528,17 @@ $("beginBtn").addEventListener("click", () => {
 });
 function sendReply(){
   if (busy) return;
+  voice.stop();
   const t = $("reply").value.trim();
   if (!t){ setStatus("Write what your character does first.", true); return; }
   messages.push({role: "user", content: t.slice(0, MAX_CHARS)}); $("reply").value = ""; render();
   narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); });
 }
 $("sendBtn").addEventListener("click", sendReply);
+// 🎤 voice typing into the reply box (only shown where the browser supports it).
+const voice = VoiceInput.attach($("micBtn"), $("reply"), {
+  onStatus(t, err){ if (t || $("status").textContent.startsWith("Listening")) setStatus(t, err); }
+});
 $("reply").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)){ e.preventDefault(); sendReply(); } });
 // "Wrap it up" first asks what the player wants, then writes it.
 $("wrapBtn").addEventListener("click", () => {
