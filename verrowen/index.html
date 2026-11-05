@@ -86,6 +86,10 @@
   button{font-family:Cinzel,serif;font-size:13px;letter-spacing:.08em;border-radius:8px;padding:10px 16px;cursor:pointer;border:1px solid var(--gold);background:transparent;color:var(--gold2)}
   button.primary{background:var(--gold);color:var(--bg);font-weight:800}
   button.quiet{border-color:var(--line);color:var(--muted)}
+  button.danger{border-color:#7a3a22;color:#ff8a5c;font-size:12px;padding:8px 12px}
+  button.danger:hover{border-color:var(--ember)}
+  .manage{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-2px 0 4px;padding:0 4px}
+  .manage .note{flex:1 1 160px}
   button:disabled{opacity:.45;cursor:default}
   .chip{font-family:Inter,sans-serif;font-size:14px;letter-spacing:0;border-color:var(--line);color:var(--text)}
   button.mic{font-family:Inter,sans-serif;letter-spacing:0;padding:10px 13px}
@@ -175,7 +179,7 @@
             <span class="more"><textarea id="ownDesc" maxlength="1200" placeholder="A halfling cook with a burn scar, runaway from the capital, afraid of deep water…" aria-label="Describe your character"></textarea></span></span></label>
         </fieldset>
         <p class="note" id="setupNote" hidden></p>
-        <p class="note">Your story is saved on Sheamus's own computer so your character can join the universe. Every new story starts somewhere different.</p>
+        <p class="note">Your story is saved on Sheamus's own computer so your character can join the universe. Once a character is finished you can delete them, or just their chat, here or under their profile. Every new story starts somewhere different.</p>
         <div class="row"><button class="primary" id="beginBtn">Begin</button></div>
       </div>
     </div>
@@ -205,6 +209,7 @@
     <h2 id="profileHead">Your character</h2>
     <pre id="profileText"></pre>
     <div class="row"><button class="primary" id="copyBtn">Copy profile</button><button id="continueBtn">Continue the story</button><button class="quiet" id="resetBtn2" title="Back to the start. This story is kept, so you can continue it later.">← Back to the start</button><span class="note" id="copyStatus"></span></div>
+    <div class="row"><button class="danger" type="button" id="delChatBtn" title="Erase the story's chat. The character stays, and can wake again in a new story.">Delete the chat</button><button class="danger" type="button" id="delCharBtn" title="Erase the character and their chat.">Delete character</button></div>
   </section>
 
   <section class="about">
@@ -347,7 +352,7 @@ function render(){
   log.scrollTop = log.scrollHeight;
 }
 function setStatus(t, err){ const s = $("status"); s.textContent = t || ""; s.className = "status" + (err ? " err" : ""); }
-function setBusy(b){ busy = b; ["sendBtn","wrapBtn","beginBtn","resetBtn","resetBtn2","finishCancel","continueBtn"].forEach(id => { $(id).disabled = b; }); document.querySelectorAll("[data-finish]").forEach(el => { el.disabled = b; }); }
+function setBusy(b){ busy = b; ["sendBtn","wrapBtn","beginBtn","resetBtn","resetBtn2","finishCancel","continueBtn","delChatBtn","delCharBtn"].forEach(id => { $(id).disabled = b; }); document.querySelectorAll("[data-finish]").forEach(el => { el.disabled = b; }); }
 
 function save(){
   const rec = {playerId, playerName, characterName, seed, messages, profile, purpose, character, continued};
@@ -385,6 +390,7 @@ function setNarrator(up){
 function checkHealth(){
   fetch(NARRATOR + "/health").then(r => r.json()).then(j => {
     setNarrator(!!(j.ok && j.ollama));
+    if (j.ok && pendingDeletes().length) flushDeletes();
     if (j.model) $("modelPill").textContent = "Narrated by " + j.model + " on our own laptop";
   }).catch(() => setNarrator(false));
 }
@@ -489,6 +495,16 @@ function drawPicker(){
       opt("resume:" + c.id, "Continue " + name + "'s story", (c.profile ? "" : "Unfinished. ") + "Pick up where you left off on " + when + ", " + turns + (turns === 1 ? " turn" : " turns") + " in.");
     }
     if (c.profile) opt("returning:" + c.id, name + " wakes again", "A new story for your " + (c.purpose === "dnd" ? "D&D character" : "character") + " from " + when + ". What they learned before comes back in flashes.");
+    // Finished characters can be deleted, or just their chat.
+    if (c.profile){
+      const row = document.createElement("div"); row.className = "manage";
+      const n = document.createElement("span"); n.className = "note"; n.textContent = name + (msgs.length ? "" : " · chat deleted");
+      row.appendChild(n);
+      const del = (what, label) => { const b = document.createElement("button"); b.type = "button"; b.className = "danger"; b.textContent = label; b.dataset.del = what; b.dataset.id = c.id; row.appendChild(b); };
+      if (msgs.length) del("chat", "Delete chat");
+      del("character", "Delete character");
+      box.appendChild(row);
+    }
   }
   const keep = was && document.querySelector(`input[name="who"][value="${CSS.escape(was)}"]`);
   (keep || document.querySelector('input[name="who"][value="new"]')).checked = true;
@@ -542,6 +558,61 @@ const voice = VoiceInput.attach($("micBtn"), $("reply"), {
   onStatus(t, err){ if (t || $("status").textContent.startsWith("Listening")) setStatus(t, err); }
 });
 $("reply").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)){ e.preventDefault(); sendReply(); } });
+// ── Deleting a finished character, or only its chat ──
+// Both go in this browser at once and on the laptop too. If the laptop is
+// off, the laptop's part waits in a queue and is retried on the next visit.
+const PENDING = "verrowen-pending-deletes";
+function pendingDeletes(){ try{ const l = JSON.parse(store.get(PENDING) || "[]"); return Array.isArray(l) ? l : []; }catch(e){ return []; } }
+function laptopDelete(id, what){
+  return fetch(NARRATOR + "/delete", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({playerId: id, what})})
+    .then(r => r.ok);
+}
+async function flushDeletes(){
+  const left = [];
+  for (const d of pendingDeletes()){
+    const ok = await laptopDelete(d.id, d.what).catch(() => false);
+    if (!ok) left.push(d);
+  }
+  store.set(PENDING, JSON.stringify(left));
+  return left.length;
+}
+async function deleteSaved(id, what){
+  if (busy) return;
+  if (id === playerId && messages.length) keepCharacter();
+  const c = savedCharacters().find(x => x.id === id);
+  if (!c || !c.profile) return;
+  const name = c.name || "this character";
+  const ask = what === "chat"
+    ? `Delete ${name}'s chat? The story is erased, here and on Sheamus's laptop. ${name} stays, and can still wake again in a new story.`
+    : `Delete ${name}? Their profile and chat are erased, here and on Sheamus's laptop. This can't be undone.`;
+  if (!confirm(ask)) return;
+  const list = savedCharacters();
+  const next = what === "chat" ? list.map(x => x.id === id ? {...x, story: null} : x) : list.filter(x => x.id !== id);
+  try{ localStorage.setItem("verrowen-characters", JSON.stringify(next)); }catch(e){ setStatus("This browser won't save the change. Try again.", true); return; }
+  // The story on screen was this character: back to the start with a fresh id.
+  if (id === playerId){
+    playerId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(16) + "-" + Math.random().toString(16).slice(2);
+    store.set("verrowen-id", playerId);
+    messages = []; profile = ""; seed = null; character = null; characterName = ""; purpose = "story"; continued = false;
+    store.set("verrowen-story", "");
+    closeFinish(); $("copyStatus").textContent = "";
+  }
+  render();
+  window.scrollTo({top: 0, behavior: "smooth"});
+  store.set(PENDING, JSON.stringify([...pendingDeletes().filter(d => d.id !== id || what !== "character"), {id, what}]));
+  const left = await flushDeletes();
+  const done = what === "chat" ? `Deleted ${name}'s chat.` : `Deleted ${name}.`;
+  setStatus(left ? `${done} The laptop is asleep, so its copy goes the next time you open this page while the narrator is awake.` : `${done} The laptop's copy is gone too.`);
+}
+$("delChatBtn").addEventListener("click", () => deleteSaved(playerId, "chat"));
+$("delCharBtn").addEventListener("click", () => deleteSaved(playerId, "character"));
+$("savedOpts").addEventListener("click", e => {
+  const b = e.target.closest("[data-del]");
+  if (!b) return;
+  e.preventDefault();
+  deleteSaved(b.dataset.id, b.dataset.del);
+});
+
 // "Wrap it up" first asks what the player wants, then writes it.
 $("wrapBtn").addEventListener("click", () => {
   if (busy) return;

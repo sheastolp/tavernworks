@@ -10,6 +10,7 @@
 //   POST /admin/model    (owner's token)  { model }  ->  { ok, model }   the narrator for everyone
 //   POST /narrate    { messages: [{ role, content }] }  ->  { text }
 //   POST /save       { playerId, playerName, characterName, seed, messages, profile, purpose, character }  ->  { ok }
+//   POST /delete     { playerId, what: "chat" | "character" }  ->  { ok }   the player's own story file
 //
 //   node server.mjs           run the server (default port 8792)
 //   node server.mjs list      list the saved characters, newest first
@@ -158,6 +159,30 @@ async function save(b) {
   await fs.rename(file + ".tmp", file);
 }
 
+// A player deletes their own finished character, or just its chat. The
+// playerId is a random id only their browser knows, the same proof /save
+// relies on. "chat" keeps the profile and drops the transcript; "character"
+// removes the file. Deleting something already gone is fine.
+async function remove(b) {
+  const id = str(b.playerId, 80);
+  if (!/^[A-Za-z0-9-]{8,80}$/.test(id)) throw Object.assign(new Error("missing playerId"), { status: 400 });
+  const what = b.what === "chat" ? "chat" : b.what === "character" ? "character" : "";
+  if (!what) throw Object.assign(new Error('what must be "chat" or "character"'), { status: 400 });
+  const file = path.join(SAVE_DIR, id + ".json");
+  if (what === "character") {
+    await fs.unlink(file).catch((e) => { if (e.code !== "ENOENT") throw e; });
+    return;
+  }
+  let rec;
+  try { rec = JSON.parse(await fs.readFile(file, "utf8")); } catch (e) { if (e.code === "ENOENT") return; throw e; }
+  rec.messages = [];
+  rec.seed = null;
+  rec.chatDeleted = new Date().toISOString();
+  rec.updated = rec.chatDeleted;
+  await fs.writeFile(file + ".tmp", JSON.stringify(rec, null, 2));
+  await fs.rename(file + ".tmp", file);
+}
+
 async function list() {
   let files = [];
   try { files = (await fs.readdir(SAVE_DIR)).filter((f) => f.endsWith(".json")); } catch { }
@@ -167,7 +192,7 @@ async function list() {
   if (!recs.length) return console.log(`No saved characters in ${SAVE_DIR} yet.`);
   for (const r of recs) {
     const turns = r.messages.filter((m) => m.role === "user").length;
-    console.log(`${r.updated.slice(0, 16).replace("T", " ")}  ${r.playerName || "(no name)"} as ${r.characterName || "(unnamed)"}  ${turns} turns  ${r.profile ? "WRAPPED UP" : "in progress"}`);
+    console.log(`${r.updated.slice(0, 16).replace("T", " ")}  ${r.playerName || "(no name)"} as ${r.characterName || "(unnamed)"}  ${r.chatDeleted ? "chat deleted" : turns + " turns"}  ${r.profile ? "WRAPPED UP" : "in progress"}`);
     console.log(`  ${path.join(SAVE_DIR, r.playerId + ".json")}`);
   }
 }
@@ -198,11 +223,16 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true, model: MODEL }, origin);
       }
     }
-    if (req.method !== "POST" || !["/narrate", "/save"].includes(url.pathname)) return send(res, 404, { error: "Not here" }, origin);
+    if (req.method !== "POST" || !["/narrate", "/save", "/delete"].includes(url.pathname)) return send(res, 404, { error: "Not here" }, origin);
     const body = await readJson(req);
     if (url.pathname === "/save") {
       if (!allowed("save:" + clientIp(req), { n: 120, ms: PER_IP.ms })) return send(res, 429, { error: "Too many saves" }, origin);
       await save(body);
+      return send(res, 200, { ok: true }, origin);
+    }
+    if (url.pathname === "/delete") {
+      if (!allowed("delete:" + clientIp(req), { n: 60, ms: PER_IP.ms })) return send(res, 429, { error: "Too many deletes" }, origin);
+      await remove(body);
       return send(res, 200, { ok: true }, origin);
     }
     if (!allowed("ip:" + clientIp(req), PER_IP)) return send(res, 429, { error: "You're going fast. Wait a few minutes, then try again." }, origin);

@@ -11,6 +11,9 @@ delete models. This server only lets the game through:
   reply length, message count and size capped.
 - `POST /save` keeps each player's story on the laptop, one file per player,
   rewritten after every turn, so stories that stop halfway are kept too.
+- `POST /delete` lets a player delete their own finished character's file,
+  or only its chat (the profile stays). It takes the story's id, which only
+  that player's browser knows.
 - `GET /health` tells the page whether the narrator is awake, and which
   model narrates.
 - `/admin/models` and `/admin/model` let the owner switch the narrator
