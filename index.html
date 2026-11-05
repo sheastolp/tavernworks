@@ -759,14 +759,14 @@ const PEOPLE = [];
     box.className = "story " + (last ? (last.role === "assistant" ? "narrator" : "player") : "intro");
     box.textContent = last ? last.content : INTRO;
     $("vw-title").textContent = msgs.length
-      ? (s.playerName ? s.playerName + "'s " : "Your ") + (s.purpose === "dnd" ? "D&D character" : "story") + (s.profile ? " · wrapped up" : " · " + msgs.filter((m) => m.role === "user").length + " turns")
+      ? (s.playerName ? s.playerName + "'s " : "Your ") + (s.purpose === "dnd" ? "D&D character" : "story") + (s.profile && !s.continued ? " · wrapped up" : " · " + msgs.filter((m) => m.role === "user").length + " turns")
       : "A new story";
     $("vw-open").textContent = msgs.length ? "💬 Continue the chat" : "💬 Open the chat";
     const list = chars();
     $("vw-recent").hidden = !list.length;
     $("vw-chars").innerHTML = list.slice(0, 6).map((c, i) =>
       `<button class="chip" type="button" data-char="${i}"><span class="dot">${esc((c.name || "?").charAt(0).toUpperCase())}</span>` +
-      `<span class="who"><div class="name">${esc(c.name || "Unnamed")}</div><div class="role">${c.purpose === "dnd" ? "D&amp;D character" : "Story"} · ${esc(new Date(c.at).toLocaleDateString([], { dateStyle: "medium" }))}</div></span></button>`).join("");
+      `<span class="who"><div class="name">${esc(c.name || "Unnamed")}</div><div class="role">${!c.profile ? "Unfinished story" : c.purpose === "dnd" ? "D&amp;D character" : "Story"} ·${esc(new Date(c.at).toLocaleDateString([], { dateStyle: "medium" }))}</div></span></button>`).join("");
   };
   draw();
   // The game in the chat window writes to the same storage; follow along.
@@ -786,10 +786,14 @@ const PEOPLE = [];
   const openPick = (charIndex) => {
     const s = story(), list = chars();
     if (!$("vw-player").value) $("vw-player").value = s.playerName || "";
+    const when = (c) => esc(new Date(c.at).toLocaleDateString([], { dateStyle: "medium" }));
+    const hasStory = (c) => c.story && Array.isArray(c.story.messages) && c.story.messages.length;
     $("vw-saved").innerHTML = list.map((c, i) =>
-      `<label class="opt"><input type="radio" name="who" value="returning:${i}"><span><b>${esc(c.name || "Unnamed")} wakes again</b>` +
-      `<small>Your ${c.purpose === "dnd" ? "D&amp;D character" : "character"} from ${esc(new Date(c.at).toLocaleDateString([], { dateStyle: "medium" }))}. What they learned before comes back in flashes.</small></span></label>`).join("");
-    if (charIndex != null) { const r = pick.querySelector(`input[value="returning:${charIndex}"]`); if (r) r.checked = true; }
+      (hasStory(c) ? `<label class="opt"><input type="radio" name="who" value="resume:${i}"><span><b>Continue ${esc(c.name || "Unnamed")}'s story</b>` +
+        `<small>Pick up where you left off on ${when(c)}, ${((n) => n + (n === 1 ? " turn" : " turns"))(c.story.messages.filter((m) => m.role === "user").length)} in.</small></span></label>` : "") +
+      (c.profile ? `<label class="opt"><input type="radio" name="who" value="returning:${i}"><span><b>${esc(c.name || "Unnamed")} wakes again</b>` +
+        `<small>A new story for your ${c.purpose === "dnd" ? "D&amp;D character" : "character"} from ${when(c)}. What they learned before comes back in flashes.</small></span></label>` : "")).join("");
+    if (charIndex != null) { const r = pick.querySelector(`input[value="resume:${charIndex}"]`) || pick.querySelector(`input[value="returning:${charIndex}"]`); if (r) r.checked = true; }
     $("vw-pick-note").className = "note";
     $("vw-pick-note").innerHTML = (s.messages || []).length && !s.profile
       ? "This starts a new story. The one in progress stays saved on the laptop."
@@ -806,6 +810,14 @@ const PEOPLE = [];
     const playerName = $("vw-player").value.trim();
     const who = pick.querySelector('input[name="who"]:checked').value;
     let character, characterName = "";
+    if (who.startsWith("resume:")) {
+      const c = chars()[+who.split(":")[1]];
+      if (!c) return fail("That story isn't saved in this browser any more.", $("vw-player"));
+      try { localStorage.setItem("verrowen.setup", JSON.stringify({ resume: c.id, playerName, at: Date.now() })); }
+      catch { return fail("This browser won't hand the choices to the game. Open the full page and continue there.", $("vw-player")); }
+      pick.close();
+      return openChat(true);
+    }
     if (who.startsWith("returning:")) {
       const c = chars()[+who.split(":")[1]];
       if (!c) return fail("That character isn't saved in this browser any more.", $("vw-player"));
