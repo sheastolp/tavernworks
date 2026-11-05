@@ -105,7 +105,8 @@ If the laptop's name ever changes, update it there.
 
 ## Changing the narrator model (owner only)
 
-The game page's footer has **🔒 Narrator model**. It needs the owner's
+The footers of the game, the Codex and the Orrery have **🤖 Change AI model**,
+and the Orrery control page (**🔒 Admin**) has the same switch. It needs the owner's
 token, which the server makes the first time it starts:
 
 ```sh
@@ -119,6 +120,35 @@ folder). Without the token, nobody else can change it. To start over with a
 new token, delete `owner-token.txt` there and restart the service.
 
 Stick to models that fit the GTX 1650's 4 GB, or every turn gets slow.
+
+## The Review Clone (owner only)
+
+Every change to the universe lands on grand-orrery's `review` branch first,
+never straight on `main`. `main` is the live Orrery: the Explorer, the
+lore-keeper and the narrator all read it. The **Review Clone** page
+(`/orrery/control/review/`, from **🔒 Admin**) shows everything waiting on
+`review`, file by file, and a preview of the whole Orrery as it would look.
+**Publish to the live Orrery** puts it on `main`; **Throw it all away** resets
+`review` back to `main`.
+
+Publishing goes through this server, so it needs the owner's token and a
+GitHub token on the laptop:
+
+1. On GitHub, make a fine-grained personal access token for
+   `sheastolp/grand-orrery` only, with **Contents: Read and write**.
+2. Add it to the service file and restart:
+
+   ```ini
+   Environment=ORRERY_GITHUB_TOKEN=github_pat_...
+   ```
+
+   ```sh
+   systemctl daemon-reload && systemctl restart verrowen
+   ```
+
+To make sure nothing skips the review, protect `main` on GitHub
+(**Settings → Branches → Add rule**, require a pull request) and let only
+the token above bypass it, or simply commit to `review` every time.
 
 ## Reading the characters
 
@@ -144,6 +174,8 @@ Environment variables, set with `Environment=` in the service file:
 | `VERROWEN_ORIGINS` | `https://tavernworks.dev` | Websites allowed to use it, comma-separated |
 | `OLLAMA_URL` | `http://127.0.0.1:11434` | Where Ollama is |
 | `VERROWEN_SAVE_DIR` | systemd's state directory | Where stories are saved |
+| `ORRERY_GITHUB_TOKEN` | (none) | Lets the owner publish the Review Clone. Without it, publishing says so |
+| `ORRERY_REPO` | `sheastolp/grand-orrery` | The repo whose `review` branch is the Review Clone |
 
 Ollama doesn't need `OLLAMA_ORIGINS` for this: the browser talks to this
 server, and this server talks to Ollama on the laptop itself.

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Review Clone · Orrery control</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Review Clone: what's waiting on grand-orrery's review branch, file by file, with publish and discard at the end. */
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069;
+    --add:rgba(127,176,105,.16); --addInk:#b8dca6; --del:rgba(201,87,43,.18); --delInk:#f0b39a;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;min-height:100vh;
+    background:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,120,60,.14), transparent 70%),var(--bg)}
+  a{color:var(--gold2)}
+  .wrap{max-width:900px;margin:0 auto;padding:28px 18px 48px;display:flex;flex-direction:column;gap:18px}
+  .back{font-size:14px;color:var(--muted);text-decoration:none}
+  .sign{display:inline-block;font-family:Cinzel,serif;font-size:12px;letter-spacing:.3em;color:var(--gold);border:1px solid var(--line);padding:5px 14px;border-radius:999px;background:rgba(0,0,0,.25)}
+  h1{font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,6vw,40px);line-height:1.1;margin:10px 0 0;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tag{color:var(--muted);margin:6px 0 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
+  .card h2{font-family:Cinzel,serif;font-size:16px;letter-spacing:.12em;color:var(--gold);margin:0}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  button,.btn{background:transparent;border:1px solid var(--line);color:var(--gold2);border-radius:999px;padding:9px 16px;font:inherit;font-size:14px;cursor:pointer;text-decoration:none;display:inline-block}
+  button.primary{background:var(--gold);border-color:var(--gold);color:var(--bg);font-weight:600}
+  button.danger{border-color:var(--ember);color:var(--delInk)}
+  button:disabled{opacity:.45;cursor:default}
+  button:focus-visible,.btn:focus-visible,input:focus{outline:2px solid var(--gold);outline-offset:2px}
+  input{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit;font-size:15px}
+  label{font-size:14px;color:var(--muted)}
+  .note{margin:0;font-size:14px;color:var(--muted)}
+  .count{font-size:18px}
+  .count b{color:var(--gold2)}
+  ul.commits{margin:0;padding-left:20px}
+  ul.commits small{color:var(--muted)}
+  details.file{border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden}
+  details.file summary{cursor:pointer;padding:10px 14px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  details.file summary .name{font-weight:600}
+  .kind{font-size:12px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);border-radius:999px;padding:1px 8px;color:var(--muted)}
+  .plus{color:var(--addInk)} .minus{color:var(--delInk)}
+  .diff{margin:0;padding:8px 0;border-top:1px solid var(--line);overflow-x:auto;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .diff div{padding:0 14px;white-space:pre-wrap;word-break:break-word}
+  .diff .a{background:var(--add);color:var(--addInk)}
+  .diff .d{background:var(--del);color:var(--delInk)}
+  .diff .h{color:var(--muted);background:rgba(0,0,0,.25);margin:6px 0}
+  .pics{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;padding:12px 14px;border-top:1px solid var(--line)}
+  .pics figure{margin:0}.pics img{width:100%;border-radius:8px;border:1px solid var(--line);background:#fff}
+  .pics figcaption{font-size:13px;color:var(--muted)}
+  .status{font-size:14px;color:var(--muted);min-height:1.4em}
+  .status.err{color:var(--delInk)}
+  footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/orrery/control/">← Orrery control</a>
+  <header>
+    <span class="sign">OWNER ONLY</span>
+    <h1>Review Clone</h1>
+    <p class="tag">Every change to the Grand Orrery waits here first, on grand-orrery's <code>review</code> branch. Nothing reaches the live Orrery, the lore-keeper or the Wake in Verrowen narrator until you publish it.</p>
+  </header>
+
+  <section class="card" aria-labelledby="h-wait">
+    <h2 id="h-wait">Waiting for you</h2>
+    <p class="count" id="count">Checking GitHub…</p>
+    <div class="row">
+      <a class="btn" href="/orrery/?clone=review" target="_blank" rel="noopener">🔍 Open the Review Clone</a>
+      <a class="btn" id="ghLink" href="https://github.com/sheastolp/grand-orrery/compare/main...review" target="_blank" rel="noopener">See it on GitHub</a>
+      <button type="button" id="refresh">Check again</button>
+    </div>
+    <p class="note">The Review Clone is the whole Orrery Explorer as it will look once you publish, read from the review branch.</p>
+  </section>
+
+  <section class="card" aria-labelledby="h-log" id="logCard" hidden>
+    <h2 id="h-log">The changes, newest first</h2>
+    <ul class="commits" id="commits"></ul>
+  </section>
+
+  <section class="card" aria-labelledby="h-files" id="filesCard" hidden>
+    <h2 id="h-files">File by file</h2>
+    <p class="note">Green lines are added, red lines are removed. Open a file to read its changes.</p>
+    <div id="files" style="display:flex;flex-direction:column;gap:10px"></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-act" id="actCard" hidden>
+    <h2 id="h-act">Decide</h2>
+    <label for="token">Owner's token</label>
+    <input id="token" type="password" autocomplete="off" spellcheck="false">
+    <div class="row">
+      <button class="primary" type="button" id="publish">✔ Publish to the live Orrery</button>
+      <button class="danger" type="button" id="discard">Throw it all away</button>
+    </div>
+    <p class="status" id="actStatus" role="status"></p>
+    <p class="note">Publishing puts the review branch live on <code>main</code>. Throwing it away resets the review branch to what's live now. Both need the owner's token, and the laptop must be awake.</p>
+  </section>
+
+  <footer><a href="/orrery/control/">Orrery control</a> · <a href="/orrery/">Live Orrery</a> · <a href="/">Tavernworks</a></footer>
+</div>
+<script>
+const SERVER = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
+const REPO = "sheastolp/grand-orrery";
+const KEY = "verrowen-owner";
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+try{ $("token").value = localStorage.getItem(KEY) || ""; }catch(e){}
+
+function when(iso){
+  try{ return new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }catch(e){ return iso; }
+}
+function diffHtml(patch){
+  return patch.split("\n").map((l) => {
+    const c = l.startsWith("@@") ? "h" : l.startsWith("+") ? "a" : l.startsWith("-") ? "d" : "";
+    return `<div class="${c}">${esc(l) || " "}</div>`;
+  }).join("");
+}
+const KIND = { added: "new", removed: "deleted", modified: "changed", renamed: "renamed", changed: "changed" };
+
+async function load(){
+  $("count").textContent = "Checking GitHub…";
+  let j;
+  try{
+    const r = await fetch("https://api.github.com/repos/" + REPO + "/compare/main...review", { cache: "no-store", headers: { accept: "application/vnd.github+json" } });
+    j = await r.json();
+    if (!r.ok) throw new Error(r.status === 403 ? "GitHub's hourly limit for this browser is used up. Try again later." : (j.message || "GitHub answered " + r.status));
+  }catch(e){ $("count").innerHTML = '<span class="minus">' + esc(e.message || "Couldn't reach GitHub.") + "</span>"; return; }
+
+  const ahead = j.ahead_by || 0, behind = j.behind_by || 0;
+  $("logCard").hidden = $("filesCard").hidden = $("actCard").hidden = !ahead;
+  if (!ahead){
+    $("count").innerHTML = "Nothing is waiting. The Review Clone matches the live Orrery." + (behind ? ' <span class="note">(Live has ' + behind + " newer change" + (behind > 1 ? "s" : "") + " that went around the review. Press Throw it all away to line the clone up with it.)</span>" : "");
+    if (behind) $("actCard").hidden = false, $("publish").hidden = true;
+    return;
+  }
+  $("publish").hidden = false;
+  const files = j.files || [];
+  $("count").innerHTML = `<b>${ahead}</b> change${ahead > 1 ? "s" : ""} waiting, touching <b>${files.length}</b> file${files.length === 1 ? "" : "s"}.` +
+    (behind ? ` <span class="note">Live also has ${behind} change${behind > 1 ? "s" : ""} the clone doesn't; publishing merges the two.</span>` : "");
+
+  $("commits").innerHTML = (j.commits || []).slice().reverse().map((c) => {
+    const msg = c.commit.message.split("\n");
+    return `<li><b>${esc(msg[0])}</b> <small>· ${esc(when(c.commit.author.date))} · <a href="${esc(c.html_url)}" target="_blank" rel="noopener">${esc(c.sha.slice(0, 7))}</a></small>${msg.slice(1).join("\n").trim() ? `<br><small>${esc(msg.slice(1).join(" ").trim())}</small>` : ""}</li>`;
+  }).join("");
+
+  $("files").innerHTML = files.map((f) => {
+    const img = /\.(png|jpe?g|gif|webp|svg)$/i.test(f.filename);
+    let body = "";
+    if (img){
+      const before = f.status === "added" ? "" : `<figure><img alt="Live version of ${esc(f.filename)}" src="https://raw.githubusercontent.com/${REPO}/main/${esc(f.previous_filename || f.filename)}" loading="lazy"><figcaption>Live now</figcaption></figure>`;
+      const after = f.status === "removed" ? "" : `<figure><img alt="Review version of ${esc(f.filename)}" src="https://raw.githubusercontent.com/${REPO}/review/${esc(f.filename)}" loading="lazy"><figcaption>After you publish</figcaption></figure>`;
+      body = `<div class="pics">${before}${after}</div>`;
+    } else if (f.patch){
+      body = `<div class="diff">${diffHtml(f.patch)}</div>`;
+    } else {
+      body = `<div class="diff"><div class="h">Too big to show here. <a href="https://github.com/${REPO}/compare/main...review" target="_blank" rel="noopener">Read it on GitHub</a>.</div></div>`;
+    }
+    return `<details class="file"><summary><span class="name">${esc(f.filename)}</span><span class="kind">${KIND[f.status] || esc(f.status)}</span><span class="plus">+${f.additions}</span><span class="minus">−${f.deletions}</span></summary>${body}</details>`;
+  }).join("");
+}
+
+async function owner(path){
+  const token = $("token").value.trim();
+  if (!token) throw new Error("Enter the owner's token first.");
+  const r = await fetch(SERVER + path, { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: "{}" });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || "The laptop answered " + r.status + ".");
+  try{ localStorage.setItem(KEY, token); }catch(e){}
+  return j;
+}
+function confirmTwice(btn, label, then){
+  if (btn.dataset.armed !== "1"){
+    btn.dataset.armed = "1"; const was = btn.textContent; btn.textContent = label;
+    setTimeout(() => { btn.dataset.armed = ""; btn.textContent = was; }, 5000);
+    return;
+  }
+  btn.dataset.armed = ""; then();
+}
+function act(path, doing, done){
+  const st = $("actStatus"); st.className = "status"; st.textContent = doing;
+  ["publish", "discard"].forEach((id) => $(id).disabled = true);
+  owner(path).then((j) => { st.textContent = done(j); setTimeout(load, 1500); })
+    .catch((e) => { st.className = "status err"; st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; })
+    .finally(() => ["publish", "discard"].forEach((id) => $(id).disabled = false));
+}
+$("publish").addEventListener("click", (e) => confirmTwice(e.currentTarget, "Tap again to publish", () =>
+  act("/admin/publish", "Publishing…", (j) => "✔ Live. The Orrery, the lore-keeper and the narrator now read " + j.sha.slice(0, 7) + ".")));
+$("discard").addEventListener("click", (e) => confirmTwice(e.currentTarget, "Tap again to throw it all away", () =>
+  act("/admin/discard", "Throwing it away…", () => "✔ Thrown away. The Review Clone matches the live Orrery again.")));
+$("refresh").addEventListener("click", load);
+load();
+</script>
+</body>
+</html>

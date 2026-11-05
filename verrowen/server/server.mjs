@@ -8,6 +8,9 @@
 //   GET  /health     { ok, model, ollama }
 //   GET  /admin/models   (owner's token)  { model, models: [names] }
 //   POST /admin/model    (owner's token)  { model }  ->  { ok, model }   the narrator for everyone
+//   POST /admin/publish  (owner's token)  {}  ->  { ok, sha, how }   puts the Review Clone (grand-orrery's
+//                        review branch) live on main
+//   POST /admin/discard  (owner's token)  {}  ->  { ok, sha }   throws away everything waiting on review
 //   POST /narrate    { messages: [{ role, content }] }  ->  { text }
 //   POST /save       { playerId, playerName, characterName, seed, messages, profile, purpose, character }  ->  { ok }
 //
@@ -36,7 +39,13 @@ const MAX_MSG = 4000;               // every other message
 const MAX_REPLY_TOKENS = 700;       // a turn is 120 to 220 words; a profile is a bit longer
 const PER_IP = { n: 40, ms: 10 * 60 * 1000 };   // narrate calls per address per 10 minutes
 const ALL = { n: 240, ms: 10 * 60 * 1000 };     // narrate calls from everyone per 10 minutes
-const MAX_WAITING = 4;              // the GPU writes one reply at a time; past this many, say busy
+const MAX_WAITING = 4;
+// The Review Clone: every change to the universe lands on grand-orrery's
+// review branch first. Only the owner, from /orrery/control/review/, puts it
+// live on main. Needs a GitHub token that can write grand-orrery's contents.
+const GH_REPO = process.env.ORRERY_REPO || "sheastolp/grand-orrery";
+const GH_TOKEN = process.env.ORRERY_GITHUB_TOKEN || "";
+const LIVE = "main", CLONE = "review";              // the GPU writes one reply at a time; past this many, say busy
 
 // ── The narrator model ──
 // The owner can switch it from the game page with their token. The choice
@@ -155,6 +164,42 @@ async function narrate(messages, left) {
   } finally { waiting--; }
 }
 
+// ── The Review Clone ──
+async function gh(pathname, init = {}) {
+  if (!GH_TOKEN) throw Object.assign(new Error("The laptop has no GitHub token yet (ORRERY_GITHUB_TOKEN). See the server README."), { status: 503 });
+  const r = await fetch("https://api.github.com/repos/" + GH_REPO + pathname, {
+    ...init,
+    headers: { accept: "application/vnd.github+json", authorization: "Bearer " + GH_TOKEN, "user-agent": "orrery-control", "x-github-api-version": "2022-11-28", ...(init.body ? { "content-type": "application/json" } : {}) },
+    signal: AbortSignal.timeout(20000),
+  });
+  const j = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, j };
+}
+const headOf = async (branch) => {
+  const r = await gh("/git/ref/heads/" + branch);
+  if (!r.ok) throw Object.assign(new Error(`GitHub couldn't find the ${branch} branch (${r.status})`), { status: 502 });
+  return r.j.object.sha;
+};
+// Fast-forward main to review when nothing else reached main in between,
+// so the live history reads exactly like the reviewed one. Otherwise merge.
+async function publish() {
+  const sha = await headOf(CLONE);
+  const ff = await gh("/git/refs/heads/" + LIVE, { method: "PATCH", body: JSON.stringify({ sha, force: false }) });
+  if (ff.ok) return { sha, how: "fast-forward" };
+  const m = await gh("/merges", { method: "POST", body: JSON.stringify({ base: LIVE, head: CLONE, commit_message: "Publish the Review Clone to the live Orrery" }) });
+  if (m.status === 204) return { sha: await headOf(LIVE), how: "already live" };
+  if (!m.ok) throw Object.assign(new Error(m.status === 409 ? "The review and live versions conflict. Fix it on GitHub, then publish again." : `GitHub refused the merge (${m.status}): ${m.j.message || ""}`), { status: 502 });
+  // Bring review up to the merge too, so the next round of changes starts from what's live.
+  await gh("/git/refs/heads/" + CLONE, { method: "PATCH", body: JSON.stringify({ sha: m.j.sha, force: false }) });
+  return { sha: m.j.sha, how: "merge" };
+}
+async function discard() {
+  const sha = await headOf(LIVE);
+  const r = await gh("/git/refs/heads/" + CLONE, { method: "PATCH", body: JSON.stringify({ sha, force: true }) });
+  if (!r.ok) throw Object.assign(new Error(`GitHub refused (${r.status}): ${r.j.message || ""}`), { status: 502 });
+  return { sha };
+}
+
 // ── Saving characters ──
 // One file per player, rewritten after every turn, so stories that stop
 // halfway are kept too.
@@ -220,6 +265,16 @@ const server = http.createServer(async (req, res) => {
         await fs.writeFile(MODEL_FILE(), MODEL + "\n");
         console.log(new Date().toISOString(), "narrator model is now", MODEL);
         return send(res, 200, { ok: true, model: MODEL }, origin);
+      }
+      if (req.method === "POST" && url.pathname === "/admin/publish") {
+        const r = await publish();
+        console.log(new Date().toISOString(), "Review Clone published", r.how, r.sha);
+        return send(res, 200, { ok: true, ...r }, origin);
+      }
+      if (req.method === "POST" && url.pathname === "/admin/discard") {
+        const r = await discard();
+        console.log(new Date().toISOString(), "Review Clone discarded, back to", r.sha);
+        return send(res, 200, { ok: true, ...r }, origin);
       }
     }
     if (req.method !== "POST" || !["/narrate", "/save"].includes(url.pathname)) return send(res, 404, { error: "Not here" }, origin);

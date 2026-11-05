@@ -36,6 +36,8 @@
   form.find input{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 14px;font:inherit;font-size:14px}
   form.find button,.btn{background:transparent;border:1px solid var(--line);color:var(--gold2);border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
   .status{color:var(--muted);font-size:14px;margin:8px 0}
+  .clonebar{position:sticky;top:0;z-index:50;background:#3a2410;border-bottom:1px solid var(--gold);color:var(--text);font-size:14px;padding:9px 16px;text-align:center}
+  .clonebar b{color:var(--gold2)}
   .status.err{color:var(--ember)}
   main{padding:10px 0 50px}
   h2.sec{font-family:Cinzel,serif;color:var(--gold);letter-spacing:.08em;font-size:18px;margin:26px 0 12px}
@@ -162,7 +164,21 @@
 // Views (in the URL hash): #roster, #person/<id>, #items, #item/<id>, #maps, #docs, #doc/<id>,
 // #find/<text>. A person's page gathers every section of every document that
 // mentions them, the way a search would, so new notes show up on their own.
-const RAW = "https://raw.githubusercontent.com/sheastolp/grand-orrery/main/";
+// /orrery/?clone=review is the Review Clone: the same Explorer, read from
+// grand-orrery's review branch, where changes wait until the owner puts
+// them live from /orrery/control/review/.
+const CLONE = new URLSearchParams(location.search).get("clone") === "review";
+const BRANCH = CLONE ? "review" : "main";
+const RAW = "https://raw.githubusercontent.com/sheastolp/grand-orrery/" + BRANCH + "/";
+const BLOB = "https://github.com/sheastolp/grand-orrery/blob/" + BRANCH + "/";
+if (CLONE) {
+  document.title = "Review Clone · " + document.title;
+  const m = document.createElement("meta"); m.name = "robots"; m.content = "noindex, nofollow"; document.head.appendChild(m);
+  const bar = document.createElement("div");
+  bar.className = "clonebar";
+  bar.innerHTML = '<b>🔍 Review Clone.</b> This is the Orrery with every change still waiting for the owner, read from the <code>review</code> branch. <a href="/orrery/control/review/">Review the changes</a> · <a href="/orrery/">Live Orrery</a>';
+  document.body.prepend(bar);
+}
 const DOCS = [
   { id: "universe", file: "universe.md", title: "Stoutwell & Beyond", sub: "The universe draft · decided" },
   { id: "notes", file: "working-notes.md", title: "Village Hero", sub: "Working notes · tagged per section" },
@@ -239,7 +255,7 @@ function inline(s) {
   out = out.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_, alt, src) => `<img alt="${alt}" src="${/^https?:/.test(src) ? src : RAW + src}" loading="lazy">`);
   out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, href) => {
     const local = DOCS.find((d) => d.file === href);
-    const url = local ? `#doc/${local.id}` : /^https?:/.test(href) ? href : "https://github.com/sheastolp/grand-orrery/blob/main/" + href;
+    const url = local ? `#doc/${local.id}` : /^https?:/.test(href) ? href : BLOB + href;
     return `<a href="${url}"${local ? "" : ' target="_blank" rel="noopener"'}>${t}</a>`;
   });
   out = out.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, "$1<i>$2</i>").replace(/(^|\W)_([^_\n]+)_(?!\w)/g, "$1<i>$2</i>");
@@ -415,7 +431,7 @@ function doc(id) {
   const d = DOCS.find((x) => x.id === id);
   if (!d) return `<p>No such document. <a href="#docs">All documents</a>.</p>`;
   const heads = sections(d).filter((s) => s.level === 2 || s.level === 3);
-  return `<div class="crumb"><a href="#docs">Documents</a> › ${esc(d.file)} · <a href="https://github.com/sheastolp/grand-orrery/blob/main/${d.file}" target="_blank" rel="noopener">on GitHub</a></div>${
+  return `<div class="crumb"><a href="#docs">Documents</a> › ${esc(d.file)} · <a href="${BLOB}${d.file}" target="_blank" rel="noopener">on GitHub</a></div>${
     heads.length > 3 ? `<div class="panel"><ul class="toc">${heads.map((s) => `<li style="margin-left:${(s.level - 2) * 14}px"><a href="#doc/${d.id}/${slug(s.heading)}">${inline(s.heading)}</a></li>`).join("")}</ul></div>` : ""
   }<div class="panel md">${md(text[d.id] || "")}</div>`;
 }
