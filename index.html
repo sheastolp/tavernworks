@@ -554,7 +554,7 @@ Open the chat, press Begin, and answer the narrator however you like. Who you ar
   if (!feed) return;
   const U = {
     TobinAshby: "#7fb069", Arandur: "#9b7bd8", Osric: "#5fa8d3", ClementineRook: "#e2725b",
-    BertramQuillby: "#d4b25c", StonedSheamus: "#c48bdc", GuildScribeBot: "#e0a84a",
+    BertramQuillby: "#d4b25c", HeskethReeve: "#8fa3b8", Murrow: "#6fb7a6", StonedSheamus: "#c48bdc", GuildScribeBot: "#e0a84a",
   };
   const at = (n) => `<span class="at">@${n}</span>`;
   const GS = "https://guildscribe.tavernworks.dev";
@@ -585,7 +585,9 @@ Open the chat, press Begin, and answer the narrator however you like. Who you ar
     [["Arandur", "!rally"],
      [B, `📯 Arandur sounds the war horn against Young Red Dragon (HP 356/356)! Type !rally within 1m to join the raid party (up to 6 heroes). Arandur: !rally go to charge early.`],
      ["TobinAshby", "!rally"],
-     [B, `🛡️ TobinAshby joins the raid (2/6: Arandur, TobinAshby). Launching in 41s.`]],
+     [B, `🛡️ TobinAshby joins the raid (2/6: Arandur, TobinAshby). Launching in 41s.`],
+     ["HeskethReeve", "!rally"],
+     [B, `🛡️ HeskethReeve joins the raid (3/6: Arandur, TobinAshby, HeskethReeve). Launching in 33s.`]],
     [["BertramQuillby", "!bounties"],
      [B, `${at("BertramQuillby")} 📜 The bounty board reads: #1 Slay 2 Bugbears (CR 1) 0/2 → 4 sp | #2 Slay 3 Ghouls (CR 1) 1/3 → 5 sp + Traveler's Tonic. Take one on with !hunt <monster>, e.g. !hunt Bugbear.`]],
     [["BertramQuillby", "!hunt bugbear"],
@@ -631,9 +633,20 @@ Open the chat, press Begin, and answer the narrator however you like. Who you ar
     [["Arandur", "!abilities"],
      [B, `⚔️ ${at("Arandur")} your Lv 3 Wood Elf Rogue: d20 +5 to hit (DEX +3, prof +2), 1d8 +3 damage, 1d10 vs monsters, AC 15 (16 vs monsters). Abilities: Sneak Attack (2d6) · Cunning Action (dash or hide as a bonus action). Next: Uncanny Dodge at Lv 5.`]],
     [["BertramQuillby", "!bribe Captain Hesketh"],
-     [B, `💰 ${at("BertramQuillby")} offers 18 gp 4 sp to Captain Hesketh. "How generous!" Captain Hesketh says, and does absolutely nothing in return. (6 gp 1 sp left)`]],
+     [B, `💰 ${at("BertramQuillby")} offers 18 gp 4 sp to Captain Hesketh. "How generous!" Captain Hesketh says, and does absolutely nothing in return. (6 gp 1 sp left)`],
+     ["HeskethReeve", "Bribing the Guard is a flogging offence, Quillby. I'll take it as weregild."]],
     [["ClementineRook", "!monster goblin"],
      [B, `${at("ClementineRook")} 🔗 https://www.dndbeyond.com/search?q=Goblin | Goblin: Small humanoid | AC 15 | HP 7 | CR 0.25 (XP 50)`]],
+    [["HeskethReeve", "!monster troll"],
+     [B, `${at("HeskethReeve")} 🔗 https://www.dndbeyond.com/search?q=Troll | Troll: Large giant | AC 15 | HP 84 | CR 5 (XP 1800)`]],
+    [["HeskethReeve", "!hunt goblin"],
+     [B, `${at("HeskethReeve")} ⚔️ HeskethReeve vs Goblin — HeskethReeve wins! ❤️ HP left: HeskethReeve 31/31, Goblin 0/7. 🪙 Loot: 3 cp. 📜 Full battle log: ${GS}/r/1044`]],
+    [["Murrow", "!roll arcana"],
+     [B, `${at("Murrow")} 🎲 Arcana Check: 1d20+7 → [16]+7 = 23. The dice rolled high and struck a heroic pose.`]],
+    [["Murrow", "!roll will anyone ask where I came from?"],
+     [B, `${at("Murrow")} 🔮 The crystal ball clears... it shows NO for "will anyone ask where I came from?"`]],
+    [["Murrow", "!whisperme on"],
+     [B, `${at("Murrow")} Got it — I'll answer your !commands by whisper, in every channel. !whisperme off to switch back to chat.`]],
     [["Osric", "!bestiary"],
      [B, `${at("Osric")} 📖 42 monsters can be hunted here (CR 0–8; 38 core, 4 learned). Full list: ${GS}/bestiary — look one up with !bestiary &lt;name&gt;; !monster &lt;name&gt; teaches the bestiary new ones.`]],
     [["ClementineRook", "!bg3companion"],
