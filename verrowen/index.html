@@ -63,7 +63,18 @@
   .start ol li + li{margin-top:2px}
   .fieldlabel{font-size:14px;color:var(--muted)}
   .note{font-size:13.5px;color:var(--muted)}
-  .namegen{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+  /* The character picker on the start screen: one card per choice. */
+  fieldset.who{border:0;border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+  fieldset.who legend{float:left;width:100%;margin-bottom:4px}
+  .opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.22);cursor:pointer}
+  .opt:hover{border-color:var(--gold)}
+  .opt:has(input:checked){border-color:var(--gold);background:rgba(224,168,74,.08)}
+  .opt input[type=radio]{margin-top:6px;accent-color:var(--gold)}
+  .opt > span{flex:1;min-width:0}
+  .opt b{display:block;font-weight:600;font-size:15px}
+  .opt small{display:block;color:var(--muted);font-size:13px}
+  .opt .more{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .opt:not(:has(input:checked)) .more{display:none}
 
   input[type=text],select,textarea{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;font:inherit}
   input[type=text]{width:100%;max-width:340px;padding:10px 12px;font-size:16px}
@@ -137,30 +148,32 @@
         </ol>
         <label for="playerName" class="fieldlabel">Your name, so Sheamus knows whose character this is</label>
         <input id="playerName" type="text" maxlength="60" placeholder="e.g. Sam" autocomplete="nickname">
-        <div class="namegen">
-          <div class="fieldlabel">Optional: pick a name for your character. You won't remember it at first, and the narrator will reveal it during the story.</div>
-          <div class="row">
-            <label class="sr" for="nameRace">Name style</label>
-            <select id="nameRace">
-              <option value="any">Any</option>
-              <option value="human">Human</option>
-              <option value="halfling">Halfling</option>
-              <option value="elf">Elf</option>
-              <option value="gnome">Gnome</option>
-              <option value="strange">Strange (from beyond)</option>
-            </select>
-            <button type="button" id="genBtn">Generate names</button>
-          </div>
-          <div class="row" id="nameChoices"></div>
-          <div class="note" id="chosenName"></div>
-        </div>
+        <fieldset class="who" id="whoBox">
+          <legend class="fieldlabel">Your character <span class="note">(optional: skip it and the narrator decides everything)</span></legend>
+          <label class="opt"><input type="radio" name="who" value="new" checked><span><b>A stranger</b><small>A new character with no memory. The narrator reveals who they are.</small>
+            <span class="more">
+              <span class="row">
+                <select id="nameRace" aria-label="Race">
+                  <option value="any">Any race, surprise me</option>
+                  <option value="human">Human</option>
+                  <option value="halfling">Halfling</option>
+                  <option value="elf">Elf</option>
+                  <option value="gnome">Gnome</option>
+                  <option value="strange">Strange (from beyond)</option>
+                </select>
+                <button type="button" id="genBtn">Generate names</button>
+              </span>
+              <span class="note">Optionally pick a true name. You won't remember it at first; the narrator reveals it during the story.</span>
+              <span class="row" id="nameChoices"></span>
+              <span class="note" id="chosenName"></span>
+            </span></span></label>
+          <span id="savedOpts"></span>
+          <label class="opt"><input type="radio" name="who" value="own"><span><b>Bring your own</b><small>Describe a character you already have. They still wake with no memory, and it comes back as you play.</small>
+            <span class="more"><textarea id="ownDesc" maxlength="1200" placeholder="A halfling cook with a burn scar, runaway from the capital, afraid of deep water…" aria-label="Describe your character"></textarea></span></span></label>
+        </fieldset>
         <p class="note" id="setupNote" hidden></p>
         <p class="note">Your story is saved on Sheamus's own computer so your character can join the universe. Every new story starts somewhere different.</p>
         <div class="row"><button class="primary" id="beginBtn">Begin</button></div>
-        <div class="namegen" id="resumeBox" hidden>
-          <div class="fieldlabel">Or continue one of your stories where you left off</div>
-          <div class="row" id="resumeList"></div>
-        </div>
       </div>
     </div>
     <div class="status" id="status" role="status" aria-live="polite"></div>
@@ -179,7 +192,7 @@
       <div class="row" id="composerRow">
         <button class="primary" id="sendBtn">Send</button>
         <button id="wrapBtn">Wrap it up</button>
-        <button class="quiet" id="resetBtn">Start over</button>
+        <button class="quiet" id="resetBtn" title="Back to the start. This story is kept, so you can continue it later.">← Back</button>
       </div>
     </div>
   </section>
@@ -187,7 +200,7 @@
   <section class="profile" id="profilePanel" hidden>
     <h2 id="profileHead">Your character</h2>
     <pre id="profileText"></pre>
-    <div class="row"><button class="primary" id="copyBtn">Copy profile</button><button id="continueBtn">Continue the story</button><button class="quiet" id="resetBtn2">Start over</button><span class="note" id="copyStatus"></span></div>
+    <div class="row"><button class="primary" id="copyBtn">Copy profile</button><button id="continueBtn">Continue the story</button><button class="quiet" id="resetBtn2" title="Back to the start. This story is kept, so you can continue it later.">← Back to the start</button><span class="note" id="copyStatus"></span></div>
   </section>
 
   <section class="about">
@@ -317,7 +330,7 @@ function render(){
   $("composer").hidden = !started;
   $("profilePanel").hidden = !profile || continued;
   $("profileText").textContent = profile;
-  if (!started){ $("finishPanel").hidden = true; drawResume(); }
+  if (!started){ $("finishPanel").hidden = true; drawPicker(); }
   $("whoLine").textContent = started && playerName ? "Played by " + playerName + (profile && !continued && purpose === "dnd" ? " · D&D character" : " · Story") : "";
   $("profileHead").textContent = purpose === "dnd" ? "Your D&D character" : "Your character";
   $("copyBtn").textContent = purpose === "dnd" ? "Copy sheet" : "Copy profile";
@@ -425,7 +438,7 @@ function savedCharacters(){
   try{ const l = JSON.parse(store.get("verrowen-characters") || "[]"); return Array.isArray(l) ? l : []; }catch(e){ return []; }
 }
 function keepCharacter(){
-  if (messages.length < 2) return;
+  if (!messages.length) return;
   const all = savedCharacters(), old = all.find(c => c.id === playerId) || {};
   const prof = profile || old.profile || "";
   const name = (prof.match(/^\W*Name\W*:\s*(.+)$/im) || [])[1] || characterName || old.name || "Unnamed wanderer";
@@ -450,25 +463,61 @@ function resumeStory(id){
   $("reply").focus();
   return true;
 }
-function drawResume(){
-  const list = savedCharacters().filter(c => c.story && Array.isArray(c.story.messages) && c.story.messages.length).slice(0, 6);
-  const box = $("resumeList"); box.innerHTML = "";
-  $("resumeBox").hidden = !list.length;
-  for (const c of list){
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "chip";
-    const turns = c.story.messages.filter(m => m.role === "user").length;
-    b.textContent = (c.name || "Unnamed wanderer") + " · " + turns + (turns === 1 ? " turn" : " turns") + (c.profile ? "" : " · unfinished");
-    b.title = "Continue this story (" + new Date(c.at).toLocaleDateString([], {dateStyle: "medium"}) + ")";
-    b.addEventListener("click", () => { if (!busy) resumeStory(c.id); });
-    box.appendChild(b);
+// The start screen's character picker: a stranger, each saved character
+// (continue their story, or wake them again in a new one), or your own.
+function drawPicker(){
+  const was = (document.querySelector('input[name="who"]:checked') || {}).value;
+  const box = $("savedOpts"); box.innerHTML = "";
+  const opt = (value, title, sub) => {
+    const l = document.createElement("label"); l.className = "opt";
+    const i = document.createElement("input"); i.type = "radio"; i.name = "who"; i.value = value;
+    const s = document.createElement("span"), b = document.createElement("b"), m = document.createElement("small");
+    b.textContent = title; m.textContent = sub; s.append(b, m); l.append(i, s); box.appendChild(l);
+  };
+  for (const c of savedCharacters().slice(0, 6)){
+    const name = c.name || "Unnamed wanderer", when = new Date(c.at).toLocaleDateString([], {dateStyle: "medium"});
+    const msgs = c.story && Array.isArray(c.story.messages) ? c.story.messages : [];
+    if (msgs.length){
+      const turns = msgs.filter(m => m.role === "user").length;
+      opt("resume:" + c.id, "Continue " + name + "'s story", (c.profile ? "" : "Unfinished. ") + "Pick up where you left off on " + when + ", " + turns + (turns === 1 ? " turn" : " turns") + " in.");
+    }
+    if (c.profile) opt("returning:" + c.id, name + " wakes again", "A new story for your " + (c.purpose === "dnd" ? "D&D character" : "character") + " from " + when + ". What they learned before comes back in flashes.");
   }
+  const keep = was && document.querySelector(`input[name="who"][value="${CSS.escape(was)}"]`);
+  (keep || document.querySelector('input[name="who"][value="new"]')).checked = true;
+  pickerChanged();
 }
+function pickerChanged(){
+  const v = (document.querySelector('input[name="who"]:checked') || {}).value || "new";
+  $("beginBtn").textContent = v.startsWith("resume:") ? "Continue" : "Begin";
+}
+$("whoBox").addEventListener("change", pickerChanged);
 
 $("beginBtn").addEventListener("click", () => {
   if (busy) return;
-  playerName = $("playerName").value.trim();
+  const who = (document.querySelector('input[name="who"]:checked') || {}).value || "new";
+  const typed = $("playerName").value.trim();
+  if (who.startsWith("resume:")){
+    if (!resumeStory(who.slice(7))){ setStatus("That story isn't saved in this browser any more.", true); render(); return; }
+    if (typed && typed !== playerName){ playerName = typed.slice(0, 60); render(); save(); }
+    return;
+  }
+  playerName = typed;
   if (!playerName){ $("playerName").focus(); setStatus("Enter your name first, then press Begin.", true); return; }
+  if (who.startsWith("returning:")){
+    const c = savedCharacters().find(x => x.id === who.slice(10));
+    if (!c){ setStatus("That character isn't saved in this browser any more.", true); render(); return; }
+    character = {kind: "returning", label: c.name + " wakes again", profile: c.profile};
+    characterName = c.name;
+  }else if (who === "own"){
+    const description = $("ownDesc").value.trim();
+    if (!description){ $("ownDesc").focus(); setStatus("Describe your character, or pick a stranger.", true); return; }
+    character = {kind: "own", label: "your own character", description};
+    characterName = "";
+  }else{
+    const v = $("nameRace").value, race = v === "strange" ? "being from beyond" : v;
+    character = race === "any" ? null : {kind: "new", label: "a stranger, secretly " + race, race};
+  }
   seed = makeSeed();
   narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); });
 });
@@ -498,22 +547,22 @@ document.querySelectorAll("[data-finish]").forEach(b => b.addEventListener("clic
   narrate("wrap", text => { profile = text; continued = false; render(); save(); keepCharacter(); $("profilePanel").scrollIntoView({behavior: "smooth"}); });
 }));
 
-// Start over: tap twice, so a stray tap doesn't erase the story.
-function startOver(b){
+// Back to the start screen. Nothing is lost: the story is shelved in this
+// browser (the picker offers to continue it) and stays on the laptop under
+// its own id, and the next story gets a fresh id.
+function goBack(){
   if (busy) return;
-  if (b.dataset.confirm !== "1"){ b.dataset.confirm = "1"; b.textContent = "Tap again to start over"; setTimeout(() => { b.dataset.confirm = ""; b.textContent = "Start over"; }, 4000); return; }
-  b.dataset.confirm = ""; b.textContent = "Start over";
-  // Shelve this story so it can be continued later, then take a fresh id,
-  // so the laptop keeps the old story as its own character.
   keepCharacter();
   playerId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(16) + "-" + Math.random().toString(16).slice(2);
   store.set("verrowen-id", playerId);
-  messages = []; profile = ""; seed = null; character = null; purpose = "story"; continued = false; closeFinish(); render(); store.set("verrowen-story", ""); setStatus("");
+  messages = []; profile = ""; seed = null; character = null; characterName = ""; purpose = "story"; continued = false;
+  $("nameChoices").innerHTML = ""; $("chosenName").textContent = "";
+  closeFinish(); render(); store.set("verrowen-story", ""); setStatus("");
   $("copyStatus").textContent = "";
   window.scrollTo({top: 0, behavior: "smooth"});
 }
-$("resetBtn").addEventListener("click", e => startOver(e.currentTarget));
-$("resetBtn2").addEventListener("click", e => startOver(e.currentTarget));
+$("resetBtn").addEventListener("click", goBack);
+$("resetBtn2").addEventListener("click", goBack);
 // Back into a wrapped-up story: the profile stays saved and is rewritten
 // at the next "wrap it up".
 $("continueBtn").addEventListener("click", () => {
