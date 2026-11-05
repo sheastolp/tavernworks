@@ -80,6 +80,7 @@
   .chip[aria-pressed="true"]{border-color:var(--gold);background:var(--gold);color:var(--bg)}
 
   .composer{border-top:1px solid var(--line);padding:12px 16px 14px;display:flex;flex-direction:column;gap:8px;background:rgba(0,0,0,.18)}
+  .finish{display:flex;flex-direction:column;gap:8px;border:1px solid var(--gold);border-radius:10px;padding:12px}
   .status{font-size:13.5px;color:var(--muted);min-height:1.3em;padding:0 16px 8px}
   .status.err{color:var(--ember)}
   label.sr{position:absolute;left:-9999px}
@@ -132,7 +133,7 @@
         <ol>
           <li>Press <b>Begin</b>. The narrator sets the first scene.</li>
           <li>Reply however you like: what you do, say, notice or think.</li>
-          <li>When your character feels complete, press <b>Wrap it up</b> to get their profile.</li>
+          <li>When your character feels complete, press <b>Wrap it up</b> and choose a story or a D&amp;D character sheet.</li>
         </ol>
         <label for="playerName" class="fieldlabel">Your name, so Sheamus knows whose character this is</label>
         <input id="playerName" type="text" maxlength="60" placeholder="e.g. Sam" autocomplete="nickname">
@@ -153,11 +154,6 @@
           <div class="row" id="nameChoices"></div>
           <div class="note" id="chosenName"></div>
         </div>
-        <label for="purpose" class="fieldlabel">What you'd like at the end</label>
-        <select id="purpose">
-          <option value="story">A story: your character's profile and a retelling of what happened</option>
-          <option value="dnd">A D&amp;D character: a level 1 character sheet you can bring to a table</option>
-        </select>
         <p class="note" id="setupNote" hidden></p>
         <p class="note">Your story is saved on Sheamus's own computer so your character can join the universe. Every new story starts somewhere different.</p>
         <div class="row"><button class="primary" id="beginBtn">Begin</button></div>
@@ -167,7 +163,16 @@
     <div class="composer" id="composer" hidden>
       <label class="sr" for="reply">Your reply</label>
       <textarea id="reply" placeholder="What do you do?  (Ctrl+Enter sends)"></textarea>
-      <div class="row">
+      <div class="finish" id="finishPanel" hidden>
+        <div class="fieldlabel">How would you like your character?</div>
+        <div class="row">
+          <button class="primary" type="button" data-finish="story">📜 A story</button>
+          <button class="primary" type="button" data-finish="dnd">🐉 A D&amp;D sheet</button>
+          <button class="quiet" type="button" id="finishCancel">Keep playing</button>
+        </div>
+        <div class="note">A story gives their profile and a retelling of what happened. A D&amp;D sheet is a level 1 5e character you can bring to a table.</div>
+      </div>
+      <div class="row" id="composerRow">
         <button class="primary" id="sendBtn">Send</button>
         <button id="wrapBtn">Wrap it up</button>
         <button class="quiet" id="resetBtn">Start over</button>
@@ -178,7 +183,7 @@
   <section class="profile" id="profilePanel" hidden>
     <h2 id="profileHead">Your character</h2>
     <pre id="profileText"></pre>
-    <div class="row"><button class="primary" id="copyBtn">Copy profile</button><span class="note" id="copyStatus"></span></div>
+    <div class="row"><button class="primary" id="copyBtn">Copy profile</button><button class="quiet" id="resetBtn2">Start over</button><span class="note" id="copyStatus"></span></div>
   </section>
 
   <section class="about">
@@ -218,10 +223,9 @@ If this is the very first turn, open with the character waking somewhere in Verr
 const WRAP = `The player says "wrap it up." Stop the story. Write their character's profile in plain text with these labeled lines, each followed by a short answer, filling anything still unknown with "Unknown": Name, Race, Age, Appearance, Magic, Personality, Background so far, Key items, Connections to Stoutwell and the setting, Open mysteries. Base it ONLY on what happened in the story. End with one sentence summing up who they are.`;
 const WRAP_DND = `The player says "wrap it up." Stop the story. Turn their character into a Dungeons & Dragons 5th edition level 1 character sheet in plain text, based ONLY on what happened in the story, with these labeled lines: Name, Species (the closest 5e species), Class (the closest 5e class, with a likely subclass to grow into), Background, Alignment, Ability scores (assign the standard array 15, 14, 13, 12, 10, 8 to fit how they played, and give each modifier), Skill proficiencies, Equipment (their key items from the story first), Features and spells (keep Verrowen's magic weak and costly), Personality trait, Ideal, Bond, Flaw. Then a short Backstory paragraph a Dungeon Master can use, and one adventure hook from an open mystery. Fill anything still unknown with a fitting choice and mark it "(suggested)".`;
 const WRAP_STORY = `${WRAP}\n\nAfter the profile, add a line reading "The story so far" and retell what happened as a short tale of about 250 words, in third person and past tense.`;
-const PURPOSE = {
-  story: "The player is here for the story. Lean into mood, mystery and memorable moments.",
-  dnd: "The player wants a Dungeons & Dragons character out of this. Give their choices room to hint at a class, skills, a background and an alignment, so the character sheet at the end is well founded."
-};
+// Every story is played the same way. Only at "wrap it up" does the player
+// pick what they get: a story (profile and retelling) or a D&D sheet.
+const STORY_STYLE = "The player is here for the story. Lean into mood, mystery and memorable moments, and let their choices quietly show their skills, temperament and values.";
 const MAX_TURNS = 40, MAX_CHARS = 2000;
 
 // The character the player picked: a new stranger (maybe of a chosen race),
@@ -239,7 +243,7 @@ function buildMessages(lore, history, seed, characterName, mode){
   const clean = history.map(m => ({role: m.role, content: String(m.content).slice(0, MAX_CHARS)})).slice(-MAX_TURNS);
   const seedText = seed ? `\n\nOPENING FOR THIS STORY (randomized per player): the character wakes in ${seed.place}, ${seed.time}. Nearby objects: ${seed.objects.join("; ")}. Complication: ${seed.twist}.` : "";
   const nameText = characterName ? `\n\nThe character's true name is ${characterName.slice(0, 60)}. They don't remember it. Reveal it at a fitting moment, not in the first turn.` : "";
-  const purposeText = `\n\nWHAT THE PLAYER WANTS: ${PURPOSE[purpose] || PURPOSE.story}`;
+  const purposeText = `\n\nWHAT THE PLAYER WANTS: ${STORY_STYLE}`;
   const out = [{role: "user", content: `${RULES}${purposeText}\n\nLORE:\n${lore}${seedText}${nameText}${characterText(character)}\n\nBegin the story now.`}, ...clean];
   if (mode === "wrap") out.push({role: "user", content: purpose === "dnd" ? WRAP_DND : WRAP_STORY});
   if (out[out.length - 1].role !== "user") out.push({role: "user", content: "Continue."});
@@ -307,16 +311,17 @@ function render(){
   $("composer").hidden = !started;
   $("profilePanel").hidden = !profile;
   $("profileText").textContent = profile;
-  $("whoLine").textContent = started && playerName ? "Played by " + playerName + (purpose === "dnd" ? " · D&D character" : " · Story") : "";
+  if (!started) $("finishPanel").hidden = true;
+  $("whoLine").textContent = started && playerName ? "Played by " + playerName + (profile && purpose === "dnd" ? " · D&D character" : " · Story") : "";
   $("profileHead").textContent = purpose === "dnd" ? "Your D&D character" : "Your character";
-  $("purpose").value = purpose;
+  $("copyBtn").textContent = purpose === "dnd" ? "Copy sheet" : "Copy profile";
   const sn = $("setupNote");
   sn.hidden = !character || !character.label;
   sn.textContent = character && character.label ? "Character: " + character.label + "." : "";
   log.scrollTop = log.scrollHeight;
 }
 function setStatus(t, err){ const s = $("status"); s.textContent = t || ""; s.className = "status" + (err ? " err" : ""); }
-function setBusy(b){ busy = b; ["sendBtn","wrapBtn","beginBtn","resetBtn"].forEach(id => { $(id).disabled = b; }); }
+function setBusy(b){ busy = b; ["sendBtn","wrapBtn","beginBtn","resetBtn","resetBtn2","finishCancel"].forEach(id => { $(id).disabled = b; }); document.querySelectorAll("[data-finish]").forEach(el => { el.disabled = b; }); }
 
 function save(){
   const rec = {playerId, playerName, characterName, seed, messages, profile, purpose, character};
@@ -417,7 +422,6 @@ function keepCharacter(){
   list.unshift({id: playerId, name: name.replace(/[*_]/g, "").trim().slice(0, 60), purpose, profile: profile.slice(0, 4000), at: Date.now()});
   store.set("verrowen-characters", JSON.stringify(list.slice(0, 12)));
 }
-$("purpose").addEventListener("change", e => { purpose = e.target.value === "dnd" ? "dnd" : "story"; });
 
 $("beginBtn").addEventListener("click", () => {
   if (busy) return;
@@ -435,21 +439,37 @@ function sendReply(){
 }
 $("sendBtn").addEventListener("click", sendReply);
 $("reply").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)){ e.preventDefault(); sendReply(); } });
+// "Wrap it up" first asks what the player wants, then writes it.
 $("wrapBtn").addEventListener("click", () => {
   if (busy) return;
   if (messages.length < 2){ setStatus("Play a few turns first.", true); return; }
-  narrate("wrap", text => { profile = text; render(); save(); keepCharacter(); $("profilePanel").scrollIntoView({behavior: "smooth"}); });
+  setStatus("");
+  $("finishPanel").hidden = false; $("composerRow").hidden = true;
+  $("finishPanel").querySelector("[data-finish]").focus();
 });
-$("resetBtn").addEventListener("click", () => {
+function closeFinish(){ $("finishPanel").hidden = true; $("composerRow").hidden = false; }
+$("finishCancel").addEventListener("click", () => { closeFinish(); $("reply").focus(); });
+document.querySelectorAll("[data-finish]").forEach(b => b.addEventListener("click", () => {
   if (busy) return;
-  const b = $("resetBtn");
-  if (b.dataset.confirm !== "1"){ b.dataset.confirm = "1"; b.textContent = "Tap again to erase this story"; setTimeout(() => { b.dataset.confirm = ""; b.textContent = "Start over"; }, 4000); return; }
+  purpose = b.dataset.finish === "dnd" ? "dnd" : "story";
+  closeFinish();
+  narrate("wrap", text => { profile = text; render(); save(); keepCharacter(); $("profilePanel").scrollIntoView({behavior: "smooth"}); });
+}));
+
+// Start over: tap twice, so a stray tap doesn't erase the story.
+function startOver(b){
+  if (busy) return;
+  if (b.dataset.confirm !== "1"){ b.dataset.confirm = "1"; b.textContent = "Tap again to start over"; setTimeout(() => { b.dataset.confirm = ""; b.textContent = "Start over"; }, 4000); return; }
   b.dataset.confirm = ""; b.textContent = "Start over";
   // A fresh id, so the laptop keeps the old story as its own character.
   playerId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(16) + "-" + Math.random().toString(16).slice(2);
   store.set("verrowen-id", playerId);
-  messages = []; profile = ""; seed = null; character = null; render(); store.set("verrowen-story", ""); setStatus("");
-});
+  messages = []; profile = ""; seed = null; character = null; purpose = "story"; closeFinish(); render(); store.set("verrowen-story", ""); setStatus("");
+  $("copyStatus").textContent = "";
+  window.scrollTo({top: 0, behavior: "smooth"});
+}
+$("resetBtn").addEventListener("click", e => startOver(e.currentTarget));
+$("resetBtn2").addEventListener("click", e => startOver(e.currentTarget));
 $("copyBtn").addEventListener("click", async () => {
   try{ await navigator.clipboard.writeText(profile); $("copyStatus").textContent = "Copied."; }
   catch(e){ $("copyStatus").textContent = "Copy didn't work here. Select the text above and copy it by hand."; }
@@ -472,7 +492,7 @@ if (setup && Date.now() - (setup.at || 0) < 10 * 60 * 1000){
   }
   messages = []; profile = ""; seed = null;
   playerName = String(setup.playerName || "").slice(0, 60).trim() || playerName;
-  purpose = setup.purpose === "dnd" ? "dnd" : "story";
+  purpose = "story";
   character = setup.character || null;
   characterName = String(setup.characterName || "").slice(0, 60).trim();
   store.set("verrowen-story", "");

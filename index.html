@@ -320,7 +320,7 @@ Open the chat, press Begin, and answer the narrator however you like. Who you ar
     </div>
     <div class="txt">
       <h3>🕯️ Wake in Verrowen <span class="pill beta">BETA</span></h3>
-      <p>A roleplay in the Grand Orrery universe. You wake with no memory, and a narrator running on our own laptop reveals who you are through your choices. Just open the chat and start. If you like, you can also bring back an old character, describe your own, or ask for a D&amp;D character sheet at the end.</p>
+      <p>A roleplay in the Grand Orrery universe. You wake with no memory, and a narrator running on our own laptop reveals who you are through your choices. Just open the chat and start. If you like, you can also bring back an old character, or describe your own. At the end, choose a story or a D&amp;D character sheet.</p>
       <div class="row">
         <a class="btn sm" href="https://github.com/sheastolp/grand-orrery" target="_blank" rel="noopener">📜 The universe on GitHub</a>
         <a class="btn sm" href="/verrowen/">Full page ↗</a>
@@ -344,7 +344,7 @@ Open the chat, press Begin, and answer the narrator however you like. Who you ar
   <dialog class="win" id="vw-pick" aria-label="Pick a character">
     <div class="head">🎭 Set up a character <small style="font:12.5px Inter,system-ui,sans-serif;color:var(--muted)">optional</small><span class="sp"></span><button class="x" type="button" data-close aria-label="Close">✕</button></div>
     <form id="vw-form" method="dialog" novalidate>
-      <p class="note">None of this is needed. Skip it and the narrator decides everything as you play; you can also choose a D&amp;D sheet later in the chat.</p>
+      <p class="note">None of this is needed. Skip it and the narrator decides everything as you play.</p>
       <div>
         <label class="lab" for="vw-player">Your name <small class="note">(or give it in the chat)</small></label>
         <input type="text" id="vw-player" maxlength="60" placeholder="e.g. Sam, so Sheamus knows whose character this is" autocomplete="nickname">
@@ -367,12 +367,7 @@ Open the chat, press Begin, and answer the narrator however you like. Who you ar
         <label class="opt"><input type="radio" name="who" value="own"><span style="flex:1"><b>Bring your own</b><small>Describe a character you already have. They still wake with no memory, and it comes back as you play.</small>
           <span class="more"><textarea id="vw-desc" maxlength="1200" placeholder="A halfling cook with a burn scar, runaway from the capital, afraid of deep water…" aria-label="Describe your character"></textarea></span></span></label>
       </fieldset>
-      <fieldset>
-        <legend>What it's for</legend>
-        <label class="opt"><input type="radio" name="purpose" value="story" checked><span><b>📜 A story</b><small>Ends with your character's profile and a short retelling of what happened.</small></span></label>
-        <label class="opt"><input type="radio" name="purpose" value="dnd"><span><b>🐉 A D&amp;D character</b><small>Ends with a level 1 D&amp;D 5e character sheet: species, class, ability scores, gear, backstory and a hook.</small></span></label>
-      </fieldset>
-      <p class="note" id="vw-pick-note">Press <b>Wrap it up</b> in the chat whenever your character feels complete to get it.</p>
+      <p class="note" id="vw-pick-note">Press <b>Wrap it up</b> in the chat whenever your character feels complete, then choose a story or a D&amp;D character sheet.</p>
       <div class="acts">
         <button class="btn" type="button" data-vw="chat">Skip, just open the chat</button>
         <button class="btn gold" type="submit">🕯️ Begin with these</button>
@@ -798,7 +793,7 @@ const PEOPLE = [];
     $("vw-pick-note").className = "note";
     $("vw-pick-note").innerHTML = (s.messages || []).length && !s.profile
       ? "This starts a new story. The one in progress stays saved on the laptop."
-      : "Press <b>Wrap it up</b> in the chat whenever your character feels complete to get it.";
+      : "Press <b>Wrap it up</b> in the chat whenever your character feels complete, then choose a story or a D&amp;D character sheet.";
     if (chat.open) chat.close();
     pick.showModal();
     $("vw-player").blur();
@@ -810,7 +805,6 @@ const PEOPLE = [];
     const fail = (msg, el) => { note.className = "note err"; note.textContent = msg; el.focus(); };
     const playerName = $("vw-player").value.trim();
     const who = pick.querySelector('input[name="who"]:checked').value;
-    const purpose = pick.querySelector('input[name="purpose"]:checked').value;
     let character, characterName = "";
     if (who.startsWith("returning:")) {
       const c = chars()[+who.split(":")[1]];
@@ -827,7 +821,7 @@ const PEOPLE = [];
       character = { kind: "new", label: race === "any" ? "a stranger" : "a stranger, secretly " + race, race };
     }
     try {
-      localStorage.setItem("verrowen.setup", JSON.stringify({ playerName, purpose, character, characterName, at: Date.now() }));
+      localStorage.setItem("verrowen.setup", JSON.stringify({ playerName, character, characterName, at: Date.now() }));
     } catch {
       return fail("This browser won't hand the choices to the game. Open the full page and start there.", $("vw-player"));
     }
