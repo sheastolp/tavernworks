@@ -217,9 +217,9 @@
     <p><b>How it runs.</b> The narrator is a small AI model on the same laptop as <a href="/local-ai/">Local AI</a>. Your browser talks to it directly, so nothing goes through a cloud AI service. If the laptop is asleep, the narrator can't answer. Replies take a few seconds.</p>
   </section>
 
-  <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus<br><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a> · <a href="/verrowen/codex/" title="World notes: characters, places, magic, items and rules">📜 Codex</a> · <a href="/verrowen/#admin" id="ownerBtn" title="For the laptop's owner: change the narrator model">🔒 Admin</a></footer>
+  <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus<br><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a> · <a href="/verrowen/codex/" title="World notes: characters, places, magic, items and rules">📜 Codex</a> · <a href="/verrowen/#model" id="ownerBtn" title="For the laptop's owner: pick which AI model narrates">🤖 Change AI model</a> · <a href="/orrery/control/" title="For the owner: the Orrery control page">🔒 Admin</a></footer>
   <dialog id="owner" aria-label="Narrator model">
-    <h2>🔒 Narrator model</h2>
+    <h2>🤖 Change AI model</h2>
     <form id="ownerForm" method="dialog">
       <p class="note">Only the laptop's owner can change this: it needs the owner's token, from <code>VERROWEN_SAVE_DIR=/var/lib/verrowen node /opt/verrowen/server.mjs token</code> on the laptop. The change is for every player.</p>
       <label class="fieldlabel" for="ownerToken">Owner's token</label>
@@ -433,16 +433,19 @@ async function owner(path, body){
   store.set("verrowen-owner", token);
   return j;
 }
-// The admin panel opens from the footer link, or from /verrowen/#admin.
+// The model picker opens from the footer's "Change AI model" link, or from
+// /verrowen/#model. The Admin link goes to the Orrery control page; old
+// /verrowen/#admin links are sent there too.
+if (location.hash === "#admin") location.replace("/orrery/control/");
 function openOwner(){
-  if (location.hash === "#admin") history.replaceState(null, "", location.pathname + location.search);
+  if (location.hash === "#model") history.replaceState(null, "", location.pathname + location.search);
   if ($("owner").open) return;
   $("ownerToken").value = store.get("verrowen-owner") || ""; $("ownerStatus").textContent = ""; $("owner").showModal();
   if ($("ownerToken").value) $("ownerLoad").click();
 }
 $("ownerBtn").addEventListener("click", e => { e.preventDefault(); openOwner(); });
-window.addEventListener("hashchange", () => { if (location.hash === "#admin") openOwner(); });
-if (location.hash === "#admin") openOwner();
+window.addEventListener("hashchange", () => { if (location.hash === "#model") openOwner(); else if (location.hash === "#admin") location.replace("/orrery/control/"); });
+if (location.hash === "#model") openOwner();
 $("ownerLoad").addEventListener("click", async () => {
   const st = $("ownerStatus"); st.textContent = "Asking the laptop…";
   try{

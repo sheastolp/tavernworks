@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Orrery control</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔒</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* The Orrery's owner page: one column of cards. Not linked from the sitemap, kept out of search. */
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;min-height:100vh;
+    background:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,120,60,.14), transparent 70%),var(--bg)}
+  a{color:var(--gold2)}
+  .wrap{max-width:720px;margin:0 auto;padding:28px 18px 48px;display:flex;flex-direction:column;gap:18px}
+  .back{font-size:14px;color:var(--muted);text-decoration:none}
+  .sign{display:inline-block;font-family:Cinzel,serif;font-size:12px;letter-spacing:.3em;color:var(--gold);border:1px solid var(--line);padding:5px 14px;border-radius:999px;background:rgba(0,0,0,.25)}
+  h1{font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,6vw,40px);line-height:1.1;margin:10px 0 0;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tag{color:var(--muted);margin:6px 0 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
+  .card h2{font-family:Cinzel,serif;font-size:16px;letter-spacing:.12em;color:var(--gold);margin:0}
+  label{font-size:14px;color:var(--muted)}
+  input,select{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit;font-size:15px}
+  input:focus,select:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  button{background:transparent;border:1px solid var(--line);color:var(--gold2);border-radius:999px;padding:9px 16px;font:inherit;font-size:14px;cursor:pointer}
+  button.primary{background:var(--gold);border-color:var(--gold);color:var(--bg);font-weight:600}
+  button:disabled{opacity:.45;cursor:default}
+  .note{margin:0;font-size:14px;color:var(--muted)}
+  .pill{display:inline-flex;align-items:center;gap:8px;font-size:14px;border:1px solid var(--line);border-radius:999px;padding:5px 12px;background:rgba(0,0,0,.25)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+  .dot.up{background:var(--green)} .dot.down{background:var(--ember)}
+  ul.links{margin:0;padding-left:20px}
+  code{font-size:13px;background:var(--bg2);padding:1px 6px;border-radius:6px}
+  footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/orrery/">← Back to the Orrery</a>
+  <header>
+    <span class="sign">OWNER ONLY</span>
+    <h1>Orrery control</h1>
+    <p class="tag">The control page for the Grand Orrery, the lore-keeper and the Wake in Verrowen narrator. More controls will land here as they're built.</p>
+  </header>
+
+  <section class="card" aria-labelledby="h-token">
+    <h2 id="h-token">Owner's token</h2>
+    <p class="note">Everything below that changes something needs the owner's token, from <code>VERROWEN_SAVE_DIR=/var/lib/verrowen node /opt/verrowen/server.mjs token</code> on the laptop. It's kept in this browser only.</p>
+    <label for="token">Token</label>
+    <input id="token" type="password" autocomplete="off" spellcheck="false">
+    <div class="row"><button class="primary" type="button" id="unlock">Unlock</button><button type="button" id="forget">Forget it on this browser</button></div>
+    <p class="note" id="tokenStatus" role="status"></p>
+  </section>
+
+  <section class="card" aria-labelledby="h-status">
+    <h2 id="h-status">The laptop</h2>
+    <div class="row"><span class="pill"><span class="dot" id="dot"></span><span id="health">Checking…</span></span><button type="button" id="recheck">Check again</button></div>
+    <p class="note">The lore-keeper in the Orrery and the Wake in Verrowen narrator share this server and this model.</p>
+  </section>
+
+  <section class="card" aria-labelledby="h-model" id="modelCard" hidden>
+    <h2 id="h-model">AI model</h2>
+    <label for="model">Model for the lore-keeper and the narrator</label>
+    <select id="model"></select>
+    <div class="row"><button class="primary" type="button" id="useModel">Use this model</button></div>
+    <p class="note" id="modelStatus" role="status"></p>
+  </section>
+
+  <section class="card" aria-labelledby="h-links">
+    <h2 id="h-links">The universe</h2>
+    <ul class="links">
+      <li><a href="https://github.com/sheastolp/grand-orrery">grand-orrery on GitHub</a>, where every document lives</li>
+      <li><a href="https://github.com/sheastolp/grand-orrery/blob/main/lore.md">lore.md</a>, what the narrator and lore-keeper read</li>
+      <li><a href="/orrery/">Orrery Explorer</a> · <a href="/orrery/#chat">Lore-keeper chat</a> · <a href="/verrowen/">Wake in Verrowen</a> · <a href="/verrowen/codex/">Codex</a></li>
+    </ul>
+  </section>
+
+  <footer><a href="/">Tavernworks</a> · Brewed by Stoned Sheamus</footer>
+</div>
+<script>
+const SERVER = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
+const KEY = "verrowen-owner";   // the same key the Wake in Verrowen model picker uses
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(){ try{ return localStorage.getItem(KEY); }catch(e){ return null; } },
+  set(v){ try{ localStorage.setItem(KEY, v); }catch(e){} },
+  drop(){ try{ localStorage.removeItem(KEY); }catch(e){} },
+};
+
+function checkHealth(){
+  $("health").textContent = "Checking…"; $("dot").className = "dot";
+  fetch(SERVER + "/health", { cache: "no-store" }).then((r) => r.json()).then((j) => {
+    const up = !!(j.ok && j.ollama);
+    $("dot").className = "dot " + (up ? "up" : "down");
+    $("health").textContent = up ? "Awake · running " + (j.model || "an unknown model") : "The server answered, but Ollama isn't running";
+  }).catch(() => { $("dot").className = "dot down"; $("health").textContent = "Asleep or offline"; });
+}
+
+async function owner(path, body){
+  const token = $("token").value.trim();
+  if (!token) throw new Error("Enter the owner's token first.");
+  const r = await fetch(SERVER + path, {
+    method: body ? "POST" : "GET",
+    headers: Object.assign({ authorization: "Bearer " + token }, body ? { "content-type": "application/json" } : {}),
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || "The laptop answered " + r.status + ".");
+  store.set(token);
+  return j;
+}
+
+async function unlock(){
+  const st = $("tokenStatus"); st.textContent = "Asking the laptop…";
+  try{
+    const j = await owner("/admin/models");
+    const sel = $("model"); sel.innerHTML = "";
+    for (const m of j.models){ const o = document.createElement("option"); o.value = o.textContent = m; sel.appendChild(o); }
+    sel.value = j.model;
+    $("modelCard").hidden = false;
+    st.textContent = "✔ Unlocked.";
+    $("modelStatus").textContent = "Now using " + j.model + ".";
+  }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+}
+
+$("unlock").addEventListener("click", unlock);
+$("token").addEventListener("keydown", (e) => { if (e.key === "Enter") unlock(); });
+$("forget").addEventListener("click", () => { store.drop(); $("token").value = ""; $("modelCard").hidden = true; $("tokenStatus").textContent = "Forgotten on this browser."; });
+$("recheck").addEventListener("click", checkHealth);
+$("useModel").addEventListener("click", async () => {
+  const st = $("modelStatus"); st.textContent = "Switching…";
+  try{ const j = await owner("/admin/model", { model: $("model").value }); st.textContent = "✔ The lore-keeper and the narrator now use " + j.model + "."; checkHealth(); }
+  catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+});
+
+checkHealth();
+const saved = store.get();
+if (saved){ $("token").value = saved; unlock(); }
+</script>
+</body>
+</html>
