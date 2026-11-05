@@ -39,6 +39,10 @@
   button.danger{border-color:var(--ember);color:var(--delInk)}
   button:disabled{opacity:.45;cursor:default}
   button:focus-visible,.btn:focus-visible,input:focus{outline:2px solid var(--gold);outline-offset:2px}
+  .draft{display:flex;flex-direction:column;gap:8px;border:1px solid var(--gold);border-radius:12px;padding:14px;margin-top:10px;background:rgba(0,0,0,.18)}
+  textarea,select{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit;font-size:15px}
+  textarea{resize:vertical;font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  textarea:focus,select:focus{outline:2px solid var(--gold);outline-offset:2px}
   input{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit;font-size:15px}
   label{font-size:14px;color:var(--muted)}
   .note{margin:0;font-size:14px;color:var(--muted)}
@@ -101,9 +105,22 @@
         <p class="note" id="lkMeta"></p>
         <div class="chat" id="lkLog"></div>
         <details id="lkWriteWrap" hidden><summary class="note">The write-up</summary><pre class="writeup" id="lkWrite"></pre></details>
-        <div class="row"><button type="button" id="lkCopy">Copy the whole chat</button></div>
+        <div class="row"><button type="button" id="lkCopy">Copy the whole chat</button><button type="button" id="rvOpen">📝 Turn into a review item</button></div>
+        <p class="note" id="rvFiled" hidden></p>
+        <div class="draft" id="rvDraft" hidden>
+          <p class="note">This becomes a <b>Pitch</b> section at the end of <code>working-notes.md</code> on the review branch, under "From the lore-keeper". It waits here with the other changes until you publish or throw it away. Edit it as you like first.</p>
+          <label for="rvFrom">Start from</label>
+          <select id="rvFrom"></select>
+          <label for="rvTitle">Title</label>
+          <input id="rvTitle" maxlength="120" spellcheck="true">
+          <label for="rvBody">Text (Markdown)</label>
+          <textarea id="rvBody" rows="12" maxlength="12000" spellcheck="true"></textarea>
+          <div class="row"><button class="primary" type="button" id="rvFile">File it for review</button><button type="button" id="rvCancel">Cancel</button><span class="note" id="rvStatus" role="status"></span></div>
+        </div>
       </div>
     </div>
+    <label for="token">Owner's token</label>
+    <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Needed to show the chat, file items, publish or throw away">
   </section>
 
   <section class="card" aria-labelledby="h-log" id="logCard" hidden>
@@ -119,8 +136,6 @@
 
   <section class="card" aria-labelledby="h-act" id="actCard" hidden>
     <h2 id="h-act">Decide</h2>
-    <label for="token">Owner's token</label>
-    <input id="token" type="password" autocomplete="off" spellcheck="false">
     <div class="row">
       <button class="primary" type="button" id="publish">✔ Publish to the live Orrery</button>
       <button class="danger" type="button" id="discard">Throw it all away</button>
@@ -251,6 +266,7 @@ async function loadLk(){
     });
     $("lkWriteWrap").hidden = !lkChat.writeup; $("lkWrite").textContent = lkChat.writeup || "";
     $("lk").hidden = false;
+    drawFiled();
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
 }
 $("lkLoad").addEventListener("click", loadLk);
@@ -260,6 +276,75 @@ $("lkCopy").addEventListener("click", async () => {
   try{ await navigator.clipboard.writeText(t); $("lkStatus").textContent = "Copied."; }catch(e){ $("lkStatus").textContent = "Copy didn't work here."; }
 });
 if ($("token").value) loadLk();
+
+// ── Turn the latest chat into a review item ──
+// The owner picks what to start from, edits a draft, and the laptop commits it
+// as a Pitch section in working-notes.md on the review branch.
+// A write-up's "Label: value" lines become Markdown bullets like the notes'.
+function toMarkdown(t, labels){
+  return String(t || "").replace(/\r\n/g, "\n").split("\n").map((l) => {
+    const m = labels && l.match(/^\W*?([A-Z][A-Za-z ()'’/-]{1,40}?)\W*:\s*(.+)$/);
+    if (m && m[1].trim().split(/\s+/).length <= 5 && !/^(https?|www)/i.test(m[1])) return "- **" + m[1].replace(/\*+/g, "").trim() + ":** " + m[2].replace(/^\*+\s*/, "").trim();
+    if (/^\W*In the world\W*$/i.test(l)) return "\n**In the world**\n";
+    return l;
+  }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+function titleFrom(t){
+  const n = (String(t || "").match(/^\W*Name\W*:\s*(.+)$/im) || [])[1];
+  return (n || "").replace(/[*_]/g, "").replace(/\(suggested\)/i, "").trim();
+}
+function sources(){
+  const out = [];
+  if (lkChat.writeup) out.push({ id: "w", label: "The write-up", body: toMarkdown(lkChat.writeup, true).replace(/^- \*\*Name:\*\* .*\n?/m, ""), title: titleFrom(lkChat.writeup) });
+  const replies = lkChat.messages.map((m, i) => ({ m, i })).filter((x) => x.m.role === "assistant");
+  replies.slice().reverse().forEach((x, k) => out.push({ id: "r" + x.i,
+    label: (k === 0 ? "The last reply: " : "Reply " + (replies.length - k) + ": ") + x.m.content.replace(/\s+/g, " ").slice(0, 60) + (x.m.content.length > 60 ? "…" : ""),
+    body: toMarkdown(x.m.content), title: titleFrom(x.m.content) }));
+  out.push({ id: "all", label: "The whole chat", title: "",
+    body: lkChat.messages.map((m) => (m.role === "user" ? "**You:** " : "**Lore-keeper:** ") + m.content.trim()).join("\n\n") });
+  return out;
+}
+let rvSrc = [];
+function drawFiled(){
+  const f = lkChat && lkChat.filed;
+  $("rvFiled").hidden = !f;
+  if (f) $("rvFiled").innerHTML = `✔ Filed as a review item ${esc(when(f.at))}: <b>${esc(f.title)}</b> (<a href="https://github.com/${REPO}/commit/${esc(f.sha)}" target="_blank" rel="noopener">${esc(f.sha.slice(0, 7))}</a>).`;
+  $("rvOpen").textContent = f ? "📝 Turn into another review item" : "📝 Turn into a review item";
+}
+function pickSource(){
+  const s = rvSrc.find((x) => x.id === $("rvFrom").value) || rvSrc[0];
+  $("rvBody").value = s.body;
+  if (!$("rvTitle").dataset.edited) $("rvTitle").value = s.title || lkChat.title || "Lore-keeper idea";
+}
+$("rvOpen").addEventListener("click", () => {
+  if (!lkChat) return;
+  rvSrc = sources();
+  $("rvFrom").innerHTML = rvSrc.map((s) => `<option value="${s.id}">${esc(s.label)}</option>`).join("");
+  $("rvTitle").dataset.edited = ""; $("rvStatus").textContent = "";
+  pickSource();
+  $("rvDraft").hidden = false; $("rvTitle").focus();
+});
+$("rvFrom").addEventListener("change", pickSource);
+$("rvTitle").addEventListener("input", () => { $("rvTitle").dataset.edited = "1"; });
+$("rvCancel").addEventListener("click", () => { $("rvDraft").hidden = true; });
+$("rvFile").addEventListener("click", async () => {
+  const st = $("rvStatus"), token = $("token").value.trim();
+  const title = $("rvTitle").value.trim(), body = $("rvBody").value.trim();
+  if (!token){ st.textContent = "Enter the owner's token below first."; $("token").focus(); return; }
+  if (!title || !body){ st.textContent = "It needs a title and some text."; return; }
+  const about = [lkChat.title, MODE[lkChat.mode] || lkChat.mode].filter(Boolean).join(" · ");
+  $("rvFile").disabled = true; st.textContent = "Filing it on the review branch…";
+  try{
+    const r = await fetch(SERVER + "/admin/review-item", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ title, body, about, chatId: lkChat.id }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(r.status === 404 ? "The laptop's server needs updating first (see the server README)." : j.error || "The laptop answered " + r.status + ".");
+    try{ localStorage.setItem(KEY, token); }catch(e){}
+    lkChat.filed = { at: new Date().toISOString(), title, sha: j.sha };
+    $("rvDraft").hidden = true; drawFiled();
+    setTimeout(load, 1500);
+  }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+  finally{ $("rvFile").disabled = false; }
+});
 </script>
 </body>
 </html>

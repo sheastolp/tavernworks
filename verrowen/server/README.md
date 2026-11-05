@@ -136,10 +136,19 @@ you've entered the owner's token (on the control page, the Review Clone or
 the model picker), every message you send the lore-keeper and every reply
 saves the whole chat to the laptop, as `lorekeeper-latest.json` in the save
 folder. Each save replaces the last, so only the most recent chat is kept.
-Visitors' chats aren't saved.
+Visitors' chats aren't saved. In the chat, **📥 Save for review** saves it
+right away, and asks for the owner's token on a browser that doesn't have it.
 
-Publishing goes through this server, so it needs the owner's token and a
-GitHub token on the laptop:
+**📝 Turn into a review item** turns that chat into a change waiting on
+`review`. Pick what to start from (the write-up, one of the lore-keeper's
+replies, or the whole chat), edit the title and text, and **File it for
+review**. The server adds it as a `### <title> (Pitch)` section under
+`## From the lore-keeper` at the end of `working-notes.md` on the `review`
+branch (`POST /admin/review-item`), one commit per item. It then shows up under
+**Waiting for you** like any other change.
+
+Publishing and filing review items go through this server, so they need the
+owner's token and a GitHub token on the laptop:
 
 1. On GitHub, make a fine-grained personal access token for
    `sheastolp/grand-orrery` only, with **Contents: Read and write**.
@@ -182,7 +191,7 @@ Environment variables, set with `Environment=` in the service file:
 | `VERROWEN_ORIGINS` | `https://tavernworks.dev` | Websites allowed to use it, comma-separated |
 | `OLLAMA_URL` | `http://127.0.0.1:11434` | Where Ollama is |
 | `VERROWEN_SAVE_DIR` | systemd's state directory | Where stories are saved |
-| `ORRERY_GITHUB_TOKEN` | (none) | Lets the owner publish the Review Clone. Without it, publishing says so |
+| `ORRERY_GITHUB_TOKEN` | (none) | Lets the owner publish the Review Clone and file lore-keeper review items. Without it, both say so |
 | `ORRERY_REPO` | `sheastolp/grand-orrery` | The repo whose `review` branch is the Review Clone |
 
 Ollama doesn't need `OLLAMA_ORIGINS` for this: the browser talks to this

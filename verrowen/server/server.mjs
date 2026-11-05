@@ -14,6 +14,8 @@
 //   POST /admin/lorekeeper (owner's token) { chat }  ->  { ok, saved }   the owner's latest Orrery
 //                        lore-keeper chat, kept for review; each save replaces the last
 //   GET  /admin/lorekeeper (owner's token)  ->  { chat | null }
+//   POST /admin/review-item (owner's token) { title, body, about, chatId }  ->  { ok, sha, url }   files a
+//                        lore-keeper pitch in working-notes.md on the review branch
 //   POST /narrate    { messages: [{ role, content }] }  ->  { text }
 //   POST /save       { playerId, playerName, characterName, seed, messages, profile, purpose, character }  ->  { ok }
 //
@@ -223,6 +225,8 @@ async function saveLorekeeper(b) {
     writeup: str(c.writeup, 12000),
     saved: new Date().toISOString(),
   };
+  const prev = await readLorekeeper();
+  if (prev && prev.id === rec.id && prev.filed) rec.filed = prev.filed;   // the same chat keeps its "filed" mark
   await fs.mkdir(SAVE_DIR, { recursive: true });
   await fs.writeFile(LK_FILE() + ".tmp", JSON.stringify(rec, null, 2));
   await fs.rename(LK_FILE() + ".tmp", LK_FILE());
@@ -230,6 +234,38 @@ async function saveLorekeeper(b) {
 }
 async function readLorekeeper() {
   try { return JSON.parse(await fs.readFile(LK_FILE(), "utf8")); } catch { return null; }
+}
+// Turn the latest chat into a review item: the owner's edited draft becomes a
+// Pitch section at the end of working-notes.md, committed to the review
+// branch, so it waits under "Waiting for you" until it's published.
+const NOTES = "working-notes.md", LK_HEAD = "## From the lore-keeper";
+async function fileReviewItem(b) {
+  const title = str(b.title, 120).replace(/[\r\n#]+/g, " ").replace(/\s+/g, " ").trim();
+  const body = str(b.body, 12000).replace(/\r\n/g, "\n").trim();
+  if (!title || !body) throw Object.assign(new Error("The item needs a title and some text"), { status: 400 });
+  const day = new Date().toISOString().slice(0, 10);
+  const from = str(b.about, 200).replace(/[\r\n]+/g, " ").trim();
+  const path_ = "/contents/" + NOTES;
+  for (let tries = 0; tries < 2; tries++) {
+    const cur = await gh(path_ + "?ref=" + CLONE);
+    if (!cur.ok) throw Object.assign(new Error(`GitHub couldn't read ${NOTES} on the review branch (${cur.status})`), { status: 502 });
+    let text = Buffer.from(cur.j.content || "", "base64").toString("utf8").replace(/\s+$/, "");
+    if (!text.includes("\n" + LK_HEAD + "\n")) text += `\n\n${LK_HEAD}\n\nPitches the owner filed from lore-keeper chats on the Orrery Explorer. Nothing here is decided until it's marked **Your idea**.`;
+    text += `\n\n### ${title} (Pitch)\n\n_From a lore-keeper chat, ${day}${from ? " · " + from : ""}._\n\n${body}\n`;
+    const put = await gh(path_, { method: "PUT", body: JSON.stringify({ message: `Lore-keeper pitch: ${title}`, content: Buffer.from(text, "utf8").toString("base64"), sha: cur.j.sha, branch: CLONE }) });
+    if (put.ok) {
+      const rec = await readLorekeeper();
+      if (rec && b.chatId && rec.id === str(b.chatId, 80)) {
+        rec.filed = { at: new Date().toISOString(), title, sha: put.j.commit.sha };
+        await fs.writeFile(LK_FILE() + ".tmp", JSON.stringify(rec, null, 2));
+        await fs.rename(LK_FILE() + ".tmp", LK_FILE());
+      }
+      return { sha: put.j.commit.sha, url: put.j.commit.html_url };
+    }
+    if (put.status !== 409) throw Object.assign(new Error(`GitHub refused the commit (${put.status}): ${put.j.message || ""}`), { status: 502 });
+    // 409: the file changed on review between the read and the write; read it again once.
+  }
+  throw Object.assign(new Error("working-notes.md kept changing on the review branch. Try again."), { status: 502 });
 }
 
 // ── Saving characters ──
@@ -302,6 +338,11 @@ const server = http.createServer(async (req, res) => {
       }
       if (lk && req.method === "GET") return send(res, 200, { chat: await readLorekeeper() }, origin);
       if (lk && req.method === "POST") return send(res, 200, { ok: true, saved: await saveLorekeeper(await readJson(req)) }, origin);
+      if (req.method === "POST" && url.pathname === "/admin/review-item") {
+        const r = await fileReviewItem(await readJson(req));
+        console.log(new Date().toISOString(), "lore-keeper pitch filed on review", r.sha);
+        return send(res, 200, { ok: true, ...r }, origin);
+      }
       if (req.method === "POST" && url.pathname === "/admin/publish") {
         const r = await publish();
         console.log(new Date().toISOString(), "Review Clone published", r.how, r.sha);
