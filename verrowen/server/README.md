@@ -11,12 +11,15 @@ delete models. This server only lets the game through:
   reply length, message count and size capped.
 - `POST /save` keeps each player's story on the laptop, one file per player,
   rewritten after every turn, so stories that stop halfway are kept too.
-- `GET /health` tells the page whether the narrator is awake.
+- `GET /health` tells the page whether the narrator is awake, and which
+  model narrates.
+- `/admin/models` and `/admin/model` let the owner switch the narrator
+  model from the page, with the owner's token.
 - Only tavernworks.dev is allowed in from a browser, and every address is
   rate limited (40 turns per 10 minutes, 240 for everyone together).
 
-Ollama itself stays on the tailnet, where the Local AI browser chat uses it as
-before. Needs Node 18 or newer (the laptop has Node 22), no dependencies. All
+Ollama itself stays on the tailnet. The Local AI browser chat has its own
+gate ([local-ai/gate](../../local-ai/gate/)). Needs Node 18 or newer (the laptop has Node 22), no dependencies. All
 steps run as **root** on the laptop.
 
 ## 1. Get the model
@@ -90,6 +93,23 @@ curl https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443/health
 The page has that address built in (`NARRATOR` near the top of its script).
 If the laptop's name ever changes, update it there.
 
+## Changing the narrator model (owner only)
+
+The game page's footer has **🔒 Narrator model**. It needs the owner's
+token, which the server makes the first time it starts:
+
+```sh
+VERROWEN_SAVE_DIR=/var/lib/verrowen node /opt/verrowen/server.mjs token
+```
+
+Paste it in, press **Show the models** to list what's installed in Ollama,
+pick one and press **Use this model**. It's for every player from their next
+turn on, and stays after a restart (kept in `narrator-model.txt` in the save
+folder). Without the token, nobody else can change it. To start over with a
+new token, delete `owner-token.txt` there and restart the service.
+
+Stick to models that fit the GTX 1650's 4 GB, or every turn gets slow.
+
 ## Reading the characters
 
 ```sh
@@ -108,7 +128,7 @@ Environment variables, set with `Environment=` in the service file:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `VERROWEN_MODEL` | `gemma3:4b` | The Ollama model that narrates |
+| `VERROWEN_MODEL` | `gemma3:4b` | The model that narrates until the owner picks another on the page |
 | `VERROWEN_PORT` | `8792` | Port to listen on |
 | `VERROWEN_HOST` | `127.0.0.1` | Address to listen on |
 | `VERROWEN_ORIGINS` | `https://tavernworks.dev` | Websites allowed to use it, comma-separated |

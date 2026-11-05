@@ -55,22 +55,16 @@ systemctl status local-ai-search --no-pager
 
 It listens on `127.0.0.1:8791` only.
 
-## 3. Give it an HTTPS address on the tailnet
+## 3. Connect the chat
 
-```sh
-tailscale serve --bg --https=8444 http://127.0.0.1:8791
-```
+Nothing to do in the chat itself: it reaches this server through the
+[gate](../gate/), which passes `/search` and `/fetch` to `127.0.0.1:8791` on
+the laptop. Set up the gate, and 🌐 next to 📎 works from any device. The
+choice to turn it on or off is remembered in that browser.
 
-The address is `https://<machine>.<tailnet>.ts.net:8444`, the same name as
-Ollama's with `:8444` on the end (`tailscale serve status` lists it). Like
-Ollama, only devices on your tailnet can reach it. Opening
-`<address>/health` in a tab should show `{"ok":true,"engine":"duckduckgo"}`.
-
-## 4. Connect the chat
-
-In the chat, open **⚙ Connection settings**, paste the address into **Search
-server address**, hit **Test connection**, then **Save**. 🌐 next to 📎 turns
-web search on and off; the choice is remembered in that browser.
+GuildScribe's `!askme` still needs its own route to this server (for example
+`tailscale serve --bg --https=8444 http://127.0.0.1:8791` on the tailnet,
+then that address in `ASKME_SEARCH_URL`).
 
 ## Models
 

@@ -87,9 +87,12 @@ your tailnet can reach it, and every request also needs the token.
 
 ## 6. Connect the chat
 
-In the chat, open **⚙ Connection settings**, fill in **Bridge address** (the
-`:8445` address) and **Bridge token** (from step 3), hit **Test connection**,
-then **Save**. The Claude Code models appear in the model list.
+On a device that's on the tailnet, open the chat's **⚙ Settings**, paste the
+**Bridge token** (from step 3), hit **Test connection**, then **Save**. The
+chat has the `:8445` address built in and only uses it once a token is saved,
+so the Claude Code models only ever appear for you. The bridge never goes
+through the public [gate](../gate/): it can run commands on the laptop, so
+it stays on the tailnet.
 
 ## Settings
 

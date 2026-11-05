@@ -11,7 +11,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍺</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&family=Spectral:ital@0;1&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
@@ -86,41 +86,77 @@
   .soon{background:rgba(224,168,74,.12);color:var(--gold)}
   .beta{background:rgba(88,101,242,.18);color:#a5adff}
 
-  .journal{
+  .feature{
     background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:22px;
     display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:24px;align-items:start
   }
-  .journal h3{font-family:Cinzel,serif;color:var(--gold2);font-size:21px;display:flex;align-items:center;gap:10px}
-  .journal .txt p{color:var(--muted);font-size:14.5px;margin-top:8px}
-  .journal h4{font-family:Cinzel,serif;font-size:13px;letter-spacing:.08em;color:var(--gold);margin:18px 0 10px}
-  .journal .txt .chips{grid-template-columns:1fr}
-  @media (max-width:720px){.journal{grid-template-columns:1fr}.journal .txt{order:-1}}
+  .feature h3{font-family:Cinzel,serif;color:var(--gold2);font-size:21px;display:flex;align-items:center;gap:10px}
+  .feature .txt p{color:var(--muted);font-size:14.5px;margin-top:8px}
+  .feature h4{font-family:Cinzel,serif;font-size:13px;letter-spacing:.08em;color:var(--gold);margin:18px 0 10px}
+  .feature .txt .chips{grid-template-columns:1fr}
+  .feature .txt .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .feature .chip{font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%}
+  .feature button.chip:hover{border-color:var(--gold);transform:translateY(-2px)}
+  @media (max-width:720px){.feature{grid-template-columns:1fr}.feature .txt{order:-1}}
 
-  /* The journal snip: the top of /journal/'s entry view, typed in here and
-     handed to the full journal by "Open in the full journal". */
-  .snip{--lh:25px;background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+  /* The Verrowen window: the top of /verrowen/'s story box, with the latest
+     turn of this browser's story. Its buttons open the chat or the picker. */
+  .snip{background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
   .snip .bar{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--bg2);min-width:0}
-  .snip .brand{font-size:17px;line-height:1}
-  .snip .crumb{font-family:Cinzel,serif;font-size:12.5px;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+  .snip .brand{font-size:17px;line-height:1;background:none;border:0;cursor:pointer;padding:0}
+  .snip .crumb{font-family:Cinzel,serif;font-size:12.5px;color:var(--gold);white-space:nowrap}
   .snip .crumb::after{content:" ›";color:var(--muted)}
-  .snip .title{flex:1;min-width:0;font:600 15px Inter,system-ui,sans-serif;color:var(--text);background:transparent;border:1px solid transparent;border-radius:8px;padding:5px 8px;outline:0}
-  .snip .title:hover,.snip .title:focus{border-color:var(--line);background:rgba(0,0,0,.2)}
-  .snip .title::placeholder{color:#6c5945}
+  .snip .title{flex:1;min-width:0;font:600 14.5px Inter,system-ui,sans-serif;color:var(--text);padding:5px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .snip .tools{display:flex;gap:4px}
-  .snip .tb{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:4px 8px;white-space:nowrap;transition:.15s}
+  .snip .tb{display:inline-flex;align-items:center;gap:5px;font:12.5px Inter,system-ui,sans-serif;color:var(--muted);background:none;border:1px solid var(--line);border-radius:8px;padding:4px 8px;white-space:nowrap;transition:.15s;cursor:pointer}
   .snip .tb:hover{color:var(--gold2);border-color:var(--gold)}
-  .snip .editor{position:relative;display:flex;height:225px;background:#0f0b08}
-  .snip .gutter{width:42px;flex-shrink:0;overflow:hidden;background:rgba(0,0,0,.28);border-right:1px solid var(--line);font:12px ui-monospace,Consolas,monospace;color:#6c5945;text-align:right;user-select:none}
-  .snip .gutter .in{padding:12px 8px 12px 0}
-  .snip .gutter .in div.cur{color:var(--gold2)}
-  .snip textarea,.snip .mirror{font:14.5px/var(--lh) Inter,system-ui,sans-serif;padding:12px 16px;white-space:pre-wrap;overflow-wrap:break-word;tab-size:4}
-  .snip textarea{flex:1;min-width:0;resize:none;border:0;outline:0;background:transparent;color:var(--text);overflow-y:auto}
-  .snip textarea::placeholder{color:#6c5945}
-  .snip .mirror{position:absolute;left:-99999px;top:0;visibility:hidden;padding-top:0;padding-bottom:0}
-  .snip .mirror div{min-height:var(--lh)}
-  .snip .foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px;border-top:1px solid var(--line);background:var(--bg2);font-size:12.5px;color:var(--muted)}
-  .snip .foot .btn{padding:8px 14px;font-size:14px}
+  .snip .tb svg{width:13px;height:13px;fill:currentColor}
+  .snip .story{height:225px;overflow-y:auto;background:#0f0b08;padding:14px 18px;font:17px/1.6 Spectral,Georgia,serif;white-space:pre-wrap;cursor:pointer}
+  .snip .story::before{display:block;font:11px Cinzel,serif;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:2px;white-space:normal}
+  .snip .story.narrator::before{content:"The Narrator"}
+  .snip .story.player::before{content:"You";color:var(--gold)}
+  .snip .story.intro{color:var(--muted);font-style:italic}
+  .snip .story.intro::before{content:"How it begins"}
+  .snip .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px;border-top:1px solid var(--line);background:var(--bg2);font-size:12.5px;color:var(--muted)}
+  .snip .foot .btns{display:flex;gap:8px;flex-wrap:wrap}
+  .snip .foot .btn{padding:8px 14px;font-size:14px;cursor:pointer;font-family:inherit;color:inherit}
+  .snip .later{background:none;border:0;padding:0;font:inherit;color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+  .snip .later:hover{color:var(--gold2)}
+  .btn.gold{background:var(--gold);border-color:var(--gold);color:var(--bg)!important}
+  .btn.gold:hover{filter:brightness(1.08)}
+  .dot-up{color:var(--green)} .dot-down{color:var(--ember)}
   @media (max-width:520px){.snip .tb .lbl{display:none}.snip .crumb{display:none}}
+
+  /* Verrowen's two windows: the chat (the game itself, embedded) and the
+     character picker. */
+  dialog.win{margin:auto;background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:0;width:min(900px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:hidden}
+  dialog.win::backdrop{background:rgba(0,0,0,.72)}
+  dialog.win .head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font-family:Cinzel,serif;color:var(--gold2);font-size:15px}
+  dialog.win .head .sp{flex:1}
+  dialog.win .x{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:3px 10px;font:14px Inter,system-ui,sans-serif;cursor:pointer}
+  dialog.win .x:hover,dialog.win a.x:hover{color:var(--gold2);border-color:var(--gold)}
+  #vw-chat iframe{display:block;width:100%;height:min(80dvh,760px);border:0;background:var(--bg)}
+  #vw-pick{width:min(640px,calc(100vw - 24px))}
+  #vw-pick form{padding:16px 18px 18px;overflow-y:auto;max-height:calc(100dvh - 80px);display:flex;flex-direction:column;gap:14px}
+  #vw-pick fieldset{border:0;display:flex;flex-direction:column;gap:8px}
+  #vw-pick legend,#vw-pick .lab{font-family:Cinzel,serif;font-size:13px;letter-spacing:.08em;color:var(--gold);margin-bottom:6px}
+  #vw-pick .opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.22);cursor:pointer;transition:.15s}
+  #vw-pick .opt:hover{border-color:var(--gold)}
+  #vw-pick .opt:has(input:checked){border-color:var(--gold);background:rgba(224,168,74,.08)}
+  #vw-pick .opt input[type=radio]{margin-top:5px;accent-color:var(--gold)}
+  #vw-pick .opt b{display:block;font-weight:600;font-size:14.5px}
+  #vw-pick .opt small{display:block;color:var(--muted);font-size:12.5px}
+  #vw-pick .opt .more{margin-top:8px}
+  #vw-pick .opt:not(:has(input:checked)) .more{display:none}
+  #vw-pick .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  @media (max-width:520px){#vw-pick .two{grid-template-columns:1fr}}
+  #vw-pick input[type=text],#vw-pick select,#vw-pick textarea{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;font:15px Inter,system-ui,sans-serif;padding:9px 11px}
+  #vw-pick textarea{min-height:76px;resize:vertical}
+  #vw-pick input:focus,#vw-pick select:focus,#vw-pick textarea:focus{outline:2px solid var(--gold);outline-offset:1px}
+  #vw-pick .note{color:var(--muted);font-size:12.5px}
+  #vw-pick .note.err{color:#ff8a5c}
+  #vw-pick .acts{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+  #vw-pick .acts .btn{cursor:pointer;font-family:inherit;color:inherit}
 
   /* Folded sections: the divider is the toggle. */
   details.fold > summary{list-style:none;cursor:pointer;user-select:none}
@@ -259,38 +295,90 @@
     <p class="trail-note" id="trail-note" aria-live="polite"></p>
   </div>
 
-  <div class="divider" id="journal">THE JOURNAL</div>
-  <div class="journal">
-    <div class="snip" id="snip">
+  <div class="divider" id="verrowen">WAKE IN VERROWEN</div>
+  <div class="feature">
+    <div class="snip" id="vw">
       <div class="bar">
-        <a class="brand" href="/journal/" data-open title="Open the full journal">📖</a>
-        <span class="crumb" id="snip-crumb">Quick notes</span>
-        <input class="title" id="snip-title" placeholder="Untitled entry" aria-label="Entry title" autocomplete="off">
+        <button class="brand" type="button" data-vw="chat" title="Open the chat">🕯️</button>
+        <span class="crumb">The Story</span>
+        <span class="title" id="vw-title">A new story</span>
         <div class="tools">
-          <a class="tb" href="/journal/" data-open title="Preview with images, in the full journal">👁 <span class="lbl">Preview</span></a>
-          <a class="tb" href="/journal/" data-open title="Attach maps and handouts, in the full journal">📎 <span class="lbl">Attach</span></a>
-          <a class="tb" href="/journal/" data-open title="Roll dice, in the full journal">🎲 <span class="lbl">Roll</span></a>
+          <button class="tb" type="button" data-vw="chat" title="Open the chat">💬 <span class="lbl">Chat</span></button>
+          <button class="tb" type="button" data-vw="pick" title="Pick a character and what it's for">🎭 <span class="lbl">Character</span></button>
+          <a class="tb" href="https://github.com/sheastolp/grand-orrery" target="_blank" rel="noopener" title="The Grand Orrery universe on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5Z"/></svg> <span class="lbl">GitHub</span></a>
         </div>
       </div>
-      <div class="editor">
-        <div class="gutter" aria-hidden="true"><div class="in" id="snip-gutter"></div></div>
-        <textarea id="snip-text" spellcheck="true" aria-label="Journal entry" placeholder="The party arrives at the Yawning Portal…&#10;&#10;Start writing here, then open the full journal to keep it, attach maps, roll dice and fill in a character sheet."></textarea>
-        <div class="mirror" id="snip-mirror" aria-hidden="true"></div>
-      </div>
+      <div class="story intro" id="vw-story" data-vw="chat" title="Open the chat">You wake with no memory. Cold air, the smell of smoke, two or three strange objects within reach, and somewhere close, a sound that might be your name.
+
+Open the chat, press Begin, and answer the narrator however you like. Who you are is decided as you play.</div>
       <div class="foot">
-        <span id="snip-saved">Your draft stays in this browser.</span>
-        <a class="btn" href="/journal/" id="snip-open" data-open>🪶 Open in the full journal ↗</a>
+        <span><span id="vw-status">Checking the narrator…</span> · <button class="later" type="button" data-vw="pick">or set up a character first (optional)</button></span>
+        <div class="btns">
+          <button class="btn gold" type="button" data-vw="chat" id="vw-open">💬 Open the chat</button>
+        </div>
       </div>
     </div>
     <div class="txt">
-      <h3>📖 Adventurer's Journal <span class="pill beta">BETA</span></h3>
-      <p>A campaign notebook that lives in your browser. Start an entry here, then open the full journal for numbered entries, a character sheet for each project, attachments, a dice roller and Google Drive sync across your devices.</p>
-      <div id="journal-recent" hidden>
-        <h4>Your projects</h4>
-        <div class="chips" id="journal-projects"></div>
+      <h3>🕯️ Wake in Verrowen <span class="pill beta">BETA</span></h3>
+      <p>A roleplay in the Grand Orrery universe. You wake with no memory, and a narrator running on our own laptop reveals who you are through your choices. Just open the chat and start. If you like, you can also bring back an old character, describe your own, or ask for a D&amp;D character sheet at the end.</p>
+      <div class="row">
+        <a class="btn sm" href="https://github.com/sheastolp/grand-orrery" target="_blank" rel="noopener">📜 The universe on GitHub</a>
+        <a class="btn sm" href="/verrowen/">Full page ↗</a>
+      </div>
+      <div id="vw-recent" hidden>
+        <h4>Your characters</h4>
+        <div class="chips" id="vw-chars"></div>
       </div>
     </div>
   </div>
+
+  <dialog class="win" id="vw-chat" aria-label="Wake in Verrowen chat">
+    <div class="head">🕯️ Wake in Verrowen<span class="sp"></span>
+      <button class="x" type="button" data-vw="pick">🎭 Character</button>
+      <a class="x" href="/verrowen/" title="Open the full page">↗</a>
+      <button class="x" type="button" data-close aria-label="Close">✕</button>
+    </div>
+    <iframe id="vw-frame" title="Wake in Verrowen story"></iframe>
+  </dialog>
+
+  <dialog class="win" id="vw-pick" aria-label="Pick a character">
+    <div class="head">🎭 Set up a character <small style="font:12.5px Inter,system-ui,sans-serif;color:var(--muted)">optional</small><span class="sp"></span><button class="x" type="button" data-close aria-label="Close">✕</button></div>
+    <form id="vw-form" method="dialog" novalidate>
+      <p class="note">None of this is needed. Skip it and the narrator decides everything as you play; you can also choose a D&amp;D sheet later in the chat.</p>
+      <div>
+        <label class="lab" for="vw-player">Your name <small class="note">(or give it in the chat)</small></label>
+        <input type="text" id="vw-player" maxlength="60" placeholder="e.g. Sam, so Sheamus knows whose character this is" autocomplete="nickname">
+      </div>
+      <fieldset id="vw-who">
+        <legend>Your character</legend>
+        <label class="opt"><input type="radio" name="who" value="new" checked><span style="flex:1"><b>A stranger</b><small>A new character with no memory. The narrator reveals who they are.</small>
+          <span class="more two">
+            <select id="vw-race" aria-label="Race">
+              <option value="any">Any race, surprise me</option>
+              <option value="human">Human</option>
+              <option value="halfling">Halfling</option>
+              <option value="elf">Elf</option>
+              <option value="gnome">Gnome</option>
+              <option value="being from beyond">Strange (from beyond)</option>
+            </select>
+            <input type="text" id="vw-name" maxlength="60" placeholder="True name (optional)" aria-label="True name, optional">
+          </span></span></label>
+        <span id="vw-saved"></span>
+        <label class="opt"><input type="radio" name="who" value="own"><span style="flex:1"><b>Bring your own</b><small>Describe a character you already have. They still wake with no memory, and it comes back as you play.</small>
+          <span class="more"><textarea id="vw-desc" maxlength="1200" placeholder="A halfling cook with a burn scar, runaway from the capital, afraid of deep water…" aria-label="Describe your character"></textarea></span></span></label>
+      </fieldset>
+      <fieldset>
+        <legend>What it's for</legend>
+        <label class="opt"><input type="radio" name="purpose" value="story" checked><span><b>📜 A story</b><small>Ends with your character's profile and a short retelling of what happened.</small></span></label>
+        <label class="opt"><input type="radio" name="purpose" value="dnd"><span><b>🐉 A D&amp;D character</b><small>Ends with a level 1 D&amp;D 5e character sheet: species, class, ability scores, gear, backstory and a hook.</small></span></label>
+      </fieldset>
+      <p class="note" id="vw-pick-note">Press <b>Wrap it up</b> in the chat whenever your character feels complete to get it.</p>
+      <div class="acts">
+        <button class="btn" type="button" data-vw="chat">Skip, just open the chat</button>
+        <button class="btn gold" type="submit">🕯️ Begin with these</button>
+      </div>
+    </form>
+  </dialog>
 
   <details class="fold" id="projects">
     <summary class="divider">THE BOTS &amp; THE WORKBENCH <span class="hint"></span></summary>
@@ -643,90 +731,109 @@ const PEOPLE = [];
 })();
 </script>
 <script>
-// Journal: list the projects saved in this browser by /journal/. Opens the
-// database read-only and backs out if it doesn't exist yet, so visiting the
-// home page never creates an empty journal.
+// Wake in Verrowen: the window shows the latest turn of the story saved in
+// this browser by /verrowen/. "Chat" opens the game itself in a window; the
+// character picker hands its choices to the game, which starts a new story.
 (function () {
-  if (!window.indexedDB) return;
+  const NARRATOR = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
+  const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
-  let req;
-  try { req = indexedDB.open("tavernworks-journal"); } catch { return; }
-  req.onupgradeneeded = () => req.transaction.abort();
-  req.onerror = (e) => e.preventDefault();
-  req.onsuccess = () => {
-    const db = req.result;
-    if (!db.objectStoreNames.contains("projects")) { db.close(); return; }
-    const all = db.transaction("projects").objectStore("projects").getAll();
-    all.onsuccess = () => {
-      db.close();
-      const list = (all.result || []).sort((a, b) => b.updated - a.updated).slice(0, 6);
-      if (!list.length) return;
-      document.getElementById("journal-projects").innerHTML = list.map((p) =>
-        `<a class="chip" href="/journal/#p=${encodeURIComponent(p.id)}">` +
-        `<span class="dot">${esc(p.name.trim().charAt(0).toUpperCase() || "?")}</span>` +
-        `<span class="who"><div class="name">${esc(p.name)}</div>` +
-        `<div class="role">Updated ${esc(new Date(p.updated).toLocaleDateString([], { dateStyle: "medium" }))}</div></span></a>`
-      ).join("");
-      document.getElementById("journal-recent").hidden = false;
-      // The snip's crumb names the project its draft will land in.
-      let last = null;
-      try { last = JSON.parse(localStorage.getItem("journal.lastProject")); } catch {}
-      document.getElementById("snip-crumb").textContent = (list.find((p) => p.id === last) || list[0]).name;
-    };
-  };
-})();
+  const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } };
+  const chat = $("vw-chat"), pick = $("vw-pick"), frame = $("vw-frame");
+  if (!chat) return;
+  const story = () => read("verrowen-story") || {};
+  const chars = () => (Array.isArray(read("verrowen-characters")) ? read("verrowen-characters") : []);
+  const INTRO = $("vw-story").textContent;
 
-// The journal snip: type here, then any of its links opens /journal/ with
-// the draft, which the journal adds as a new entry. The draft is kept in
-// this browser until then.
-(function () {
-  const KEY = "journal.homeDraft";
-  const ta = document.getElementById("snip-text"), title = document.getElementById("snip-title");
-  const inner = document.getElementById("snip-gutter"), mirror = document.getElementById("snip-mirror");
-  const saved = document.getElementById("snip-saved");
-  if (!ta) return;
-  const read = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-  const write = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
-  const draft = read(KEY);
-  if (draft) { ta.value = draft.text || ""; title.value = draft.title || ""; }
-
-  // Line numbers that follow soft-wrapped lines, like the journal's own.
-  let raf = 0;
   const draw = () => {
-    raf = 0;
-    const cs = getComputedStyle(ta);
-    mirror.style.width = (ta.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) + "px";
-    mirror.replaceChildren(...ta.value.split("\n").map((l) => { const d = document.createElement("div"); d.textContent = l || "​"; return d; }));
-    const cur = ta.value.slice(0, ta.selectionStart).split("\n").length - 1;
-    inner.innerHTML = Array.from(mirror.children, (d, i) => `<div style="height:${d.offsetHeight}px"${i === cur ? ' class="cur"' : ""}>${i + 1}</div>`).join("");
-    sync();
+    const s = story(), msgs = s.messages || [], last = msgs[msgs.length - 1];
+    const box = $("vw-story");
+    box.className = "story " + (last ? (last.role === "assistant" ? "narrator" : "player") : "intro");
+    box.textContent = last ? last.content : INTRO;
+    $("vw-title").textContent = msgs.length
+      ? (s.playerName ? s.playerName + "'s " : "Your ") + (s.purpose === "dnd" ? "D&D character" : "story") + (s.profile ? " · wrapped up" : " · " + msgs.filter((m) => m.role === "user").length + " turns")
+      : "A new story";
+    $("vw-open").textContent = msgs.length ? "💬 Continue the chat" : "💬 Open the chat";
+    const list = chars();
+    $("vw-recent").hidden = !list.length;
+    $("vw-chars").innerHTML = list.slice(0, 6).map((c, i) =>
+      `<button class="chip" type="button" data-char="${i}"><span class="dot">${esc((c.name || "?").charAt(0).toUpperCase())}</span>` +
+      `<span class="who"><div class="name">${esc(c.name || "Unnamed")}</div><div class="role">${c.purpose === "dnd" ? "D&amp;D character" : "Story"} · ${esc(new Date(c.at).toLocaleDateString([], { dateStyle: "medium" }))}</div></span></button>`).join("");
   };
-  const refresh = () => { if (!raf) raf = requestAnimationFrame(draw); };
-  const sync = () => { inner.style.transform = `translateY(${-ta.scrollTop}px)`; };
-  ta.addEventListener("scroll", sync);
-  ["keyup", "click", "focus"].forEach((ev) => ta.addEventListener(ev, refresh));
-  new ResizeObserver(refresh).observe(ta);
-  refresh();
+  draw();
+  // The game in the chat window writes to the same storage; follow along.
+  window.addEventListener("storage", (e) => { if (!e.key || e.key.startsWith("verrowen")) draw(); });
 
-  let timer = 0;
-  const save = () => {
-    const empty = !ta.value.trim() && !title.value.trim();
-    const ok = write(KEY, empty ? null : { title: title.value, text: ta.value });
-    saved.textContent = !ok ? "This browser won't keep drafts. Open the journal to save it." : empty ? "Your draft stays in this browser." : "Draft kept in this browser";
+  fetch(NARRATOR + "/health").then((r) => r.json())
+    .then((j) => { const up = !!(j.ok && j.ollama); $("vw-status").innerHTML = up ? '<span class="dot-up">●</span> Narrator awake' : '<span class="dot-down">●</span> Narrator asleep'; })
+    .catch(() => { $("vw-status").innerHTML = '<span class="dot-down">●</span> Narrator asleep, the laptop may be off'; });
+
+  // ── The chat window ──
+  const openChat = (fresh) => {
+    if (fresh || !frame.getAttribute("src")) frame.src = "/verrowen/?embed=1";
+    if (!chat.open) chat.showModal();
   };
-  [ta, title].forEach((el) => el.addEventListener("input", () => { refresh(); clearTimeout(timer); timer = setTimeout(save, 400); }));
 
-  // Hand the draft to the journal. If storage is blocked the journal opens
-  // without it, so leave the draft here instead of losing it.
-  document.querySelectorAll("#snip [data-open]").forEach((a) => a.addEventListener("click", () => {
-    clearTimeout(timer);
-    if (!ta.value.trim() && !title.value.trim()) return;
-    if (write("journal.inbox", { title: title.value, text: ta.value, at: Date.now() })) write(KEY, null);
-  }));
-  // Coming back from the journal: the draft has moved there.
-  window.addEventListener("pageshow", (e) => {
-    if (e.persisted && !read(KEY)) { ta.value = title.value = ""; save(); refresh(); }
+  // ── The character picker ──
+  const openPick = (charIndex) => {
+    const s = story(), list = chars();
+    if (!$("vw-player").value) $("vw-player").value = s.playerName || "";
+    $("vw-saved").innerHTML = list.map((c, i) =>
+      `<label class="opt"><input type="radio" name="who" value="returning:${i}"><span><b>${esc(c.name || "Unnamed")} wakes again</b>` +
+      `<small>Your ${c.purpose === "dnd" ? "D&amp;D character" : "character"} from ${esc(new Date(c.at).toLocaleDateString([], { dateStyle: "medium" }))}. What they learned before comes back in flashes.</small></span></label>`).join("");
+    if (charIndex != null) { const r = pick.querySelector(`input[value="returning:${charIndex}"]`); if (r) r.checked = true; }
+    $("vw-pick-note").className = "note";
+    $("vw-pick-note").innerHTML = (s.messages || []).length && !s.profile
+      ? "This starts a new story. The one in progress stays saved on the laptop."
+      : "Press <b>Wrap it up</b> in the chat whenever your character feels complete to get it.";
+    if (chat.open) chat.close();
+    pick.showModal();
+    $("vw-player").blur();
+  };
+
+  $("vw-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const note = $("vw-pick-note");
+    const fail = (msg, el) => { note.className = "note err"; note.textContent = msg; el.focus(); };
+    const playerName = $("vw-player").value.trim();
+    const who = pick.querySelector('input[name="who"]:checked').value;
+    const purpose = pick.querySelector('input[name="purpose"]:checked').value;
+    let character, characterName = "";
+    if (who.startsWith("returning:")) {
+      const c = chars()[+who.split(":")[1]];
+      if (!c) return fail("That character isn't saved in this browser any more.", $("vw-player"));
+      character = { kind: "returning", label: c.name + " wakes again", profile: c.profile };
+      characterName = c.name;
+    } else if (who === "own") {
+      const description = $("vw-desc").value.trim();
+      if (!description) return fail("Describe your character, or pick a stranger.", $("vw-desc"));
+      character = { kind: "own", label: "your own character", description };
+    } else {
+      const race = $("vw-race").value;
+      characterName = $("vw-name").value.trim();
+      character = { kind: "new", label: race === "any" ? "a stranger" : "a stranger, secretly " + race, race };
+    }
+    try {
+      localStorage.setItem("verrowen.setup", JSON.stringify({ playerName, purpose, character, characterName, at: Date.now() }));
+    } catch {
+      return fail("This browser won't hand the choices to the game. Open the full page and start there.", $("vw-player"));
+    }
+    pick.close();
+    openChat(true);
   });
+
+  // ── Buttons ──
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-vw],[data-close],[data-char]");
+    if (!t) return;
+    if (t.dataset.vw === "chat") { if (pick.open) pick.close(); openChat(false); }
+    else if (t.dataset.vw === "pick") openPick();
+    else if (t.dataset.char != null) openPick(+t.dataset.char);
+    else if (t.hasAttribute("data-close")) t.closest("dialog").close();
+  });
+  // A click on the dim backdrop closes either window.
+  [chat, pick].forEach((d) => d.addEventListener("click", (e) => { if (e.target === d) d.close(); }));
+  chat.addEventListener("close", draw);
 })();
 
 // Folded sections open when a link points at them or inside them.

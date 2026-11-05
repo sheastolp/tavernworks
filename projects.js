@@ -129,7 +129,16 @@ window.TAVERN_PROJECTS = {
       "name": "Journal",
       "href": "/journal/",
       "dir": "journal",
-      "card": null
+      "card": {
+        "section": "workbench",
+        "title": "Adventurer's Journal",
+        "text": "A campaign notebook that lives in your browser: numbered entries, a character sheet for each project, attachments, a dice roller and Google Drive sync.",
+        "href": "/journal/",
+        "url": "tavernworks.dev/journal",
+        "pill": "BETA",
+        "pillKind": "beta",
+        "links": []
+      }
     },
     {
       "key": "hush",
@@ -222,21 +231,7 @@ window.TAVERN_PROJECTS = {
       "name": "Wake in Verrowen",
       "href": "/verrowen/",
       "dir": "verrowen",
-      "card": {
-        "section": "workbench",
-        "title": "Wake in Verrowen",
-        "text": "A roleplay in the Grand Orrery universe. You wake with no memory, and a narrator running on our own laptop reveals who you are through your choices. Finished characters can join the world.",
-        "href": "/verrowen/",
-        "url": "tavernworks.dev/verrowen",
-        "pill": "BETA",
-        "pillKind": "beta",
-        "links": [
-          {
-            "label": "📜 The universe",
-            "href": "https://github.com/sheastolp/grand-orrery"
-          }
-        ]
-      }
+      "card": null
     },
     {
       "key": "station",
@@ -643,6 +638,8 @@ window.TAVERN_PROJECTS = {
     ["localai","2026-10-27","Browser chat searches the web with DuckDuckGo, on by default","/local-ai/chat/"],
     ["localai","2026-10-27","The Claude Code bridge is here to run, and the setup steps match the real laptop","/local-ai/"],
     ["guildscribe","2026-10-27","!askme searches the web, not just Wikipedia, for current answers","https://guildscribe.tavernworks.dev/"],
-    ["verrowen","2026-11-04","Wake in Verrowen: wake with no memory in the Grand Orrery universe, narrated by our own laptop","/verrowen/"]
+    ["verrowen","2026-11-04","Wake in Verrowen: wake with no memory in the Grand Orrery universe, narrated by our own laptop","/verrowen/"],
+    ["verrowen","2026-11-04","Play from the home page; optionally bring back a character or ask for a D&D character sheet","#verrowen"],
+    ["home","2026-11-04","Wake in Verrowen takes the Journal's spot under the path; the Journal moves to the workbench","#verrowen"]
   ]
 };
