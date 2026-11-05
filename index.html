@@ -103,7 +103,7 @@
      turn of this browser's story. Its buttons open the chat or the picker. */
   .snip{background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
   .snip .bar{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--bg2);min-width:0}
-  .snip .brand{font-size:17px;line-height:1;background:none;border:0;cursor:pointer;padding:0}
+  .snip .brand{font-size:17px;line-height:1;background:none;border:0;cursor:pointer;padding:0;text-decoration:none}
   .snip .crumb{font-family:Cinzel,serif;font-size:12.5px;color:var(--gold);white-space:nowrap}
   .snip .crumb::after{content:" ›";color:var(--muted)}
   .snip .title{flex:1;min-width:0;font:600 14.5px Inter,system-ui,sans-serif;color:var(--text);padding:5px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -127,15 +127,14 @@
   .dot-up{color:var(--green)} .dot-down{color:var(--ember)}
   @media (max-width:520px){.snip .tb .lbl{display:none}.snip .crumb{display:none}}
 
-  /* Verrowen's two windows: the chat (the game itself, embedded) and the
-     character picker. */
+  /* Verrowen's character picker window. The chat itself is the full
+     /verrowen/ page. */
   dialog.win{margin:auto;background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:0;width:min(900px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:hidden}
   dialog.win::backdrop{background:rgba(0,0,0,.72)}
   dialog.win .head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font-family:Cinzel,serif;color:var(--gold2);font-size:15px}
   dialog.win .head .sp{flex:1}
   dialog.win .x{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:3px 10px;font:14px Inter,system-ui,sans-serif;cursor:pointer}
   dialog.win .x:hover,dialog.win a.x:hover{color:var(--gold2);border-color:var(--gold)}
-  #vw-chat iframe{display:block;width:100%;height:min(80dvh,760px);border:0;background:var(--bg)}
   #vw-pick{width:min(640px,calc(100vw - 24px))}
   #vw-pick form{padding:16px 18px 18px;overflow-y:auto;max-height:calc(100dvh - 80px);display:flex;flex-direction:column;gap:14px}
   #vw-pick fieldset{border:0;display:flex;flex-direction:column;gap:8px}
@@ -299,22 +298,22 @@
   <div class="feature">
     <div class="snip" id="vw">
       <div class="bar">
-        <button class="brand" type="button" data-vw="chat" title="Open the chat">🕯️</button>
+        <a class="brand" href="/verrowen/" title="Open the chat">🕯️</a>
         <span class="crumb">The Story</span>
         <span class="title" id="vw-title">A new story</span>
         <div class="tools">
-          <button class="tb" type="button" data-vw="chat" title="Open the chat">💬 <span class="lbl">Chat</span></button>
+          <a class="tb" href="/verrowen/" title="Open the chat">💬 <span class="lbl">Chat</span></a>
           <button class="tb" type="button" data-vw="pick" title="Pick a character and what it's for">🎭 <span class="lbl">Character</span></button>
           <a class="tb" href="https://github.com/sheastolp/grand-orrery" target="_blank" rel="noopener" title="The Grand Orrery universe on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5Z"/></svg> <span class="lbl">GitHub</span></a>
         </div>
       </div>
-      <div class="story intro" id="vw-story" data-vw="chat" title="Open the chat">You wake with no memory. Cold air, the smell of smoke, two or three strange objects within reach, and somewhere close, a sound that might be your name.
+      <div class="story intro" id="vw-story" data-vw="chat" role="link" tabindex="0" title="Open the chat">You wake with no memory. Cold air, the smell of smoke, two or three strange objects within reach, and somewhere close, a sound that might be your name.
 
 Open the chat, press Begin, and answer the narrator however you like. Who you are is decided as you play.</div>
       <div class="foot">
         <span><span id="vw-status">Checking the narrator…</span> · <button class="later" type="button" data-vw="pick">or set up a character first (optional)</button></span>
         <div class="btns">
-          <button class="btn gold" type="button" data-vw="chat" id="vw-open">💬 Open the chat</button>
+          <a class="btn gold" href="/verrowen/" id="vw-open">💬 Open the chat</a>
         </div>
       </div>
     </div>
@@ -332,14 +331,6 @@ Open the chat, press Begin, and answer the narrator however you like. Who you ar
     </div>
   </div>
 
-  <dialog class="win" id="vw-chat" aria-label="Wake in Verrowen chat">
-    <div class="head">🕯️ Wake in Verrowen<span class="sp"></span>
-      <button class="x" type="button" data-vw="pick">🎭 Character</button>
-      <a class="x" href="/verrowen/" title="Open the full page">↗</a>
-      <button class="x" type="button" data-close aria-label="Close">✕</button>
-    </div>
-    <iframe id="vw-frame" title="Wake in Verrowen story"></iframe>
-  </dialog>
 
   <dialog class="win" id="vw-pick" aria-label="Pick a character">
     <div class="head">🎭 Set up a character <small style="font:12.5px Inter,system-ui,sans-serif;color:var(--muted)">optional</small><span class="sp"></span><button class="x" type="button" data-close aria-label="Close">✕</button></div>
@@ -369,7 +360,7 @@ Open the chat, press Begin, and answer the narrator however you like. Who you ar
       </fieldset>
       <p class="note" id="vw-pick-note">Press <b>Wrap it up</b> in the chat whenever your character feels complete, then choose a story or a D&amp;D character sheet.</p>
       <div class="acts">
-        <button class="btn" type="button" data-vw="chat">Skip, just open the chat</button>
+        <a class="btn" href="/verrowen/">Skip, just open the chat</a>
         <button class="btn gold" type="submit">🕯️ Begin with these</button>
       </div>
     </form>
@@ -757,15 +748,16 @@ const PEOPLE = [];
 </script>
 <script>
 // Wake in Verrowen: the window shows the latest turn of the story saved in
-// this browser by /verrowen/. "Chat" opens the game itself in a window; the
-// character picker hands its choices to the game, which starts a new story.
+// this browser by /verrowen/. Clicking it (or "Chat") goes to the full
+// /verrowen/ page; the character picker hands its choices to that page,
+// which starts a new story.
 (function () {
   const NARRATOR = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
   const $ = (id) => document.getElementById(id);
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
   const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } };
-  const chat = $("vw-chat"), pick = $("vw-pick"), frame = $("vw-frame");
-  if (!chat) return;
+  const pick = $("vw-pick");
+  if (!pick) return;
   const story = () => read("verrowen-story") || {};
   const chars = () => (Array.isArray(read("verrowen-characters")) ? read("verrowen-characters") : []);
   const INTRO = $("vw-story").textContent;
@@ -786,18 +778,15 @@ const PEOPLE = [];
       `<span class="who"><div class="name">${esc(c.name || "Unnamed")}</div><div class="role">${!c.profile ? "Unfinished story" : c.purpose === "dnd" ? "D&amp;D character" : "Story"} ·${esc(new Date(c.at).toLocaleDateString([], { dateStyle: "medium" }))}</div></span></button>`).join("");
   };
   draw();
-  // The game in the chat window writes to the same storage; follow along.
+  // The game writes to the same storage (another tab, or back from it); follow along.
   window.addEventListener("storage", (e) => { if (!e.key || e.key.startsWith("verrowen")) draw(); });
 
   fetch(NARRATOR + "/health").then((r) => r.json())
     .then((j) => { const up = !!(j.ok && j.ollama); $("vw-status").innerHTML = up ? '<span class="dot-up">●</span> Narrator awake' : '<span class="dot-down">●</span> Narrator asleep'; })
     .catch(() => { $("vw-status").innerHTML = '<span class="dot-down">●</span> Narrator asleep, the laptop may be off'; });
 
-  // ── The chat window ──
-  const openChat = (fresh) => {
-    if (fresh || !frame.getAttribute("src")) frame.src = "/verrowen/?embed=1";
-    if (!chat.open) chat.showModal();
-  };
+  // ── The chat: the full /verrowen/ page, which picks up any setup below ──
+  const openChat = () => location.assign("/verrowen/");
 
   // ── The character picker ──
   const openPick = (charIndex) => {
@@ -815,7 +804,6 @@ const PEOPLE = [];
     $("vw-pick-note").innerHTML = (s.messages || []).length && !s.profile
       ? "This starts a new story. The one in progress stays saved on the laptop."
       : "Press <b>Wrap it up</b> in the chat whenever your character feels complete, then choose a story or a D&amp;D character sheet.";
-    if (chat.open) chat.close();
     pick.showModal();
     $("vw-player").blur();
   };
@@ -833,7 +821,7 @@ const PEOPLE = [];
       try { localStorage.setItem("verrowen.setup", JSON.stringify({ resume: c.id, playerName, at: Date.now() })); }
       catch { return fail("This browser won't hand the choices to the game. Open the full page and continue there.", $("vw-player")); }
       pick.close();
-      return openChat(true);
+      return openChat();
     }
     if (who.startsWith("returning:")) {
       const c = chars()[+who.split(":")[1]];
@@ -855,21 +843,24 @@ const PEOPLE = [];
       return fail("This browser won't hand the choices to the game. Open the full page and start there.", $("vw-player"));
     }
     pick.close();
-    openChat(true);
+    openChat();
   });
 
   // ── Buttons ──
   document.addEventListener("click", (e) => {
     const t = e.target.closest("[data-vw],[data-close],[data-char]");
     if (!t) return;
-    if (t.dataset.vw === "chat") { if (pick.open) pick.close(); openChat(false); }
+    if (t.dataset.vw === "chat") openChat();
     else if (t.dataset.vw === "pick") openPick();
     else if (t.dataset.char != null) openPick(+t.dataset.char);
     else if (t.hasAttribute("data-close")) t.closest("dialog").close();
   });
-  // A click on the dim backdrop closes either window.
-  [chat, pick].forEach((d) => d.addEventListener("click", (e) => { if (e.target === d) d.close(); }));
-  chat.addEventListener("close", draw);
+  // The story text acts as a link from the keyboard too.
+  $("vw-story").addEventListener("keydown", (e) => { if (e.key === "Enter") openChat(); });
+  // A click on the dim backdrop closes the picker.
+  pick.addEventListener("click", (e) => { if (e.target === pick) pick.close(); });
+  // Back from the game (including the back/forward cache): show the latest turn.
+  window.addEventListener("pageshow", draw);
 })();
 
 // Folded sections open when a link points at them or inside them.
