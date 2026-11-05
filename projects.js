@@ -217,6 +217,28 @@ window.TAVERN_PROJECTS = {
       }
     },
     {
+      "key": "verrowen",
+      "icon": "🕯️",
+      "name": "Wake in Verrowen",
+      "href": "/verrowen/",
+      "dir": "verrowen",
+      "card": {
+        "section": "workbench",
+        "title": "Wake in Verrowen",
+        "text": "A roleplay in the Grand Orrery universe. You wake with no memory, and a narrator running on our own laptop reveals who you are through your choices. Finished characters can join the world.",
+        "href": "/verrowen/",
+        "url": "tavernworks.dev/verrowen",
+        "pill": "BETA",
+        "pillKind": "beta",
+        "links": [
+          {
+            "label": "📜 The universe",
+            "href": "https://github.com/sheastolp/grand-orrery"
+          }
+        ]
+      }
+    },
+    {
       "key": "station",
       "icon": "🛰️",
       "name": "Stationeers Assistant",
@@ -620,6 +642,7 @@ window.TAVERN_PROJECTS = {
     ["guildscribe","2026-10-27","Replies go by whisper on their own when chat gets busy (10+ messages a minute), and back to chat when it calms down","https://guildscribe.tavernworks.dev/"],
     ["localai","2026-10-27","Browser chat searches the web with DuckDuckGo, on by default","/local-ai/chat/"],
     ["localai","2026-10-27","The Claude Code bridge is here to run, and the setup steps match the real laptop","/local-ai/"],
-    ["guildscribe","2026-10-27","!askme searches the web, not just Wikipedia, for current answers","https://guildscribe.tavernworks.dev/"]
+    ["guildscribe","2026-10-27","!askme searches the web, not just Wikipedia, for current answers","https://guildscribe.tavernworks.dev/"],
+    ["verrowen","2026-11-04","Wake in Verrowen: wake with no memory in the Grand Orrery universe, narrated by our own laptop","/verrowen/"]
   ]
 };
