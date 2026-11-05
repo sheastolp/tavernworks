@@ -18,6 +18,13 @@ delete models. This server only lets the game through:
 - Only tavernworks.dev is allowed in from a browser, and every address is
   rate limited (40 turns per 10 minutes, 240 for everyone together).
 
+The [Orrery Explorer](https://tavernworks.dev/orrery/#chat)'s chat (the
+lore-keeper, which helps create and review characters and work out
+worldbuilding and mechanics) uses the same
+`/narrate` and `/health`, the same model and the same rate limits. It sends
+its own instructions and the orrery's documents in the first message, so
+nothing here changes for it.
+
 Ollama itself stays on the tailnet. The Local AI browser chat has its own
 gate ([local-ai/gate](../../local-ai/gate/)). Needs Node 18 or newer (the laptop has Node 22), no dependencies. All
 steps run as **root** on the laptop.
