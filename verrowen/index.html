@@ -149,7 +149,7 @@
           <li>Reply however you like: what you do, say, notice or think.</li>
           <li>When your character feels complete, press <b>Wrap it up</b> and choose a story or a D&amp;D character sheet.</li>
         </ol>
-        <label for="playerName" class="fieldlabel">Your name, so Sheamus knows whose character this is</label>
+        <label for="playerName" class="fieldlabel">Your name, so Sheamus knows whose character this is <span class="note">(optional if you pick a true name below)</span></label>
         <input id="playerName" type="text" maxlength="60" placeholder="e.g. Sam" autocomplete="nickname">
         <fieldset class="who" id="whoBox">
           <legend class="fieldlabel">Your character <span class="note">(optional: skip it and the narrator decides everything)</span></legend>
@@ -541,7 +541,10 @@ $("beginBtn").addEventListener("click", () => {
     return;
   }
   playerName = typed;
-  if (!playerName){ $("playerName").focus(); setStatus("Enter your name first, then press Begin.", true); return; }
+  // A picked true name (or a returning character's) is enough to begin; the
+  // story is then filed under the character's name.
+  const named = who === "new" ? !!characterName : who.startsWith("returning:");
+  if (!playerName && !named){ $("playerName").focus(); setStatus("Enter your name, or pick a true name for your character, then press Begin.", true); return; }
   if (who.startsWith("returning:")){
     const c = savedCharacters().find(x => x.id === who.slice(10));
     if (!c){ setStatus("That character isn't saved in this browser any more.", true); render(); return; }
@@ -652,7 +655,7 @@ if (setup && !setup.resume){
 
 if (playerName) $("playerName").value = playerName;
 render();
-if (setup && !setup.resume && playerName){ seed = makeSeed(); narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); }); }
+if (setup && !setup.resume && (playerName || characterName)){ seed = makeSeed(); narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); }); }
 loadLore().catch(() => {});
 </script>
 </body>

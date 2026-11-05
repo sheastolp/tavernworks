@@ -515,14 +515,11 @@
   // Hands the character to /verrowen/ the same way the home page's picker does.
   $("wakeBtn").onclick = () => {
     if (saveTimer) persist();
+    if (!plain(cur.title)) { alert("Give this character a name first."); $("title").focus(); return; }
     let playerName = "";
     try { playerName = (JSON.parse(localStorage.getItem("verrowen-story") || "null") || {}).playerName || ""; } catch {}
-    playerName = playerName || localStorage.getItem("verrowen-codex.player") || "";
-    if (!playerName) {
-      playerName = (prompt("Your name, for the story's record:") || "").trim().slice(0, 60);
-      if (!playerName) return;
-    }
-    try { localStorage.setItem("verrowen-codex.player", playerName); } catch {}
+    // The character's name is enough for the game to begin; the player's own
+    // name comes along when this browser has one.
     const c = CAT.character;
     const facts = c.f.map(([k, label]) => (cur.f[k] || "").trim() ? `${label}: ${plain(cur.f[k])}.` : "").filter(Boolean).join(" ");
     const description = `${plain(cur.title) || "A character"} from the author's own codex. ${facts} ${plain(cur.body)}`.replace(/\s+/g, " ").trim().slice(0, 1200);
