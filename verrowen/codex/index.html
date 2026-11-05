@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="canonical" href="https://tavernworks.dev/verrowen/codex/">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>Verrowen Codex · Tavernworks</title>
+<meta name="description" content="A worldbuilding journal for Verrowen: characters, peoples, places, magic, items and rules. Notes you mark are told to the Wake in Verrowen narrator.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📜</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069; --arcane:#9b7bd8; --code:#0f0b08;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:Inter,system-ui,sans-serif;color:var(--text);background:var(--bg);line-height:1.6;overflow:hidden}
+  a{color:var(--gold2)}
+  button,select,input,textarea{font:inherit;color:inherit}
+  button{cursor:pointer}
+  [hidden]{display:none !important}
+
+  .app{display:grid;grid-template-columns:280px 1fr;height:100dvh}
+
+  /* Sidebar */
+  .side{background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .side .top{padding:14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+  .brand{display:flex;align-items:center;gap:8px;font-family:Cinzel,serif;color:var(--gold2);font-size:17px;text-decoration:none}
+  .brand small{font-family:Inter,sans-serif;font-size:11px;color:var(--muted);letter-spacing:.08em}
+  #q{width:100%;background:var(--code);border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:14px;outline:0}
+  #q:focus{border-color:var(--gold)}
+  .primary{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#2a1a0c;border:0;border-radius:9px;padding:8px 12px;font-weight:600}
+  .primary:hover{filter:brightness(1.08)}
+  .side .lists{flex:1;overflow-y:auto;min-height:0;padding:4px 8px 10px}
+  .sec{display:flex;align-items:center;gap:6px;padding:10px 4px 4px}
+  .sec .tog{flex:1;display:flex;align-items:center;gap:7px;background:none;border:0;text-align:left;font-family:Cinzel,serif;font-size:12.5px;letter-spacing:.1em;color:var(--gold);padding:2px}
+  .sec .tog .n{font-family:Inter,sans-serif;font-size:11px;letter-spacing:0;color:#7a6650}
+  .sec .tog .chev{margin-left:auto;font-size:10px;color:#7a6650;transition:.15s}
+  .sec.shut .tog .chev{transform:rotate(-90deg)}
+  .sec .add{background:none;border:1px solid var(--line);border-radius:7px;color:var(--muted);font-size:12px;font-weight:600;padding:0 8px;line-height:20px}
+  .sec .add:hover{border-color:var(--gold);color:var(--gold2)}
+  .list{list-style:none}
+  .list li button{display:flex;align-items:center;gap:6px;width:100%;text-align:left;background:none;border:0;padding:6px 10px;border-radius:8px;color:var(--muted);font-size:14px}
+  .list li button span.t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .list li button:hover{background:rgba(255,255,255,.04)}
+  .list li.on button{background:var(--card);color:var(--text)}
+  .list .mk{font-size:11px;opacity:.85}
+  .list .mk.pitch{color:var(--arcane);font-weight:600}
+  .list .none{color:#7a6650;font-size:12.5px;padding:2px 10px 4px;font-style:italic}
+  .side .bottom{padding:12px 14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:7px;font-size:13.5px}
+  .side .bottom a,.side .bottom button{background:none;border:0;color:var(--muted);text-align:left;text-decoration:none;padding:1px 0}
+  .side .bottom a:hover,.side .bottom button:hover{color:var(--gold2)}
+  .side .bottom small{color:#7a6650;font-size:12px}
+  .budget{font-size:12.5px;color:var(--muted);padding-bottom:8px;margin-bottom:2px;border-bottom:1px solid var(--line)}
+  .budget b{color:var(--gold2)}
+  .budget .over{color:#e08a6a}
+
+  /* Main */
+  .main{display:flex;flex-direction:column;min-width:0;min-height:0}
+  .bar{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .menu{display:none;background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+  select{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:6px 8px;font-size:13.5px}
+  .title{flex:1;min-width:140px;background:none;border:1px solid transparent;border-radius:8px;padding:5px 8px;font-family:Cinzel,serif;font-size:19px;color:var(--gold2);outline:0}
+  .title:hover{border-color:var(--line)}
+  .title:focus{border-color:var(--gold);background:var(--code)}
+  .tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .tb{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card);font-size:13.5px;font-weight:600;transition:.15s;white-space:nowrap}
+  .tb:hover{border-color:var(--gold)}
+  .tb.on{border-color:var(--gold);color:var(--gold2)}
+  .tb.del:hover{border-color:var(--ember);color:#ff9b7a}
+  .dd{position:relative}
+  .dd > summary{list-style:none}
+  .dd > summary::-webkit-details-marker{display:none}
+  .dd .pop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:250px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 14px 40px rgba(0,0,0,.5);display:flex;flex-direction:column}
+  .dd .pop button{background:none;border:0;text-align:left;padding:8px 10px;border-radius:8px;font-size:13.5px}
+  .dd .pop button:hover{background:var(--card);color:var(--gold2)}
+  .dd .pop small{display:block;color:var(--muted);font-size:12px}
+  .saved{font-size:12.5px;color:var(--muted);margin-left:auto;white-space:nowrap}
+  .saved.bad{color:#e08a6a;white-space:normal}
+
+  .body{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+  .head{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .pic{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .pfp{width:112px;height:112px;border-radius:14px;border:1px dashed #5a4330;background:var(--card) center/cover no-repeat;color:#7a6650;font-size:12.5px;padding:8px;line-height:1.3}
+  .pfp.has{border-style:solid;border-color:var(--line);color:transparent}
+  .pfp:hover{border-color:var(--gold)}
+  .link{background:none;border:0;color:var(--muted);font-size:12px}
+  .link:hover{color:var(--gold2)}
+  .meta{flex:1;min-width:260px;display:flex;flex-direction:column;gap:10px}
+  .fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 10px}
+  .fields:empty{display:none}
+  label.f{display:flex;flex-direction:column;font-size:11.5px;letter-spacing:.06em;color:var(--gold);font-weight:600;text-transform:uppercase;gap:3px}
+  label.f input{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:14px;letter-spacing:0;text-transform:none;font-weight:400;color:var(--text);outline:0}
+  label.f input:focus{border-color:var(--gold)}
+  label.f.wide{grid-column:1/-1}
+  .flags{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;font-size:13.5px;color:var(--muted);background:rgba(0,0,0,.2);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+  .flags label{display:flex;align-items:center;gap:7px}
+  .flags small{flex-basis:100%;font-size:12px;color:#7a6650}
+  .flags small.warn{color:var(--arcane)}
+  .check input{accent-color:var(--gold);width:16px;height:16px}
+
+  #text{flex:1;min-height:260px;resize:vertical;background:var(--code);border:1px solid var(--line);border-radius:12px;padding:14px 18px;font:15px/1.65 Inter,system-ui,sans-serif;outline:0}
+  #text:focus{border-color:#5a4330}
+  #text::placeholder{color:#6c5945}
+  .preview{flex:1;min-height:260px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 26px;font-family:Spectral,Georgia,serif;font-size:17px;overflow-wrap:anywhere}
+  .preview > *{max-width:720px}
+  .preview h1,.preview h2,.preview h3{font-family:Cinzel,serif;color:var(--gold2);margin:14px 0 6px;line-height:1.3}
+  .preview h1{font-size:23px}.preview h2{font-size:19px}.preview h3{font-size:16px}
+  .preview p{margin-bottom:9px}
+  .preview ul{margin:0 0 9px;padding-left:22px}
+  .preview blockquote{border-left:3px solid var(--gold);padding:2px 0 2px 12px;color:var(--muted);font-style:italic;margin-bottom:9px}
+  .preview a.wl{color:var(--gold2);text-decoration:none;border-bottom:1px dotted var(--gold)}
+  .preview a.wl.new{color:#ff9b7a;border-bottom-color:#ff9b7a}
+  .preview .blank{color:var(--muted);font-style:italic}
+  .hint{font-size:12.5px;color:#7a6650}
+  .hint code{background:var(--code);border:1px solid var(--line);border-radius:5px;padding:0 5px;color:var(--muted)}
+  .refs{font-size:13.5px;color:var(--muted)}
+  .refs b{font-family:Cinzel,serif;color:var(--gold);font-weight:600;letter-spacing:.06em;font-size:12.5px;margin-right:6px}
+  .refs button{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:1px 10px;margin:2px 3px;font-size:13px}
+  .refs button:hover{border-color:var(--gold);color:var(--gold2)}
+
+  .empty{flex:1;display:grid;place-content:center;text-align:center;padding:30px;gap:12px;max-width:640px;margin:0 auto}
+  .empty .big{font-size:52px}
+  .empty h1{font-family:Cinzel,serif;color:var(--gold2);font-size:28px}
+  .empty p{color:var(--muted)}
+  .empty .cta{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+  .empty .cta button:not(.primary){background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-weight:600}
+  .empty .cta button:not(.primary):hover{border-color:var(--gold)}
+  .cats{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:4px}
+  .cats span{font-size:12.5px;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:999px;padding:2px 10px}
+  .emptybar{display:none;padding:10px 16px}
+
+  .scrim{display:none}
+  @media (max-width:820px){
+    .app{grid-template-columns:1fr}
+    .side{position:fixed;inset:0 auto 0 0;width:min(300px,86vw);z-index:50;transform:translateX(-102%);transition:transform .2s}
+    body.nav .side{transform:none}
+    body.nav .scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40}
+    .menu{display:block}
+    .emptybar{display:block}
+    .tb .lbl{display:none}
+    .saved{margin-left:0;flex-basis:100%}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="top">
+      <a class="brand" href="/verrowen/codex/">📜 Verrowen Codex <small>WORLD NOTES</small></a>
+      <input id="q" type="search" placeholder="Search names, places, magic…" autocomplete="off" aria-label="Search notes">
+      <button class="primary" id="newBtn">＋ New note</button>
+    </div>
+    <div class="lists" id="lists"></div>
+    <div class="bottom">
+      <div class="budget" id="budget"></div>
+      <button id="fillBtn" title="Copy each part of the narrator's lore.md in as a note">⬇ Fill in from the world's lore</button>
+      <button id="importBtn">⬆ Import a codex backup (.json)</button>
+      <a href="/verrowen/">🕯 Play Wake in Verrowen</a>
+      <a href="/journal/">📖 Adventurer's Journal</a>
+      <a href="/verrowen/#admin" title="For the laptop's owner: change the narrator model">🔒 Admin</a>
+      <small>Saved in this browser only. Download a backup now and then.</small>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <main class="main">
+    <div class="emptybar"><button class="menu" id="menu0" aria-label="Show notes">☰</button></div>
+    <div class="empty" id="empty">
+      <div class="big">📜</div>
+      <h1>The Verrowen Codex</h1>
+      <p>Keep the world here: the people of Stoutwell and beyond, places, peoples, how magic works, items of note and the rules folk live by. Link notes with <b>[[double brackets]]</b>.</p>
+      <p>Tick <b>🕯 The narrator knows this</b> on a decided note and Wake in Verrowen weaves it into stories played in this browser. Pitches stay out until you decide them.</p>
+      <div class="cats" id="emptyCats"></div>
+      <div class="cta">
+        <button class="primary" id="emptyNew">＋ New note</button>
+        <button id="emptyFill">⬇ Start from the world's lore</button>
+        <button id="emptyImport">⬆ Import a backup</button>
+      </div>
+    </div>
+
+    <section id="note" hidden style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <div class="bar">
+        <button class="menu" id="menu" aria-label="Show notes">☰</button>
+        <select id="cat" aria-label="Kind of note"></select>
+        <input class="title" id="title" placeholder="Untitled" aria-label="Note title" autocomplete="off">
+        <div class="tools">
+          <button class="tb" id="previewBtn" title="Switch between writing and reading (Ctrl+E)">👁 <span class="lbl">Preview</span></button>
+          <button class="tb" id="wakeBtn" title="Start a Wake in Verrowen story as this character" hidden>🕯 <span class="lbl">Wake as them</span></button>
+          <details class="dd" id="dlMenu">
+            <summary class="tb" title="Download">⬇ <span class="lbl">Download</span></summary>
+            <div class="pop">
+              <button data-dl="note">This note <small>.md</small></button>
+              <button data-dl="lore">What the narrator knows <small>.md, lore lines to paste into lore.md</small></button>
+              <button data-dl="all">Whole codex <small>.md, every note by kind</small></button>
+              <button data-dl="json">Codex backup <small>.json, with pictures, to import later</small></button>
+            </div>
+          </details>
+          <button class="tb del" id="delBtn" title="Delete this note">🗑</button>
+        </div>
+        <span class="saved" id="saved"></span>
+      </div>
+      <div class="body">
+        <div class="head">
+          <div class="pic">
+            <button class="pfp" id="picBtn" title="Choose a picture">＋ Picture</button>
+            <button class="link" id="picClear" hidden>Remove</button>
+          </div>
+          <div class="meta">
+            <div class="fields" id="fields"></div>
+            <div class="flags">
+              <label>Status <select id="status"><option value="decided">Decided</option><option value="pitch">Pitch, still deciding</option></select></label>
+              <label class="check"><input type="checkbox" id="narr"> 🕯 The narrator knows this</label>
+              <small id="narrHint"></small>
+            </div>
+          </div>
+        </div>
+        <textarea id="text" spellcheck="true"></textarea>
+        <div class="preview" id="preview" hidden></div>
+        <p class="hint" id="mdHint">Link another note with <code>[[Its name]]</code>. <code>#</code> heading, <code>-</code> list, <code>&gt;</code> quote, <code>**bold**</code>, <code>*italic*</code>.</p>
+        <div class="refs" id="refs"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<input type="file" id="picInput" accept="image/*" hidden>
+<input type="file" id="importInput" accept=".json,application/json" hidden>
+
+<script>
+// The Verrowen Codex: a worldbuilding journal for the Grand Orrery's Verrowen.
+// Notes live in this browser's localStorage under "verrowen-codex". The game
+// page (/verrowen/) reads the decided notes marked "the narrator knows this"
+// and sends them with the lore, so keep codexLines() in step with its copy.
+(() => {
+  const KEY = "verrowen-codex", UI_KEY = "verrowen-codex.ui";
+  const LORE_URL = "https://raw.githubusercontent.com/sheastolp/grand-orrery/main/lore.md";
+  const NARRATOR_BUDGET = 6000, NOTE_BUDGET = 700;
+  const CATS = [
+    {id: "character", icon: "🧑", name: "Characters", one: "Character", f: [["race", "Race", "Halfling"], ["sex", "Sex", "F"], ["age", "Age", "33"], ["role", "Role", "Blacksmith's apprentice"], ["home", "Lives in", "Stoutwell, the SE slums"], ["secret", "Secret", "What few people know", 1]],
+      ph: "Who they are: personality, history, how they talk, who they love and fear…\n\nKnows [[Tobin Ashby]]."},
+    {id: "people", icon: "🏘", name: "Peoples & groups", one: "People or group", f: [["kind", "Kind", "Race, guild, family, cult"], ["where", "Found in", "Stoutwell, the Kingdom"], ["leader", "Led by", ""]],
+      ph: "What they're like, what they want, how others see them…"},
+    {id: "place", icon: "🗺", name: "Places", one: "Place", f: [["kind", "Kind", "Village, forest, ruin"], ["where", "Where", "West of Stoutwell"], ["who", "Who's there", "Goblins, the Guard"]],
+      ph: "What it looks, sounds and smells like, its history, its dangers…"},
+    {id: "magic", icon: "✨", name: "Magic", one: "Magic", f: [["kind", "Type", "Elemental, detection"], ["who", "Who can use it", "Elves most, then humans"], ["cost", "Cost or limit", "Mana, sickness when spent"]],
+      ph: "How it works, what it can't do, what it costs…"},
+    {id: "item", icon: "🗝", name: "Items", one: "Item", f: [["kind", "Kind", "Tool, relic, weapon"], ["owner", "Held by", "Murrow"], ["power", "What it does", "Finds other artificers"]],
+      ph: "What it looks like, where it came from, who wants it…"},
+    {id: "rule", icon: "⚖", name: "Rules & customs", one: "Rule or custom", f: [["applies", "Applies to", "All of Stoutwell"]],
+      ph: "The rule, who keeps it, what happens when it's broken…"},
+    {id: "other", icon: "🪶", name: "Other notes", one: "Note", f: [],
+      ph: "Anything else about the world…"}
+  ];
+  const CAT = Object.fromEntries(CATS.map((c) => [c.id, c]));
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"})[c]);
+  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+  const str = (v, n = 20000) => (typeof v === "string" ? v : v == null ? "" : String(v)).slice(0, n);
+
+  // ---------- Storage ----------
+  function clean(n) {
+    if (!n || typeof n !== "object") return null;
+    const f = {};
+    if (n.f && typeof n.f === "object") for (const [k, v] of Object.entries(n.f)) if (/^[a-z]{1,20}$/.test(k)) f[k] = str(v, 300);
+    const pic = typeof n.pic === "string" && /^data:image\/(jpeg|png|webp|gif);base64,/.test(n.pic) ? n.pic : "";
+    return {
+      id: str(n.id, 80) || uid(), cat: CAT[n.cat] ? n.cat : "other", title: str(n.title, 120), body: str(n.body),
+      status: n.status === "pitch" ? "pitch" : "decided", narrator: !!n.narrator, f, pic,
+      source: str(n.source, 40), created: +n.created || Date.now(), updated: +n.updated || Date.now()
+    };
+  }
+  function load() {
+    try { const d = JSON.parse(localStorage.getItem(KEY) || "null"); if (d && Array.isArray(d.notes)) return d.notes.map(clean).filter(Boolean); } catch {}
+    return [];
+  }
+  let notes = load();
+  let ui = {}; try { ui = JSON.parse(localStorage.getItem(UI_KEY) || "{}") || {}; } catch {}
+  ui.shut = ui.shut || {};
+  const saveUi = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch {} };
+  let saveTimer = 0;
+  function persist() {
+    clearTimeout(saveTimer); saveTimer = 0;
+    try {
+      localStorage.setItem(KEY, JSON.stringify({v: 1, notes}));
+      $("saved").className = "saved"; $("saved").textContent = "Saved " + new Date().toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+      return true;
+    } catch (e) {
+      $("saved").className = "saved bad"; $("saved").textContent = "⚠ This browser's storage is full. Remove a picture or download a backup.";
+      return false;
+    }
+  }
+  const saveSoon = () => { $("saved").className = "saved"; $("saved").textContent = "Saving…"; clearTimeout(saveTimer); saveTimer = setTimeout(persist, 400); };
+  window.addEventListener("beforeunload", () => { if (saveTimer) persist(); });
+
+  // ---------- What the narrator is told ----------
+  // Same as codexText() in /verrowen/index.html.
+  const plain = (s) => String(s).replace(/\[\[([^\]]+)\]\]/g, "$1").replace(/^\s*(#+|>|[-*])\s*/gm, "").replace(/\*+/g, "").replace(/\s+/g, " ").trim();
+  function noteLine(n) {
+    const c = CAT[n.cat] || CAT.other;
+    const bits = c.f.map(([k, label]) => (n.f[k] || "").trim() ? `${label}: ${plain(n.f[k])}` : "").filter(Boolean);
+    let line = `${c.one.toUpperCase()}: ${plain(n.title) || "Untitled"}${bits.length ? " (" + bits.join("; ") + ")" : ""}`;
+    const body = plain(n.body);
+    if (body) line += ". " + body;
+    return line.length > NOTE_BUDGET ? line.slice(0, NOTE_BUDGET - 1).trim() + "…" : line;
+  }
+  const told = () => notes.filter((n) => n.narrator && n.status === "decided" && n.title.trim());
+  function drawBudget() {
+    const list = told(), chars = list.map(noteLine).join("\n").length;
+    const b = $("budget");
+    if (!list.length) { b.innerHTML = "🕯 The narrator knows none of your notes yet."; return; }
+    b.innerHTML = `🕯 The narrator knows <b>${list.length}</b> ${list.length === 1 ? "note" : "notes"} · ${chars.toLocaleString()} of ${NARRATOR_BUDGET.toLocaleString()} characters` +
+      (chars > NARRATOR_BUDGET ? `<br><span class="over">Over the limit: the newest notes past it are left out. Untick some, or move them into lore.md.</span>` : "");
+  }
+
+  // ---------- Sidebar ----------
+  let cur = null, query = "";
+  const byTitle = (t) => { const k = t.trim().toLowerCase(); return notes.find((n) => n.title.trim().toLowerCase() === k); };
+  const matches = (n, q) => !q || [n.title, n.body, ...Object.values(n.f)].join("\n").toLowerCase().includes(q);
+  function drawSide() {
+    const box = $("lists"), q = query.trim().toLowerCase();
+    box.innerHTML = "";
+    for (const c of CATS) {
+      const list = notes.filter((n) => n.cat === c.id && matches(n, q)).sort((a, b) => (a.title || "~").localeCompare(b.title || "~"));
+      if (q && !list.length) continue;
+      const shut = !q && ui.shut[c.id];
+      const sec = document.createElement("div"); sec.className = "sec" + (shut ? " shut" : "");
+      sec.innerHTML = `<button class="tog" aria-expanded="${!shut}">${c.icon} ${esc(c.name.toUpperCase())} <span class="n">${list.length || ""}</span><span class="chev">▾</span></button><button class="add" title="New ${esc(c.one.toLowerCase())}">＋</button>`;
+      sec.querySelector(".tog").onclick = () => { ui.shut[c.id] = !ui.shut[c.id]; saveUi(); drawSide(); };
+      sec.querySelector(".add").onclick = () => newNote(c.id);
+      box.appendChild(sec);
+      if (shut) continue;
+      const ul = document.createElement("ul"); ul.className = "list";
+      if (!list.length) ul.innerHTML = `<li class="none">None yet</li>`;
+      for (const n of list) {
+        const li = document.createElement("li"); if (cur && n.id === cur.id) li.className = "on";
+        const mark = n.status === "pitch" ? `<span class="mk pitch" title="Pitch: still deciding">✎</span>` : n.narrator ? `<span class="mk" title="The narrator knows this">🕯</span>` : "";
+        li.innerHTML = `<button><span class="t">${esc(n.title || "Untitled")}</span>${mark}</button>`;
+        li.firstChild.onclick = () => { open(n.id); document.body.classList.remove("nav"); };
+        ul.appendChild(li);
+      }
+      box.appendChild(ul);
+    }
+    if (q && !box.children.length) box.innerHTML = `<p class="list"><span class="none">Nothing matches “${esc(query.trim())}”.</span></p>`;
+    drawBudget();
+  }
+  $("q").addEventListener("input", (e) => { query = e.target.value; drawSide(); });
+
+  // ---------- The open note ----------
+  $("cat").innerHTML = CATS.map((c) => `<option value="${c.id}">${c.icon} ${esc(c.one)}</option>`).join("");
+  $("emptyCats").innerHTML = CATS.map((c) => `<span>${c.icon} ${esc(c.name)}</span>`).join("");
+  let previewing = false;
+
+  function show() {
+    $("empty").hidden = !!cur;
+    document.querySelector(".emptybar").hidden = !!cur;
+    $("note").hidden = !cur;
+  }
+  function drawFields() {
+    const c = CAT[cur.cat], box = $("fields");
+    box.innerHTML = "";
+    for (const [k, label, ph, wide] of c.f) {
+      const l = document.createElement("label"); l.className = "f" + (wide ? " wide" : "");
+      l.textContent = label;
+      const i = document.createElement("input"); i.value = cur.f[k] || ""; i.placeholder = ph; i.autocomplete = "off"; i.maxLength = 300;
+      i.oninput = () => { cur.f[k] = i.value; touch(); };
+      l.appendChild(i); box.appendChild(l);
+    }
+    $("text").placeholder = c.ph;
+    $("wakeBtn").hidden = cur.cat !== "character";
+  }
+  function drawFlags() {
+    $("status").value = cur.status;
+    $("narr").checked = cur.narrator;
+    $("narr").disabled = cur.status === "pitch";
+    const h = $("narrHint");
+    h.className = cur.status === "pitch" ? "warn" : "";
+    h.textContent = cur.status === "pitch" ? "Pitches never reach the narrator. Mark it decided when you're sure."
+      : cur.narrator ? "Sent with every turn of Wake in Verrowen played in this browser, alongside lore.md."
+      : cur.source === "lore.md" ? "Copied from lore.md, which the narrator already reads." : "Only in your codex. The narrator doesn't see it.";
+  }
+  function drawPic() {
+    const b = $("picBtn");
+    b.style.backgroundImage = cur.pic ? `url("${cur.pic}")` : "";
+    b.classList.toggle("has", !!cur.pic);
+    b.textContent = cur.pic ? "" : "＋ Picture";
+    $("picClear").hidden = !cur.pic;
+  }
+  function open(id) {
+    if (saveTimer) persist();
+    cur = notes.find((n) => n.id === id) || null;
+    show();
+    if (!cur) { history.replaceState(null, "", location.pathname); drawSide(); return; }
+    history.replaceState(null, "", "#" + encodeURIComponent(cur.id));
+    ui.last = cur.id; saveUi();
+    $("cat").value = cur.cat;
+    $("title").value = cur.title;
+    $("text").value = cur.body;
+    $("saved").textContent = ""; $("saved").className = "saved";
+    drawFields(); drawFlags(); drawPic(); drawRefs();
+    setPreview(previewing && !!cur.body.trim());
+    drawSide();
+  }
+  function touch(side) { cur.updated = Date.now(); saveSoon(); if (side) drawSide(); else drawBudget(); }
+  function newNote(cat, title = "") {
+    const n = clean({id: uid(), cat: cat || (cur && cur.cat) || "character", title, status: "decided", narrator: true});
+    notes.push(n); persist();
+    previewing = false; ui.shut[n.cat] = false; saveUi();
+    open(n.id);
+    $("title").focus();
+    document.body.classList.remove("nav");
+    return n;
+  }
+  $("newBtn").onclick = () => newNote();
+  $("emptyNew").onclick = () => newNote("character");
+
+  $("title").addEventListener("input", () => { cur.title = $("title").value.slice(0, 120); touch(true); });
+  $("text").addEventListener("input", () => { cur.body = $("text").value; touch(); });
+  $("text").addEventListener("blur", drawRefs);
+  $("cat").addEventListener("change", () => { cur.cat = $("cat").value; drawFields(); ui.shut[cur.cat] = false; saveUi(); touch(true); });
+  $("status").addEventListener("change", () => { cur.status = $("status").value; drawFlags(); touch(true); });
+  $("narr").addEventListener("change", () => { cur.narrator = $("narr").checked; drawFlags(); touch(true); });
+
+  $("delBtn").onclick = () => {
+    if (!confirm(`Delete “${cur.title || "Untitled"}”? This can't be undone, unless it's in a backup.`)) return;
+    notes = notes.filter((n) => n !== cur); persist();
+    const next = notes.find((n) => n.cat === cur.cat) || notes[0];
+    cur = null; open(next ? next.id : null);
+  };
+
+  // ---------- Pictures ----------
+  function shrink(file, max = 360) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const s = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(img.width * s)); c.height = Math.max(1, Math.round(img.height * s));
+        const g = c.getContext("2d"); g.fillStyle = "#241a13"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url); resolve(c.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("That file isn't an image this browser can read.")); };
+      img.src = url;
+    });
+  }
+  $("picBtn").onclick = () => $("picInput").click();
+  $("picInput").addEventListener("change", async (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (!f || !cur) return;
+    try { cur.pic = await shrink(f); drawPic(); cur.updated = Date.now(); persist(); }
+    catch (err) { alert(err.message); }
+  });
+  $("picClear").onclick = () => { cur.pic = ""; drawPic(); touch(); };
+
+  // ---------- Preview and [[links]] ----------
+  function inline(s) {
+    return s
+      .replace(/\[\[([^\]]{1,120})\]\]/g, (m, t) => {
+        const raw = t.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+        const n = byTitle(raw);
+        return n ? `<a href="#" class="wl" data-go="${esc(n.id)}">${t}</a>` : `<a href="#" class="wl new" data-make="${t}" title="No note called this yet. Click to start one.">${t}</a>`;
+      })
+      .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+      .replace(/(^|[^*])\*([^*\s][^*]*?)\*/g, "$1<i>$2</i>");
+  }
+  function render(src) {
+    const out = []; let list = false, para = [];
+    const flush = () => { if (para.length) { out.push(`<p>${inline(para.join("<br>"))}</p>`); para = []; } if (list) { out.push("</ul>"); list = false; } };
+    for (const line of esc(src).split("\n")) {
+      let m;
+      if (!line.trim()) { flush(); continue; }
+      if ((m = line.match(/^(#{1,3})\s+(.*)$/))) { flush(); out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`); continue; }
+      if ((m = line.match(/^\s*[-*]\s+(.*)$/))) { if (para.length) { const l = list; list = false; flush(); list = l; } if (!list) { out.push("<ul>"); list = true; } out.push(`<li>${inline(m[1])}</li>`); continue; }
+      if ((m = line.match(/^&gt;\s?(.*)$/))) { flush(); out.push(`<blockquote>${inline(m[1])}</blockquote>`); continue; }
+      if (list) flush();
+      para.push(line);
+    }
+    flush();
+    return out.join("\n");
+  }
+  function setPreview(on) {
+    previewing = on;
+    drawRefs();
+    $("previewBtn").classList.toggle("on", on);
+    $("text").hidden = on; $("mdHint").hidden = on; $("preview").hidden = !on;
+    if (on) $("preview").innerHTML = cur.body.trim() ? render(cur.body) : `<p class="blank">Nothing written yet.</p>`;
+  }
+  $("previewBtn").onclick = () => setPreview(!previewing);
+  document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "e" && cur) { e.preventDefault(); setPreview(!previewing); } });
+  $("preview").addEventListener("click", (e) => {
+    const a = e.target.closest("a.wl"); if (!a) return;
+    e.preventDefault();
+    if (a.dataset.go) open(a.dataset.go);
+    else { const from = cur; const n = newNote(guessCat(a.dataset.make, from), a.dataset.make); $("title").value = n.title; drawSide(); }
+  });
+  const guessCat = (t, from) => (from ? from.cat : "character");
+  // Which notes link here, and which notes this one links to.
+  function drawRefs() {
+    if (!cur) return;
+    const t = cur.title.trim().toLowerCase(), box = $("refs");
+    const linkRe = /\[\[([^\]]{1,120})\]\]/g;
+    const back = t ? notes.filter((n) => n !== cur && [...n.body.matchAll(linkRe)].some((m) => m[1].trim().toLowerCase() === t)) : [];
+    const outs = [...new Set([...cur.body.matchAll(linkRe)].map((m) => m[1].trim()))].map(byTitle).filter((n) => n && n !== cur);
+    const btns = (list) => list.map((n) => `<button data-go="${esc(n.id)}">${CAT[n.cat].icon} ${esc(n.title)}</button>`).join("");
+    box.innerHTML = (outs.length ? `<div><b>LINKS TO</b>${btns(outs)}</div>` : "") + (back.length ? `<div><b>MENTIONED IN</b>${btns(back)}</div>` : "");
+  }
+  $("refs").addEventListener("click", (e) => { const b = e.target.closest("button[data-go]"); if (b) open(b.dataset.go); });
+
+  // ---------- Wake as this character ----------
+  // Hands the character to /verrowen/ the same way the home page's picker does.
+  $("wakeBtn").onclick = () => {
+    if (saveTimer) persist();
+    let playerName = "";
+    try { playerName = (JSON.parse(localStorage.getItem("verrowen-story") || "null") || {}).playerName || ""; } catch {}
+    playerName = playerName || localStorage.getItem("verrowen-codex.player") || "";
+    if (!playerName) {
+      playerName = (prompt("Your name, for the story's record:") || "").trim().slice(0, 60);
+      if (!playerName) return;
+    }
+    try { localStorage.setItem("verrowen-codex.player", playerName); } catch {}
+    const c = CAT.character;
+    const facts = c.f.map(([k, label]) => (cur.f[k] || "").trim() ? `${label}: ${plain(cur.f[k])}.` : "").filter(Boolean).join(" ");
+    const description = `${plain(cur.title) || "A character"} from the author's own codex. ${facts} ${plain(cur.body)}`.replace(/\s+/g, " ").trim().slice(0, 1200);
+    try {
+      localStorage.setItem("verrowen.setup", JSON.stringify({playerName, characterName: plain(cur.title).slice(0, 60), character: {kind: "own", label: plain(cur.title) || "your own character", description}, at: Date.now()}));
+    } catch { alert("This browser's storage is full, so the story couldn't be handed over."); return; }
+    location.href = "/verrowen/";
+  };
+
+  // ---------- Downloads ----------
+  const download = (blob, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+  const fileName = (s) => (s || "untitled").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase().slice(0, 60) || "untitled";
+  const today = () => new Date().toISOString().slice(0, 10);
+  function noteMd(n, h = "#") {
+    const c = CAT[n.cat];
+    const facts = c.f.map(([k, label]) => (n.f[k] || "").trim() ? `- **${label}:** ${n.f[k].trim()}` : "").filter(Boolean);
+    const tags = [c.one, n.status === "pitch" ? "Pitch" : "Decided", n.narrator && n.status === "decided" ? "Narrator knows" : ""].filter(Boolean).join(" · ");
+    return `${h} ${n.title || "Untitled"}\n\n*${tags}*\n\n${facts.length ? facts.join("\n") + "\n\n" : ""}${n.body.trim()}\n`;
+  }
+  $("dlMenu").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-dl]"); if (!b) return;
+    $("dlMenu").open = false;
+    if (saveTimer) persist();
+    const kind = b.dataset.dl;
+    if (kind === "note") download(new Blob([noteMd(cur)], {type: "text/markdown"}), fileName(cur.title) + ".md");
+    else if (kind === "lore") {
+      const list = told();
+      if (!list.length) { alert("The narrator doesn't know any of your notes yet. Tick 🕯 on a decided note first."); return; }
+      download(new Blob([`# Codex additions for lore.md\n\n${today()}. One line per note. Paste the ones you want into grand-orrery/lore.md, then untick them here so they aren't sent twice.\n\n${list.map(noteLine).join("\n")}\n`], {type: "text/markdown"}), "verrowen-codex-lore.md");
+    } else if (kind === "all") {
+      const parts = CATS.map((c) => {
+        const list = notes.filter((n) => n.cat === c.id).sort((a, b) => a.title.localeCompare(b.title));
+        return list.length ? `## ${c.name}\n\n${list.map((n) => noteMd(n, "###")).join("\n")}` : "";
+      }).filter(Boolean);
+      download(new Blob([`# The Verrowen Codex\n\n${today()}\n\n${parts.join("\n")}`], {type: "text/markdown"}), "verrowen-codex.md");
+    } else if (kind === "json") download(new Blob([JSON.stringify({kind: "verrowen-codex", v: 1, exported: new Date().toISOString(), notes}, null, 1)], {type: "application/json"}), `verrowen-codex-${today()}.json`);
+  });
+  document.addEventListener("click", (e) => { if (!e.target.closest("#dlMenu")) $("dlMenu").open = false; });
+
+  // ---------- Import a backup ----------
+  const pickImport = () => $("importInput").click();
+  $("importBtn").onclick = pickImport; $("emptyImport").onclick = pickImport;
+  $("importInput").addEventListener("change", async (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (!f) return;
+    let list;
+    try { const d = JSON.parse(await f.text()); list = Array.isArray(d) ? d : d && Array.isArray(d.notes) ? d.notes : null; } catch {}
+    if (!list) { alert("That file isn't a codex backup."); return; }
+    let added = 0, updated = 0;
+    for (const raw of list) {
+      const n = clean(raw); if (!n) continue;
+      const i = notes.findIndex((x) => x.id === n.id);
+      if (i < 0) { notes.push(n); added++; }
+      else if (n.updated >= notes[i].updated) { notes[i] = n; updated++; }
+    }
+    persist(); drawSide();
+    if (!cur && notes.length) open(notes[0].id);
+    alert(`Imported ${added} new ${added === 1 ? "note" : "notes"}${updated ? ` and updated ${updated}` : ""}.`);
+  });
+
+  // ---------- Fill in from lore.md ----------
+  // Each "KEY: text" line of the narrator's lore becomes a note, and the
+  // PEOPLE line becomes one character each. Notes already here are skipped.
+  const LORE_CATS = {UNIVERSE: "place", WORLD: "place", TONE: "rule", MAGIC: "magic", ARTIFICERS: "magic", STOUTWELL: "place", LIFE: "rule", "DEFENSE AND LAW": "rule", LEADERSHIP: "people", BEYOND: "place"};
+  const LORE_TITLES = {UNIVERSE: "The Grand Orrery", WORLD: "Verrowen", TONE: "Tone of the world", MAGIC: "How magic works", ARTIFICERS: "Artificers", STOUTWELL: "Stoutwell", LIFE: "Life in Stoutwell", "DEFENSE AND LAW": "Defense and law", LEADERSHIP: "The Hearthcircle and the Elderhold", BEYOND: "Beyond Stoutwell"};
+  async function fillFromLore() {
+    let md;
+    try { const r = await fetch(LORE_URL, {cache: "no-cache"}); if (!r.ok) throw 0; md = await r.text(); }
+    catch { md = localStorage.getItem("verrowen-lore"); if (!md) { alert("Couldn't reach the world's lore. Check your connection and try again."); return; } }
+    const made = [];
+    const add = (n) => { if (byTitle(n.title)) return; const c = clean({...n, id: uid(), status: "decided", narrator: false, source: "lore.md"}); notes.push(c); made.push(c); };
+    for (const line of md.split("\n")) {
+      const m = line.match(/^([A-Z][A-Z ]+):\s*(.+)$/); if (!m) continue;
+      const key = m[1].trim(), text = m[2].trim();
+      if (key === "PEOPLE") {
+        for (const p of text.matchAll(/([^().]+?)\s*\(([^)]*)\)\.?/g)) {
+          // "halfling, 33, blacksmith's apprentice; …": take the race and age
+          // only when they're plain, and keep the whole description as the body.
+          const parts = p[2].split(/,\s*/).map((s) => s.trim());
+          const race = /^[A-Za-z-]+$/.test(parts[0] || "") ? parts[0] : "";
+          const age = race && /^\d+\+?$/.test(parts[1] || "") ? parts[1] : "";
+          add({cat: "character", title: p[1].trim(), f: {race: race.replace(/^./, (c) => c.toUpperCase()), age}, body: p[2].trim().replace(/^./, (c) => c.toUpperCase()) + "."});
+        }
+        continue;
+      }
+      add({cat: LORE_CATS[key] || "other", title: LORE_TITLES[key] || key.charAt(0) + key.slice(1).toLowerCase(), body: text});
+    }
+    persist(); drawSide();
+    if (made.length && !cur) open(made[0].id);
+    alert(made.length ? `Added ${made.length} notes from lore.md. The narrator already reads lore.md, so they start with 🕯 unticked.` : "Everything in lore.md is already in your codex.");
+  }
+  $("fillBtn").onclick = fillFromLore; $("emptyFill").onclick = fillFromLore;
+
+  // ---------- Small screens, other tabs ----------
+  const toggleNav = () => document.body.classList.toggle("nav");
+  $("menu").onclick = toggleNav; $("menu0").onclick = toggleNav; $("scrim").onclick = toggleNav;
+  window.addEventListener("storage", (e) => {
+    if (e.key !== KEY) return;
+    notes = load();
+    const id = cur && cur.id; cur = null;
+    if (id && notes.some((n) => n.id === id)) open(id); else { show(); drawSide(); }
+  });
+
+  // ---------- Start ----------
+  const want = decodeURIComponent(location.hash.slice(1));
+  const first = notes.find((n) => n.id === want) || notes.find((n) => n.id === ui.last);
+  if (first) open(first.id); else { show(); drawSide(); }
+})();
+</script>
+</body>
+</html>

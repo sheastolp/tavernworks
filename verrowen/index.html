@@ -31,7 +31,7 @@
   }
   a{color:var(--gold2)}
   .wrap{max-width:820px;margin:0 auto;padding:0 16px}
-  nav{padding:22px 0 0}
+  nav{padding:22px 0 0;display:flex;justify-content:space-between;gap:12px}
   .back{font-size:14px;color:var(--muted);text-decoration:none}
   .back:hover{color:var(--gold2)}
 
@@ -130,7 +130,7 @@
 <body>
 <script>if (/[?&]embed\b/.test(location.search)) document.documentElement.classList.add("embed");</script>
 <div class="wrap">
-  <nav><a class="back" href="/">← Back to the tavern</a></nav>
+  <nav><a class="back" href="/">← Back to the tavern</a><a class="back" href="/verrowen/codex/" title="World notes: characters, places, magic, items and rules">📜 Codex</a></nav>
 
   <header>
     <div class="sign">THE GRAND ORRERY · VERROWEN</div>
@@ -212,7 +212,7 @@
     <p><b>How it runs.</b> The narrator is a small AI model on the same laptop as <a href="/local-ai/">Local AI</a>. Your browser talks to it directly, so nothing goes through a cloud AI service. If the laptop is asleep, the narrator can't answer. Replies take a few seconds.</p>
   </section>
 
-  <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus<br><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a> · <button class="link" type="button" id="ownerBtn" title="For the laptop's owner">🔒 Narrator model</button></footer>
+  <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Brewed by Stoned Sheamus<br><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a> · <a href="/verrowen/codex/" title="World notes: characters, places, magic, items and rules">📜 Codex</a> · <a href="/verrowen/#admin" id="ownerBtn" title="For the laptop's owner: change the narrator model">🔒 Admin</a></footer>
   <dialog id="owner" aria-label="Narrator model">
     <h2>🔒 Narrator model</h2>
     <form id="ownerForm" method="dialog">
@@ -263,12 +263,34 @@ function characterText(c){
   return "";
 }
 
+// The author's own notes from the Verrowen Codex (/verrowen/codex/), saved in
+// this browser. Only decided notes ticked "the narrator knows this" are sent,
+// oldest first, up to a budget. Keep this in step with noteLine() there.
+const CODEX_ONE = {character: "Character", people: "People or group", place: "Place", magic: "Magic", item: "Item", rule: "Rule or custom", other: "Note"};
+const CODEX_FIELDS = {character: [["race","Race"],["sex","Sex"],["age","Age"],["role","Role"],["home","Lives in"],["secret","Secret"]], people: [["kind","Kind"],["where","Found in"],["leader","Led by"]], place: [["kind","Kind"],["where","Where"],["who","Who's there"]], magic: [["kind","Type"],["who","Who can use it"],["cost","Cost or limit"]], item: [["kind","Kind"],["owner","Held by"],["power","What it does"]], rule: [["applies","Applies to"]], other: []};
+function codexText(){
+  let notes = [];
+  try{ const d = JSON.parse(store.get("verrowen-codex") || "null"); if (d && Array.isArray(d.notes)) notes = d.notes; }catch(e){}
+  const plain = s => String(s || "").replace(/\[\[([^\]]+)\]\]/g, "$1").replace(/^\s*(#+|>|[-*])\s*/gm, "").replace(/\*+/g, "").replace(/\s+/g, " ").trim();
+  const lines = []; let used = 0;
+  for (const n of notes.filter(n => n && n.narrator && n.status !== "pitch" && plain(n.title)).sort((a, b) => (+a.created || 0) - (+b.created || 0))){
+    const cat = CODEX_ONE[n.cat] ? n.cat : "other", f = n.f && typeof n.f === "object" ? n.f : {};
+    const bits = CODEX_FIELDS[cat].map(([k, label]) => plain(f[k]) ? `${label}: ${plain(f[k])}` : "").filter(Boolean);
+    let line = `${CODEX_ONE[cat].toUpperCase()}: ${plain(n.title)}${bits.length ? " (" + bits.join("; ") + ")" : ""}`;
+    if (plain(n.body)) line += ". " + plain(n.body);
+    if (line.length > 700) line = line.slice(0, 699).trim() + "…";
+    if (used + line.length + 1 > 6000) break;
+    lines.push(line); used += line.length + 1;
+  }
+  return lines.length ? `\n\nMORE LORE (the author's own notes, as true as the LORE above):\n${lines.join("\n")}` : "";
+}
+
 function buildMessages(lore, history, seed, characterName, mode){
   const clean = history.map(m => ({role: m.role, content: String(m.content).slice(0, MAX_CHARS)})).slice(-MAX_TURNS);
   const seedText = seed ? `\n\nOPENING FOR THIS STORY (randomized per player): the character wakes in ${seed.place}, ${seed.time}. Nearby objects: ${seed.objects.join("; ")}. Complication: ${seed.twist}.` : "";
   const nameText = characterName ? `\n\nThe character's true name is ${characterName.slice(0, 60)}. They don't remember it. Reveal it at a fitting moment, not in the first turn.` : NO_NAME;
   const purposeText = `\n\nWHAT THE PLAYER WANTS: ${STORY_STYLE}`;
-  const out = [{role: "user", content: `${RULES}${purposeText}\n\nLORE:\n${lore}${seedText}${nameText}${characterText(character)}\n\nBegin the story now.`}, ...clean];
+  const out = [{role: "user", content: `${RULES}${purposeText}\n\nLORE:\n${lore}${codexText()}${seedText}${nameText}${characterText(character)}\n\nBegin the story now.`}, ...clean];
   if (mode === "wrap") out.push({role: "user", content: purpose === "dnd" ? WRAP_DND : WRAP_STORY});
   if (out[out.length - 1].role !== "user") out.push({role: "user", content: "Continue."});
   return out;
@@ -401,7 +423,16 @@ async function owner(path, body){
   store.set("verrowen-owner", token);
   return j;
 }
-$("ownerBtn").addEventListener("click", () => { $("ownerToken").value = store.get("verrowen-owner") || ""; $("ownerStatus").textContent = ""; $("owner").showModal(); if ($("ownerToken").value) $("ownerLoad").click(); });
+// The admin panel opens from the footer link, or from /verrowen/#admin.
+function openOwner(){
+  if (location.hash === "#admin") history.replaceState(null, "", location.pathname + location.search);
+  if ($("owner").open) return;
+  $("ownerToken").value = store.get("verrowen-owner") || ""; $("ownerStatus").textContent = ""; $("owner").showModal();
+  if ($("ownerToken").value) $("ownerLoad").click();
+}
+$("ownerBtn").addEventListener("click", e => { e.preventDefault(); openOwner(); });
+window.addEventListener("hashchange", () => { if (location.hash === "#admin") openOwner(); });
+if (location.hash === "#admin") openOwner();
 $("ownerLoad").addEventListener("click", async () => {
   const st = $("ownerStatus"); st.textContent = "Asking the laptop…";
   try{
