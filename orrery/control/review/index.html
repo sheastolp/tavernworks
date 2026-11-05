@@ -219,7 +219,7 @@ load();
 
 // ── The owner's latest lore-keeper chat ──
 let lkChat = null;
-const MODE = { create: "Creating a character", review: "Reviewing", world: "Worldbuilding and mechanics" };
+const MODE = { chat: "Open chat", create: "Creating a character", review: "Reviewing", world: "Worldbuilding and mechanics" };
 async function loadLk(){
   const st = $("lkStatus"), token = $("token").value.trim();
   if (!token){ st.textContent = "Enter the owner's token below first."; return; }
@@ -232,7 +232,7 @@ async function loadLk(){
     lkChat = j.chat;
     if (!lkChat){ st.textContent = "No chat saved yet. Chat with the lore-keeper on a browser where you've entered the token."; $("lk").hidden = true; return; }
     st.textContent = "";
-    $("lkMeta").textContent = (lkChat.title || "Untitled chat") + " · " + (MODE[lkChat.mode] || lkChat.mode || "chat") + " · saved " + when(lkChat.saved);
+    $("lkMeta").textContent = (lkChat.title || "Untitled chat") + " · " + (MODE[lkChat.mode] || lkChat.mode || "chat") + (lkChat.mode === "chat" && lkChat.kind ? " (" + lkChat.kind + ")" : "") + " · saved " + when(lkChat.saved);
     $("lkLog").innerHTML = (lkChat.idea ? [{ role: "user", content: "Starting idea: " + lkChat.idea }] : []).concat(lkChat.messages).map((m) =>
       `<div class="msg ${m.role === "user" ? "you" : ""}"><b>${m.role === "user" ? "You" : "The lore-keeper"}</b>${esc(m.content)}</div>`).join("");
     $("lkWriteWrap").hidden = !lkChat.writeup; $("lkWrite").textContent = lkChat.writeup || "";

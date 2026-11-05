@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Orrery Explorer · Tavernworks</title>
-<meta name="description" content="Browse the Grand Orrery: its maps, documents, character roster and enchanted items, and everything written about each one. A chat with the local AI helps create and review characters and work out worldbuilding and mechanics.">
+<meta name="description" content="Browse the Grand Orrery: its maps, documents, character roster and enchanted items, and everything written about each one. A chat with the local AI talks through anything in it: characters, regions, rules, magic and more.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -125,6 +125,10 @@
   .earlier .row span{min-width:0;flex:1;font-size:14px}
   .earlier .row small{display:block;color:var(--muted);font-size:12.5px}
   .composer{border-top:1px solid var(--line);padding:12px 16px 14px;display:flex;flex-direction:column;gap:8px;background:rgba(0,0,0,.18)}
+  .chathead .topic{display:flex;align-items:center;gap:8px;font-family:Inter,sans-serif;letter-spacing:0;color:var(--muted);font-size:13px;min-width:0}
+  .chathead .topic select{padding:4px 8px;font-size:13.5px;max-width:230px}
+  .chatstart .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chatstart .chips button{text-align:left}
   .chatstatus{font-size:13.5px;color:var(--muted);min-height:1.3em;padding:0 16px 8px}
   .chatstatus.err{color:var(--ember)}
   .writeup{margin-top:16px;background:var(--card);border:1px solid var(--gold);border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:10px}
@@ -137,7 +141,7 @@
   .linkbtn{background:none;border:0;padding:0;color:var(--gold2);font:inherit;text-decoration:underline;cursor:pointer}
   .writeup button.primary{background:var(--gold);color:var(--bg);font-weight:800}
   .sr{position:absolute;left:-9999px}
-  @media (max-width:560px){.chathead .about{display:none}.chatbox{height:80vh}}
+  @media (max-width:560px){.chathead .about{display:none}.chathead .topic select{max-width:170px}.chatbox{height:80vh}}
 </style>
 </head>
 <body>
@@ -146,7 +150,7 @@
   <header>
     <div class="sign">THE WORKBENCH</div>
     <h1>Orrery Explorer</h1>
-    <p class="tag">The Grand Orrery's maps, documents, people and items, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Pick a person or an item to see everything written about it, or open the <a href="#chat">chat</a> to create and review characters, or work out worldbuilding and mechanics, with the local AI.</p>
+    <p class="tag">The Grand Orrery's maps, documents, people and items, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Pick a person or an item to see everything written about it, or open the <a href="#chat">chat</a> to talk through anything in it with the local AI: characters, regions, rules, magic and more.</p>
     <div class="tabs">
       <a href="#roster" data-tab="roster">Roster</a>
       <a href="#items" data-tab="items">Items</a>
@@ -485,10 +489,14 @@ async function load() {
 // It talks to the same gate on the laptop as Wake in Verrowen
 // (verrowen/server/server.mjs → Ollama), with the orrery's own documents as
 // canon. Views: #chat (start or the open chat), #chat/review/<person id>.
+// New chats are open ("chat" mode): one box to start, and the topic
+// (characters, regions, rules…) is worked out from the conversation. Older
+// chats in the "create", "review" and "world" modes still open and continue.
 const AI = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
 // The gate takes 24,000 characters in the first message and runs the model
 // with an 8k-token window, so the canon and the chat are both kept to a budget.
-const CANON_BUDGET = 15000, HISTORY_BUDGET = 9000, MAX_SAY = 2000;
+// The open chat sends focused canon on top of the lore, so it gets a bit more.
+const CANON_BUDGET = 15000, CHAT_BUDGET = 18000, HISTORY_BUDGET = 9000, MAX_SAY = 2000;
 const KEEPER = `You are the Orrery's lore-keeper: a writing partner for the author of the Grand Orrery, a medieval fantasy universe, helping them build its characters and its world. The LORE, ROSTER and NOTES below are canon. Talk to the author directly, plainly and briefly: under about 200 words a reply unless they ask for more. Plain text only: no markdown headings or tables; a short list is fine. Keep to the setting's rules: magic is weak, everyday and costs mana, and objects hold magic but don't make it. Never contradict canon. If an idea clashes with it, say so, quote what it clashes with, and suggest a way to make it fit. Ask at most two questions at a time, and accept what the author decides.`;
 const CREATE = `TASK: help the author create a NEW character for this universe. They must not be any named person in the canon, but should be tied to its people and places. Build the character with the author step by step: offer concrete options (a name that fits the naming style of their people, a role, a want, a fear, a secret, ties to named characters) and let the author choose. Favour roles, races and places the roster doesn't cover yet.`;
 const REVIEW = `TASK: review the character below against the canon. Your first reply covers: what works; anything that contradicts the LORE or other characters (quote the clash); gaps worth filling, such as age, magic, motives and ties to others; and two or three concrete suggestions. After that, answer the author's follow-ups and help them revise. Be honest but kind.`;
@@ -505,6 +513,61 @@ const WORLD_KINDS = [
 const WRITE_CREATE = `The author says "write it up." Write the character as it stands, in plain text, with these labeled lines, one per line: Name, Race, Sex, Age, Role, Lives in, Appearance, Personality, Magic, Connections, Secret, Story hooks. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "Who they are" and a paragraph of about 100 words.`;
 const WRITE_WORLD = `The author says "write it up." Write the idea as it stands, in plain text, with these labeled lines, one per line: Name, Kind, The rule (one sentence), How it works, Costs and limits, Who it affects, What it changes, Clashes with canon (or "None"), Open questions. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "In the world" and a paragraph of about 80 words showing it in an everyday scene.`;
 const WRITE_REVIEW = `The author says "sum it up." Write the review's conclusions in plain text with these labeled lines: Verdict (one sentence), What works, Clashes with canon, Gaps, Changes to make (a short numbered list). Base it on the canon and on what was decided in this chat.`;
+const CHAT = `TASK: an open chat with the author about anything in the Grand Orrery: its characters, its regions and places, its peoples, its rules and customs, magic, how the world works, or story. Work out from what they say what they want: an answer from the canon, ideas, a review, or help building something new. Follow them when they change subject.`;
+const FOCUS = {
+  general: `FOCUS: nothing specific yet. If they ask something, answer it from the canon, and say plainly when the canon doesn't say. If they want ideas, offer three short options from different parts of the world and ask which to explore.`,
+  character: `FOCUS: characters. If they're talking about someone in the ROSTER, keep to what the canon says about them (see ABOUT below); when they want a review, cover what works, what clashes with the canon (quote it), gaps such as age, magic, motives and ties to others, and two or three concrete suggestions. If it's someone new, they must not be any named person in the canon but should be tied to its people and places: build them step by step with concrete options (a name that fits their people's naming style, a role, a want, a fear, a secret, ties to named characters) and let the author choose.`,
+  world: (label) => `FOCUS: ${label}. Restate the idea as one plain rule and check it against the canon (quote any clash, or say it fits). Work out what follows from it: its costs, limits and edge cases, what happens when it's pushed too far, and how ordinary villagers, the Guard, artificers and the Kingdom would use or abuse it. Think like a careful game designer: every power has a price and a limit, and every rule changes daily life somewhere. If they're only asking what the canon says, just answer.`,
+};
+const WRITE_CHAT = `The author says "write it up." Write up what this chat worked out, in plain text, with these labeled lines, one per line: Name, Kind, What it is (one sentence), The details, Clashes with canon (or "None"), Open questions. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "In the world" and a paragraph of about 80 words showing it in an everyday scene.`;
+
+// The open chat (mode "chat") starts with no topic and works one out from
+// what the author says: the newest messages count most, a named person or
+// item counts more than a keyword, and the topic it's already on wins a tie,
+// so it doesn't flip on one stray word. The author can pin a topic instead.
+// The topic picks the guidance, the canon sent with it and the write-up.
+const TOPICS = [
+  { id: "character", icon: "🧑", label: "Characters", words: /\b(characters?|npcs?|heroe?s?|villains?|backstory|personality|protagonist|someone|persona|sheet|motives?|secrets?|personalit(?:y|ies)|named?|ages?)\b/gi },
+  { id: "magic", icon: "✨", label: "Magic", words: /\b(magic\w*|mana|spells?|enchant\w*|attune\w*|elemental|healers?|healing|runes?|artificers?|charged?|charges|latent|detection|fire users?|gifts?|wells? of)\b/gi },
+  { id: "physics", icon: "⚙️", label: "Physics & nature", words: /\b(physics|gravity|weather|seasons?|winters?|summers?|cold|heat|sun|moons?|stars?|sky|orrery|tides?|nature|plants?|animals?|beasts?|blight|disease|light|rifts?|worlds?|cosmology)\b/gi },
+  { id: "place", icon: "🗺", label: "Regions & places", words: /\b(regions?|places?|maps?|towns?|villages?|cit(?:y|ies)|districts?|rivers?|forests?|woods?|roads?|lanes?|kingdoms?|lands?|terrain|mills?|slums|walls?|gates?|geography|borders?|north|south|east|west|Stoutwell|Ashen Reach|Monster Wood|Woodland Road|croplands|Verrowen|Monstradius|smithy|lumber yard|Gathering Hall)\b/gi },
+  { id: "people", icon: "🏘", label: "Peoples & groups", words: /\b(races?|elves|elf|elven|dwarf\w*|halflings?|gnomes?|humans?|goblins?|trolls?|guilds?|factions?|clans?|cultures?|famil(?:y|ies)|Elderhold|Hearthcircle|Guard|GuildScribe|guildscribes?)\b/gi },
+  { id: "rule", icon: "⚖", label: "Rules & customs", words: /\b(rules?|laws?|customs?|traditions?|tax(?:es)?|tithes?|trade|religions?|gods?|festivals?|punish\w*|crimes?|courts?|mechanics?|dice|rolls?|stats?|currency|coins?|marriage|inherit\w*|schooling)\b/gi },
+  { id: "item", icon: "🗝", label: "Items & inventions", words: /\b(items?|weapons?|swords?|axes?|armou?r|tools?|inventions?|devices?|artifacts?|amulets?|rings?|trinkets?|compass(?:es)?)\b/gi },
+];
+const topicOf = (id) => TOPICS.find((t) => t.id === id) || { id: "general", icon: "🪶", label: "Anything" };
+const hits = (re, s) => (s.match(re) || []).length;
+// Roster people named in the author's newest messages, most-mentioned first.
+function namedPeople(c) {
+  const said = c.messages.filter((m) => m.role === "user").slice(-3).map((m) => m.content).join("\n") + "\n" + (c.idea || "");
+  return PEOPLE.map((p) => [p, hits(patternFor(p.names), said)]).filter(([, n]) => n).sort((a, b) => b[1] - a[1]).map(([p]) => p);
+}
+function detectTopic(c) {
+  const said = c.messages.filter((m) => m.role === "user").slice(-3).reverse();
+  if (!said.length && c.idea) said.push({ content: c.idea });
+  const score = Object.fromEntries(TOPICS.map((t) => [t.id, 0]));
+  said.forEach((m, k) => {
+    const w = [4, 1.5, 0.5][k], s = m.content;
+    for (const t of TOPICS) score[t.id] += w * hits(t.words, s);
+    for (const p of PEOPLE) score.character += 2 * w * hits(patternFor(p.names), s);
+    for (const it of ITEMS) score.item += 2 * w * hits(patternFor(it.names), s);
+  });
+  if (score[c.topic] !== undefined) score[c.topic] += 1;
+  const [best, n] = Object.entries(score).sort((a, b) => b[1] - a[1])[0];
+  return n > 1 || (n > 0 && !c.topic) ? best : c.topic || "general";
+}
+const STOP = new Set("about above after again against also always another because been before being below between both could does doing down during each from further have having here into just like make more most much must only other over same should some such than that their them then there these they this those through under until very what when where which while will with would your yours want think know tell idea ideas write maybe really something things thing them".split(" "));
+// Sections of the long documents that share the most words with the
+// author's newest message, so the model sees what the canon says about it.
+function relevantSections(c, skip) {
+  const last = c.messages.filter((m) => m.role === "user").slice(-2).map((m) => m.content).join(" ") || c.idea || "";
+  const words = [...new Set((last.toLowerCase().match(/[a-z][a-z'-]{3,}/g) || []).filter((w) => !STOP.has(w)))];
+  if (!words.length) return [];
+  return DOCS.filter((d) => d.id === "universe" || d.id === "notes").flatMap((doc) => sections(doc).map((s) => {
+    const body = s.body.toLowerCase();
+    return { doc, s, n: words.filter((w) => body.includes(w)).length };
+  })).filter((x) => x.n >= Math.min(2, words.length) && !skip.has(x.s.body)).sort((a, b) => b.n - a.n).slice(0, 4);
+}
 
 const chatStore = {
   get(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } },
@@ -522,7 +585,8 @@ function keepChats() {
   chatStore.set("orrery-chat-open", chatId);
 }
 const kindName = (k) => ((WORLD_KINDS.find((x) => x[0] === k) || [])[2]) || "Worldbuilding";
-const chatTitle = (c) => c.mode === "review" ? "Reviewing " + (c.target && c.target.name || "a character")
+const chatTitle = (c) => c.mode === "chat" ? (c.title || (() => { const f = (c.messages.find((m) => m.role === "user") || {}).content || ""; return f ? f.replace(/\s+/g, " ").slice(0, 56) + (f.length > 56 ? "…" : "") : "An open chat"; })())
+  : c.mode === "review" ? "Reviewing " + (c.target && c.target.name || "a character")
   : c.mode === "world" ? (c.title || kindName(c.kind) + ": " + (c.idea ? c.idea.replace(/\s+/g, " ").slice(0, 48) + (c.idea.length > 48 ? "…" : "") : "open questions"))
   : (c.title || "A new character");
 
@@ -537,6 +601,10 @@ function codexLine(n) {
   return `${plain(n.title)}${bits.length ? " (" + bits.join("; ") + ")" : ""}${plain(n.body) ? ". " + plain(n.body) : ""}`;
 }
 
+const cleanSection = (b) => b.replace(/^#+\s.*\n?/, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").trim();
+const personText = (p) => `${p.name}: ${p.role}.\n\n` + matches(patternFor(p.names)).flatMap(({ doc, hits }) => hits.map((s) => `[${doc.title} › ${s.path.join(" › ")}]\n${cleanSection(s.body)}`)).join("\n\n");
+const chatTopic = (c) => c.pin || c.topic || "general";
+
 // What the lore-keeper is told: rules, task, then canon in order of
 // importance until the budget runs out.
 function canonFor(c) {
@@ -546,21 +614,31 @@ function canonFor(c) {
     let about = t.text || "";
     if (t.kind === "person") {
       const p = PEOPLE.find((x) => x.id === t.id);
-      if (p) about = `${p.name}: ${p.role}.\n\n` + matches(patternFor(p.names)).flatMap(({ doc, hits }) => hits.map((s) => `[${doc.title} › ${s.path.join(" › ")}]\n${s.body.replace(/^#+\s.*\n?/, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").trim()}`)).join("\n\n");
+      if (p) about = personText(p);
     }
     parts.push(["CHARACTER UNDER REVIEW", `${t.name || "The author's character"}\n${about}`, 7000]);
+  }
+  if (c.mode === "chat") {
+    // The open chat: the canon about whoever and whatever the author is on now.
+    const seen = new Set();
+    namedPeople(c).slice(0, 2).forEach((p, k) => {
+      for (const { hits } of matches(patternFor(p.names))) hits.forEach((h) => seen.add(h.body));
+      parts.push([`ABOUT ${p.name.toUpperCase()} (canon)`, personText(p), k ? 1800 : 3200]);
+    });
+    const rel = relevantSections(c, seen);
+    if (rel.length) parts.push(["WHAT THE CANON SAYS ON THIS", rel.map(({ doc, s }) => `[${doc.title} › ${s.path.join(" › ")}]\n${cleanSection(s.body)}`).join("\n\n"), 3500]);
   }
   const lore = (text.lore || "").replace(/^# .*\n+.*\n+/, "").trim();
   parts.push(["LORE", lore, 9000]);
   parts.push(["ROSTER (named people already in the canon)", PEOPLE.map((p) => `${p.name} (${p.group}): ${p.role}`).join("\n"), 2000]);
-  if (c.mode === "world") {
+  if (c.mode === "world" || (c.mode === "chat" && !["general", "character"].includes(chatTopic(c)))) {
     const open = ((text.universe || "").split(/^## Still Being Developed\s*$/m)[1] || "").split(/^## /m)[0].trim();
     if (open) parts.push(["STILL OPEN IN THE CANON", open, 1200]);
   }
   parts.push(["MURROW'S ENCHANTED ITEMS", ITEMS.map((it) => `${it.name}: ${it.does} Limits: ${it.limits}`).join("\n"), 1500]);
   const notes = codexNotes().filter((n) => n && n.status !== "pitch" && plain(n.title)).map(codexLine).map((l) => l.length > 500 ? l.slice(0, 499) + "…" : l);
   if (notes.length) parts.push(["NOTES (the author's own Codex, as true as the LORE)", notes.join("\n"), 3000]);
-  let left = CANON_BUDGET, out = "";
+  let left = c.mode === "chat" ? CHAT_BUDGET : CANON_BUDGET, out = "";
   for (const [head, body, cap] of parts) {
     if (left < 300 || !body.trim()) continue;
     const room = Math.min(cap, left);
@@ -569,11 +647,16 @@ function canonFor(c) {
   }
   return out;
 }
+function chatFocus(c) {
+  const t = chatTopic(c);
+  return t === "general" || t === "character" ? FOCUS[t] : FOCUS.world(topicOf(t).label.toLowerCase());
+}
 function chatMessages(c, mode) {
-  const task = c.mode === "review" ? REVIEW
+  const task = c.mode === "chat" ? CHAT + "\n\n" + chatFocus(c) + (c.messages.some((m) => m.role === "user") ? "" : " The author hasn't said anything yet: greet them in one line and offer three short, different things to work on, drawn from what the canon leaves open: a character, a place or region, and a rule of the world.")
+    : c.mode === "review" ? REVIEW
     : c.mode === "world" ? WORLD + ` The author's topic: ${kindName(c.kind)}.` + (c.idea ? "" : " The author has no idea yet: open by picking three things the canon leaves open on this topic and pitching a short, different mechanic for each, then ask which to work out.")
     : CREATE + (c.idea ? "" : " The author has no idea yet: open by pitching three short, different character concepts that fit gaps in the roster, and ask which to build.");
-  const start = c.mode === "review" ? "Give your review now." : c.idea ? "Start from the author's idea now." : c.mode === "world" ? "Pitch your three mechanics now." : "Pitch your three concepts now.";
+  const start = c.mode === "chat" ? (c.messages.some((m) => m.role === "user") ? "Answer the author now." : "Greet the author now.") : c.mode === "review" ? "Give your review now." : c.idea ? "Start from the author's idea now." : c.mode === "world" ? "Pitch your three mechanics now." : "Pitch your three concepts now.";
   // The newest messages that fit the budget, starting with one of the author's.
   const hist = []; let used = 0;
   for (let i = c.messages.length - 1; i >= 0; i--) {
@@ -583,9 +666,23 @@ function chatMessages(c, mode) {
   }
   while (hist.length && hist[0].role === "assistant" && hist.length < c.messages.length) hist.shift();
   const out = [{ role: "user", content: `${KEEPER}\n\n${task}${canonFor(c)}\n\n${start}` }, ...hist];
-  if (mode === "write") out.push({ role: "user", content: c.mode === "review" ? WRITE_REVIEW : c.mode === "world" ? WRITE_WORLD : WRITE_CREATE });
+  if (mode === "write") out.push({ role: "user", content: writePrompt(c) });
   if (out[out.length - 1].role !== "user") out.push({ role: "user", content: "Go on." });
   return out;
+}
+
+// What "write it up" asks for: a character sheet, a review summary, an idea's
+// write-up, or for the open chat, whichever fits the topic it's on.
+function writeKind(c) {
+  if (c.mode !== "chat") return c.mode;
+  const t = chatTopic(c);
+  const said = c.messages.filter((m) => m.role === "user").map((m) => m.content).join(" ");
+  if (t === "character") return namedPeople(c).length && /\b(review|check|critique|feedback|clash\w*|fits?|consistent)\b/i.test(said) && !/\b(new|create|make|build|invent)\b/i.test(said) ? "review" : "create";
+  return t === "general" ? "chat" : "world";
+}
+function writePrompt(c) {
+  const k = writeKind(c);
+  return k === "review" ? WRITE_REVIEW : k === "create" ? WRITE_CREATE : k === "world" ? WRITE_WORLD.replace("Name, Kind,", `Name, Kind (${topicOf(chatTopic(c)).label}),`) : WRITE_CHAT;
 }
 
 function setAi(up) {
@@ -602,12 +699,12 @@ function chatRoute(arg, extra) {
   document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === "chat"));
   if (arg === "review" && extra) {
     // Coming from a person's page: reopen their review if there is one, else start it.
-    const had = chats.find((c) => c.mode === "review" && c.target && c.target.kind === "person" && c.target.id === extra);
+    const had = chats.find((c) => (c.mode === "review" || c.mode === "chat") && c.target && c.target.kind === "person" && c.target.id === extra);
     history.replaceState(null, "", "#chat");
     if (had) { chatId = had.id; keepChats(); }
     else {
       const p = PEOPLE.find((x) => x.id === extra);
-      if (p && !chatBusy) return startChat({ mode: "review", target: { kind: "person", id: p.id, name: p.name } });
+      if (p && !chatBusy) return startChat({ mode: "chat", target: { kind: "person", id: p.id, name: p.name }, idea: `Review ${p.name} against the canon.` });
     }
   }
   drawChat();
@@ -616,19 +713,19 @@ function drawChat() {
   const c = openChat();
   view.innerHTML = `<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="ai" id="aiPill">Checking the local AI…</span><span class="chatnote" id="aiModel">Runs on our own laptop</span></div>
   <section class="chatbox" aria-label="Chat with the lore-keeper">
-    <div class="chathead"><span>THE LORE-KEEPER</span><span class="about">${c ? esc(chatTitle(c)) : "Characters, worldbuilding and mechanics"}</span></div>
+    <div class="chathead"><span>THE LORE-KEEPER</span>${c && c.mode === "chat" ? `<span class="topic"><label for="topicPick">On</label><select id="topicPick" title="What the lore-keeper thinks this chat is about. It works this out as you talk; pick one to pin it.">${topicOptions(c)}</select></span>` : `<span class="about">${c ? esc(chatTitle(c)) : "Characters, regions, rules and more"}</span>`}</div>
     <div class="chatlog" id="chatlog" aria-live="polite"></div>
     <div class="chatstatus" id="chatstatus" role="status" aria-live="polite"></div>
     <div class="chatnote" id="reviewSave" style="padding:0 16px" hidden></div>
     <div class="composer" id="composer" ${c ? "" : "hidden"}>
       <label class="sr" for="say">Your message</label>
-      <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "review" ? "Ask about the review, or say what to change…" : c && c.mode === "world" ? "Push on it: what if…, what does it cost…, how would the Kingdom use it…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
+      <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "chat" ? "Ask, pitch an idea, or change the subject…" : c && c.mode === "review" ? "Ask about the review, or say what to change…" : c && c.mode === "world" ? "Push on it: what if…, what does it cost…, how would the Kingdom use it…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
       <div class="row">
         <button class="primary" type="button" id="sendSay">Send</button>
         <button class="stopbtn" type="button" id="stopSay" title="Stop waiting for this reply" hidden>■ Stop</button>
         <button class="mic" type="button" id="micSay" title="Speak your message" aria-label="Voice typing" hidden>🎤</button>
         <button class="quiet" type="button" id="resendSay" title="Ask the lore-keeper to answer the last message again. Handy right after the laptop wakes up.">↻ Resend</button>
-        <button type="button" id="writeBtn">${c && c.mode === "review" ? "📋 Sum it up" : "✍️ Write it up"}</button>
+        <button type="button" id="writeBtn">${c && writeKind(c) === "review" ? "📋 Sum it up" : "✍️ Write it up"}</button>
         <button class="quiet" type="button" id="backChat" title="Back to the start. This chat is kept, so you can pick it up later.">← Back</button>
       </div>
     </div>
@@ -647,6 +744,7 @@ function drawChat() {
     $("sendSay").onclick = sendSay;
     $("say").onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendSay(); } };
     $("writeBtn").onclick = writeUp;
+    if ($("topicPick")) $("topicPick").onchange = () => { const v = $("topicPick").value; c.pin = v === "auto" ? "" : v; if (!c.pin) c.topic = detectTopic(c); keepChats(); drawChat(); };
     $("resendSay").onclick = resendSay;
     $("stopSay").onclick = () => { if (chatStopper) chatStopper.abort(); };
     $("backChat").onclick = () => { if (chatBusy) return; chatId = ""; keepChats(); drawChat(); };
@@ -659,56 +757,41 @@ function drawChat() {
   }
   setChatBusy(chatBusy);
 }
+function topicOptions(c) {
+  const auto = topicOf(c.topic || "general");
+  return `<option value="auto"${c.pin ? "" : " selected"}>${auto.icon} ${esc(auto.label)} (worked out)</option>` + TOPICS.map((t) => `<option value="${t.id}"${c.pin === t.id ? " selected" : ""}>${t.icon} ${esc(t.label)}</option>`).join("");
+}
 function chatStatus(t, err) { const s = $("chatstatus"); if (s) { s.textContent = t || ""; s.className = "chatstatus" + (err ? " err" : ""); } }
-function setChatBusy(b) { chatBusy = b; ["sendSay", "writeBtn", "backChat", "resendSay", "startCreate", "startReview", "startWorld"].forEach((id) => { if ($(id)) $(id).disabled = b; }); if ($("stopSay")) $("stopSay").hidden = !b; }
+function setChatBusy(b) { chatBusy = b; ["sendSay", "writeBtn", "backChat", "resendSay", "startOpen", "topicPick"].forEach((id) => { if ($(id)) $(id).disabled = b; }); if ($("stopSay")) $("stopSay").hidden = !b; }
 
 function drawStart() {
-  const codexPeople = codexNotes().filter((n) => n && n.cat === "character" && plain(n.title));
-  const groups = [...new Set(PEOPLE.map((p) => p.group))];
   const earlier = chats.slice(0, 8);
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const starters = [
+    "Help me create a new character for Stoutwell.",
+    `Review ${pick(PEOPLE.filter((p) => !/^The /.test(p.name))).name} against the canon.`,
+    "How does mana work, and what does it cost?",
+    "What lies beyond the Monster Wood?",
+    "What laws and customs does Stoutwell live by?",
+    `Give ${pick(ITEMS).name.toLowerCase()} a rival invention from the Kingdom.`,
+  ];
   $("chatlog").innerHTML = `<div class="chatstart">
-    <h3>What are we working on?</h3>
-    <p class="note">The lore-keeper knows the Grand Orrery's lore, roster and items. It helps you build someone new who fits the world, checks a character against the canon, or works through how the world itself works.</p>
-    <div class="opt"><b>✨ Create a character</b><small>Start from an idea, or leave it blank and it pitches three to choose from. Press <b>Write it up</b> at any point for a character sheet you can add to the Codex.</small>
-      <label class="sr" for="idea">Your idea</label>
-      <textarea id="idea" maxlength="1500" placeholder="Optional: a halfling miller who hides a fire gift from the Elderhold…"></textarea>
-      <div class="row"><button class="primary" type="button" id="startCreate">Start creating</button></div></div>
-    <div class="opt"><b>🔍 Review a character</b><small>Checks them against the canon: what works, what clashes, what's missing.</small>
-      <label class="sr" for="reviewWho">Who to review</label>
-      <select id="reviewWho">${groups.map((g) => `<optgroup label="${esc(g)}">${PEOPLE.filter((p) => p.group === g).map((p) => `<option value="person:${p.id}">${esc(p.name)}</option>`).join("")}</optgroup>`).join("")}${
-        codexPeople.length ? `<optgroup label="Your Codex">${codexPeople.map((n) => `<option value="codex:${esc(n.id)}">${esc(plain(n.title))}${n.status === "pitch" ? " (pitch)" : ""}</option>`).join("")}</optgroup>` : ""
-      }<option value="own">Someone else: I'll describe them</option></select>
-      <textarea id="reviewOwn" maxlength="4000" placeholder="Name, race, age, role, personality, history, secrets…" hidden></textarea>
-      <div class="row"><button class="primary" type="button" id="startReview">Start the review</button></div></div>
-    <div class="opt"><b>🌍 Worldbuilding &amp; mechanics</b><small>Enter an idea about magic, physics, nature, places, peoples or customs. It checks it against the canon and works out what it costs, where it breaks and what it changes. Leave it blank and it pitches mechanics for things the canon leaves open.</small>
-      <label class="sr" for="worldKind">Topic</label>
-      <select id="worldKind">${WORLD_KINDS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>
-      <label class="sr" for="worldIdea">Your idea</label>
-      <textarea id="worldIdea" maxlength="2500" placeholder="Optional: mana pools in deep water, so rivers carry it downstream and mills near the source run stronger…"></textarea>
-      <div class="row"><button class="primary" type="button" id="startWorld">Start working it out</button></div></div>
+    <h3>What's on your mind?</h3>
+    <p class="note">The lore-keeper knows the Grand Orrery's lore, roster, places and items. Ask it anything, pitch an idea, or ask for a review. It works out from what you say whether you're on a character, a region, a rule of the world, magic or something else, and reads up on that part of the canon. Change the subject whenever you like.</p>
+    <div class="opt">
+      <label class="sr" for="opener">Your first message</label>
+      <textarea id="opener" maxlength="${MAX_SAY}" placeholder="Optional: a halfling miller who hides a fire gift from the Elderhold… or leave it blank and it suggests a few things to work on."></textarea>
+      <div class="chips">${starters.map((t) => `<button class="small" type="button" data-start="${esc(t)}">${esc(t)}</button>`).join("")}</div>
+      <div class="row"><button class="primary" type="button" id="startOpen">Start the chat</button></div></div>
     ${earlier.length ? `<h3 style="font-size:15px">Earlier chats</h3><div class="earlier">${earlier.map((c) => {
       const turns = c.messages.filter((m) => m.role === "user").length;
-      return `<div class="row"><span>${esc(chatTitle(c))}<small>${new Date(c.at).toLocaleDateString([], { dateStyle: "medium" })} · ${turns} message${turns === 1 ? "" : "s"} from you${c.writeup ? " · written up" : ""}</small></span><button class="small" type="button" data-open="${c.id}">Continue</button><button class="small del" type="button" data-del="${c.id}">🗑 Delete</button></div>`;
+      const on = c.mode === "chat" ? topicOf(chatTopic(c)) : null;
+      return `<div class="row"><span>${esc(chatTitle(c))}<small>${on ? on.icon + " " + esc(on.label) + " · " : ""}${new Date(c.at).toLocaleDateString([], { dateStyle: "medium" })} · ${turns} message${turns === 1 ? "" : "s"} from you${c.writeup ? " · written up" : ""}</small></span><button class="small" type="button" data-open="${c.id}">Continue</button><button class="small del" type="button" data-del="${c.id}">🗑 Delete</button></div>`;
     }).join("")}</div>` : ""}
   </div>`;
-  $("reviewWho").onchange = () => { $("reviewOwn").hidden = $("reviewWho").value !== "own"; };
-  $("startCreate").onclick = () => startChat({ mode: "create", idea: $("idea").value.trim().slice(0, 1500) });
-  $("startWorld").onclick = () => startChat({ mode: "world", kind: $("worldKind").value, idea: $("worldIdea").value.trim().slice(0, 2500) });
-  $("startReview").onclick = () => {
-    const v = $("reviewWho").value;
-    if (v === "own") {
-      const t = $("reviewOwn").value.trim();
-      if (!t) { $("reviewOwn").focus(); return chatStatus("Describe the character first.", true); }
-      return startChat({ mode: "review", target: { kind: "own", name: (t.match(/^\W*(?:Name\W*:\s*)?([^\n,.:;]{2,40})/) || [])[1] || "your character", text: t } });
-    }
-    if (v.startsWith("codex:")) {
-      const n = codexNotes().find((x) => x.id === v.slice(6));
-      if (!n) return chatStatus("That Codex note isn't in this browser any more.", true);
-      return startChat({ mode: "review", target: { kind: "codex", id: n.id, name: plain(n.title), text: codexLine(n) } });
-    }
-    const p = PEOPLE.find((x) => x.id === v.slice(7));
-    startChat({ mode: "review", target: { kind: "person", id: p.id, name: p.name } });
-  };
+  $("opener").onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $("startOpen").click(); } };
+  $("chatlog").querySelectorAll("[data-start]").forEach((b) => b.onclick = () => { $("opener").value = b.dataset.start; $("opener").focus(); });
+  $("startOpen").onclick = () => startChat({ mode: "chat", idea: $("opener").value.trim().slice(0, MAX_SAY) });
   $("chatlog").querySelectorAll("[data-open]").forEach((b) => b.onclick = () => { chatId = b.dataset.open; keepChats(); drawChat(); });
   $("chatlog").querySelectorAll("[data-del]").forEach((b) => b.onclick = () => {
     const c = chats.find((x) => x.id === b.dataset.del);
@@ -729,16 +812,18 @@ function drawLog() {
   const w = $("writeup");
   w.hidden = !c.writeup || !!c.writeupClosed;
   $("reopenWrite").hidden = !c.writeup || !c.writeupClosed;
-  $("writeHead").textContent = c.mode === "review" ? "The review, summed up" : c.mode === "world" ? "The idea, written up" : "The character sheet";
+  const wk = c.writeKind || writeKind(c);
+  $("writeHead").textContent = wk === "review" ? "The review, summed up" : wk === "create" ? "The character sheet" : "The idea, written up";
   $("writeText").textContent = c.writeup || "";
-  $("codexWrite").hidden = c.mode === "review";
+  $("codexWrite").hidden = wk === "review";
   $("writeNote").textContent = "";
 }
 
 function startChat(o) {
   if (chatBusy) return;
-  const c = { id: newId(), mode: o.mode, kind: o.kind || "", target: o.target || null, idea: o.idea || "", title: "", messages: [], writeup: "", at: Date.now() };
-  if ((c.mode === "create" || c.mode === "world") && c.idea) c.messages.push({ role: "user", content: c.idea });
+  const c = { id: newId(), mode: o.mode, kind: o.kind || "", target: o.target || null, idea: o.idea || "", title: "", topic: "", pin: "", messages: [], writeup: "", at: Date.now() };
+  if ((c.mode === "create" || c.mode === "world" || c.mode === "chat") && c.idea) c.messages.push({ role: "user", content: c.idea });
+  if (c.mode === "chat") c.topic = detectTopic(c);
   chats.unshift(c); chatId = c.id; keepChats(); drawChat();
   ask(c, "turn", (t) => { c.messages.push({ role: "assistant", content: t }); });
 }
@@ -753,7 +838,7 @@ let reviewSaves = Promise.resolve();
 function saveForReview(c) {
   const token = ownerToken();
   if (!token || !c) return;
-  const chat = { id: c.id, title: c.title || chatTitle(c), mode: c.mode, kind: c.kind, idea: c.idea || "", target: c.target, messages: c.messages, writeup: c.writeup || "" };
+  const chat = { id: c.id, title: c.title || chatTitle(c), mode: c.mode, kind: c.mode === "chat" ? chatTopic(c) : c.kind, idea: c.idea || "", target: c.target, messages: c.messages, writeup: c.writeup || "" };
   const body = JSON.stringify({ chat });
   reviewSaves = reviewSaves.then(() => fetch(AI + "/admin/lorekeeper", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body })
     .then((r) => r.ok ? "✔ Saved for review" : r.status === 404 ? "Not saved for review: the laptop's server needs updating (see the server README)" : r.json().then((j) => "Not saved for review: " + (j.error || r.status), () => "Not saved for review"))
@@ -767,6 +852,10 @@ function sendSay() {
   const t = $("say").value.trim();
   if (!t) return chatStatus("Write something first.", true);
   c.messages.push({ role: "user", content: t.slice(0, MAX_SAY) }); $("say").value = "";
+  if (c.mode === "chat") {
+    const was = c.topic; c.topic = detectTopic(c);
+    if (c.topic !== was && !c.pin && $("topicPick")) { $("topicPick").innerHTML = topicOptions(c); $("writeBtn").textContent = writeKind(c) === "review" ? "📋 Sum it up" : "✍️ Write it up"; }
+  }
   c.at = Date.now(); keepChats(); drawLog(); saveForReview(c);
   ask(c, "turn", (r) => { c.messages.push({ role: "assistant", content: r }); });
 }
@@ -785,10 +874,11 @@ function writeUp() {
   const c = openChat();
   if (!c || chatBusy) return;
   if (!c.messages.some((m) => m.role === "assistant")) return chatStatus("Let the lore-keeper answer first.", true);
+  const wk = writeKind(c);
   ask(c, "write", (t) => {
-    c.writeup = t; c.writeupClosed = false;
+    c.writeup = t; c.writeupClosed = false; c.writeKind = wk;
     const name = (t.match(/^\W*Name\W*:\s*(.+)$/im) || [])[1];
-    if (c.mode !== "review" && name) c.title = name.replace(/[*_]/g, "").replace(/\(suggested\)/i, "").trim().slice(0, 60);
+    if (wk !== "review" && name) c.title = name.replace(/[*_]/g, "").replace(/\(suggested\)/i, "").trim().slice(0, 60);
   }, () => $("writeup").scrollIntoView({ behavior: "smooth" }));
 }
 async function ask(c, mode, onDone, after) {
@@ -819,17 +909,19 @@ async function ask(c, mode, onDone, after) {
 function addToCodex(c) {
   const t = c.writeup || "";
   const get = (label) => ((t.match(new RegExp(`^\\W*${label}\\W*:\\s*(.+)$`, "im")) || [])[1] || "").replace(/\*+/g, "").trim();
-  const world = c.mode === "world";
+  const wk = c.writeKind || writeKind(c);
+  const world = wk === "world" || wk === "chat";
   const title = get("Name").replace(/\s*\(suggested\)/i, "") || c.title || (world ? "New idea" : "New character");
   // Physics has no shelf of its own in the Codex, so it goes with the rules.
-  const cat = world ? ({ physics: "rule" }[c.kind] || c.kind || "other") : "character";
+  const kind = c.mode === "chat" ? chatTopic(c) : c.kind;
+  const cat = world ? ({ physics: "rule", general: "other" }[kind] || kind || "other") : "character";
   const who = get("Who it affects");
   const f = !world ? { race: get("Race"), sex: get("Sex"), age: get("Age"), role: get("Role"), home: get("Lives in"), secret: get("Secret") }
     : cat === "magic" ? { who, cost: get("Costs and limits") }
     : cat === "rule" ? { applies: who }
     : {};
   for (const k of Object.keys(f)) if (!f[k]) delete f[k]; else f[k] = f[k].slice(0, 300);
-  const used = world ? /^\W*(Name|Kind)\W*:/i : /^\W*(Name|Race|Sex|Age|Role|Lives in|Secret)\W*:/i;
+  const used = world ? /^\W*(Name|Kind(?: \([^)]*\))?)\W*:/i : /^\W*(Name|Race|Sex|Age|Role|Lives in|Secret)\W*:/i;
   const body = t.split("\n").filter((l) => !used.test(l)).join("\n").replace(/\n{3,}/g, "\n\n").trim();
   const d = chatStore.get(CODEX_KEY) || { v: 1, notes: [] };
   if (!Array.isArray(d.notes)) d.notes = [];
