@@ -132,6 +132,9 @@
   .writeup pre{white-space:pre-wrap;font-family:Spectral,Georgia,serif;font-size:16.5px;line-height:1.55}
   .writeup .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .writeup button{font-family:Cinzel,serif;font-size:13px;letter-spacing:.08em;border-radius:8px;padding:9px 15px;cursor:pointer;border:1px solid var(--gold);background:transparent;color:var(--gold2)}
+  .writetop{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+  .writeup button.closew{border-color:var(--line);color:var(--muted);padding:4px 10px;font-size:15px;line-height:1}
+  .linkbtn{background:none;border:0;padding:0;color:var(--gold2);font:inherit;text-decoration:underline;cursor:pointer}
   .writeup button.primary{background:var(--gold);color:var(--bg);font-weight:800}
   .sr{position:absolute;left:-9999px}
   @media (max-width:560px){.chathead .about{display:none}.chatbox{height:80vh}}
@@ -631,9 +634,11 @@ function drawChat() {
     </div>
   </section>
   <section class="writeup" id="writeup" hidden>
-    <h3 id="writeHead"></h3><pre id="writeText"></pre>
-    <div class="row"><button class="primary" type="button" id="copyWrite">Copy</button><button type="button" id="codexWrite" hidden>🗂 Add to the Codex</button><span class="chatnote" id="writeNote"></span></div>
+    <div class="writetop"><h3 id="writeHead"></h3><button type="button" class="closew" id="closeWrite" title="Close the write-up. It's kept with this chat." aria-label="Close the write-up">✕</button></div>
+    <pre id="writeText"></pre>
+    <div class="row"><button class="primary" type="button" id="copyWrite">Copy</button><button type="button" id="codexWrite" hidden>🗂 Add to the Codex</button><button type="button" id="closeWrite2">Close</button><span class="chatnote" id="writeNote"></span></div>
   </section>
+  <p class="chatnote" id="reopenWrite" hidden><button type="button" class="linkbtn" id="showWrite">📄 Show the write-up again</button></p>
   <p class="chatnote" style="margin-top:14px">The lore-keeper is a small AI model on the same laptop as <a href="/local-ai/">Local AI</a> and the <a href="/verrowen/">Wake in Verrowen</a> narrator. It reads the documents above${codexNotes().length ? " and your decided <a href=\"/verrowen/codex/\">Codex</a> notes" : ""} as canon. Chats are kept in this browser only. If the laptop is asleep, it can't answer.</p>`;
   setAi(aiUp);
   if (aiUp === null || aiUp === false) checkAi(); else { const m = $("aiModel"); if (m && aiModel) m.textContent = "Runs " + aiModel + " on our own laptop"; }
@@ -648,6 +653,9 @@ function drawChat() {
     if (window.VoiceInput) chatVoice = VoiceInput.attach($("micSay"), $("say"), { onStatus(t, err) { if (t || $("chatstatus").textContent.startsWith("Listening")) chatStatus(t, err); } });
     $("copyWrite").onclick = async () => { try { await navigator.clipboard.writeText(c.writeup); $("writeNote").textContent = "Copied."; } catch { $("writeNote").textContent = "Copy didn't work here. Select the text and copy it by hand."; } };
     $("codexWrite").onclick = () => addToCodex(c);
+    const closeWrite = () => { c.writeupClosed = true; keepChats(); drawLog(); };
+    $("closeWrite").onclick = closeWrite; $("closeWrite2").onclick = closeWrite;
+    $("showWrite").onclick = () => { c.writeupClosed = false; keepChats(); drawLog(); $("writeup").scrollIntoView({ behavior: "smooth" }); };
   }
   setChatBusy(chatBusy);
 }
@@ -719,7 +727,8 @@ function drawLog() {
   }
   log.scrollTop = log.scrollHeight;
   const w = $("writeup");
-  w.hidden = !c.writeup;
+  w.hidden = !c.writeup || !!c.writeupClosed;
+  $("reopenWrite").hidden = !c.writeup || !c.writeupClosed;
   $("writeHead").textContent = c.mode === "review" ? "The review, summed up" : c.mode === "world" ? "The idea, written up" : "The character sheet";
   $("writeText").textContent = c.writeup || "";
   $("codexWrite").hidden = c.mode === "review";
@@ -777,7 +786,7 @@ function writeUp() {
   if (!c || chatBusy) return;
   if (!c.messages.some((m) => m.role === "assistant")) return chatStatus("Let the lore-keeper answer first.", true);
   ask(c, "write", (t) => {
-    c.writeup = t;
+    c.writeup = t; c.writeupClosed = false;
     const name = (t.match(/^\W*Name\W*:\s*(.+)$/im) || [])[1];
     if (c.mode !== "review" && name) c.title = name.replace(/[*_]/g, "").replace(/\(suggested\)/i, "").trim().slice(0, 60);
   }, () => $("writeup").scrollIntoView({ behavior: "smooth" }));
