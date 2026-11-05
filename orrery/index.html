@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Orrery Explorer · Tavernworks</title>
-<meta name="description" content="Browse the Grand Orrery: its maps, documents, character roster and enchanted items, and everything written about each one. A chat with the local AI helps create and review characters.">
+<meta name="description" content="Browse the Grand Orrery: its maps, documents, character roster and enchanted items, and everything written about each one. A chat with the local AI helps create and review characters and work out worldbuilding and mechanics.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -140,7 +140,7 @@
   <header>
     <div class="sign">THE WORKBENCH</div>
     <h1>Orrery Explorer</h1>
-    <p class="tag">The Grand Orrery's maps, documents, people and items, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Pick a person or an item to see everything written about it, or open the <a href="#chat">chat</a> to create and review characters with the local AI.</p>
+    <p class="tag">The Grand Orrery's maps, documents, people and items, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Pick a person or an item to see everything written about it, or open the <a href="#chat">chat</a> to create and review characters, or work out worldbuilding and mechanics, with the local AI.</p>
     <div class="tabs">
       <a href="#roster" data-tab="roster">Roster</a>
       <a href="#items" data-tab="items">Items</a>
@@ -460,7 +460,8 @@ async function load() {
   route();
 }
 
-// ── The chat: the local AI helps create and review characters ──
+// ── The chat: the local AI helps create and review characters, and work
+// out worldbuilding and mechanics (magic, physics, how the world works) ──
 // It talks to the same gate on the laptop as Wake in Verrowen
 // (verrowen/server/server.mjs → Ollama), with the orrery's own documents as
 // canon. Views: #chat (start or the open chat), #chat/review/<person id>.
@@ -468,10 +469,21 @@ const AI = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
 // The gate takes 24,000 characters in the first message and runs the model
 // with an 8k-token window, so the canon and the chat are both kept to a budget.
 const CANON_BUDGET = 15000, HISTORY_BUDGET = 9000, MAX_SAY = 2000;
-const KEEPER = `You are the Orrery's lore-keeper: a writing partner for the author of the Grand Orrery, a medieval fantasy universe, helping them build its characters. The LORE, ROSTER and NOTES below are canon. Talk to the author directly, plainly and briefly: under about 200 words a reply unless they ask for more. Plain text only: no markdown headings or tables; a short list is fine. Keep to the setting's rules: magic is weak, everyday and costs mana, and objects hold magic but don't make it. Never contradict canon. If an idea clashes with it, say so, quote what it clashes with, and suggest a way to make it fit. Ask at most two questions at a time, and accept what the author decides.`;
+const KEEPER = `You are the Orrery's lore-keeper: a writing partner for the author of the Grand Orrery, a medieval fantasy universe, helping them build its characters and its world. The LORE, ROSTER and NOTES below are canon. Talk to the author directly, plainly and briefly: under about 200 words a reply unless they ask for more. Plain text only: no markdown headings or tables; a short list is fine. Keep to the setting's rules: magic is weak, everyday and costs mana, and objects hold magic but don't make it. Never contradict canon. If an idea clashes with it, say so, quote what it clashes with, and suggest a way to make it fit. Ask at most two questions at a time, and accept what the author decides.`;
 const CREATE = `TASK: help the author create a NEW character for this universe. They must not be any named person in the canon, but should be tied to its people and places. Build the character with the author step by step: offer concrete options (a name that fits the naming style of their people, a role, a want, a fear, a secret, ties to named characters) and let the author choose. Favour roles, races and places the roster doesn't cover yet.`;
 const REVIEW = `TASK: review the character below against the canon. Your first reply covers: what works; anything that contradicts the LORE or other characters (quote the clash); gaps worth filling, such as age, magic, motives and ties to others; and two or three concrete suggestions. After that, answer the author's follow-ups and help them revise. Be honest but kind.`;
+const WORLD = `TASK: help the author work out a worldbuilding idea or mechanic: how magic, physics, nature, the land, peoples or customs work in this universe. In your first reply: restate the idea as one plain rule; check it against the canon (quote any clash, or say it fits); then work out what follows from it: what it costs, its limits and edge cases, what happens when it's pushed too far, and how ordinary villagers, the Guard, artificers and the Kingdom would use or abuse it. End with one or two ways to tighten it. Think like a careful game designer: every power has a price and a limit, and every rule changes daily life somewhere. Keep magic weak and everyday unless the author decides otherwise.`;
+const WORLD_KINDS = [
+  ["magic", "✨ Magic", "Magic"],
+  ["physics", "⚙️ Physics & nature", "Physics & nature"],
+  ["place", "🗺 A place or the land", "Place"],
+  ["people", "🏘 Peoples & groups", "Peoples & groups"],
+  ["rule", "⚖ Rules & customs", "Rules & customs"],
+  ["item", "🗝 An item or invention", "Item"],
+  ["other", "🪶 Something else", "Other"],
+];
 const WRITE_CREATE = `The author says "write it up." Write the character as it stands, in plain text, with these labeled lines, one per line: Name, Race, Sex, Age, Role, Lives in, Appearance, Personality, Magic, Connections, Secret, Story hooks. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "Who they are" and a paragraph of about 100 words.`;
+const WRITE_WORLD = `The author says "write it up." Write the idea as it stands, in plain text, with these labeled lines, one per line: Name, Kind, The rule (one sentence), How it works, Costs and limits, Who it affects, What it changes, Clashes with canon (or "None"), Open questions. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "In the world" and a paragraph of about 80 words showing it in an everyday scene.`;
 const WRITE_REVIEW = `The author says "sum it up." Write the review's conclusions in plain text with these labeled lines: Verdict (one sentence), What works, Clashes with canon, Gaps, Changes to make (a short numbered list). Base it on the canon and on what was decided in this chat.`;
 
 const chatStore = {
@@ -489,7 +501,10 @@ function keepChats() {
   for (let n = Math.min(chats.length, 20); n >= 0; n--) if (chatStore.set("orrery-chats", chats.slice(0, n))) { chats = chats.slice(0, n); break; }
   chatStore.set("orrery-chat-open", chatId);
 }
-const chatTitle = (c) => c.mode === "review" ? "Reviewing " + (c.target && c.target.name || "a character") : (c.title || "A new character");
+const kindName = (k) => ((WORLD_KINDS.find((x) => x[0] === k) || [])[2]) || "Worldbuilding";
+const chatTitle = (c) => c.mode === "review" ? "Reviewing " + (c.target && c.target.name || "a character")
+  : c.mode === "world" ? (c.title || kindName(c.kind) + ": " + (c.idea ? c.idea.replace(/\s+/g, " ").slice(0, 48) + (c.idea.length > 48 ? "…" : "") : "open questions"))
+  : (c.title || "A new character");
 
 // The author's Codex (/verrowen/codex/) keeps notes in this browser too.
 const CODEX_KEY = "verrowen-codex";
@@ -518,6 +533,10 @@ function canonFor(c) {
   const lore = (text.lore || "").replace(/^# .*\n+.*\n+/, "").trim();
   parts.push(["LORE", lore, 9000]);
   parts.push(["ROSTER (named people already in the canon)", PEOPLE.map((p) => `${p.name} (${p.group}): ${p.role}`).join("\n"), 2000]);
+  if (c.mode === "world") {
+    const open = ((text.universe || "").split(/^## Still Being Developed\s*$/m)[1] || "").split(/^## /m)[0].trim();
+    if (open) parts.push(["STILL OPEN IN THE CANON", open, 1200]);
+  }
   parts.push(["MURROW'S ENCHANTED ITEMS", ITEMS.map((it) => `${it.name}: ${it.does} Limits: ${it.limits}`).join("\n"), 1500]);
   const notes = codexNotes().filter((n) => n && n.status !== "pitch" && plain(n.title)).map(codexLine).map((l) => l.length > 500 ? l.slice(0, 499) + "…" : l);
   if (notes.length) parts.push(["NOTES (the author's own Codex, as true as the LORE)", notes.join("\n"), 3000]);
@@ -531,8 +550,10 @@ function canonFor(c) {
   return out;
 }
 function chatMessages(c, mode) {
-  const task = c.mode === "review" ? REVIEW : CREATE + (c.idea ? "" : " The author has no idea yet: open by pitching three short, different character concepts that fit gaps in the roster, and ask which to build.");
-  const start = c.mode === "review" ? "Give your review now." : c.idea ? "Start from the author's idea now." : "Pitch your three concepts now.";
+  const task = c.mode === "review" ? REVIEW
+    : c.mode === "world" ? WORLD + ` The author's topic: ${kindName(c.kind)}.` + (c.idea ? "" : " The author has no idea yet: open by picking three things the canon leaves open on this topic and pitching a short, different mechanic for each, then ask which to work out.")
+    : CREATE + (c.idea ? "" : " The author has no idea yet: open by pitching three short, different character concepts that fit gaps in the roster, and ask which to build.");
+  const start = c.mode === "review" ? "Give your review now." : c.idea ? "Start from the author's idea now." : c.mode === "world" ? "Pitch your three mechanics now." : "Pitch your three concepts now.";
   // The newest messages that fit the budget, starting with one of the author's.
   const hist = []; let used = 0;
   for (let i = c.messages.length - 1; i >= 0; i--) {
@@ -542,7 +563,7 @@ function chatMessages(c, mode) {
   }
   while (hist.length && hist[0].role === "assistant" && hist.length < c.messages.length) hist.shift();
   const out = [{ role: "user", content: `${KEEPER}\n\n${task}${canonFor(c)}\n\n${start}` }, ...hist];
-  if (mode === "write") out.push({ role: "user", content: c.mode === "review" ? WRITE_REVIEW : WRITE_CREATE });
+  if (mode === "write") out.push({ role: "user", content: c.mode === "review" ? WRITE_REVIEW : c.mode === "world" ? WRITE_WORLD : WRITE_CREATE });
   if (out[out.length - 1].role !== "user") out.push({ role: "user", content: "Go on." });
   return out;
 }
@@ -575,12 +596,12 @@ function drawChat() {
   const c = openChat();
   view.innerHTML = `<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="ai" id="aiPill">Checking the local AI…</span><span class="chatnote" id="aiModel">Runs on our own laptop</span></div>
   <section class="chatbox" aria-label="Chat with the lore-keeper">
-    <div class="chathead"><span>THE LORE-KEEPER</span><span class="about">${c ? esc(chatTitle(c)) : "Create or review a character"}</span></div>
+    <div class="chathead"><span>THE LORE-KEEPER</span><span class="about">${c ? esc(chatTitle(c)) : "Characters, worldbuilding and mechanics"}</span></div>
     <div class="chatlog" id="chatlog" aria-live="polite"></div>
     <div class="chatstatus" id="chatstatus" role="status" aria-live="polite"></div>
     <div class="composer" id="composer" ${c ? "" : "hidden"}>
       <label class="sr" for="say">Your message</label>
-      <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "review" ? "Ask about the review, or say what to change…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
+      <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "review" ? "Ask about the review, or say what to change…" : c && c.mode === "world" ? "Push on it: what if…, what does it cost…, how would the Kingdom use it…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
       <div class="row">
         <button class="primary" type="button" id="sendSay">Send</button>
         <button class="mic" type="button" id="micSay" title="Speak your message" aria-label="Voice typing" hidden>🎤</button>
@@ -609,15 +630,15 @@ function drawChat() {
   setChatBusy(chatBusy);
 }
 function chatStatus(t, err) { const s = $("chatstatus"); if (s) { s.textContent = t || ""; s.className = "chatstatus" + (err ? " err" : ""); } }
-function setChatBusy(b) { chatBusy = b; ["sendSay", "writeBtn", "backChat", "startCreate", "startReview"].forEach((id) => { if ($(id)) $(id).disabled = b; }); }
+function setChatBusy(b) { chatBusy = b; ["sendSay", "writeBtn", "backChat", "startCreate", "startReview", "startWorld"].forEach((id) => { if ($(id)) $(id).disabled = b; }); }
 
 function drawStart() {
   const codexPeople = codexNotes().filter((n) => n && n.cat === "character" && plain(n.title));
   const groups = [...new Set(PEOPLE.map((p) => p.group))];
   const earlier = chats.slice(0, 8);
   $("chatlog").innerHTML = `<div class="chatstart">
-    <h3>Create or review a character</h3>
-    <p class="note">The lore-keeper knows the Grand Orrery's lore, roster and items. It helps you build someone new who fits the world, or checks a character against the canon.</p>
+    <h3>What are we working on?</h3>
+    <p class="note">The lore-keeper knows the Grand Orrery's lore, roster and items. It helps you build someone new who fits the world, checks a character against the canon, or works through how the world itself works.</p>
     <div class="opt"><b>✨ Create a character</b><small>Start from an idea, or leave it blank and it pitches three to choose from. Press <b>Write it up</b> at any point for a character sheet you can add to the Codex.</small>
       <label class="sr" for="idea">Your idea</label>
       <textarea id="idea" maxlength="1500" placeholder="Optional: a halfling miller who hides a fire gift from the Elderhold…"></textarea>
@@ -629,6 +650,12 @@ function drawStart() {
       }<option value="own">Someone else: I'll describe them</option></select>
       <textarea id="reviewOwn" maxlength="4000" placeholder="Name, race, age, role, personality, history, secrets…" hidden></textarea>
       <div class="row"><button class="primary" type="button" id="startReview">Start the review</button></div></div>
+    <div class="opt"><b>🌍 Worldbuilding &amp; mechanics</b><small>Enter an idea about magic, physics, nature, places, peoples or customs. It checks it against the canon and works out what it costs, where it breaks and what it changes. Leave it blank and it pitches mechanics for things the canon leaves open.</small>
+      <label class="sr" for="worldKind">Topic</label>
+      <select id="worldKind">${WORLD_KINDS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>
+      <label class="sr" for="worldIdea">Your idea</label>
+      <textarea id="worldIdea" maxlength="2500" placeholder="Optional: mana pools in deep water, so rivers carry it downstream and mills near the source run stronger…"></textarea>
+      <div class="row"><button class="primary" type="button" id="startWorld">Start working it out</button></div></div>
     ${earlier.length ? `<h3 style="font-size:15px">Earlier chats</h3><div class="earlier">${earlier.map((c) => {
       const turns = c.messages.filter((m) => m.role === "user").length;
       return `<div class="row"><span>${esc(chatTitle(c))}<small>${new Date(c.at).toLocaleDateString([], { dateStyle: "medium" })} · ${turns} message${turns === 1 ? "" : "s"} from you${c.writeup ? " · written up" : ""}</small></span><button class="small" type="button" data-open="${c.id}">Continue</button><button class="small del" type="button" data-del="${c.id}">🗑 Delete</button></div>`;
@@ -636,6 +663,7 @@ function drawStart() {
   </div>`;
   $("reviewWho").onchange = () => { $("reviewOwn").hidden = $("reviewWho").value !== "own"; };
   $("startCreate").onclick = () => startChat({ mode: "create", idea: $("idea").value.trim().slice(0, 1500) });
+  $("startWorld").onclick = () => startChat({ mode: "world", kind: $("worldKind").value, idea: $("worldIdea").value.trim().slice(0, 2500) });
   $("startReview").onclick = () => {
     const v = $("reviewWho").value;
     if (v === "own") {
@@ -670,16 +698,16 @@ function drawLog() {
   log.scrollTop = log.scrollHeight;
   const w = $("writeup");
   w.hidden = !c.writeup;
-  $("writeHead").textContent = c.mode === "review" ? "The review, summed up" : "The character sheet";
+  $("writeHead").textContent = c.mode === "review" ? "The review, summed up" : c.mode === "world" ? "The idea, written up" : "The character sheet";
   $("writeText").textContent = c.writeup || "";
-  $("codexWrite").hidden = c.mode !== "create";
+  $("codexWrite").hidden = c.mode === "review";
   $("writeNote").textContent = "";
 }
 
 function startChat(o) {
   if (chatBusy) return;
-  const c = { id: newId(), mode: o.mode, target: o.target || null, idea: o.idea || "", title: "", messages: [], writeup: "", at: Date.now() };
-  if (c.mode === "create" && c.idea) c.messages.push({ role: "user", content: c.idea });
+  const c = { id: newId(), mode: o.mode, kind: o.kind || "", target: o.target || null, idea: o.idea || "", title: "", messages: [], writeup: "", at: Date.now() };
+  if ((c.mode === "create" || c.mode === "world") && c.idea) c.messages.push({ role: "user", content: c.idea });
   chats.unshift(c); chatId = c.id; keepChats(); drawChat();
   ask(c, "turn", (t) => { c.messages.push({ role: "assistant", content: t }); });
 }
@@ -700,7 +728,7 @@ function writeUp() {
   ask(c, "write", (t) => {
     c.writeup = t;
     const name = (t.match(/^\W*Name\W*:\s*(.+)$/im) || [])[1];
-    if (c.mode === "create" && name) c.title = name.replace(/[*_]/g, "").replace(/\(suggested\)/i, "").trim().slice(0, 60);
+    if (c.mode !== "review" && name) c.title = name.replace(/[*_]/g, "").replace(/\(suggested\)/i, "").trim().slice(0, 60);
   }, () => $("writeup").scrollIntoView({ behavior: "smooth" }));
 }
 async function ask(c, mode, onDone, after) {
@@ -728,17 +756,24 @@ async function ask(c, mode, onDone, after) {
 function addToCodex(c) {
   const t = c.writeup || "";
   const get = (label) => ((t.match(new RegExp(`^\\W*${label}\\W*:\\s*(.+)$`, "im")) || [])[1] || "").replace(/\*+/g, "").trim();
-  const title = get("Name").replace(/\s*\(suggested\)/i, "") || c.title || "New character";
-  const f = { race: get("Race"), sex: get("Sex"), age: get("Age"), role: get("Role"), home: get("Lives in"), secret: get("Secret") };
-  for (const k of Object.keys(f)) f[k] = f[k].slice(0, 300);
-  const used = /^\W*(Name|Race|Sex|Age|Role|Lives in|Secret)\W*:/i;
+  const world = c.mode === "world";
+  const title = get("Name").replace(/\s*\(suggested\)/i, "") || c.title || (world ? "New idea" : "New character");
+  // Physics has no shelf of its own in the Codex, so it goes with the rules.
+  const cat = world ? ({ physics: "rule" }[c.kind] || c.kind || "other") : "character";
+  const who = get("Who it affects");
+  const f = !world ? { race: get("Race"), sex: get("Sex"), age: get("Age"), role: get("Role"), home: get("Lives in"), secret: get("Secret") }
+    : cat === "magic" ? { who, cost: get("Costs and limits") }
+    : cat === "rule" ? { applies: who }
+    : {};
+  for (const k of Object.keys(f)) if (!f[k]) delete f[k]; else f[k] = f[k].slice(0, 300);
+  const used = world ? /^\W*(Name|Kind)\W*:/i : /^\W*(Name|Race|Sex|Age|Role|Lives in|Secret)\W*:/i;
   const body = t.split("\n").filter((l) => !used.test(l)).join("\n").replace(/\n{3,}/g, "\n\n").trim();
   const d = chatStore.get(CODEX_KEY) || { v: 1, notes: [] };
   if (!Array.isArray(d.notes)) d.notes = [];
   const had = d.notes.find((n) => n && n.source === "orrery-chat:" + c.id.slice(0, 20));
   const now = Date.now();
   if (had) Object.assign(had, { title, f: { ...had.f, ...f }, body, updated: now });
-  else d.notes.push({ id: newId(), cat: "character", title, body, status: "pitch", narrator: false, f, pic: "", source: "orrery-chat:" + c.id.slice(0, 20), created: now, updated: now });
+  else d.notes.push({ id: newId(), cat, title, body, status: "pitch", narrator: false, f, pic: "", source: "orrery-chat:" + c.id.slice(0, 20), created: now, updated: now });
   if (!chatStore.set(CODEX_KEY, { ...d, v: 1 })) return ($("writeNote").textContent = "This browser's storage is full, so it couldn't be added.");
   $("writeNote").innerHTML = `${had ? "Updated" : "Added"} ${esc(title)} in the <a href="/verrowen/codex/">Codex</a> as a pitch.`;
 }
