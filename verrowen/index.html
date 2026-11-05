@@ -71,6 +71,8 @@
   .opt:has(input:checked){border-color:var(--gold);background:rgba(224,168,74,.08)}
   .opt input[type=radio]{margin-top:6px;accent-color:var(--gold)}
   .opt > span{flex:1;min-width:0}
+  .opt .del{flex-shrink:0;align-self:center;background:none;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12.5px;padding:3px 9px;cursor:pointer}
+  .opt .del:hover{border-color:var(--ember);color:#ff9b7a}
   .opt b{display:block;font-weight:600;font-size:15px}
   .opt small{display:block;color:var(--muted);font-size:13px}
   .opt .more{display:flex;flex-direction:column;gap:8px;margin-top:10px}
@@ -486,6 +488,14 @@ function keepCharacter(){
   // Long stories add up: if the browser is full, keep fewer of the oldest.
   for (let n = 12; n > 0; n--){ try{ localStorage.setItem("verrowen-characters", JSON.stringify(list.slice(0, n))); return; }catch(e){} }
 }
+// Forget a saved character (and their story) in this browser. The laptop
+// keeps its own copy of every story.
+function deleteCharacter(id, name){
+  if (!confirm("Delete " + name + "? Their story and profile are removed from this browser. This can't be undone.")) return;
+  try{ localStorage.setItem("verrowen-characters", JSON.stringify(savedCharacters().filter(c => c.id !== id))); }catch(e){}
+  drawPicker();
+  setStatus(name + " was deleted.");
+}
 function resumeStory(id){
   const c = savedCharacters().find(x => x.id === id);
   const s = c && c.story;
@@ -511,15 +521,24 @@ function drawPicker(){
     const i = document.createElement("input"); i.type = "radio"; i.name = "who"; i.value = value;
     const s = document.createElement("span"), b = document.createElement("b"), m = document.createElement("small");
     b.textContent = title; m.textContent = sub; s.append(b, m); l.append(i, s); box.appendChild(l);
+    return l;
   };
   for (const c of savedCharacters().slice(0, 6)){
     const name = c.name || "Unnamed wanderer", when = new Date(c.at).toLocaleDateString([], {dateStyle: "medium"});
     const msgs = c.story && Array.isArray(c.story.messages) ? c.story.messages : [];
+    let first = null;
     if (msgs.length){
       const turns = msgs.filter(m => m.role === "user").length;
-      opt("resume:" + c.id, "Continue " + name + "'s story", (c.profile ? "" : "Unfinished. ") + "Pick up where you left off on " + when + ", " + turns + (turns === 1 ? " turn" : " turns") + " in.");
+      first = opt("resume:" + c.id, "Continue " + name + "'s story", (c.profile ? "" : "Unfinished. ") + "Pick up where you left off on " + when + ", " + turns + (turns === 1 ? " turn" : " turns") + " in.");
     }
-    if (c.profile) opt("returning:" + c.id, name + " wakes again", "A new story for your " + (c.purpose === "dnd" ? "D&D character" : "character") + " from " + when + ". What they learned before comes back in flashes.");
+    if (c.profile){ const l = opt("returning:" + c.id, name + " wakes again", "A new story for your " + (c.purpose === "dnd" ? "D&D character" : "character") + " from " + when + ". What they learned before comes back in flashes."); first = first || l; }
+    if (first){
+      const d = document.createElement("button");
+      d.type = "button"; d.className = "del"; d.textContent = "🗑 Delete";
+      d.title = "Delete " + name + " from this browser"; d.setAttribute("aria-label", d.title);
+      d.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); deleteCharacter(c.id, name); });
+      first.appendChild(d);
+    }
   }
   const keep = was && document.querySelector(`input[name="who"][value="${CSS.escape(was)}"]`);
   (keep || document.querySelector('input[name="who"][value="new"]')).checked = true;

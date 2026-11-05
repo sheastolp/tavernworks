@@ -147,6 +147,9 @@
   #vw-pick .opt b{display:block;font-weight:600;font-size:14.5px}
   #vw-pick .opt small{display:block;color:var(--muted);font-size:12.5px}
   #vw-pick .opt .more{margin-top:8px}
+  #vw-pick .opt > span{flex:1;min-width:0}
+  #vw-pick .opt .del{flex-shrink:0;align-self:center;background:none;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px;padding:3px 9px;cursor:pointer}
+  #vw-pick .opt .del:hover{border-color:var(--ember);color:#ff9b7a}
   #vw-pick .opt:not(:has(input:checked)) .more{display:none}
   #vw-pick .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   @media (max-width:520px){#vw-pick .two{grid-template-columns:1fr}}
@@ -800,16 +803,31 @@ const PEOPLE = [];
   };
 
   // ── The character picker ──
-  const openPick = (charIndex) => {
-    const s = story(), list = chars();
-    if (!$("vw-player").value) $("vw-player").value = s.playerName || "";
+  // Each saved character, with a Delete button on its first option.
+  const drawSaved = () => {
+    const list = chars();
     const when = (c) => esc(new Date(c.at).toLocaleDateString([], { dateStyle: "medium" }));
     const hasStory = (c) => c.story && Array.isArray(c.story.messages) && c.story.messages.length;
+    const del = (c, i) => `<button type="button" class="del" data-del="${i}" title="Delete ${esc(c.name || "Unnamed")} from this browser">🗑 Delete</button>`;
     $("vw-saved").innerHTML = list.map((c, i) =>
       (hasStory(c) ? `<label class="opt"><input type="radio" name="who" value="resume:${i}"><span><b>Continue ${esc(c.name || "Unnamed")}'s story</b>` +
-        `<small>Pick up where you left off on ${when(c)}, ${((n) => n + (n === 1 ? " turn" : " turns"))(c.story.messages.filter((m) => m.role === "user").length)} in.</small></span></label>` : "") +
+        `<small>Pick up where you left off on ${when(c)}, ${((n) => n + (n === 1 ? " turn" : " turns"))(c.story.messages.filter((m) => m.role === "user").length)} in.</small></span>${del(c, i)}</label>` : "") +
       (c.profile ? `<label class="opt"><input type="radio" name="who" value="returning:${i}"><span><b>${esc(c.name || "Unnamed")} wakes again</b>` +
-        `<small>A new story for your ${c.purpose === "dnd" ? "D&amp;D character" : "character"} from ${when(c)}. What they learned before comes back in flashes.</small></span></label>` : "")).join("");
+        `<small>A new story for your ${c.purpose === "dnd" ? "D&amp;D character" : "character"} from ${when(c)}. What they learned before comes back in flashes.</small></span>${hasStory(c) ? "" : del(c, i)}</label>` : "")).join("");
+    if (!pick.querySelector('input[name="who"]:checked')) { const d = pick.querySelector('input[name="who"][value="new"]') || pick.querySelector('input[name="who"]'); if (d) d.checked = true; }
+  };
+  $("vw-saved").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-del]"); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    const list = chars(), c = list[+b.dataset.del]; if (!c) return;
+    if (!confirm(`Delete ${c.name || "this character"}? Their story and profile are removed from this browser. This can't be undone.`)) return;
+    try { localStorage.setItem("verrowen-characters", JSON.stringify(list.filter((x) => x.id !== c.id))); } catch {}
+    drawSaved(); draw();
+  });
+  const openPick = (charIndex) => {
+    const s = story();
+    if (!$("vw-player").value) $("vw-player").value = s.playerName || "";
+    drawSaved();
     if (charIndex != null) { const r = pick.querySelector(`input[value="resume:${charIndex}"]`) || pick.querySelector(`input[value="returning:${charIndex}"]`); if (r) r.checked = true; }
     $("vw-pick-note").className = "note";
     $("vw-pick-note").innerHTML = (s.messages || []).length && !s.profile
