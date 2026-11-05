@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Orrery Explorer · Tavernworks</title>
-<meta name="description" content="Browse the Grand Orrery: its maps, documents, character roster and enchanted items, and everything written about each one.">
+<meta name="description" content="Browse the Grand Orrery: its maps, documents, character roster and enchanted items, and everything written about each one. A chat with the local AI helps create and review characters.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -84,6 +84,54 @@
   @media (max-width:560px){.facts{grid-template-columns:1fr;gap:2px}.facts dd{margin-bottom:8px}}
   .card .icon{font-size:22px;line-height:1;margin-bottom:6px}
   footer{text-align:center;color:var(--muted);font-size:13px;padding:30px 0 40px}
+  /* The chat: the local AI helps create and review characters, like Wake in Verrowen's narrator. */
+  .ai{display:inline-block;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.05);color:var(--muted)}
+  .ai.live{background:rgba(127,176,105,.15);color:var(--green)}
+  .ai.down{background:rgba(201,87,43,.15);color:var(--ember)}
+  .chatbox{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;height:min(76vh,740px);min-height:440px;overflow:hidden;margin-top:6px}
+  .chathead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);font-family:Cinzel,serif;color:var(--gold);letter-spacing:.12em;font-size:13px}
+  .chathead .about{font-family:Inter,sans-serif;letter-spacing:0;color:var(--muted);font-size:13px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chatlog{flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:16px}
+  .say{max-width:68ch;white-space:pre-wrap;font-family:Spectral,Georgia,serif;font-size:17.5px;line-height:1.6}
+  .say::before{display:block;font-family:Cinzel,serif;font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:2px;white-space:normal}
+  .say.keeper::before{content:"The Lore-keeper";color:var(--muted)}
+  .say.me{align-self:flex-end;background:rgba(0,0,0,.25);border:1px solid var(--line);border-left:3px solid var(--gold);padding:10px 14px;border-radius:10px;font-size:16.5px}
+  .say.me::before{content:"You";color:var(--gold)}
+  .say.writing{color:var(--muted);font-style:italic}
+  .chatstart{display:flex;flex-direction:column;gap:12px;max-width:640px}
+  .chatstart h3{font-family:Cinzel,serif;font-size:18px;color:var(--gold2)}
+  .chatstart .note,.chatnote{font-size:13.5px;color:var(--muted)}
+  .chatstart .opt{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.22)}
+  .chatstart .opt b{font-weight:600;font-size:15px}
+  .chatstart .opt small{color:var(--muted);font-size:13px}
+  .chatbox textarea,.chatbox select{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;font:inherit}
+  .chatbox textarea{width:100%;min-height:60px;max-height:200px;resize:vertical;padding:9px 12px;font-size:16px;display:block}
+  .chatbox select{padding:8px 10px;font-size:15px;max-width:100%}
+  .chatbox textarea:focus,.chatbox select:focus,.chatbox button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .chatbox .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .chatbox button{font-family:Cinzel,serif;font-size:13px;letter-spacing:.08em;border-radius:8px;padding:9px 15px;cursor:pointer;border:1px solid var(--gold);background:transparent;color:var(--gold2)}
+  .chatbox button.primary{background:var(--gold);color:var(--bg);font-weight:800}
+  .chatbox button.quiet{border-color:var(--line);color:var(--muted)}
+  .chatbox button.small{font-family:Inter,sans-serif;letter-spacing:0;font-size:12.5px;padding:4px 10px;border-color:var(--line);color:var(--muted)}
+  .chatbox button.small.del:hover{border-color:var(--ember);color:#ff9b7a}
+  .chatbox button:disabled{opacity:.45;cursor:default}
+  .chatbox button.mic{font-family:Inter,sans-serif;letter-spacing:0;padding:9px 12px}
+  .chatbox button.mic.listening{background:var(--ember);border-color:var(--ember);color:#fff}
+  .earlier{display:flex;flex-direction:column;gap:6px}
+  .earlier .row{justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:rgba(0,0,0,.18)}
+  .earlier .row span{min-width:0;flex:1;font-size:14px}
+  .earlier .row small{display:block;color:var(--muted);font-size:12.5px}
+  .composer{border-top:1px solid var(--line);padding:12px 16px 14px;display:flex;flex-direction:column;gap:8px;background:rgba(0,0,0,.18)}
+  .chatstatus{font-size:13.5px;color:var(--muted);min-height:1.3em;padding:0 16px 8px}
+  .chatstatus.err{color:var(--ember)}
+  .writeup{margin-top:16px;background:var(--card);border:1px solid var(--gold);border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+  .writeup h3{font-family:Cinzel,serif;color:var(--gold2);font-size:18px}
+  .writeup pre{white-space:pre-wrap;font-family:Spectral,Georgia,serif;font-size:16.5px;line-height:1.55}
+  .writeup .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .writeup button{font-family:Cinzel,serif;font-size:13px;letter-spacing:.08em;border-radius:8px;padding:9px 15px;cursor:pointer;border:1px solid var(--gold);background:transparent;color:var(--gold2)}
+  .writeup button.primary{background:var(--gold);color:var(--bg);font-weight:800}
+  .sr{position:absolute;left:-9999px}
+  @media (max-width:560px){.chathead .about{display:none}.chatbox{height:80vh}}
 </style>
 </head>
 <body>
@@ -92,12 +140,13 @@
   <header>
     <div class="sign">THE WORKBENCH</div>
     <h1>Orrery Explorer</h1>
-    <p class="tag">The Grand Orrery's maps, documents, people and items, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Pick a person or an item to see everything written about it.</p>
+    <p class="tag">The Grand Orrery's maps, documents, people and items, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Pick a person or an item to see everything written about it, or open the <a href="#chat">chat</a> to create and review characters with the local AI.</p>
     <div class="tabs">
       <a href="#roster" data-tab="roster">Roster</a>
       <a href="#items" data-tab="items">Items</a>
       <a href="#maps" data-tab="maps">Maps</a>
       <a href="#docs" data-tab="docs">Documents</a>
+      <a href="#chat" data-tab="chat">✒️ Chat</a>
       <form class="find" id="find"><input type="search" id="q" placeholder="Find anyone or anything…" aria-label="Search the orrery"><button type="submit">Find</button></form>
     </div>
     <p class="status" id="status">Loading the orrery…</p>
@@ -105,6 +154,7 @@
   <main id="view"></main>
   <footer><a href="/">Tavernworks</a> · <a href="/verrowen/">Wake in Verrowen</a> · <button class="btn" type="button" id="reload">Reload from GitHub</button></footer>
 </div>
+<script src="/voice-input.js"></script>
 <script>
 // Orrery Explorer: reads the grand-orrery repo's Markdown straight from
 // GitHub (like Wake in Verrowen reads lore.md), so it's always current.
@@ -323,7 +373,7 @@ function person(id) {
     return [o, found.reduce((a, d) => a + d.hits.filter((s) => { ore.lastIndex = 0; return ore.test(s.body); }).length, 0)];
   }).filter(([, n]) => n).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const makes = ITEMS.filter((it) => it.by.includes(p.id));
-  return { html: `<div class="crumb"><a href="#roster">Roster</a> › ${esc(p.group)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(p.name)}</h2><p class="tag">${esc(p.role)} · ${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}.</p>${
+  return { html: `<div class="crumb"><a href="#roster">Roster</a> › ${esc(p.group)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(p.name)}</h2><p class="tag">${esc(p.role)} · ${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}. <a href="#chat/review/${p.id}">✒️ Review ${esc(p.name)} in the chat</a></p>${
     near.length ? `<div class="who">${near.map(([o, n]) => `<a class="pill" href="#person/${o.id}">${esc(o.name)} · ${n}</a>`).join("")}</div>` : ""
   }${makes.length ? `<div class="who"><span class="pill">Makes</span>${makes.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}${renderHits(found, re) || "<p>Nothing written yet.</p>"}`, re };
 }
@@ -385,6 +435,7 @@ function route() {
   else if (tab === "maps") out = maps();
   else if (tab === "docs") out = docs();
   else if (tab === "doc") out = doc(arg, extra);
+  else if (tab === "chat") return chatRoute(arg, extra);
   else out = roster();
   view.innerHTML = out;
   if (re) view.querySelectorAll(".md").forEach((el) => highlight(el, re));
@@ -407,6 +458,289 @@ async function load() {
     $("status").textContent = missing.length ? `Couldn't load ${missing.map((d) => d.file).join(", ")}.` : "";
   }
   route();
+}
+
+// ── The chat: the local AI helps create and review characters ──
+// It talks to the same gate on the laptop as Wake in Verrowen
+// (verrowen/server/server.mjs → Ollama), with the orrery's own documents as
+// canon. Views: #chat (start or the open chat), #chat/review/<person id>.
+const AI = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
+// The gate takes 24,000 characters in the first message and runs the model
+// with an 8k-token window, so the canon and the chat are both kept to a budget.
+const CANON_BUDGET = 15000, HISTORY_BUDGET = 9000, MAX_SAY = 2000;
+const KEEPER = `You are the Orrery's lore-keeper: a writing partner for the author of the Grand Orrery, a medieval fantasy universe, helping them build its characters. The LORE, ROSTER and NOTES below are canon. Talk to the author directly, plainly and briefly: under about 200 words a reply unless they ask for more. Plain text only: no markdown headings or tables; a short list is fine. Keep to the setting's rules: magic is weak, everyday and costs mana, and objects hold magic but don't make it. Never contradict canon. If an idea clashes with it, say so, quote what it clashes with, and suggest a way to make it fit. Ask at most two questions at a time, and accept what the author decides.`;
+const CREATE = `TASK: help the author create a NEW character for this universe. They must not be any named person in the canon, but should be tied to its people and places. Build the character with the author step by step: offer concrete options (a name that fits the naming style of their people, a role, a want, a fear, a secret, ties to named characters) and let the author choose. Favour roles, races and places the roster doesn't cover yet.`;
+const REVIEW = `TASK: review the character below against the canon. Your first reply covers: what works; anything that contradicts the LORE or other characters (quote the clash); gaps worth filling, such as age, magic, motives and ties to others; and two or three concrete suggestions. After that, answer the author's follow-ups and help them revise. Be honest but kind.`;
+const WRITE_CREATE = `The author says "write it up." Write the character as it stands, in plain text, with these labeled lines, one per line: Name, Race, Sex, Age, Role, Lives in, Appearance, Personality, Magic, Connections, Secret, Story hooks. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "Who they are" and a paragraph of about 100 words.`;
+const WRITE_REVIEW = `The author says "sum it up." Write the review's conclusions in plain text with these labeled lines: Verdict (one sentence), What works, Clashes with canon, Gaps, Changes to make (a short numbered list). Base it on the canon and on what was decided in this chat.`;
+
+const chatStore = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+};
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+// Every chat is kept in this browser: { id, mode: "create"|"review", target, idea, messages, writeup, at }.
+let chats = (chatStore.get("orrery-chats") || []).filter((c) => c && Array.isArray(c.messages));
+let chatId = chatStore.get("orrery-chat-open") || "";
+let chatBusy = false, chatVoice = null;
+const openChat = () => chats.find((c) => c.id === chatId) || null;
+function keepChats() {
+  chats.sort((a, b) => b.at - a.at);
+  for (let n = Math.min(chats.length, 20); n >= 0; n--) if (chatStore.set("orrery-chats", chats.slice(0, n))) { chats = chats.slice(0, n); break; }
+  chatStore.set("orrery-chat-open", chatId);
+}
+const chatTitle = (c) => c.mode === "review" ? "Reviewing " + (c.target && c.target.name || "a character") : (c.title || "A new character");
+
+// The author's Codex (/verrowen/codex/) keeps notes in this browser too.
+const CODEX_KEY = "verrowen-codex";
+function codexNotes() { const d = chatStore.get(CODEX_KEY); return d && Array.isArray(d.notes) ? d.notes : []; }
+const plain = (s) => String(s || "").replace(/\[\[([^\]]+)\]\]/g, "$1").replace(/^\s*(#+|>|[-*])\s*/gm, "").replace(/\*+/g, "").replace(/\s+/g, " ").trim();
+function codexLine(n) {
+  const f = n.f && typeof n.f === "object" ? n.f : {};
+  const bits = [["race", "Race"], ["sex", "Sex"], ["age", "Age"], ["role", "Role"], ["home", "Lives in"], ["owner", "Held by"], ["power", "What it does"], ["where", "Where"]]
+    .map(([k, l]) => plain(f[k]) ? `${l}: ${plain(f[k])}` : "").filter(Boolean);
+  return `${plain(n.title)}${bits.length ? " (" + bits.join("; ") + ")" : ""}${plain(n.body) ? ". " + plain(n.body) : ""}`;
+}
+
+// What the lore-keeper is told: rules, task, then canon in order of
+// importance until the budget runs out.
+function canonFor(c) {
+  const parts = [];
+  if (c.mode === "review") {
+    const t = c.target || {};
+    let about = t.text || "";
+    if (t.kind === "person") {
+      const p = PEOPLE.find((x) => x.id === t.id);
+      if (p) about = `${p.name}: ${p.role}.\n\n` + matches(patternFor(p.names)).flatMap(({ doc, hits }) => hits.map((s) => `[${doc.title} › ${s.path.join(" › ")}]\n${s.body.replace(/^#+\s.*\n?/, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").trim()}`)).join("\n\n");
+    }
+    parts.push(["CHARACTER UNDER REVIEW", `${t.name || "The author's character"}\n${about}`, 7000]);
+  }
+  const lore = (text.lore || "").replace(/^# .*\n+.*\n+/, "").trim();
+  parts.push(["LORE", lore, 9000]);
+  parts.push(["ROSTER (named people already in the canon)", PEOPLE.map((p) => `${p.name} (${p.group}): ${p.role}`).join("\n"), 2000]);
+  parts.push(["MURROW'S ENCHANTED ITEMS", ITEMS.map((it) => `${it.name}: ${it.does} Limits: ${it.limits}`).join("\n"), 1500]);
+  const notes = codexNotes().filter((n) => n && n.status !== "pitch" && plain(n.title)).map(codexLine).map((l) => l.length > 500 ? l.slice(0, 499) + "…" : l);
+  if (notes.length) parts.push(["NOTES (the author's own Codex, as true as the LORE)", notes.join("\n"), 3000]);
+  let left = CANON_BUDGET, out = "";
+  for (const [head, body, cap] of parts) {
+    if (left < 300 || !body.trim()) continue;
+    const room = Math.min(cap, left);
+    const b = body.length > room ? body.slice(0, room - 1) + "…" : body;
+    out += `\n\n${head}:\n${b}`; left -= b.length + head.length + 4;
+  }
+  return out;
+}
+function chatMessages(c, mode) {
+  const task = c.mode === "review" ? REVIEW : CREATE + (c.idea ? "" : " The author has no idea yet: open by pitching three short, different character concepts that fit gaps in the roster, and ask which to build.");
+  const start = c.mode === "review" ? "Give your review now." : c.idea ? "Start from the author's idea now." : "Pitch your three concepts now.";
+  // The newest messages that fit the budget, starting with one of the author's.
+  const hist = []; let used = 0;
+  for (let i = c.messages.length - 1; i >= 0; i--) {
+    const m = { role: c.messages[i].role, content: String(c.messages[i].content).slice(0, MAX_SAY) };
+    if (used + m.content.length > HISTORY_BUDGET) break;
+    hist.unshift(m); used += m.content.length;
+  }
+  while (hist.length && hist[0].role === "assistant" && hist.length < c.messages.length) hist.shift();
+  const out = [{ role: "user", content: `${KEEPER}\n\n${task}${canonFor(c)}\n\n${start}` }, ...hist];
+  if (mode === "write") out.push({ role: "user", content: c.mode === "review" ? WRITE_REVIEW : WRITE_CREATE });
+  if (out[out.length - 1].role !== "user") out.push({ role: "user", content: "Go on." });
+  return out;
+}
+
+function setAi(up) {
+  const p = $("aiPill");
+  if (p) { p.textContent = up ? "● Local AI awake" : "● Local AI asleep"; p.className = "ai " + (up ? "live" : "down"); }
+}
+let aiUp = null, aiModel = "";
+function checkAi() {
+  fetch(AI + "/health").then((r) => r.json()).then((j) => { aiUp = !!(j.ok && j.ollama); aiModel = j.model || ""; }).catch(() => { aiUp = false; })
+    .finally(() => { setAi(aiUp); const m = $("aiModel"); if (m) m.textContent = aiModel ? "Runs " + aiModel + " on our own laptop" : "Runs on our own laptop"; });
+}
+
+function chatRoute(arg, extra) {
+  document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === "chat"));
+  if (arg === "review" && extra) {
+    // Coming from a person's page: reopen their review if there is one, else start it.
+    const had = chats.find((c) => c.mode === "review" && c.target && c.target.kind === "person" && c.target.id === extra);
+    history.replaceState(null, "", "#chat");
+    if (had) { chatId = had.id; keepChats(); }
+    else {
+      const p = PEOPLE.find((x) => x.id === extra);
+      if (p && !chatBusy) return startChat({ mode: "review", target: { kind: "person", id: p.id, name: p.name } });
+    }
+  }
+  drawChat();
+}
+function drawChat() {
+  const c = openChat();
+  view.innerHTML = `<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="ai" id="aiPill">Checking the local AI…</span><span class="chatnote" id="aiModel">Runs on our own laptop</span></div>
+  <section class="chatbox" aria-label="Chat with the lore-keeper">
+    <div class="chathead"><span>THE LORE-KEEPER</span><span class="about">${c ? esc(chatTitle(c)) : "Create or review a character"}</span></div>
+    <div class="chatlog" id="chatlog" aria-live="polite"></div>
+    <div class="chatstatus" id="chatstatus" role="status" aria-live="polite"></div>
+    <div class="composer" id="composer" ${c ? "" : "hidden"}>
+      <label class="sr" for="say">Your message</label>
+      <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "review" ? "Ask about the review, or say what to change…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
+      <div class="row">
+        <button class="primary" type="button" id="sendSay">Send</button>
+        <button class="mic" type="button" id="micSay" title="Speak your message" aria-label="Voice typing" hidden>🎤</button>
+        <button type="button" id="writeBtn">${c && c.mode === "review" ? "📋 Sum it up" : "✍️ Write it up"}</button>
+        <button class="quiet" type="button" id="backChat" title="Back to the start. This chat is kept, so you can pick it up later.">← Back</button>
+      </div>
+    </div>
+  </section>
+  <section class="writeup" id="writeup" hidden>
+    <h3 id="writeHead"></h3><pre id="writeText"></pre>
+    <div class="row"><button class="primary" type="button" id="copyWrite">Copy</button><button type="button" id="codexWrite" hidden>🗂 Add to the Codex</button><span class="chatnote" id="writeNote"></span></div>
+  </section>
+  <p class="chatnote" style="margin-top:14px">The lore-keeper is a small AI model on the same laptop as <a href="/local-ai/">Local AI</a> and the <a href="/verrowen/">Wake in Verrowen</a> narrator. It reads the documents above${codexNotes().length ? " and your decided <a href=\"/verrowen/codex/\">Codex</a> notes" : ""} as canon. Chats are kept in this browser only. If the laptop is asleep, it can't answer.</p>`;
+  setAi(aiUp);
+  if (aiUp === null || aiUp === false) checkAi(); else { const m = $("aiModel"); if (m && aiModel) m.textContent = "Runs " + aiModel + " on our own laptop"; }
+  if (!c) drawStart(); else drawLog();
+  if (c) {
+    $("sendSay").onclick = sendSay;
+    $("say").onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendSay(); } };
+    $("writeBtn").onclick = writeUp;
+    $("backChat").onclick = () => { if (chatBusy) return; chatId = ""; keepChats(); drawChat(); };
+    if (window.VoiceInput) chatVoice = VoiceInput.attach($("micSay"), $("say"), { onStatus(t, err) { if (t || $("chatstatus").textContent.startsWith("Listening")) chatStatus(t, err); } });
+    $("copyWrite").onclick = async () => { try { await navigator.clipboard.writeText(c.writeup); $("writeNote").textContent = "Copied."; } catch { $("writeNote").textContent = "Copy didn't work here. Select the text and copy it by hand."; } };
+    $("codexWrite").onclick = () => addToCodex(c);
+  }
+  setChatBusy(chatBusy);
+}
+function chatStatus(t, err) { const s = $("chatstatus"); if (s) { s.textContent = t || ""; s.className = "chatstatus" + (err ? " err" : ""); } }
+function setChatBusy(b) { chatBusy = b; ["sendSay", "writeBtn", "backChat", "startCreate", "startReview"].forEach((id) => { if ($(id)) $(id).disabled = b; }); }
+
+function drawStart() {
+  const codexPeople = codexNotes().filter((n) => n && n.cat === "character" && plain(n.title));
+  const groups = [...new Set(PEOPLE.map((p) => p.group))];
+  const earlier = chats.slice(0, 8);
+  $("chatlog").innerHTML = `<div class="chatstart">
+    <h3>Create or review a character</h3>
+    <p class="note">The lore-keeper knows the Grand Orrery's lore, roster and items. It helps you build someone new who fits the world, or checks a character against the canon.</p>
+    <div class="opt"><b>✨ Create a character</b><small>Start from an idea, or leave it blank and it pitches three to choose from. Press <b>Write it up</b> at any point for a character sheet you can add to the Codex.</small>
+      <label class="sr" for="idea">Your idea</label>
+      <textarea id="idea" maxlength="1500" placeholder="Optional: a halfling miller who hides a fire gift from the Elderhold…"></textarea>
+      <div class="row"><button class="primary" type="button" id="startCreate">Start creating</button></div></div>
+    <div class="opt"><b>🔍 Review a character</b><small>Checks them against the canon: what works, what clashes, what's missing.</small>
+      <label class="sr" for="reviewWho">Who to review</label>
+      <select id="reviewWho">${groups.map((g) => `<optgroup label="${esc(g)}">${PEOPLE.filter((p) => p.group === g).map((p) => `<option value="person:${p.id}">${esc(p.name)}</option>`).join("")}</optgroup>`).join("")}${
+        codexPeople.length ? `<optgroup label="Your Codex">${codexPeople.map((n) => `<option value="codex:${esc(n.id)}">${esc(plain(n.title))}${n.status === "pitch" ? " (pitch)" : ""}</option>`).join("")}</optgroup>` : ""
+      }<option value="own">Someone else: I'll describe them</option></select>
+      <textarea id="reviewOwn" maxlength="4000" placeholder="Name, race, age, role, personality, history, secrets…" hidden></textarea>
+      <div class="row"><button class="primary" type="button" id="startReview">Start the review</button></div></div>
+    ${earlier.length ? `<h3 style="font-size:15px">Earlier chats</h3><div class="earlier">${earlier.map((c) => {
+      const turns = c.messages.filter((m) => m.role === "user").length;
+      return `<div class="row"><span>${esc(chatTitle(c))}<small>${new Date(c.at).toLocaleDateString([], { dateStyle: "medium" })} · ${turns} message${turns === 1 ? "" : "s"} from you${c.writeup ? " · written up" : ""}</small></span><button class="small" type="button" data-open="${c.id}">Continue</button><button class="small del" type="button" data-del="${c.id}">🗑 Delete</button></div>`;
+    }).join("")}</div>` : ""}
+  </div>`;
+  $("reviewWho").onchange = () => { $("reviewOwn").hidden = $("reviewWho").value !== "own"; };
+  $("startCreate").onclick = () => startChat({ mode: "create", idea: $("idea").value.trim().slice(0, 1500) });
+  $("startReview").onclick = () => {
+    const v = $("reviewWho").value;
+    if (v === "own") {
+      const t = $("reviewOwn").value.trim();
+      if (!t) { $("reviewOwn").focus(); return chatStatus("Describe the character first.", true); }
+      return startChat({ mode: "review", target: { kind: "own", name: (t.match(/^\W*(?:Name\W*:\s*)?([^\n,.:;]{2,40})/) || [])[1] || "your character", text: t } });
+    }
+    if (v.startsWith("codex:")) {
+      const n = codexNotes().find((x) => x.id === v.slice(6));
+      if (!n) return chatStatus("That Codex note isn't in this browser any more.", true);
+      return startChat({ mode: "review", target: { kind: "codex", id: n.id, name: plain(n.title), text: codexLine(n) } });
+    }
+    const p = PEOPLE.find((x) => x.id === v.slice(7));
+    startChat({ mode: "review", target: { kind: "person", id: p.id, name: p.name } });
+  };
+  $("chatlog").querySelectorAll("[data-open]").forEach((b) => b.onclick = () => { chatId = b.dataset.open; keepChats(); drawChat(); });
+  $("chatlog").querySelectorAll("[data-del]").forEach((b) => b.onclick = () => {
+    const c = chats.find((x) => x.id === b.dataset.del);
+    if (!c || !confirm(`Delete "${chatTitle(c)}"? It's removed from this browser and can't be undone.`)) return;
+    chats = chats.filter((x) => x !== c); keepChats(); drawChat();
+  });
+}
+function drawLog() {
+  const c = openChat(), log = $("chatlog");
+  log.innerHTML = "";
+  for (const m of c.messages) {
+    const d = document.createElement("div");
+    d.className = "say " + (m.role === "assistant" ? "keeper" : "me");
+    d.textContent = m.content;
+    log.appendChild(d);
+  }
+  log.scrollTop = log.scrollHeight;
+  const w = $("writeup");
+  w.hidden = !c.writeup;
+  $("writeHead").textContent = c.mode === "review" ? "The review, summed up" : "The character sheet";
+  $("writeText").textContent = c.writeup || "";
+  $("codexWrite").hidden = c.mode !== "create";
+  $("writeNote").textContent = "";
+}
+
+function startChat(o) {
+  if (chatBusy) return;
+  const c = { id: newId(), mode: o.mode, target: o.target || null, idea: o.idea || "", title: "", messages: [], writeup: "", at: Date.now() };
+  if (c.mode === "create" && c.idea) c.messages.push({ role: "user", content: c.idea });
+  chats.unshift(c); chatId = c.id; keepChats(); drawChat();
+  ask(c, "turn", (t) => { c.messages.push({ role: "assistant", content: t }); });
+}
+function sendSay() {
+  const c = openChat();
+  if (!c || chatBusy) return;
+  if (chatVoice) chatVoice.stop();
+  const t = $("say").value.trim();
+  if (!t) return chatStatus("Write something first.", true);
+  c.messages.push({ role: "user", content: t.slice(0, MAX_SAY) }); $("say").value = "";
+  c.at = Date.now(); keepChats(); drawLog();
+  ask(c, "turn", (r) => { c.messages.push({ role: "assistant", content: r }); });
+}
+function writeUp() {
+  const c = openChat();
+  if (!c || chatBusy) return;
+  if (!c.messages.some((m) => m.role === "assistant")) return chatStatus("Let the lore-keeper answer first.", true);
+  ask(c, "write", (t) => {
+    c.writeup = t;
+    const name = (t.match(/^\W*Name\W*:\s*(.+)$/im) || [])[1];
+    if (c.mode === "create" && name) c.title = name.replace(/[*_]/g, "").replace(/\(suggested\)/i, "").trim().slice(0, 60);
+  }, () => $("writeup").scrollIntoView({ behavior: "smooth" }));
+}
+async function ask(c, mode, onDone, after) {
+  setChatBusy(true); chatStatus("");
+  const live = document.createElement("div");
+  live.className = "say keeper writing"; live.textContent = mode === "write" ? "The lore-keeper is writing it up…" : "The lore-keeper is thinking…";
+  const log = $("chatlog"); if (log && openChat() === c) { log.appendChild(live); log.scrollTop = log.scrollHeight; }
+  try {
+    if (!text.lore && !Object.values(text).some(Boolean)) throw new Error("the orrery's documents haven't loaded; press Reload from GitHub");
+    const r = await fetch(AI + "/narrate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: chatMessages(c, mode) }) });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.text) throw new Error(data.error || "the laptop answered " + r.status);
+    onDone(data.text.trim()); c.at = Date.now(); keepChats(); aiUp = true; setAi(true);
+    if (openChat() === c && $("chatlog")) { drawLog(); if (after) after(); }
+  } catch (e) {
+    const offline = e instanceof TypeError;
+    if (offline) { aiUp = false; setAi(false); }
+    live.remove();
+    chatStatus(offline ? "The lore-keeper couldn't be reached. The laptop may be asleep; try again later." : "The lore-keeper couldn't answer: " + e.message + ".", true);
+  } finally { live.remove(); setChatBusy(false); }
+}
+
+// A written-up character goes into the Codex as a pitch (not yet sent to the
+// Wake in Verrowen narrator), with its fields filled from the sheet.
+function addToCodex(c) {
+  const t = c.writeup || "";
+  const get = (label) => ((t.match(new RegExp(`^\\W*${label}\\W*:\\s*(.+)$`, "im")) || [])[1] || "").replace(/\*+/g, "").trim();
+  const title = get("Name").replace(/\s*\(suggested\)/i, "") || c.title || "New character";
+  const f = { race: get("Race"), sex: get("Sex"), age: get("Age"), role: get("Role"), home: get("Lives in"), secret: get("Secret") };
+  for (const k of Object.keys(f)) f[k] = f[k].slice(0, 300);
+  const used = /^\W*(Name|Race|Sex|Age|Role|Lives in|Secret)\W*:/i;
+  const body = t.split("\n").filter((l) => !used.test(l)).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  const d = chatStore.get(CODEX_KEY) || { v: 1, notes: [] };
+  if (!Array.isArray(d.notes)) d.notes = [];
+  const had = d.notes.find((n) => n && n.source === "orrery-chat:" + c.id.slice(0, 20));
+  const now = Date.now();
+  if (had) Object.assign(had, { title, f: { ...had.f, ...f }, body, updated: now });
+  else d.notes.push({ id: newId(), cat: "character", title, body, status: "pitch", narrator: false, f, pic: "", source: "orrery-chat:" + c.id.slice(0, 20), created: now, updated: now });
+  if (!chatStore.set(CODEX_KEY, { ...d, v: 1 })) return ($("writeNote").textContent = "This browser's storage is full, so it couldn't be added.");
+  $("writeNote").innerHTML = `${had ? "Updated" : "Added"} ${esc(title)} in the <a href="/verrowen/codex/">Codex</a> as a pitch.`;
 }
 
 $("find").addEventListener("submit", (e) => {
