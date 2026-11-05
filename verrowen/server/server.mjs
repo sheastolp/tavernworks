@@ -39,7 +39,8 @@ const MAX_BODY = 256 * 1024;        // bytes per request
 const MAX_MESSAGES = 60;
 const MAX_FIRST = 24000;            // the first message carries the rules and the lore
 const MAX_MSG = 4000;               // every other message
-const MAX_REPLY_TOKENS = 700;       // a turn is 120 to 220 words; a profile is a bit longer
+const MAX_REPLY_TOKENS = 700;
+const MAX_CTX = Number(process.env.VERROWEN_MAX_CTX || 16384);   // the most context the GPU is asked to hold       // a turn is 120 to 220 words; a profile is a bit longer
 const PER_IP = { n: 40, ms: 10 * 60 * 1000 };   // narrate calls per address per 10 minutes
 const ALL = { n: 240, ms: 10 * 60 * 1000 };     // narrate calls from everyone per 10 minutes
 const MAX_WAITING = 4;
@@ -144,10 +145,15 @@ async function narrate(messages, left) {
     // and Ollama stops them with "token repeat limit reached". A repeat
     // penalty makes that rare; if it still happens, try once more with a
     // stronger penalty and a cooler temperature before giving up.
+    // Room for the whole conversation plus the reply. A window too small
+    // cuts the start of the prompt (the rules and the lore) off silently,
+    // and a small model that loses its instructions is the one that loops.
+    const chars = messages.reduce((n, m) => n + String(m.content || "").length, 0);
+    const ctx = Math.min(MAX_CTX, Math.max(4096, Math.ceil((chars / 3 + MAX_REPLY_TOKENS + 256) / 1024) * 1024));
     const ask = (options) => fetch(OLLAMA + "/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages, stream: false, keep_alive: "30m", options: { num_predict: MAX_REPLY_TOKENS, num_ctx: 8192, top_p: 0.9, repeat_last_n: 256, ...options } }),
+      body: JSON.stringify({ model: MODEL, messages, stream: false, keep_alive: "30m", options: { num_predict: MAX_REPLY_TOKENS, num_ctx: ctx, top_p: 0.9, repeat_last_n: 256, ...options } }),
       signal: left ? eitherSignal(AbortSignal.timeout(180000), left) : AbortSignal.timeout(180000),
     });
     let r = await ask({ temperature: 0.9, repeat_penalty: 1.15 });
@@ -156,7 +162,7 @@ async function narrate(messages, left) {
       r = await ask({ temperature: 0.7, repeat_penalty: 1.3, presence_penalty: 0.5 });
       j = await r.json().catch(() => ({}));
     }
-    if (!r.ok) throw Object.assign(new Error(/repeat/i.test(j.error || "") ? "The narrator got stuck repeating itself twice. Press Resend, or reword your message." : j.error ? `Ollama: ${j.error}` : `Ollama answered ${r.status}`), { status: 502 });
+    if (!r.ok) throw Object.assign(new Error(/repeat/i.test(j.error || "") ? "The AI model got stuck repeating itself, even on a second try. A bigger model (Change AI model) fixes this best" : j.error ? `Ollama: ${j.error}` : `Ollama answered ${r.status}`), { status: 502 });
     const text = stripThinking(j?.message?.content);
     if (!text) throw Object.assign(new Error("The narrator returned nothing"), { status: 502 });
     return text;

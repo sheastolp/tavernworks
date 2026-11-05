@@ -756,7 +756,7 @@ function saveForReview(c) {
   const chat = { id: c.id, title: c.title || chatTitle(c), mode: c.mode, kind: c.kind, idea: c.idea || "", target: c.target, messages: c.messages, writeup: c.writeup || "" };
   const body = JSON.stringify({ chat });
   reviewSaves = reviewSaves.then(() => fetch(AI + "/admin/lorekeeper", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body })
-    .then((r) => r.ok ? "✔ Saved for review" : r.json().then((j) => "Not saved for review: " + (j.error || r.status), () => "Not saved for review"))
+    .then((r) => r.ok ? "✔ Saved for review" : r.status === 404 ? "Not saved for review: the laptop's server needs updating (see the server README)" : r.json().then((j) => "Not saved for review: " + (j.error || r.status), () => "Not saved for review"))
     .catch(() => "Not saved for review: the laptop is unreachable")
     .then((msg) => { const el = $("reviewSave"); if (el && openChat() === c) { el.textContent = msg; el.hidden = false; } }));
 }

@@ -176,6 +176,7 @@ Environment variables, set with `Environment=` in the service file:
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `VERROWEN_MODEL` | `gemma3:4b` | The model that narrates until the owner picks another on the page |
+| `VERROWEN_MAX_CTX` | `16384` | The largest context window a reply may use. Each reply gets just enough room for its prompt; lower this if a model runs out of GPU memory |
 | `VERROWEN_PORT` | `8792` | Port to listen on |
 | `VERROWEN_HOST` | `127.0.0.1` | Address to listen on |
 | `VERROWEN_ORIGINS` | `https://tavernworks.dev` | Websites allowed to use it, comma-separated |
