@@ -109,8 +109,22 @@ function cleanMessages(list) {
 const stripThinking = (t) => String(t || "").replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, "").trim();
 
 // ── Narrating ──
+// Either signal stops the request. (AbortSignal.any is Node 20.3+; this
+// does the same on Node 18.)
+function eitherSignal(a, b) {
+  if (AbortSignal.any) return AbortSignal.any([a, b]);
+  const c = new AbortController();
+  for (const s of [a, b]) {
+    if (s.aborted) { c.abort(s.reason); break; }
+    s.addEventListener("abort", () => c.abort(s.reason), { once: true });
+  }
+  return c.signal;
+}
 let waiting = 0;
-async function narrate(messages) {
+// `left` fires when the browser hangs up (the player pressed Stop, or closed
+// the page). Ollama stops generating when its request is cancelled, so the
+// GPU is free at once for the next turn, such as a Resend.
+async function narrate(messages, left) {
   if (waiting >= MAX_WAITING) throw Object.assign(new Error("The narrator is busy with other players. Try again in a minute."), { status: 503 });
   waiting++;
   try {
@@ -118,7 +132,7 @@ async function narrate(messages) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ model: MODEL, messages, stream: false, keep_alive: "30m", options: { num_predict: MAX_REPLY_TOKENS, num_ctx: 8192, temperature: 0.9 } }),
-      signal: AbortSignal.timeout(180000),
+      signal: left ? eitherSignal(AbortSignal.timeout(180000), left) : AbortSignal.timeout(180000),
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw Object.assign(new Error(j.error ? `Ollama: ${j.error}` : `Ollama answered ${r.status}`), { status: 502 });
@@ -127,6 +141,7 @@ async function narrate(messages) {
     return text;
   } catch (e) {
     if (e.status) throw e;
+    if (left?.aborted) throw Object.assign(new Error("The player stopped waiting"), { status: 499, quiet: true });
     throw Object.assign(new Error(e.name === "TimeoutError" ? "The narrator took too long" : "Ollama isn't answering on the laptop"), { status: 502 });
   } finally { waiting--; }
 }
@@ -207,9 +222,13 @@ const server = http.createServer(async (req, res) => {
     }
     if (!allowed("ip:" + clientIp(req), PER_IP)) return send(res, 429, { error: "You're going fast. Wait a few minutes, then try again." }, origin);
     if (!allowed("all", ALL)) return send(res, 429, { error: "The narrator has had a busy night. Try again in a few minutes." }, origin);
-    const text = await narrate(cleanMessages(body.messages));
+    // If the browser goes away before the reply is sent, stop the model.
+    const gone = new AbortController();
+    res.on("close", () => { if (!res.writableFinished) gone.abort(); });
+    const text = await narrate(cleanMessages(body.messages), gone.signal);
     return send(res, 200, { text }, origin);
   } catch (e) {
+    if (e.quiet) { console.log(new Date().toISOString(), "stopped a reply: the player hung up"); return res.destroyed ? undefined : send(res, e.status, { error: e.message }, origin); }
     if (!e.status || e.status >= 500) console.error(new Date().toISOString(), e.message);
     return send(res, e.status || 500, { error: e.status ? e.message : "Something went wrong on the laptop" }, origin);
   }

@@ -91,6 +91,7 @@
   button:disabled{opacity:.45;cursor:default}
   .chip{font-family:Inter,sans-serif;font-size:14px;letter-spacing:0;border-color:var(--line);color:var(--text)}
   button.mic{font-family:Inter,sans-serif;letter-spacing:0;padding:10px 13px}
+  button.stopbtn{border-color:var(--ember);color:#ffb59a}
   button.mic.listening{background:var(--ember);border-color:var(--ember);color:#fff;animation:micpulse 1.2s ease-in-out infinite}
   @keyframes micpulse{50%{opacity:.7}}
   .chip[aria-pressed="true"]{border-color:var(--gold);background:var(--gold);color:var(--bg)}
@@ -196,7 +197,9 @@
       </div>
       <div class="row" id="composerRow">
         <button class="primary" id="sendBtn">Send</button>
+        <button class="stopbtn" id="stopBtn" type="button" title="Stop waiting for this reply" hidden>■ Stop</button>
         <button class="mic" id="micBtn" type="button" title="Speak your reply" aria-label="Voice typing" hidden>🎤</button>
+        <button class="quiet" id="resendBtn" type="button" title="Ask the narrator to write the last reply again. Handy right after the laptop wakes up.">↻ Resend</button>
         <button id="wrapBtn">Wrap it up</button>
         <button class="quiet" id="resetBtn" title="Back to the start. This story is kept, so you can continue it later.">← Back</button>
       </div>
@@ -330,6 +333,7 @@ const store = {
   set(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
 };
 let messages = [], profile = "", seed = null, playerName = "", characterName = "", busy = false;
+let stopper = null; // AbortController while the narrator is writing
 // continued: the player went back into a wrapped-up story. The profile is
 // kept (the laptop's copy too) but hidden until they wrap it up again.
 let purpose = "story", character = null, continued = false;
@@ -368,10 +372,11 @@ function render(){
   const sn = $("setupNote");
   sn.hidden = !character || !character.label;
   sn.textContent = character && character.label ? "Character: " + character.label + "." : "";
+  $("resendBtn").hidden = !messages.length || (!!profile && !continued);
   log.scrollTop = log.scrollHeight;
 }
 function setStatus(t, err){ const s = $("status"); s.textContent = t || ""; s.className = "status" + (err ? " err" : ""); }
-function setBusy(b){ busy = b; ["sendBtn","wrapBtn","beginBtn","resetBtn","resetBtn2","finishCancel","continueBtn"].forEach(id => { $(id).disabled = b; }); document.querySelectorAll("[data-finish]").forEach(el => { el.disabled = b; }); }
+function setBusy(b){ busy = b; ["sendBtn","wrapBtn","beginBtn","resetBtn","resetBtn2","finishCancel","continueBtn","resendBtn"].forEach(id => { $(id).disabled = b; }); $("stopBtn").hidden = !b; document.querySelectorAll("[data-finish]").forEach(el => { el.disabled = b; }); }
 
 function save(){
   const rec = {playerId, playerName, characterName, seed, messages, profile, purpose, character, continued};
@@ -385,20 +390,23 @@ async function narrate(mode, onDone){
   live.className = "turn narrator writing"; live.textContent = "The narrator is writing…";
   $("startPanel").hidden = true; $("composer").hidden = false;
   $("log").appendChild(live); $("log").scrollTop = $("log").scrollHeight;
+  const ctrl = stopper = new AbortController();
   try{
     const lore = await loadLore();
-    const r = await fetch(NARRATOR + "/narrate", {method: "POST", headers: {"content-type": "application/json"},
+    const r = await fetch(NARRATOR + "/narrate", {method: "POST", headers: {"content-type": "application/json"}, signal: ctrl.signal,
       body: JSON.stringify({messages: buildMessages(lore, messages, seed, characterName, mode)})});
     const data = await r.json().catch(() => ({}));
     if (!r.ok || !data.text) throw new Error(data.error || ("the laptop answered " + r.status));
     live.remove(); onDone(data.text); setNarrator(true);
   }catch(e){
     live.remove();
-    const offline = e instanceof TypeError;
+    const stopped = e.name === "AbortError", offline = !stopped && e instanceof TypeError;
     if (offline) setNarrator(false);
-    setStatus(offline ? "The narrator couldn't be reached. The laptop may be asleep; try again later." : "The narrator couldn't answer: " + e.message + ".", true);
+    setStatus(stopped ? "Stopped." + (messages.length ? " Press ↻ Resend to ask again." : "")
+      : offline ? "The narrator couldn't be reached. The laptop may be asleep; try again later."
+      : "The narrator couldn't answer: " + e.message + "." + (messages.length ? " Press ↻ Resend to try again." : ""), !stopped);
     if (!messages.length){ $("startPanel").hidden = false; $("composer").hidden = true; }
-  }finally{ setBusy(false); }
+  }finally{ if (stopper === ctrl) stopper = null; setBusy(false); }
 }
 
 function setNarrator(up){
@@ -590,6 +598,18 @@ function sendReply(){
   narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); });
 }
 $("sendBtn").addEventListener("click", sendReply);
+// ↻ Resend: the narrator writes its last reply again (or answers the last
+// message if it never did). The model sometimes stumbles on its first turn
+// after the laptop wakes; a second try usually lands.
+function resend(){
+  if (busy || !messages.length) return;
+  voice.stop();
+  if (messages[messages.length - 1].role === "assistant") messages.pop();
+  if (messages.length) render();
+  narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); });
+}
+$("resendBtn").addEventListener("click", resend);
+$("stopBtn").addEventListener("click", () => { if (stopper) stopper.abort(); });
 // 🎤 voice typing into the reply box (only shown where the browser supports it).
 const voice = VoiceInput.attach($("micBtn"), $("reply"), {
   onStatus(t, err){ if (t || $("status").textContent.startsWith("Listening")) setStatus(t, err); }

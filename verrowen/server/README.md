@@ -17,6 +17,9 @@ delete models. This server only lets the game through:
   model from the page, with the owner's token.
 - Only tavernworks.dev is allowed in from a browser, and every address is
   rate limited (40 turns per 10 minutes, 240 for everyone together).
+- If the browser hangs up before a reply is sent (the player pressed
+  **Stop**, or closed the page), the server cancels it in Ollama, so the GPU
+  is free at once for the next turn, such as a **Resend**.
 
 The [Orrery Explorer](https://tavernworks.dev/orrery/#chat)'s chat (the
 lore-keeper, which helps create and review characters and work out

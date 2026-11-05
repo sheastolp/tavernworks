@@ -116,6 +116,7 @@
   .chatbox button.small.del:hover{border-color:var(--ember);color:#ff9b7a}
   .chatbox button:disabled{opacity:.45;cursor:default}
   .chatbox button.mic{font-family:Inter,sans-serif;letter-spacing:0;padding:9px 12px}
+  .chatbox button.stopbtn{border-color:var(--ember);color:#ffb59a}
   .chatbox button.mic.listening{background:var(--ember);border-color:var(--ember);color:#fff}
   .earlier{display:flex;flex-direction:column;gap:6px}
   .earlier .row{justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:rgba(0,0,0,.18)}
@@ -494,7 +495,7 @@ const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toStri
 // Every chat is kept in this browser: { id, mode: "create"|"review", target, idea, messages, writeup, at }.
 let chats = (chatStore.get("orrery-chats") || []).filter((c) => c && Array.isArray(c.messages));
 let chatId = chatStore.get("orrery-chat-open") || "";
-let chatBusy = false, chatVoice = null;
+let chatBusy = false, chatVoice = null, chatStopper = null;
 const openChat = () => chats.find((c) => c.id === chatId) || null;
 function keepChats() {
   chats.sort((a, b) => b.at - a.at);
@@ -604,7 +605,9 @@ function drawChat() {
       <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "review" ? "Ask about the review, or say what to change…" : c && c.mode === "world" ? "Push on it: what if…, what does it cost…, how would the Kingdom use it…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
       <div class="row">
         <button class="primary" type="button" id="sendSay">Send</button>
+        <button class="stopbtn" type="button" id="stopSay" title="Stop waiting for this reply" hidden>■ Stop</button>
         <button class="mic" type="button" id="micSay" title="Speak your message" aria-label="Voice typing" hidden>🎤</button>
+        <button class="quiet" type="button" id="resendSay" title="Ask the lore-keeper to answer the last message again. Handy right after the laptop wakes up.">↻ Resend</button>
         <button type="button" id="writeBtn">${c && c.mode === "review" ? "📋 Sum it up" : "✍️ Write it up"}</button>
         <button class="quiet" type="button" id="backChat" title="Back to the start. This chat is kept, so you can pick it up later.">← Back</button>
       </div>
@@ -622,6 +625,8 @@ function drawChat() {
     $("sendSay").onclick = sendSay;
     $("say").onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendSay(); } };
     $("writeBtn").onclick = writeUp;
+    $("resendSay").onclick = resendSay;
+    $("stopSay").onclick = () => { if (chatStopper) chatStopper.abort(); };
     $("backChat").onclick = () => { if (chatBusy) return; chatId = ""; keepChats(); drawChat(); };
     if (window.VoiceInput) chatVoice = VoiceInput.attach($("micSay"), $("say"), { onStatus(t, err) { if (t || $("chatstatus").textContent.startsWith("Listening")) chatStatus(t, err); } });
     $("copyWrite").onclick = async () => { try { await navigator.clipboard.writeText(c.writeup); $("writeNote").textContent = "Copied."; } catch { $("writeNote").textContent = "Copy didn't work here. Select the text and copy it by hand."; } };
@@ -630,7 +635,7 @@ function drawChat() {
   setChatBusy(chatBusy);
 }
 function chatStatus(t, err) { const s = $("chatstatus"); if (s) { s.textContent = t || ""; s.className = "chatstatus" + (err ? " err" : ""); } }
-function setChatBusy(b) { chatBusy = b; ["sendSay", "writeBtn", "backChat", "startCreate", "startReview", "startWorld"].forEach((id) => { if ($(id)) $(id).disabled = b; }); }
+function setChatBusy(b) { chatBusy = b; ["sendSay", "writeBtn", "backChat", "resendSay", "startCreate", "startReview", "startWorld"].forEach((id) => { if ($(id)) $(id).disabled = b; }); if ($("stopSay")) $("stopSay").hidden = !b; }
 
 function drawStart() {
   const codexPeople = codexNotes().filter((n) => n && n.cat === "character" && plain(n.title));
@@ -721,6 +726,17 @@ function sendSay() {
   c.at = Date.now(); keepChats(); drawLog();
   ask(c, "turn", (r) => { c.messages.push({ role: "assistant", content: r }); });
 }
+// ↻ Resend: the lore-keeper answers the last message again, replacing its
+// last reply (or giving the one it never managed). The model sometimes
+// stumbles on its first reply after the laptop wakes; a second try lands.
+function resendSay() {
+  const c = openChat();
+  if (!c || chatBusy) return;
+  if (chatVoice) chatVoice.stop();
+  if (c.messages.length && c.messages[c.messages.length - 1].role === "assistant") c.messages.pop();
+  c.at = Date.now(); keepChats(); drawLog();
+  ask(c, "turn", (r) => { c.messages.push({ role: "assistant", content: r }); });
+}
 function writeUp() {
   const c = openChat();
   if (!c || chatBusy) return;
@@ -738,17 +754,20 @@ async function ask(c, mode, onDone, after) {
   const log = $("chatlog"); if (log && openChat() === c) { log.appendChild(live); log.scrollTop = log.scrollHeight; }
   try {
     if (!text.lore && !Object.values(text).some(Boolean)) throw new Error("the orrery's documents haven't loaded; press Reload from GitHub");
-    const r = await fetch(AI + "/narrate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: chatMessages(c, mode) }) });
+    chatStopper = new AbortController();
+    const r = await fetch(AI + "/narrate", { method: "POST", headers: { "content-type": "application/json" }, signal: chatStopper.signal, body: JSON.stringify({ messages: chatMessages(c, mode) }) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok || !data.text) throw new Error(data.error || "the laptop answered " + r.status);
     onDone(data.text.trim()); c.at = Date.now(); keepChats(); aiUp = true; setAi(true);
     if (openChat() === c && $("chatlog")) { drawLog(); if (after) after(); }
   } catch (e) {
-    const offline = e instanceof TypeError;
+    const stopped = e.name === "AbortError", offline = !stopped && e instanceof TypeError;
     if (offline) { aiUp = false; setAi(false); }
     live.remove();
-    chatStatus(offline ? "The lore-keeper couldn't be reached. The laptop may be asleep; try again later." : "The lore-keeper couldn't answer: " + e.message + ".", true);
-  } finally { live.remove(); setChatBusy(false); }
+    chatStatus(stopped ? "Stopped. Press ↻ Resend to ask again."
+      : offline ? "The lore-keeper couldn't be reached. The laptop may be asleep; try again later."
+      : "The lore-keeper couldn't answer: " + e.message + ". Press ↻ Resend to try again.", !stopped);
+  } finally { chatStopper = null; live.remove(); setChatBusy(false); }
 }
 
 // A written-up character goes into the Codex as a pitch (not yet sent to the
