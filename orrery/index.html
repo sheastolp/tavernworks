@@ -616,6 +616,7 @@ function drawChat() {
     <div class="chathead"><span>THE LORE-KEEPER</span><span class="about">${c ? esc(chatTitle(c)) : "Characters, worldbuilding and mechanics"}</span></div>
     <div class="chatlog" id="chatlog" aria-live="polite"></div>
     <div class="chatstatus" id="chatstatus" role="status" aria-live="polite"></div>
+    <div class="chatnote" id="reviewSave" style="padding:0 16px" hidden></div>
     <div class="composer" id="composer" ${c ? "" : "hidden"}>
       <label class="sr" for="say">Your message</label>
       <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "review" ? "Ask about the review, or say what to change…" : c && c.mode === "world" ? "Push on it: what if…, what does it cost…, how would the Kingdom use it…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
@@ -732,6 +733,24 @@ function startChat(o) {
   chats.unshift(c); chatId = c.id; keepChats(); drawChat();
   ask(c, "turn", (t) => { c.messages.push({ role: "assistant", content: t }); });
 }
+// The owner's chats save for review on their own: after every message they
+// send and every reply, the whole open chat goes to the laptop, replacing the
+// last save. The Review Clone page shows it. Only this browser's owner token
+// (set once from the Orrery control page) turns it on; visitors' chats stay
+// in their own browser.
+const OWNER_KEY = "verrowen-owner";
+function ownerToken() { try { return localStorage.getItem(OWNER_KEY) || ""; } catch { return ""; } }
+let reviewSaves = Promise.resolve();
+function saveForReview(c) {
+  const token = ownerToken();
+  if (!token || !c) return;
+  const chat = { id: c.id, title: c.title || chatTitle(c), mode: c.mode, kind: c.kind, idea: c.idea || "", target: c.target, messages: c.messages, writeup: c.writeup || "" };
+  const body = JSON.stringify({ chat });
+  reviewSaves = reviewSaves.then(() => fetch(AI + "/admin/lorekeeper", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body })
+    .then((r) => r.ok ? "✔ Saved for review" : r.json().then((j) => "Not saved for review: " + (j.error || r.status), () => "Not saved for review"))
+    .catch(() => "Not saved for review: the laptop is unreachable")
+    .then((msg) => { const el = $("reviewSave"); if (el && openChat() === c) { el.textContent = msg; el.hidden = false; } }));
+}
 function sendSay() {
   const c = openChat();
   if (!c || chatBusy) return;
@@ -739,7 +758,7 @@ function sendSay() {
   const t = $("say").value.trim();
   if (!t) return chatStatus("Write something first.", true);
   c.messages.push({ role: "user", content: t.slice(0, MAX_SAY) }); $("say").value = "";
-  c.at = Date.now(); keepChats(); drawLog();
+  c.at = Date.now(); keepChats(); drawLog(); saveForReview(c);
   ask(c, "turn", (r) => { c.messages.push({ role: "assistant", content: r }); });
 }
 // ↻ Resend: the lore-keeper answers the last message again, replacing its
@@ -774,7 +793,7 @@ async function ask(c, mode, onDone, after) {
     const r = await fetch(AI + "/narrate", { method: "POST", headers: { "content-type": "application/json" }, signal: chatStopper.signal, body: JSON.stringify({ messages: chatMessages(c, mode) }) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok || !data.text) throw new Error(data.error || "the laptop answered " + r.status);
-    onDone(data.text.trim()); c.at = Date.now(); keepChats(); aiUp = true; setAi(true);
+    onDone(data.text.trim()); c.at = Date.now(); keepChats(); saveForReview(c); aiUp = true; setAi(true);
     if (openChat() === c && $("chatlog")) { drawLog(); if (after) after(); }
   } catch (e) {
     const stopped = e.name === "AbortError", offline = !stopped && e instanceof TypeError;

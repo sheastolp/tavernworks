@@ -59,6 +59,12 @@
   .pics figcaption{font-size:13px;color:var(--muted)}
   .status{font-size:14px;color:var(--muted);min-height:1.4em}
   .status.err{color:var(--delInk)}
+  .chat{display:flex;flex-direction:column;gap:8px;max-height:520px;overflow:auto;padding-right:4px}
+  .msg{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--bg2);white-space:pre-wrap;font-size:15px}
+  .msg.you{border-left:3px solid var(--gold)}
+  .msg b{display:block;font-family:Cinzel,serif;font-size:11px;letter-spacing:.14em;color:var(--muted)}
+  .msg.you b{color:var(--gold)}
+  pre.writeup{white-space:pre-wrap;font:14px/1.55 Inter,system-ui,sans-serif;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0 0}
   footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
 </style>
 </head>
@@ -80,6 +86,18 @@
       <button type="button" id="refresh">Check again</button>
     </div>
     <p class="note">The Review Clone is the whole Orrery Explorer as it will look once you publish, read from the review branch.</p>
+  </section>
+
+  <section class="card" aria-labelledby="h-lk">
+    <h2 id="h-lk">Latest lore-keeper chat</h2>
+    <p class="note">Your most recent chat with the lore-keeper saves here on its own after every message, replacing the one before. It doesn't change the Orrery until you write it into the universe.</p>
+    <div class="row"><button type="button" id="lkLoad">Show it</button><span class="note" id="lkStatus" role="status"></span></div>
+    <div id="lk" hidden>
+      <p class="note" id="lkMeta"></p>
+      <div class="chat" id="lkLog"></div>
+      <details id="lkWriteWrap" hidden><summary class="note">The write-up</summary><pre class="writeup" id="lkWrite"></pre></details>
+      <div class="row"><button type="button" id="lkCopy">Copy the whole chat</button></div>
+    </div>
   </section>
 
   <section class="card" aria-labelledby="h-log" id="logCard" hidden>
@@ -198,6 +216,36 @@ $("discard").addEventListener("click", (e) => confirmTwice(e.currentTarget, "Tap
   act("/admin/discard", "Throwing it away…", () => "✔ Thrown away. The Review Clone matches the live Orrery again.")));
 $("refresh").addEventListener("click", load);
 load();
+
+// ── The owner's latest lore-keeper chat ──
+let lkChat = null;
+const MODE = { create: "Creating a character", review: "Reviewing", world: "Worldbuilding and mechanics" };
+async function loadLk(){
+  const st = $("lkStatus"), token = $("token").value.trim();
+  if (!token){ st.textContent = "Enter the owner's token below first."; return; }
+  st.textContent = "Asking the laptop…";
+  try{
+    const r = await fetch(SERVER + "/admin/lorekeeper", { headers: { authorization: "Bearer " + token } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || "The laptop answered " + r.status + ".");
+    try{ localStorage.setItem(KEY, token); }catch(e){}
+    lkChat = j.chat;
+    if (!lkChat){ st.textContent = "No chat saved yet. Chat with the lore-keeper on a browser where you've entered the token."; $("lk").hidden = true; return; }
+    st.textContent = "";
+    $("lkMeta").textContent = (lkChat.title || "Untitled chat") + " · " + (MODE[lkChat.mode] || lkChat.mode || "chat") + " · saved " + when(lkChat.saved);
+    $("lkLog").innerHTML = (lkChat.idea ? [{ role: "user", content: "Starting idea: " + lkChat.idea }] : []).concat(lkChat.messages).map((m) =>
+      `<div class="msg ${m.role === "user" ? "you" : ""}"><b>${m.role === "user" ? "You" : "The lore-keeper"}</b>${esc(m.content)}</div>`).join("");
+    $("lkWriteWrap").hidden = !lkChat.writeup; $("lkWrite").textContent = lkChat.writeup || "";
+    $("lk").hidden = false;
+  }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+}
+$("lkLoad").addEventListener("click", loadLk);
+$("lkCopy").addEventListener("click", async () => {
+  if (!lkChat) return;
+  const t = (lkChat.title ? lkChat.title + "\n\n" : "") + lkChat.messages.map((m) => (m.role === "user" ? "You: " : "Lore-keeper: ") + m.content).join("\n\n") + (lkChat.writeup ? "\n\nWRITE-UP\n" + lkChat.writeup : "");
+  try{ await navigator.clipboard.writeText(t); $("lkStatus").textContent = "Copied."; }catch(e){ $("lkStatus").textContent = "Copy didn't work here."; }
+});
+if ($("token").value) loadLk();
 </script>
 </body>
 </html>

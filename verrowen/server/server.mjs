@@ -11,6 +11,9 @@
 //   POST /admin/publish  (owner's token)  {}  ->  { ok, sha, how }   puts the Review Clone (grand-orrery's
 //                        review branch) live on main
 //   POST /admin/discard  (owner's token)  {}  ->  { ok, sha }   throws away everything waiting on review
+//   POST /admin/lorekeeper (owner's token) { chat }  ->  { ok, saved }   the owner's latest Orrery
+//                        lore-keeper chat, kept for review; each save replaces the last
+//   GET  /admin/lorekeeper (owner's token)  ->  { chat | null }
 //   POST /narrate    { messages: [{ role, content }] }  ->  { text }
 //   POST /save       { playerId, playerName, characterName, seed, messages, profile, purpose, character }  ->  { ok }
 //
@@ -200,6 +203,29 @@ async function discard() {
   return { sha };
 }
 
+// ── The owner's latest lore-keeper chat ──
+// Saved after every message the owner sends and every reply, so the Review
+// Clone page always shows the one most recent chat. Only one is kept.
+const LK_FILE = () => path.join(SAVE_DIR, "lorekeeper-latest.json");
+async function saveLorekeeper(b) {
+  const c = b && typeof b.chat === "object" && b.chat ? b.chat : null;
+  if (!c || !Array.isArray(c.messages)) throw Object.assign(new Error("missing chat"), { status: 400 });
+  const rec = {
+    id: str(c.id, 80), title: str(c.title, 120), mode: str(c.mode, 20), kind: str(c.kind, 40), idea: str(c.idea, 4000),
+    target: c.target && typeof c.target === "object" ? { kind: str(c.target.kind, 20), id: str(c.target.id, 80), name: str(c.target.name, 120) } : null,
+    messages: c.messages.slice(-200).map((m) => ({ role: m?.role === "assistant" ? "assistant" : "user", content: str(m?.content, 8000) })),
+    writeup: str(c.writeup, 12000),
+    saved: new Date().toISOString(),
+  };
+  await fs.mkdir(SAVE_DIR, { recursive: true });
+  await fs.writeFile(LK_FILE() + ".tmp", JSON.stringify(rec, null, 2));
+  await fs.rename(LK_FILE() + ".tmp", LK_FILE());
+  return rec.saved;
+}
+async function readLorekeeper() {
+  try { return JSON.parse(await fs.readFile(LK_FILE(), "utf8")); } catch { return null; }
+}
+
 // ── Saving characters ──
 // One file per player, rewritten after every turn, so stories that stop
 // halfway are kept too.
@@ -254,7 +280,9 @@ const server = http.createServer(async (req, res) => {
     // Browsers on other sites are turned away; scripts without an Origin header still hit the rate limits.
     if (req.headers.origin && !origin) return send(res, 403, { error: "This site isn't allowed to use the narrator" }, null);
     if (url.pathname.startsWith("/admin/")) {
-      if (!allowed("admin:" + clientIp(req), { n: 30, ms: PER_IP.ms })) return send(res, 429, { error: "Too many tries. Wait a few minutes." }, origin);
+      // Chat saves come after every turn, so they get a roomier limit of their own.
+      const lk = url.pathname === "/admin/lorekeeper";
+      if (!allowed((lk ? "lk:" : "admin:") + clientIp(req), { n: lk ? 240 : 30, ms: PER_IP.ms })) return send(res, 429, { error: "Too many tries. Wait a few minutes." }, origin);
       if (!isOwner(req)) return send(res, 401, { error: "That's not the owner's token" }, origin);
       if (req.method === "GET" && url.pathname === "/admin/models") return send(res, 200, { model: MODEL, models: await installed() }, origin);
       if (req.method === "POST" && url.pathname === "/admin/model") {
@@ -266,6 +294,8 @@ const server = http.createServer(async (req, res) => {
         console.log(new Date().toISOString(), "narrator model is now", MODEL);
         return send(res, 200, { ok: true, model: MODEL }, origin);
       }
+      if (lk && req.method === "GET") return send(res, 200, { chat: await readLorekeeper() }, origin);
+      if (lk && req.method === "POST") return send(res, 200, { ok: true, saved: await saveLorekeeper(await readJson(req)) }, origin);
       if (req.method === "POST" && url.pathname === "/admin/publish") {
         const r = await publish();
         console.log(new Date().toISOString(), "Review Clone published", r.how, r.sha);

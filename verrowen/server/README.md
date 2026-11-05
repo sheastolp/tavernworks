@@ -131,6 +131,13 @@ lore-keeper and the narrator all read it. The **Review Clone** page
 **Publish to the live Orrery** puts it on `main`; **Throw it all away** resets
 `review` back to `main`.
 
+The page also shows your **latest lore-keeper chat**. On any browser where
+you've entered the owner's token (on the control page, the Review Clone or
+the model picker), every message you send the lore-keeper and every reply
+saves the whole chat to the laptop, as `lorekeeper-latest.json` in the save
+folder. Each save replaces the last, so only the most recent chat is kept.
+Visitors' chats aren't saved.
+
 Publishing goes through this server, so it needs the owner's token and a
 GitHub token on the laptop:
 
