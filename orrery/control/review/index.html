@@ -31,6 +31,8 @@
   .tag{color:var(--muted);margin:6px 0 0}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
   .card h2{font-family:Cinzel,serif;font-size:16px;letter-spacing:.12em;color:var(--gold);margin:0}
+  .sub{border-top:1px solid var(--line);margin-top:6px;padding-top:14px;display:flex;flex-direction:column;gap:10px}
+  .sub h3{font-family:Cinzel,serif;font-size:14px;letter-spacing:.12em;color:var(--gold2);margin:0}
   .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
   button,.btn{background:transparent;border:1px solid var(--line);color:var(--gold2);border-radius:999px;padding:9px 16px;font:inherit;font-size:14px;cursor:pointer;text-decoration:none;display:inline-block}
   button.primary{background:var(--gold);border-color:var(--gold);color:var(--bg);font-weight:600}
@@ -60,7 +62,12 @@
   .status{font-size:14px;color:var(--muted);min-height:1.4em}
   .status.err{color:var(--delInk)}
   .chat{display:flex;flex-direction:column;gap:8px;max-height:520px;overflow:auto;padding-right:4px}
-  .msg{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--bg2);white-space:pre-wrap;font-size:15px}
+  .msg{position:relative;border:1px solid var(--line);border-radius:10px;padding:8px 40px 8px 12px;background:var(--bg2);white-space:pre-wrap;font-size:15px}
+  button.copymsg{position:absolute;top:6px;right:6px;padding:4px 6px;border:1px solid transparent;border-radius:6px;line-height:0;color:var(--muted);opacity:.55}
+  .msg:hover button.copymsg,button.copymsg:focus-visible{opacity:1;border-color:var(--line)}
+  button.copymsg:hover{color:var(--gold2)}
+  button.copymsg.done{opacity:1;color:var(--green)}
+  button.copymsg svg{width:16px;height:16px;display:block}
   .msg.you{border-left:3px solid var(--gold)}
   .msg b{display:block;font-family:Cinzel,serif;font-size:11px;letter-spacing:.14em;color:var(--muted)}
   .msg.you b{color:var(--gold)}
@@ -86,17 +93,16 @@
       <button type="button" id="refresh">Check again</button>
     </div>
     <p class="note">The Review Clone is the whole Orrery Explorer as it will look once you publish, read from the review branch.</p>
-  </section>
-
-  <section class="card" aria-labelledby="h-lk">
-    <h2 id="h-lk">Latest lore-keeper chat</h2>
-    <p class="note">Your most recent chat with the lore-keeper saves here on its own after every message, replacing the one before. It doesn't change the Orrery until you write it into the universe.</p>
-    <div class="row"><button type="button" id="lkLoad">Show it</button><span class="note" id="lkStatus" role="status"></span></div>
-    <div id="lk" hidden>
-      <p class="note" id="lkMeta"></p>
-      <div class="chat" id="lkLog"></div>
-      <details id="lkWriteWrap" hidden><summary class="note">The write-up</summary><pre class="writeup" id="lkWrite"></pre></details>
-      <div class="row"><button type="button" id="lkCopy">Copy the whole chat</button></div>
+    <div class="sub" role="group" aria-labelledby="h-lk">
+      <h3 id="h-lk">Latest lore-keeper chat</h3>
+      <p class="note">Your most recent chat with the lore-keeper saves here on its own after every message, replacing the one before. It doesn't change the Orrery until you write it into the universe.</p>
+      <div class="row"><button type="button" id="lkLoad">Show it</button><span class="note" id="lkStatus" role="status"></span></div>
+      <div id="lk" hidden>
+        <p class="note" id="lkMeta"></p>
+        <div class="chat" id="lkLog"></div>
+        <details id="lkWriteWrap" hidden><summary class="note">The write-up</summary><pre class="writeup" id="lkWrite"></pre></details>
+        <div class="row"><button type="button" id="lkCopy">Copy the whole chat</button></div>
+      </div>
     </div>
   </section>
 
@@ -219,6 +225,8 @@ load();
 
 // ── The owner's latest lore-keeper chat ──
 let lkChat = null;
+const COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>';
+const DONE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const MODE = { chat: "Open chat", create: "Creating a character", review: "Reviewing", world: "Worldbuilding and mechanics" };
 async function loadLk(){
   const st = $("lkStatus"), token = $("token").value.trim();
@@ -233,8 +241,14 @@ async function loadLk(){
     if (!lkChat){ st.textContent = "No chat saved yet. Chat with the lore-keeper on a browser where you've entered the token."; $("lk").hidden = true; return; }
     st.textContent = "";
     $("lkMeta").textContent = (lkChat.title || "Untitled chat") + " · " + (MODE[lkChat.mode] || lkChat.mode || "chat") + (lkChat.mode === "chat" && lkChat.kind ? " (" + lkChat.kind + ")" : "") + " · saved " + when(lkChat.saved);
-    $("lkLog").innerHTML = (lkChat.idea ? [{ role: "user", content: "Starting idea: " + lkChat.idea }] : []).concat(lkChat.messages).map((m) =>
-      `<div class="msg ${m.role === "user" ? "you" : ""}"><b>${m.role === "user" ? "You" : "The lore-keeper"}</b>${esc(m.content)}</div>`).join("");
+    const shown = (lkChat.idea ? [{ role: "user", content: "Starting idea: " + lkChat.idea }] : []).concat(lkChat.messages);
+    $("lkLog").innerHTML = shown.map((m, i) =>
+      `<div class="msg ${m.role === "user" ? "you" : ""}"><b>${m.role === "user" ? "You" : "The lore-keeper"}</b>${esc(m.content)}<button type="button" class="copymsg" data-i="${i}" title="Copy this message" aria-label="Copy this message">${COPY_ICON}</button></div>`).join("");
+    $("lkLog").querySelectorAll(".copymsg").forEach((b) => b.onclick = async () => {
+      try{ await navigator.clipboard.writeText(shown[+b.dataset.i].content); }catch(e){ $("lkStatus").textContent = "Copy didn't work here."; return; }
+      b.innerHTML = DONE_ICON; b.classList.add("done");
+      setTimeout(() => { b.innerHTML = COPY_ICON; b.classList.remove("done"); }, 1500);
+    });
     $("lkWriteWrap").hidden = !lkChat.writeup; $("lkWrite").textContent = lkChat.writeup || "";
     $("lk").hidden = false;
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }

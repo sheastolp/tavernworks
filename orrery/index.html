@@ -100,6 +100,17 @@
   .say.me{align-self:flex-end;background:rgba(0,0,0,.25);border:1px solid var(--line);border-left:3px solid var(--gold);padding:10px 14px;border-radius:10px;font-size:16.5px}
   .say.me::before{content:"You";color:var(--gold)}
   .say.writing{color:var(--muted);font-style:italic}
+  .say{position:relative}
+  .say.keeper{padding-right:34px}
+  .say.me{padding-right:40px}
+  .chatbox button.copymsg{position:absolute;top:-4px;right:0;padding:4px 6px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted);opacity:.55;line-height:0;font-size:0}
+  .say.me button.copymsg{top:6px;right:6px}
+  .say:hover button.copymsg,.chatbox button.copymsg:focus-visible{opacity:1;border-color:var(--line)}
+  .chatbox button.copymsg:hover{color:var(--gold2)}
+  .chatbox button.copymsg.done{opacity:1;color:var(--green)}
+  .copymsg svg{width:16px;height:16px;display:block}
+  .ownerrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .ownerrow input{flex:1;min-width:180px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;padding:8px 10px}
   .chatstart{display:flex;flex-direction:column;gap:12px;max-width:640px}
   .chatstart h3{font-family:Cinzel,serif;font-size:18px;color:var(--gold2)}
   .chatstart .note,.chatnote{font-size:13.5px;color:var(--muted)}
@@ -726,7 +737,14 @@ function drawChat() {
         <button class="mic" type="button" id="micSay" title="Speak your message" aria-label="Voice typing" hidden>🎤</button>
         <button class="quiet" type="button" id="resendSay" title="Ask the lore-keeper to answer the last message again. Handy right after the laptop wakes up.">↻ Resend</button>
         <button type="button" id="writeBtn">${c && writeKind(c) === "review" ? "📋 Sum it up" : "✍️ Write it up"}</button>
+        <button class="quiet" type="button" id="saveReview" title="Save this chat as it stands for the owner's review, on the Review Clone page. It replaces the last one saved.">📥 Save for review</button>
         <button class="quiet" type="button" id="backChat" title="Back to the start. This chat is kept, so you can pick it up later.">← Back</button>
+      </div>
+      <div class="ownerrow" id="ownerRow" hidden>
+        <label class="sr" for="ownerToken">Owner's token</label>
+        <input id="ownerToken" type="password" autocomplete="off" spellcheck="false" placeholder="Owner's token, to save on this browser">
+        <button type="button" id="ownerSave">Save</button>
+        <button class="quiet" type="button" id="ownerCancel">Cancel</button>
       </div>
     </div>
   </section>
@@ -748,6 +766,15 @@ function drawChat() {
     $("resendSay").onclick = resendSay;
     $("stopSay").onclick = () => { if (chatStopper) chatStopper.abort(); };
     $("backChat").onclick = () => { if (chatBusy) return; chatId = ""; keepChats(); drawChat(); };
+    $("saveReview").onclick = () => saveNow(c);
+    $("ownerSave").onclick = () => {
+      const t = $("ownerToken").value.trim();
+      if (!t) return $("ownerToken").focus();
+      try { localStorage.setItem(OWNER_KEY, t); } catch {}
+      $("ownerRow").hidden = true; $("ownerToken").value = ""; saveNow(c);
+    };
+    $("ownerToken").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); $("ownerSave").click(); } };
+    $("ownerCancel").onclick = () => { $("ownerRow").hidden = true; $("ownerToken").value = ""; };
     if (window.VoiceInput) chatVoice = VoiceInput.attach($("micSay"), $("say"), { onStatus(t, err) { if (t || $("chatstatus").textContent.startsWith("Listening")) chatStatus(t, err); } });
     $("copyWrite").onclick = async () => { try { await navigator.clipboard.writeText(c.writeup); $("writeNote").textContent = "Copied."; } catch { $("writeNote").textContent = "Copy didn't work here. Select the text and copy it by hand."; } };
     $("codexWrite").onclick = () => addToCodex(c);
@@ -806,6 +833,7 @@ function drawLog() {
     const d = document.createElement("div");
     d.className = "say " + (m.role === "assistant" ? "keeper" : "me");
     d.textContent = m.content;
+    d.appendChild(copyButton(m.content));
     log.appendChild(d);
   }
   log.scrollTop = log.scrollHeight;
@@ -837,13 +865,43 @@ function ownerToken() { try { return localStorage.getItem(OWNER_KEY) || ""; } ca
 let reviewSaves = Promise.resolve();
 function saveForReview(c) {
   const token = ownerToken();
-  if (!token || !c) return;
+  if (!token || !c) return Promise.resolve(null);
   const chat = { id: c.id, title: c.title || chatTitle(c), mode: c.mode, kind: c.mode === "chat" ? chatTopic(c) : c.kind, idea: c.idea || "", target: c.target, messages: c.messages, writeup: c.writeup || "" };
   const body = JSON.stringify({ chat });
-  reviewSaves = reviewSaves.then(() => fetch(AI + "/admin/lorekeeper", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body })
-    .then((r) => r.ok ? "✔ Saved for review" : r.status === 404 ? "Not saved for review: the laptop's server needs updating (see the server README)" : r.json().then((j) => "Not saved for review: " + (j.error || r.status), () => "Not saved for review"))
-    .catch(() => "Not saved for review: the laptop is unreachable")
-    .then((msg) => { const el = $("reviewSave"); if (el && openChat() === c) { el.textContent = msg; el.hidden = false; } }));
+  const say = (msg) => { const el = $("reviewSave"); if (el && openChat() === c) { el.textContent = msg; el.hidden = false; } };
+  const done = reviewSaves.then(() => fetch(AI + "/admin/lorekeeper", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body })
+    .then((r) => r.ok ? { ok: true, msg: "✔ Saved for review " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) }
+      : r.status === 404 ? { msg: "Not saved for review: the laptop's server needs updating (see the server README)" }
+      : r.json().then((j) => ({ status: r.status, msg: "Not saved for review: " + (j.error || r.status) }), () => ({ status: r.status, msg: "Not saved for review" })))
+    .catch(() => ({ msg: "Not saved for review: the laptop is unreachable" }))
+    .then((res) => { say(res.msg); return res; }));
+  reviewSaves = done;
+  return done;
+}
+// 📥 Save for review: saves the open chat now, at any point in it. On a
+// browser without the owner's token it asks for the token first and keeps it.
+function saveNow(c) {
+  if (!c) return;
+  if (!ownerToken()) { $("ownerRow").hidden = false; $("ownerToken").focus(); return; }
+  const b = $("saveReview"); b.disabled = true;
+  const el = $("reviewSave"); el.textContent = "Saving for review…"; el.hidden = false;
+  saveForReview(c).then((res) => {
+    if (res && res.status === 401) { try { localStorage.removeItem(OWNER_KEY); } catch {} if ($("ownerRow")) { $("ownerRow").hidden = false; $("ownerToken").focus(); } }
+  }).finally(() => { if ($("saveReview")) $("saveReview").disabled = false; });
+}
+// A small copy icon on each chat message.
+const COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>';
+const DONE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+function copyButton(text) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "copymsg"; b.title = "Copy this message"; b.setAttribute("aria-label", "Copy this message"); b.innerHTML = COPY_ICON;
+  b.onclick = async () => {
+    try { await navigator.clipboard.writeText(text); } catch { return chatStatus("Copy didn't work here. Select the text and copy it by hand.", true); }
+    if ($("chatstatus") && $("chatstatus").textContent.startsWith("Copy didn't")) chatStatus("");
+    b.innerHTML = DONE_ICON; b.classList.add("done"); b.setAttribute("aria-label", "Copied");
+    setTimeout(() => { b.innerHTML = COPY_ICON; b.classList.remove("done"); b.setAttribute("aria-label", "Copy this message"); }, 1500);
+  };
+  return b;
 }
 function sendSay() {
   const c = openChat();
