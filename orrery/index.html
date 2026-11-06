@@ -99,6 +99,13 @@
   .facts dd{font-family:Spectral,Georgia,serif;font-size:17px;line-height:1.5}
   @media (max-width:560px){.facts{grid-template-columns:1fr;gap:2px}.facts dd{margin-bottom:8px}}
   .card .icon{font-size:22px;line-height:1;margin-bottom:6px}
+  /* A beast's stat line, as GuildScribe fights with it. */
+  .stats{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+  .stats div{border:1px solid var(--line);border-radius:10px;padding:6px 12px;text-align:center;min-width:64px;background:rgba(0,0,0,.18)}
+  .stats small{display:block;font-family:Cinzel,serif;color:var(--gold);font-size:11px;letter-spacing:.08em}
+  .stats b{font-size:16px;color:var(--text)}
+  .lines{font-family:Spectral,Georgia,serif;font-style:italic;color:var(--muted);font-size:16px;line-height:1.5;padding-left:1.2em;margin:0}
+  .maps.one{grid-template-columns:minmax(0,640px)}
   footer{text-align:center;color:var(--muted);font-size:13px;padding:30px 0 40px}
   /* The chat: the local AI helps create and review characters, like Wake in Verrowen's narrator. */
   .ai{display:inline-block;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.05);color:var(--muted)}
@@ -258,6 +265,7 @@
       <a href="#chat" data-tab="chat">✒️ Chat</a>
       <a href="#roster" data-tab="roster">Roster</a>
       <a href="#items" data-tab="items">Items</a>
+      <a href="#beasts" data-tab="beasts">Beasts</a>
       <a href="#resources" data-tab="resources">Resources</a>
       <a href="#maps" data-tab="maps">Maps</a>
       <a href="#docs" data-tab="docs">Documents</a>
@@ -279,6 +287,7 @@
 // GitHub (like Wake in Verrowen reads lore.md), so it's always current.
 // Views (in the URL hash): #chat (the default), #roster, #person/<id>, #items, #item/<id>,
 // #resources, #resources/<category>, #resources/<category>/<type>, #maps,
+// #beasts, #beasts/<place>, #beast/<id> (from bestiary.md),
 // #docs, #doc/<id>, #find/<text>. Items and resources come from the repo's
 // resources.md (## category, ### type, #### entry), so new ones show up on
 // their own. A person's page gathers every section of every document that
@@ -527,6 +536,56 @@ function buildItems() {
 }
 const isPitch = (it) => /pitch|not decided/i.test(it.status || "");
 
+// ── bestiary.md → PLACES and BEASTS ──
+// ## Place (tag) with **Where/For/Levels/Lines** bullets, then
+// #### <icon> Name (tag) for each creature found there, with **Stats**,
+// **In GuildScribe**, **Does**, **Limits**, **Story** (see bestiary.md's top).
+let PLACES = [], BEASTS = [];
+const BFIELD = { "where": "where", "for": "for", "levels": "levels", "stats": "stats", "in guildscribe": "gs", "does": "does", "limits": "limits", "story": "story", "also called": "also" };
+// A beast's names: its own (no leading "The", singular too), the first
+// word of a two-word name ("Thornback"), and the bots' monsters that count as it.
+function beastNames(b) {
+  const base = b.name.replace(/^the\s+/i, "");
+  const list = [base, base.replace(/s$/, ""), ...(b.also || "").split(","), ...(b.gs || "").split(",")];
+  const w = base.split(/\s+/); if (w.length === 2 && w[0].length > 4) list.push(w[0]);
+  return [...new Set(list.map((n) => n.trim()).filter(Boolean))].map(nameRe);
+}
+function parseBestiary(src) {
+  const places = [], beasts = [], seen = new Set();
+  let place = null, cur = null, lines = false;
+  const uid = (n) => { let id = idOf(n) || "beast"; while (seen.has(id)) id += "-2"; seen.add(id); return id; };
+  const head = (h) => { const t = h.match(/\s*\(([^)]+)\)\s*$/); return t ? [h.slice(0, t.index).trim(), t[1]] : [h, ""]; };
+  for (const raw of src.replace(/\r/g, "").replace(/<!--[\s\S]*?-->/g, "").split("\n")) {
+    let m;
+    if ((m = raw.match(/^##\s+(.+?)\s*$/)) && !raw.startsWith("###")) {
+      const [name, status] = head(m[1]);
+      place = cur = { id: uid(name), name, status, heading: m[1], where: "", for: "", levels: "", also: "", lines: [], extra: [], beasts: [] };
+      places.push(place); lines = false; continue;
+    }
+    if (raw.startsWith("###") && !raw.startsWith("####")) { cur = null; continue; }
+    if ((m = raw.match(/^####\s+(.+?)\s*$/))) {
+      if (!place) { cur = null; continue; }
+      const [h, status] = head(m[1]);
+      const e = h.match(/^(\p{Extended_Pictographic}[\u{FE0F}\u{200D}\p{Extended_Pictographic}]*)\s*/u);
+      const name = e ? h.slice(e[0].length).trim() : h;
+      cur = { id: uid(name), icon: e ? e[1] : "🐾", name, status, heading: m[1], place: place.id, stats: "", gs: "", does: "", limits: "", story: "", also: "", extra: [] };
+      beasts.push(cur); place.beasts.push(cur); lines = false; continue;
+    }
+    if (!cur) continue;
+    if ((m = raw.match(/^[-*]\s+\*\*([^*:]+):\*\*\s*(.*)$/))) {
+      const label = m[1].trim().toLowerCase(), key = BFIELD[label];
+      lines = label === "lines" && cur === place;
+      if (key) cur[key] = m[2].trim(); else if (!lines) cur.extra.push([m[1].trim(), m[2].trim()]);
+    } else if (lines && (m = raw.match(/^\s+[-*]\s+(.+)$/))) place.lines.push(m[1].trim());
+  }
+  for (const p of places) p.names = [p.name.replace(/^the\s+/i, ""), ...p.also.split(",")].map((n) => n.trim()).filter(Boolean).map(nameRe);
+  for (const b of beasts) b.names = beastNames(b);
+  return { places, beasts };
+}
+function buildBeasts() {
+  ({ places: PLACES, beasts: BEASTS } = text.bestiary ? parseBestiary(text.bestiary) : { places: [], beasts: [] });
+}
+
 const $ = (id) => document.getElementById(id);
 const view = $("view");
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
@@ -727,10 +786,73 @@ function find(q) {
   const plain = new RegExp(re.source, "i");
   const people = PEOPLE.filter((p) => plain.test(p.name + " " + p.role) || p.names.some((n) => new RegExp(`^(?:${n})$`).test(q)));
   const things = ITEMS.filter((it) => plain.test(it.name + " " + it.does + " " + it.cat + " " + it.type) || it.names.some((n) => new RegExp(`^(?:${n})$`).test(q)));
-  const pills = people.map((p) => `<a class="pill" href="#person/${p.id}">${esc(p.name)}</a>`).concat(things.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`));
+  const beastsHit = BEASTS.filter((b) => plain.test(b.name + " " + b.does + " " + b.gs) || sameName(b, q));
+  const placesHit = PLACES.filter((p) => plain.test(p.name + " " + p.where));
+  const pills = people.map((p) => `<a class="pill" href="#person/${p.id}">${esc(p.name)}</a>`).concat(things.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`), beastsHit.map((b) => `<a class="pill" href="#beast/${b.id}">${b.icon} ${esc(b.name)}</a>`), placesHit.map((p) => `<a class="pill" href="#beasts/${p.id}">🗺 ${esc(p.name)}</a>`));
   return { html: `<h2 class="sec">“${esc(q)}”</h2><p class="tag">${total} section${total === 1 ? "" : "s"} mention it.</p>${
     pills.length ? `<div class="who">${pills.join("")}</div>` : ""
   }${renderHits(found, re) || "<p>Nothing found.</p>"}`, re };
+}
+// ── Beasts: bestiary.md's creatures, by the place they're found ──
+// The maps a place is on: those whose title or caption names a place it
+// mentions (the Kingdom, the Monster Wood, Stoutwell…); the region map otherwise.
+const mapPlaces = (m) => [...new Set(((m.title + ", " + m.caption).match(/\b[A-Z][\w']+(?: [A-Z][\w']+)*/g) || []).map((w) => w.replace(/^The /, "")))].filter((w) => !/^(The|And|Where|Districts)$/.test(w));
+function mapsFor(pl) {
+  const hay = pl.name + " " + pl.where;
+  const got = MAPS.map((m) => [m, mapPlaces(m).filter((w) => new RegExp(`\\b${reEsc(w)}\\b`).test(hay))]).filter(([, w]) => w.length).sort((a, b) => b[1].length - a[1].length);
+  return got.length ? got : [[MAPS[0], []]];
+}
+const mapFig = ([m, w]) => `<figure><a href="#maps"><img src="${RAW + m.file}" alt="${esc(m.title)} map" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'Not uploaded yet: save it into grand-orrery/${m.file}'}))"></a><figcaption><b>${esc(m.title)}.</b> ${w.length ? "Shows " + w.map(esc).join(", ") + "." : esc(m.caption)}</figcaption></figure>`;
+const itemText = (it) => [it.name, it.does, it.made, it.limits, it.rules, it.story, it.sub, it.body, ...(it.extra || []).map((x) => x.join(" "))].filter(Boolean).join(" ");
+const itemsNaming = (names) => { const re = patternFor(names); return ITEMS.filter((it) => { re.lastIndex = 0; return re.test(itemText(it)); }); };
+const itemPills = (list) => list.length ? `<div class="who"><span class="pill" style="margin-left:0">Items</span>${list.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : "";
+const statsOf = (s) => (s || "").split("·").map((x) => x.trim()).filter(Boolean).map((x) => {
+  const m = x.match(/^(CR|AC|HP)\s+(.+)$/i);
+  return m ? [m[1].toUpperCase(), m[2]] : /to hit/i.test(x) ? ["To hit", x.replace(/\s*to hit/i, "")] : /^\d+d\d+/.test(x) ? ["Damage", x] : ["", x];
+});
+const statBlock = (b) => b.stats ? `<div class="stats">${statsOf(b.stats).map(([k, v]) => `<div><small>${esc(k)}</small><b>${esc(v)}</b></div>`).join("")}</div>` : "";
+const crOf = (b) => (statsOf(b.stats).find(([k]) => k === "CR") || [])[1] || "";
+const placeMeta = (pl) => [pl.for && "For " + pl.for, pl.levels && "Levels " + pl.levels].filter(Boolean).map((x) => `<span class="pill" style="margin-left:0">${esc(x)}</span>`).join(" ");
+const statusPill = (x) => x.status ? `<span class="pill${isPitch(x) ? " pitch" : ""}">${esc(x.status)}</span>` : "";
+const sameName = (b, name) => b.names.some((n) => new RegExp(`^(?:${n})$`).test(String(name)));
+function beastCard(b) {
+  const n = mentions(b), pl = PLACES.find((p) => p.id === b.place);
+  return `<a class="card" href="#beast/${b.id}"><div class="icon">${b.icon}</div><b>${esc(b.name)}</b><span>${esc(b.does)}</span><div class="count">${isPitch(b) ? '<span class="pill pitch">' + esc(b.status) + "</span> " : ""}${crOf(b) ? "CR " + esc(crOf(b)) + " · " : b.gs ? "GuildScribe's own · " : ""}${pl ? esc(pl.name) + " · " : ""}${n} section${n === 1 ? "" : "s"}</div></a>`;
+}
+function learnedBeasts() {
+  const learned = (hall && hall.learned) || [];
+  if (!learned.length) return "";
+  return `<h2 class="sec">Learned in GuildScribe's fights<span class="pill">${learned.length}</span></h2><p class="tag">Beasts the hall has fought and written up, live from GuildScribe.</p><div class="who">${learned.map((m) => {
+    const b = BEASTS.find((x) => sameName(x, m.name)), label = esc(m.name) + (m.cr ? " · CR " + esc(m.cr) : "");
+    return b ? `<a class="pill" href="#beast/${b.id}">${b.icon} ${label}</a>` : `<span class="pill">${label}</span>`;
+  }).join("")}</div>`;
+}
+function beasts(placeId) {
+  if (!PLACES.length) return { html: `<p class="tag">Beasts come from <code>bestiary.md</code> in the grand-orrery repo, and it isn't on the <b>${esc(BRANCH)}</b> branch yet${CLONE ? "" : " (it may be waiting on the <a href=\"/orrery/?clone=review#beasts\">Review Clone</a>)"}.</p>${learnedBeasts()}`, re: null };
+  const pl = PLACES.find((p) => p.id === placeId);
+  if (!pl) {
+    return { html: `<p class="tag" style="margin:4px 0 14px">Where GuildScribe's adventurers hunt, duel and get robbed, and what lives there. Read live from <a href="#doc/bestiary">bestiary.md</a>, which the GuildScribe bots fight with.</p><h2 class="sec">Places<span class="pill">${PLACES.length}</span></h2><div class="grid">${PLACES.map((p) => `<a class="card" href="#beasts/${p.id}"><b>${esc(p.name)}</b><span>${esc(p.where)}</span><div class="count">${isPitch(p) ? '<span class="pill pitch">' + esc(p.status) + "</span> " : ""}${[p.for, p.levels && "levels " + p.levels].filter(Boolean).map(esc).join(" · ")}${p.beasts.length ? ` · ${p.beasts.length} beast${p.beasts.length === 1 ? "" : "s"}` : ""}</div></a>`).join("")}</div>${
+      PLACES.filter((p) => p.beasts.length).map((p) => `<h2 class="sec"><a href="#beasts/${p.id}" style="color:inherit;text-decoration:none">${esc(p.name)}</a><span class="pill">${p.beasts.length}</span></h2><div class="grid">${p.beasts.map(beastCard).join("")}</div>`).join("")}${learnedBeasts()}`, re: null };
+  }
+  const re = patternFor(pl.names), found = matches(re), total = found.reduce((a, d) => a + d.hits.length, 0);
+  const facts = [["Where", pl.where], ["For", pl.for], ["Levels", pl.levels], ...pl.extra].filter(([, v]) => v);
+  return { html: `<div class="crumb"><a href="#beasts">Beasts</a> › Places</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(pl.name)}${statusPill(pl)}</h2><p class="tag">${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}. <a href="#doc/bestiary/${slug(pl.heading)}">In the bestiary</a></p><div class="who">${PLACES.map((o) => `<a class="pill${o.id === pl.id ? " on" : ""}" href="#beasts/${o.id}">${esc(o.name)}</a>`).join("")}</div>${itemPills(itemsNaming(pl.names))}<div class="panel"><dl class="facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${inline(v)}</dd>`).join("")}${pl.lines.length ? `<dt>Fight lines</dt><dd><ul class="lines">${pl.lines.map((l) => `<li>${inline(l)}</li>`).join("")}</ul></dd>` : ""}</dl></div>${
+    pl.beasts.length ? `<h2 class="sec">Beasts here<span class="pill">${pl.beasts.length}</span></h2><div class="grid">${pl.beasts.map(beastCard).join("")}</div>` : ""
+  }<h2 class="sec">On the map</h2><div class="maps one">${mapsFor(pl).map(mapFig).join("")}</div><h2 class="sec">In the documents</h2>${renderHits(found, re) || "<p>Nothing else written yet.</p>"}`, re };
+}
+function beast(id) {
+  const b = BEASTS.find((x) => x.id === id);
+  if (!b) return { html: `<p>No such beast. <a href="#beasts">All beasts</a>.</p>`, re: null };
+  const pl = PLACES.find((p) => p.id === b.place);
+  const re = patternFor(b.names), found = matches(re), total = found.reduce((a, d) => a + d.hits.length, 0);
+  const facts = [["What it does", b.does], ["Limits", b.limits], ["Story use", b.story], ["In GuildScribe", b.gs], ...b.extra].filter(([, v]) => v);
+  const kin = pl ? pl.beasts.filter((o) => o.id !== b.id) : [];
+  const learned = ((hall && hall.learned) || []).some((m) => sameName(b, m.name));
+  return { html: `<div class="crumb"><a href="#beasts">Beasts</a>${pl ? ` › <a href="#beasts/${pl.id}">${esc(pl.name)}</a>` : ""}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${b.icon} ${esc(b.name)}${statusPill(b)}${learned ? `<span class="pill" style="color:var(--green)" title="GuildScribe has fought it">● learned at GuildScribe</span>` : ""}</h2><p class="tag">${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}. <a href="#doc/bestiary/${slug(b.heading)}">In the bestiary</a></p>${
+    kin.length ? `<div class="who"><span class="pill" style="margin-left:0">Also here</span>${kin.map((o) => `<a class="pill" href="#beast/${o.id}">${o.icon} ${esc(o.name)}</a>`).join("")}</div>` : ""
+  }${itemPills(itemsNaming(b.names))}<div class="panel">${statBlock(b)}<dl class="facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${inline(v)}</dd>`).join("")}</dl></div>${
+    pl ? `<h2 class="sec">Where it's found</h2><div class="panel"><b style="font-family:Cinzel,serif"><a href="#beasts/${pl.id}" style="color:var(--gold2)">${esc(pl.name)}</a></b> ${placeMeta(pl)}<div class="md" style="margin-top:6px"><p>${inline(pl.where)}</p></div></div><div class="maps one">${mapsFor(pl).slice(0, 1).map(mapFig).join("")}</div>` : ""
+  }<h2 class="sec">In the documents</h2>${renderHits(found, re) || "<p>Nothing else written yet.</p>"}`, re };
 }
 function docs() {
   return `<div class="grid">${DOCS.map((d) => `<a class="card" href="#doc/${d.id}"><b>${esc(d.title)}</b><span>${esc(d.sub)}</span><div class="count">${esc(d.file)} · ${(text[d.id] || "").split(/\s+/).filter(Boolean).length.toLocaleString()} words</div></a>`).join("")}</div>`;
@@ -752,13 +874,15 @@ function route() {
   const arg = decodeURIComponent(rest[0] || ""), extra = rest[1] ? decodeURIComponent(rest[1]) : "";
   if (tab === "find") rest.splice(0, rest.length, rest.join("/"));
   document.body.classList.remove("chatting");
-  document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === (tab === "person" ? "roster" : tab === "item" ? (fromFile ? "resources" : "items") : tab === "doc" ? "docs" : tab)));
+  document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === (tab === "person" ? "roster" : tab === "item" ? (fromFile ? "resources" : "items") : tab === "doc" ? "docs" : tab === "beast" ? "beasts" : tab)));
   let out, re = null;
   if (tab === "resources") { view.innerHTML = resources(arg, extra); window.scrollTo(0, 0); return; }
   if (tab === "person") ({ html: out, re } = person(arg));
   else if (tab === "find") ({ html: out, re } = find(decodeURIComponent(rest[0] || "")));
   else if (tab === "item") ({ html: out, re } = item(arg));
   else if (tab === "items") out = items();
+  else if (tab === "beasts") ({ html: out, re } = beasts(arg));
+  else if (tab === "beast") ({ html: out, re } = beast(arg));
   else if (tab === "maps") out = maps();
   else if (tab === "docs") out = docs();
   else if (tab === "doc") out = doc(arg, extra);
@@ -792,6 +916,7 @@ async function load(quiet = false, head) {
   const got = await Promise.all(DOCS.map((d) => fetch(RAW + d.file + bust, { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => "")));
   DOCS.forEach((d, k) => (text[d.id] = got[k]));
   buildItems();
+  buildBeasts();
   // resources.md and bestiary.md may not be on this branch yet; the
   // built-in items cover the first, and the second is simply left out.
   const missing = DOCS.filter((d) => !text[d.id] && d.id !== "resources" && d.id !== "bestiary");
@@ -864,7 +989,7 @@ async function loadHall() {
     applyHall();
     showHall();
     // Redraw a roster or person view so the live cards show; never the chat.
-    if (/^#(roster|person\/|find\/)/.test(location.hash)) route();
+    if (/^#(roster|person\/|find\/|beasts?\b)/.test(location.hash)) route();
   } catch {
     showHall(true);
   }
