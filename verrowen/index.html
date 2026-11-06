@@ -302,6 +302,7 @@ const STORY_STYLE = "The player is here for the story. Lean into mood, mystery a
 // No true name picked: the narrator names the character from the lore.
 const NO_NAME = `\n\nTRUE NAME: the player didn't pick one, so you choose the character's true name. Base it on the LORE: match the race and origin the story is pointing to and the naming style of that people or place, or invent a new name in the same spirit. It must not belong to any named person in the lore. If the player's description or messages already give a name, use that instead. The character doesn't remember it: reveal it at a fitting moment within the first several turns (someone calling it, a name stitched into a collar, a letter), never in the first turn, and keep it the same once revealed.`;
 const MAX_TURNS = 40, MAX_CHARS = 2000;
+const FIRST_MAX = 23800;   // under the laptop's MAX_FIRST (24000) in server.mjs
 
 // The character the player picked: a new stranger (maybe of a chosen race),
 // one of their earlier characters waking again, or one they described.
@@ -319,7 +320,7 @@ function characterText(c){
 // oldest first, up to a budget. Keep this in step with noteLine() there.
 const CODEX_ONE = {character: "Character", people: "People or group", place: "Place", magic: "Magic", item: "Item", rule: "Rule or custom", other: "Note"};
 const CODEX_FIELDS = {character: [["race","Race"],["sex","Sex"],["age","Age"],["role","Role"],["home","Lives in"],["secret","Secret"]], people: [["kind","Kind"],["where","Found in"],["leader","Led by"]], place: [["kind","Kind"],["where","Where"],["who","Who's there"]], magic: [["kind","Type"],["who","Who can use it"],["cost","Cost or limit"]], item: [["kind","Kind"],["owner","Held by"],["power","What it does"]], rule: [["applies","Applies to"]], other: []};
-function codexText(){
+function codexText(budget = 6000){
   let notes = [];
   try{ const d = JSON.parse(store.get("verrowen-codex") || "null"); if (d && Array.isArray(d.notes)) notes = d.notes; }catch(e){}
   const plain = s => String(s || "").replace(/\[\[([^\]]+)\]\]/g, "$1").replace(/^\s*(#+|>|[-*])\s*/gm, "").replace(/\*+/g, "").replace(/\s+/g, " ").trim();
@@ -330,7 +331,7 @@ function codexText(){
     let line = `${CODEX_ONE[cat].toUpperCase()}: ${plain(n.title)}${bits.length ? " (" + bits.join("; ") + ")" : ""}`;
     if (plain(n.body)) line += ". " + plain(n.body);
     if (line.length > 700) line = line.slice(0, 699).trim() + "…";
-    if (used + line.length + 1 > 6000) break;
+    if (used + line.length + 1 > budget) break;
     lines.push(line); used += line.length + 1;
   }
   return lines.length ? `\n\nMORE LORE (the author's own notes, as true as the LORE above):\n${lines.join("\n")}` : "";
@@ -341,7 +342,15 @@ function buildMessages(lore, history, seed, characterName, mode){
   const seedText = seed ? `\n\nOPENING FOR THIS STORY (randomized per player): the character wakes in ${seed.place}, ${seed.time}. Nearby objects: ${seed.objects.join("; ")}. Complication: ${seed.twist}.` : "";
   const nameText = characterName ? `\n\nThe character's true name is ${characterName.slice(0, 60)}. They don't remember it. Reveal it at a fitting moment, not in the first turn.` : NO_NAME;
   const purposeText = `\n\nWHAT THE PLAYER WANTS: ${STORY_STYLE}`;
-  const out = [{role: "user", content: `${RULES}${purposeText}\n\nLORE:\n${lore}${codexText()}${seedText}${nameText}${characterText(character)}\n\nBegin the story now.`}, ...clean];
+  // The laptop keeps only the first FIRST_MAX characters of this message and
+  // cuts the rest, which would drop the player's character and "Begin". So the
+  // instructions always fit whole, and the Codex, then the lore, give way.
+  const head = `${RULES}${purposeText}\n\nLORE:\n`, tail = `${seedText}${nameText}${characterText(character)}\n\nBegin the story now.`;
+  let room = FIRST_MAX - head.length - tail.length;
+  const codex = codexText(Math.max(0, Math.min(6000, room - lore.length)));
+  room -= codex.length;
+  const fitLore = lore.length <= room ? lore : lore.slice(0, Math.max(0, lore.lastIndexOf("\n", room) > 0 ? lore.lastIndexOf("\n", room) : room)).trim();
+  const out = [{role: "user", content: head + fitLore + codex + tail}, ...clean];
   if (mode === "wrap") out.push({role: "user", content: purpose === "dnd" ? WRAP_DND : WRAP_STORY});
   if (out[out.length - 1].role !== "user") out.push({role: "user", content: "Continue."});
   return out;
@@ -410,9 +419,12 @@ let playerId = store.get("verrowen-id");
 if (!playerId){ playerId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(16) + "-" + Math.random().toString(16).slice(2); store.set("verrowen-id", playerId); }
 
 // ── Lore: from the universe repo, with this browser's last copy as a fallback ──
-let lorePromise = null;
+// Fetched again once it's 10 minutes old, so an app left open all day still
+// picks up lore published to main since it opened.
+let lorePromise = null, loreAt = 0;
 function loadLore(){
-  if (!lorePromise) lorePromise = fetch(LORE_URL, {cache: "no-cache"})
+  if (lorePromise && Date.now() - loreAt > 10 * 60 * 1000) lorePromise = null;
+  if (!lorePromise) loreAt = Date.now(), lorePromise = fetch(LORE_URL, {cache: "no-cache"})
     .then(r => { if (!r.ok) throw new Error("lore " + r.status); return r.text(); })
     .then(md => { const t = md.replace(/^# .*\n+.*\n+/, "").trim(); store.set("verrowen-lore", t); return t; })
     .catch(e => { lorePromise = null; const old = store.get("verrowen-lore"); if (old) return old; throw new Error("couldn't load the world's lore"); });
