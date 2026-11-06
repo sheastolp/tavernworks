@@ -259,7 +259,7 @@
   <header>
     <div class="sign">THE GRAND ORRERY</div>
     <h1>The Orrery</h1>
-    <p class="tag">Talk through anything in the Grand Orrery with the lore-keeper: characters, regions, rules, magic and more. Browse its people, items, maps and documents, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo, or role-play in it.</p>
+    <p class="tag">Talk through anything in the Grand Orrery with the lore-keeper: characters, regions, rules, magic and more. Browse its people, items, maps and documents, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo, or make a character by role-playing in it.</p>
     <p class="worldpick"><label for="worldPick">WORLD</label><select id="worldPick"></select><small id="worldNote"></small></p>
     <div class="tabs">
       <a href="#chat" data-tab="chat">✒️ Chat</a>
@@ -269,7 +269,7 @@
       <a href="#resources" data-tab="resources">Resources</a>
       <a href="#maps" data-tab="maps">Maps</a>
       <a href="#docs" data-tab="docs">Documents</a>
-      <a href="/verrowen/" id="playLink" title="Role-play in this world: Wake in Verrowen">🕯️ Role play</a>
+      <a href="/verrowen/" id="playLink" title="Make a character by role-playing in this world: Wake in Verrowen">🕯️ Role play</a>
       <form class="find" id="find"><input type="search" id="q" placeholder="Find anyone or anything…" aria-label="Search the orrery"><button type="submit">Find</button></form>
     </div>
     <p class="status" id="status">Loading the orrery…</p>
@@ -328,7 +328,7 @@ function showWorld() {
   $("worldPick").innerHTML = WORLDS.map((w) => `<option value="${w.id}"${w === world ? " selected" : ""}>${esc(w.name)}</option>`).join("");
   $("worldNote").textContent = world.note;
   $("playLink").hidden = !world.play;
-  if (world.play) { $("playLink").href = world.play; $("playLink").title = "Role-play in " + world.name + ": " + world.game; }
+  if (world.play) { $("playLink").href = world.play; $("playLink").title = "Make a character by role-playing in " + world.name + ": " + world.game; }
 }
 const DOCS = [
   { id: "universe", file: "universe.md", title: "Stoutwell & Beyond", sub: "The universe draft · decided" },

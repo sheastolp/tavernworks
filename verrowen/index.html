@@ -5,7 +5,7 @@
 <link rel="canonical" href="https://tavernworks.dev/verrowen/">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Wake in Verrowen · Tavernworks</title>
-<meta name="description" content="Wake in Verrowen: an AI-narrated roleplay in the Grand Orrery universe. You wake with no memory, and your choices reveal who you are.">
+<meta name="description" content="Wake in Verrowen: an AI-narrated character-creation roleplay in the Grand Orrery universe. You wake with no memory, not even your name, and your choices reveal who you are.">
 <meta property="og:title" content="Wake in Verrowen · Tavernworks">
 <meta property="og:description" content="Wake with no memory in the world of Verrowen. A narrator running on our own laptop reveals who you are through your choices.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕯️</text></svg>">
@@ -178,7 +178,7 @@
   <header>
     <div class="sign">THE GRAND ORRERY · VERROWEN</div>
     <h1>Wake in Verrowen</h1>
-    <p class="tag">You wake with no memory, somewhere in the world of Verrowen. A narrator guides you, and your choices decide who you are: your race, your past, your magic.</p>
+    <p class="tag">Make a character by playing them. You wake with no memory, not even your name, somewhere in the world of Verrowen. A narrator guides you, and your choices decide who you are: your race, your past, your magic. Your name turns up along the way.</p>
     <div class="badges"><span class="pill" id="narratorPill">Checking the narrator…</span><span class="pill" id="modelPill">Runs on our own laptop</span></div>
   </header>
 
@@ -192,7 +192,7 @@
           <li>Reply however you like: what you do, say, notice or think.</li>
           <li>When your character feels complete, press <b>Wrap it up</b> and choose a story or a D&amp;D character sheet.</li>
         </ol>
-        <label for="playerName" class="fieldlabel">Your name, so Sheamus knows whose character this is <span class="note">(optional if you pick a true name below)</span></label>
+        <label for="playerName" class="fieldlabel">Your name, so Sheamus knows whose character this is</label>
         <input id="playerName" type="text" maxlength="60" placeholder="e.g. Sam" autocomplete="nickname">
         <fieldset class="who" id="whoBox">
           <legend class="fieldlabel">Your character <span class="note">(optional: skip it and the narrator decides everything)</span></legend>
@@ -207,11 +207,8 @@
                   <option value="gnome">Gnome</option>
                   <option value="strange">Strange (from beyond)</option>
                 </select>
-                <button type="button" id="genBtn">Generate names</button>
               </span>
-              <span class="note">Optionally pick a true name. You won't remember it at first; the narrator reveals it during the story. Skip it and the narrator gives you a name that fits the world.</span>
-              <span class="row" id="nameChoices"></span>
-              <span class="note" id="chosenName"></span>
+              <span class="note">Optionally pick a race. Nobody knows your character's name yet, not even you: the narrator reveals one that fits the world during the story.</span>
             </span></span></label>
           <span id="savedOpts"></span>
           <label class="opt"><input type="radio" name="who" value="own"><span><b>Bring your own</b><small>Describe a character you already have. They still wake with no memory, and it comes back as you play.</small>
@@ -299,8 +296,8 @@ const WRAP_STORY = `${WRAP}\n\nAfter the profile, add a line reading "The story 
 // Every story is played the same way. Only at "wrap it up" does the player
 // pick what they get: a story (profile and retelling) or a D&D sheet.
 const STORY_STYLE = "The player is here for the story. Lean into mood, mystery and memorable moments, and let their choices quietly show their skills, temperament and values.";
-// No true name picked: the narrator names the character from the lore.
-const NO_NAME = `\n\nTRUE NAME: the player didn't pick one, so you choose the character's true name. Base it on the LORE: match the race and origin the story is pointing to and the naming style of that people or place, or invent a new name in the same spirit. It must not belong to any named person in the lore. If the player's description or messages already give a name, use that instead. The character doesn't remember it: reveal it at a fitting moment within the first several turns (someone calling it, a name stitched into a collar, a letter), never in the first turn, and keep it the same once revealed.`;
+// A new character's name isn't known at the start: the narrator names them from the lore.
+const NO_NAME = `\n\nTRUE NAME: nobody knows the character's name yet, not the player and not the character, so you choose it. Base it on the LORE: match the race and origin the story is pointing to and the naming style of that people or place, or invent a new name in the same spirit. It must not belong to any named person in the lore. If the player's description or messages already give a name, use that instead. The character doesn't remember it: reveal it at a fitting moment within the first several turns (someone calling it, a name stitched into a collar, a letter), never in the first turn, and keep it the same once revealed.`;
 const MAX_TURNS = 40, MAX_CHARS = 2000;
 const FIRST_MAX = 23800;   // under the laptop's MAX_FIRST (24000) in server.mjs
 
@@ -356,30 +353,18 @@ function buildMessages(lore, history, seed, characterName, mode){
   return out;
 }
 
-// ── Random starts and names ──
+// ── Random starts ──
 const SEEDS = {
   place: ["a hayloft above a Stoutwell cattle barn","a caravan wagon stopped on the Woodland Road","a ditch at the edge of the trampled croplands west of Stoutwell","the cellar beneath a busy tavern","a damp cell somewhere in the Kingdom's capital","an archive alcove in the GuildScribe hall in the Kingdom's capital","the gear room of a river mill, wheel groaning overhead","a hollow under the roots of a huge tree at the Monster Wood's edge","a ring of old standing stones in a misty clearing","the top floor of an abandoned watchtower","a fishing skiff drifting on a slow river","a stall behind a closed market in the shopping district","a burned-out cottage on a hillside far from any village"],
   time: ["at grey dawn","at high noon","at dusk","in the dead of night","during a cold rain","in thick fog","under a heavy snowfall","in summer heat"],
   objects: ["a cracked lantern that still flickers","a bone whistle carved with runes","a ring that's too big for any finger you have","a map with one corner torn away","a dented tin cup with a name scratched off","a glass vial of dark, faintly glowing liquid","a goblin-made knife","a sealed letter stamped with a crowned tower","a child's wooden toy horse","a bundle of dried herbs tied with red thread","a coin with a hole bored through it","a broken compass that spins slowly","a scrap of embroidered cloth","an iron key, cold as ice","a feather that never quite settles"],
   twist: ["someone is approaching","a bell is ringing in the distance","you smell smoke","something is watching you","you're not alone","your hands are stained with something","you hear goblins chattering nearby","a voice is calling a name that might be yours"]
 };
-const NAMES = {
-  human: {a:["Al","Bren","Cor","Ed","Gar","Hal","Is","Jor","Mar","Ro","Wil","Ty","El","Ad","Bea","Ma","Cel","Iv","Lia"], b:["dric","wen","an","mund","rick","ena","ora","ith","bert","ric","lyn","ard","ette","win","ias","eth"], last:["Marsh","Holt","Fairbrook","Thatcher","Cole","Wren","Barrow","Mill","Ashdown","Pike","Hale","Crane"]},
-  halfling: {a:["Pip","Bram","Tom","Fen","Lob","Mil","Pell","Rob","Dob","Wyl","Nel","Tan","Bil","Hob","Pos","Cor"], b:["ble","win","bin","lo","wick","ly","ry","bo","kins","nie","ford","ney","so","mer"], last:["Underbough","Tealeaf","Brightkettle","Mossfoot","Hearthley","Bramblewood","Goodbarrel","Fernbottle","Applecross","Stoutley"]},
-  elf: {a:["Ael","Thal","Syl","Ery","Fae","Lir","Ilm","Vae","Cael","Ner","Ith","Sae"], b:["arion","wen","andor","is","iel","anis","oth","ira","ethil","adan","aleth","ys"], last:["Moonwhisper","Silverleaf","Duskmere","Starbrook","Ashveil","Thornwind","Gladewalker"]},
-  gnome: {a:["Fiz","Nim","Bod","Glim","Wiz","Tock","Zan","Ork","Pim","Quill","Fen","Bix"], b:["wick","ble","dle","mott","nock","zip","bert","kin","go","ry","tock","lin"], last:["Cogsworth","Gearsprocket","Tinkerton","Brasswhistle","Fizzlebang","Copperpot","Springwhistle"]},
-  strange: {a:["Vex","Ory","Zhae","Kael","Ush","Thren","Myr","Xal","Ves","Qor","Lyth","Sorr"], b:["aan","ix","eth","oru","ash","iel","ennu","ys","ath","okk","uun","ael"], last:["of No Name","the Unwritten","Who Fell","of the Thin Place","the Returned","Beyond the Gate"]}
-};
 const $ = id => document.getElementById(id);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 function makeSeed(){
   const objects = [...SEEDS.objects].sort(() => Math.random() - 0.5).slice(0, 2 + Math.floor(Math.random() * 2));
   return {place: pick(SEEDS.place), time: pick(SEEDS.time), objects, twist: pick(SEEDS.twist)};
-}
-function genName(race){
-  const n = NAMES[race === "any" ? pick(Object.keys(NAMES)) : race];
-  const first = (pick(n.a) + pick(n.b)).toLowerCase();
-  return first.charAt(0).toUpperCase() + first.slice(1) + " " + pick(n.last);
 }
 
 // ── Phones ──
@@ -549,24 +534,6 @@ $("ownerSave").addEventListener("click", async () => {
 });
 
 // ── Controls ──
-function showNames(){
-  const box = $("nameChoices"); box.innerHTML = "";
-  const seen = new Set(); while (seen.size < 4) seen.add(genName($("nameRace").value));
-  seen.forEach(nm => {
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "chip"; b.textContent = nm;
-    b.setAttribute("aria-pressed", nm === characterName ? "true" : "false");
-    b.addEventListener("click", () => {
-      characterName = characterName === nm ? "" : nm;
-      box.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c.textContent === characterName ? "true" : "false"));
-      $("chosenName").textContent = characterName ? "Your character's true name: " + characterName + ". Tap it again to clear." : "";
-    });
-    box.appendChild(b);
-  });
-}
-$("genBtn").addEventListener("click", showNames);
-$("nameRace").addEventListener("change", showNames);
-
 // Characters are kept in this browser with their story, so they can be
 // continued where they left off, or (once wrapped up) wake again in a new
 // story. The home page's character picker lists them too.
@@ -656,10 +623,9 @@ $("beginBtn").addEventListener("click", () => {
     return;
   }
   playerName = typed;
-  // A picked true name (or a returning character's) is enough to begin; the
-  // story is then filed under the character's name.
-  const named = who === "new" ? !!characterName : who.startsWith("returning:");
-  if (!playerName && !named){ $("playerName").focus(); setStatus("Enter your name, or pick a true name for your character, then press Begin.", true); return; }
+  // A new character's name isn't known yet (the narrator reveals it), so the
+  // story is filed under the player's name. A returning character's will do.
+  if (!playerName && !who.startsWith("returning:")){ $("playerName").focus(); setStatus("Enter your name, then press Begin.", true); return; }
   if (who.startsWith("returning:")){
     const c = savedCharacters().find(x => x.id === who.slice(10));
     if (!c){ setStatus("That character isn't saved in this browser any more.", true); render(); return; }
@@ -671,6 +637,7 @@ $("beginBtn").addEventListener("click", () => {
     character = {kind: "own", label: "your own character", description};
     characterName = "";
   }else{
+    characterName = "";
     const v = $("nameRace").value, race = v === "strange" ? "being from beyond" : v;
     character = race === "any" ? null : {kind: "new", label: "a stranger, secretly " + race, race};
   }
@@ -731,7 +698,6 @@ function goBack(){
   playerId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(16) + "-" + Math.random().toString(16).slice(2);
   store.set("verrowen-id", playerId);
   messages = []; profile = ""; seed = null; character = null; characterName = ""; purpose = "story"; continued = false;
-  $("nameChoices").innerHTML = ""; $("chosenName").textContent = "";
   closeFinish(); render(); store.set("verrowen-story", ""); setStatus("");
   $("copyStatus").textContent = "";
   window.scrollTo({top: 0, behavior: "smooth"});

@@ -1,6 +1,6 @@
 // Service worker for the installable Orrery Explorer (scope /orrery/),
 // which takes in the Orrery control page and the Review Clone too.
-self.PWA_CACHE = "orrery-v11";
+self.PWA_CACHE = "orrery-v12";
 self.PWA_SHELL = ["/orrery/", "/orrery/control/", "/orrery/control/review/", "/voice-input.js", "/pwa.js", "/orrery-review.js", "/orrery/review-summary.js", "/orrery/manifest.webmanifest", "/orrery/icon-192.png"];
 importScripts("/pwa-sw-core.js");
 
