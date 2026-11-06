@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<title>Orrery Explorer · Tavernworks</title>
-<meta name="description" content="Browse the Grand Orrery: its maps, documents, character roster and enchanted items, and everything written about each one. A chat with the local AI talks through anything in it: characters, regions, rules, magic and more.">
+<title>The Orrery · Tavernworks</title>
+<meta name="description" content="The Orrery: chat with the lore-keeper about the Grand Orrery, pick a world, browse its maps, documents, character roster and enchanted items, and everything written about each one. A chat with the local AI talks through anything in it: characters, regions, rules, magic and more.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
 <link rel="manifest" href="/orrery/manifest.webmanifest">
 <meta name="theme-color" content="#15100c">
@@ -35,6 +35,10 @@
   .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px;align-items:center}
   .tabs a{font-family:Cinzel,serif;font-size:13px;letter-spacing:.12em;text-decoration:none;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:7px 16px;background:rgba(0,0,0,.2)}
   .tabs a.on{color:var(--bg);background:var(--gold);border-color:var(--gold)}
+  .worldpick{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px;font-family:Cinzel,serif;font-size:13px;letter-spacing:.12em;color:var(--gold)}
+  .worldpick select{font:14px Inter,system-ui,sans-serif;letter-spacing:0;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer}
+  .worldpick select:focus{outline:2px solid var(--gold);outline-offset:1px}
+  .worldpick small{font:12.5px Inter,system-ui,sans-serif;letter-spacing:0;color:var(--muted)}
   form.find{margin-left:auto;display:flex;gap:6px;flex:1 1 240px;max-width:360px;min-width:0}
   form.find input{flex:1;min-width:0;width:0;background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 14px;font:inherit;font-size:14px}
   form.find button,.btn{background:transparent;border:1px solid var(--line);color:var(--gold2);border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
@@ -243,31 +247,33 @@
 <div class="wrap">
   <nav class="top"><a class="back" href="/">← Tavernworks</a> <span data-install="btn" hidden></span></nav>
   <header>
-    <div class="sign">THE WORKBENCH</div>
-    <h1>Orrery Explorer</h1>
-    <p class="tag">The Grand Orrery's maps, documents, people and items, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Pick a person or an item to see everything written about it, or open the <a href="#chat">chat</a> to talk through anything in it with the local AI: characters, regions, rules, magic and more.</p>
+    <div class="sign">THE GRAND ORRERY</div>
+    <h1>The Orrery</h1>
+    <p class="tag">Talk through anything in the Grand Orrery with the lore-keeper: characters, regions, rules, magic and more. Browse its people, items, maps and documents, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo, or role-play in it.</p>
+    <p class="worldpick"><label for="worldPick">WORLD</label><select id="worldPick"></select><small id="worldNote"></small></p>
     <div class="tabs">
+      <a href="#chat" data-tab="chat">✒️ Chat</a>
       <a href="#roster" data-tab="roster">Roster</a>
       <a href="#items" data-tab="items">Items</a>
       <a href="#resources" data-tab="resources">Resources</a>
       <a href="#maps" data-tab="maps">Maps</a>
       <a href="#docs" data-tab="docs">Documents</a>
-      <a href="#chat" data-tab="chat">✒️ Chat</a>
+      <a href="/verrowen/" id="playLink" title="Role-play in this world: Wake in Verrowen">🕯️ Role play</a>
       <form class="find" id="find"><input type="search" id="q" placeholder="Find anyone or anything…" aria-label="Search the orrery"><button type="submit">Find</button></form>
     </div>
     <p class="status" id="status">Loading the orrery…</p>
   </header>
   <main id="view"></main>
-  <footer><a href="/">Tavernworks</a> · <a href="/verrowen/">Wake in Verrowen</a> · <button class="btn" type="button" id="reload">Reload from GitHub</button><br><a href="/verrowen/#model" title="For the laptop's owner: pick which AI model the lore-keeper and narrator use">🤖 Change AI model</a> · <a href="/orrery/control/" title="For the owner: the Orrery control page">🔒 Admin</a></footer>
+  <footer><a href="/">Tavernworks</a> · <button class="btn" type="button" id="reload">Reload from GitHub</button><br><a href="/verrowen/#model" title="For the laptop's owner: pick which AI model the lore-keeper and narrator use">🤖 Change AI model</a> · <a href="/orrery/control/" title="For the owner: the Orrery control page">🔒 Admin</a></footer>
 </div>
 <script src="/orrery/review-summary.js"></script>
 <script src="/orrery-review.js"></script>
 <script src="/pwa.js" data-sw="/orrery/sw.js" data-scope="/orrery/" data-badge="review"></script>
 <script src="/voice-input.js"></script>
 <script>
-// Orrery Explorer: reads the grand-orrery repo's Markdown straight from
+// The Orrery: reads the grand-orrery repo's Markdown straight from
 // GitHub (like Wake in Verrowen reads lore.md), so it's always current.
-// Views (in the URL hash): #roster, #person/<id>, #items, #item/<id>,
+// Views (in the URL hash): #chat (the default), #roster, #person/<id>, #items, #item/<id>,
 // #resources, #resources/<category>, #resources/<category>/<type>, #maps,
 // #docs, #doc/<id>, #find/<text>. Items and resources come from the repo's
 // resources.md (## category, ### type, #### entry), so new ones show up on
@@ -298,6 +304,19 @@ if (CLONE) {
     .then((s) => { const el = document.getElementById("cloneSum"); if (el && s && s.short) el.textContent = s.short; })
     .catch(() => {});
 }
+// The worlds of the Grand Orrery. The picker in the header chooses one: the
+// lore-keeper works in it, and Role play opens its game. Add a world here
+// once the canon names it.
+const WORLDS = [
+  { id: "verrowen", name: "Verrowen", note: "Stoutwell, the Monster Wood and the Kingdom", play: "/verrowen/", game: "Wake in Verrowen" },
+];
+let world = WORLDS.find((w) => w.id === localStorage.getItem("orrery-world")) || WORLDS[0];
+function showWorld() {
+  $("worldPick").innerHTML = WORLDS.map((w) => `<option value="${w.id}"${w === world ? " selected" : ""}>${esc(w.name)}</option>`).join("");
+  $("worldNote").textContent = world.note;
+  $("playLink").hidden = !world.play;
+  if (world.play) { $("playLink").href = world.play; $("playLink").title = "Role-play in " + world.name + ": " + world.game; }
+}
 const DOCS = [
   { id: "universe", file: "universe.md", title: "Stoutwell & Beyond", sub: "The universe draft · decided" },
   { id: "notes", file: "working-notes.md", title: "Village Hero", sub: "Working notes · tagged per section" },
@@ -326,10 +345,31 @@ const PEOPLE = [
   { group: "The Elderhold", id: "ysolde", name: "Ysolde Ambergate", role: "Halfling, 133 · harvest stores and rationing", names: ["Ysolde"] },
   { group: "The Elderhold", id: "clementine", name: "Clementine Rook", role: "Halfling, 131 · the newest Elder, deals with Murrow", names: ["Clementine"] },
   { group: "The Kingdom", id: "glumtom", name: "Glumtom", role: "Rock gnome · the Kingdom's artificer", names: ["Glumtom"] },
-  { group: "The Kingdom", id: "scribe", name: "The Scribe", role: "GuildScribe's senior guildscribe", names: ["[Tt]he Scribe"] },
-  { group: "The Kingdom", id: "peddlers", name: "The peddlers", role: "Tansy Ninefingers and the market stall's traders", names: ["peddlers?", "Peddlers?", "Tansy Ninefingers"] },
-  { group: "The Kingdom", id: "clerk", name: "The Wandering Clerk", role: "A guildscribe who broke from the hall", names: ["Wandering Clerk", "the Clerk"] },
+  { group: "The Kingdom", id: "scribe", name: "The Scribe", role: "Human, old · GuildScribe's senior guildscribe, in the capital", names: ["[Tt]he Scribe"] },
+  { group: "The Kingdom", id: "clerk", name: "The Wandering Clerk", role: "A guildscribe who broke from the hall · walks the Kingdom's roads", names: ["Wandering Clerk", "the Clerk"] },
+  { group: "The Kingdom", id: "peddlers", name: "The peddlers", role: "GuildScribe's market-stall traders, as a group", names: ["peddlers?", "Peddlers?"] },
   { group: "The Kingdom", id: "taxrep", name: "The tax representative", role: "Collects the Kingdom's tax from Stoutwell", names: ["tax representative"] },
+  { group: "The capital peddlers", id: "bregga", name: "Bregga Stumpteeth", role: "Human · gap-toothed market hawker", names: ["Bregga"] },
+  { group: "The capital peddlers", id: "hesk", name: "Widow Hesk", role: "Human · sells on sympathy", names: ["Widow Hesk"] },
+  { group: "The capital peddlers", id: "loosecoin", name: "Fenwick Loose-Coin", role: "Halfling · always a copper short", names: ["Loose-Coin"] },
+  { group: "The capital peddlers", id: "marda", name: "Marda the Reformed Cutpurse", role: "Human · a pickpocket gone straight", names: ["Marda"] },
+  { group: "The capital peddlers", id: "grithnall", name: "Grithnall the Threadbare", role: "Human · patched from hat to boots", names: ["Grithnall"] },
+  { group: "The capital peddlers", id: "ossop", name: "Ossop the Unlucky", role: "Human · everything at his stall goes wrong", names: ["Ossop"] },
+  { group: "The capital peddlers", id: "beren", name: "Beren Halfcoat", role: "Halfling · the square's most honest haggler", names: ["Beren"] },
+  { group: "The capital peddlers", id: "ivy", name: "Ivy Scraptongue", role: "Human · insults and workshop scrap", names: ["Scraptongue"] },
+  { group: "The capital peddlers", id: "doras", name: "Doras Milkbeard", role: "Human · \"remedies\" that are mostly tea", names: ["Doras"] },
+  { group: "The capital peddlers", id: "ruel", name: "Ruel Tinkpocket", role: "Halfling · tinker with pockets of parts", names: ["Ruel"] },
+  { group: "The capital peddlers", id: "podge", name: "Podge Ashborn", role: "Halfling · sooty pots and lanterns", names: ["Podge"] },
+  { group: "The capital peddlers", id: "uther", name: "Uther Nine-Debts", role: "Human · owes nine debts to nine people", names: ["Uther"] },
+  { group: "The road peddlers", id: "wobble", name: "Wobble", role: "Halfling · a cart with one bad wheel", names: ["Wobble"] },
+  { group: "The road peddlers", id: "yorik", name: "Pruneface Yorik", role: "Human · the road's hardest bargainer", names: ["Yorik"] },
+  { group: "The road peddlers", id: "tansy", name: "Tansy Ninefingers", role: "Human · turns up the most real relics", names: ["Tansy"] },
+  { group: "The road peddlers", id: "corrin", name: "Old Corrin", role: "Human · the oldest on the road", names: ["Corrin"] },
+  { group: "The road peddlers", id: "tam", name: "Tam Pockets", role: "Human · more pocket than coat", names: ["Tam Pockets"] },
+  { group: "The road peddlers", id: "squint", name: "Squint", role: "Halfling · nearsighted, never cheated", names: ["Squint"] },
+  { group: "The road peddlers", id: "nan", name: "Nan Gullyfoot", role: "Halfling · knits, and feeds the hungry", names: ["Gullyfoot"] },
+  { group: "The road peddlers", id: "kettle", name: "Kettle", role: "Human · always has a kettle on", names: ["Kettle"] },
+  { group: "The road peddlers", id: "sella", name: "Sella Windrags", role: "Human · cloth flapping from her pack", names: ["Sella"] },
   { group: "Other worlds", id: "arandur", name: "Arandur", role: "Elf ranger and pickpocket, pulled between worlds", names: ["Arandur"] },
   { group: "Other worlds", id: "silwen", name: "Silwen", role: "Arandur's hunter mother", names: ["Silwen"] },
   { group: "Other worlds", id: "faelan", name: "Faelan", role: "Arandur's distant father", names: ["Faelan"] },
@@ -669,7 +709,7 @@ function maps() {
 }
 
 function route() {
-  const [tab, ...rest] = (location.hash.slice(1) || "roster").split("/");
+  const [tab, ...rest] = (location.hash.slice(1) || "chat").split("/");
   const arg = decodeURIComponent(rest[0] || ""), extra = rest[1] ? decodeURIComponent(rest[1]) : "";
   if (tab === "find") rest.splice(0, rest.length, rest.join("/"));
   document.body.classList.remove("chatting");
@@ -863,7 +903,7 @@ function canonFor(c) {
   }
   const lore = (text.lore || "").replace(/^# .*\n+.*\n+/, "").trim();
   parts.push(["LORE", lore, 9000]);
-  parts.push(["ROSTER (named people already in the canon)", PEOPLE.map((p) => `${p.name} (${p.group}): ${p.role}`).join("\n"), 2000]);
+  parts.push(["ROSTER (named people already in the canon)", PEOPLE.map((p) => `${p.name} (${p.group}): ${p.role}`).join("\n"), 3600]);
   if (c.mode === "world" || (c.mode === "chat" && !["general", "character"].includes(chatTopic(c)))) {
     const open = ((text.universe || "").split(/^## Still Being Developed\s*$/m)[1] || "").split(/^## /m)[0].trim();
     if (open) parts.push(["STILL OPEN IN THE CANON", open, 1200]);
@@ -898,7 +938,7 @@ function chatMessages(c, mode) {
     hist.unshift(m); used += m.content.length;
   }
   while (hist.length && hist[0].role === "assistant" && hist.length < c.messages.length) hist.shift();
-  const out = [{ role: "user", content: `${KEEPER}\n\n${task}${canonFor(c)}\n\n${start}` }, ...hist];
+  const out = [{ role: "user", content: `${KEEPER}\n\nWORLD: the author is working in ${world.name}. Keep to it unless they bring in another world.\n\n${task}${canonFor(c)}\n\n${start}` }, ...hist];
   if (mode === "write") out.push({ role: "user", content: writePrompt(c) });
   if (out[out.length - 1].role !== "user") out.push({ role: "user", content: "Go on." });
   return out;
@@ -1307,6 +1347,12 @@ $("find").addEventListener("submit", (e) => {
   if (q) location.hash = "find/" + encodeURIComponent(q);
 });
 $("reload").addEventListener("click", load);
+showWorld();
+$("worldPick").addEventListener("change", (e) => {
+  world = WORLDS.find((w) => w.id === e.target.value) || WORLDS[0];
+  localStorage.setItem("orrery-world", world.id);
+  showWorld();
+});
 addEventListener("hashchange", route);
 load();
 </script>

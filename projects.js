@@ -228,19 +228,10 @@ window.TAVERN_PROJECTS = {
     {
       "key": "orrery",
       "icon": "🪐",
-      "name": "Orrery Explorer",
-      "href": "/orrery/",
+      "name": "The Orrery",
+      "href": "/orrery/#chat",
       "dir": "orrery",
-      "card": {
-        "section": "workbench",
-        "title": "Orrery Explorer",
-        "text": "Browse the Grand Orrery, the universe behind <i>Wake in Verrowen</i>: its maps, documents and character roster, read live from GitHub. Pick a person to see everything written about them.",
-        "href": "/orrery/",
-        "url": "tavernworks.dev/orrery",
-        "pill": "BETA",
-        "pillKind": "beta",
-        "links": []
-      }
+      "card": null
     },
     {
       "key": "verrowen",
@@ -660,6 +651,7 @@ window.TAVERN_PROJECTS = {
     ["home","2026-11-04","Wake in Verrowen takes the Journal's spot under the path; the Journal moves to the workbench","#verrowen"],
     ["orrery","2026-11-05","Orrery Explorer gets a card on the workbench: the Grand Orrery's maps, documents and roster in one page","/orrery/"],
     ["home","2026-11-05","The Grand Orrery takes the spot under the path, with Wake in Verrowen as the game set inside it","#orrery"],
-    ["orrery","2026-11-05","Orrery Explorer gets an Items tab: the Hearthstone, Featherhook, Wardbell, Truthglass and Rift compass, each with what it does, how it's made and its limits","/orrery/#items"]
+    ["orrery","2026-11-05","Orrery Explorer gets an Items tab: the Hearthstone, Featherhook, Wardbell, Truthglass and Rift compass, each with what it does, how it's made and its limits","/orrery/#items"],
+    ["orrery","2026-11-06","One app, the Orrery: it opens on the lore-keeper chat, with a world picker and a Role play tab into Wake in Verrowen","/orrery/#chat"]
   ]
 };
