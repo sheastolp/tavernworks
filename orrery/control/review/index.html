@@ -178,6 +178,7 @@ async function load(){
   }catch(e){ $("count").innerHTML = '<span class="minus">' + esc(e.message || "Couldn't reach GitHub.") + "</span>"; return; }
 
   const ahead = j.ahead_by || 0, behind = j.behind_by || 0;
+  if (window.tavernPWA) tavernPWA.badge(ahead);   // the number on the Orrery app icon
   $("logCard").hidden = $("filesCard").hidden = $("actCard").hidden = !ahead;
   if (!ahead){
     $("count").innerHTML = "Nothing is waiting. The Review Clone matches the live Orrery." + (behind ? ' <span class="note">(Live has ' + behind + " newer change" + (behind > 1 ? "s" : "") + " that went around the review. Press Throw it all away to line the clone up with it.)</span>" : "");
@@ -349,6 +350,6 @@ $("rvFile").addEventListener("click", async () => {
   finally{ $("rvFile").disabled = false; }
 });
 </script>
-<script src="/pwa.js" data-sw="/orrery/sw.js" data-scope="/orrery/"></script>
+<script src="/pwa.js" data-sw="/orrery/sw.js" data-scope="/orrery/" data-badge="manual"></script>
 </body>
 </html>

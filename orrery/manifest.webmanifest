@@ -9,15 +9,73 @@
   "orientation": "any",
   "background_color": "#15100c",
   "theme_color": "#15100c",
-  "categories": ["books", "entertainment"],
+  "categories": [
+    "books",
+    "entertainment"
+  ],
   "icons": [
-    { "src": "/orrery/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/orrery/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/orrery/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/orrery/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/orrery/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/orrery/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "shortcuts": [
-    { "name": "Roster", "url": "/orrery/#roster", "icons": [{ "src": "/orrery/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Maps", "url": "/orrery/#maps", "icons": [{ "src": "/orrery/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Chat with the lore-keeper", "short_name": "Chat", "url": "/orrery/#chat", "icons": [{ "src": "/orrery/icon-192.png", "sizes": "192x192" }] }
+    {
+      "name": "Review the waiting changes",
+      "short_name": "Review",
+      "url": "/orrery/control/review/",
+      "icons": [
+        {
+          "src": "/orrery/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Open the Review Clone",
+      "short_name": "Review Clone",
+      "url": "/orrery/?clone=review",
+      "icons": [
+        {
+          "src": "/orrery/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Chat with the lore-keeper",
+      "short_name": "Chat",
+      "url": "/orrery/#chat",
+      "icons": [
+        {
+          "src": "/orrery/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Roster",
+      "url": "/orrery/#roster",
+      "icons": [
+        {
+          "src": "/orrery/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
   ]
 }

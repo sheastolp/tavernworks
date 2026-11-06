@@ -160,11 +160,11 @@ $("useModel").addEventListener("click", async () => {
 checkHealth();
 fetch("https://api.github.com/repos/sheastolp/grand-orrery/compare/main...review", { headers: { accept: "application/vnd.github+json" } })
   .then((r) => r.ok ? r.json() : Promise.reject())
-  .then((j) => { const n = j.ahead_by || 0; $("waiting").textContent = n ? n + " change" + (n > 1 ? "s are" : " is") + " waiting for you." : "Nothing is waiting. The clone matches what's live."; })
+  .then((j) => { const n = j.ahead_by || 0; if (window.tavernPWA) tavernPWA.badge(n); $("waiting").textContent = n ? n + " change" + (n > 1 ? "s are" : " is") + " waiting for you." : "Nothing is waiting. The clone matches what's live."; })
   .catch(() => { $("waiting").textContent = "Couldn't check GitHub right now."; });
 const saved = store.get();
 if (saved){ $("token").value = saved; unlock(); }
 </script>
-<script src="/pwa.js" data-sw="/orrery/sw.js" data-scope="/orrery/"></script>
+<script src="/pwa.js" data-sw="/orrery/sw.js" data-scope="/orrery/" data-badge="manual"></script>
 </body>
 </html>
