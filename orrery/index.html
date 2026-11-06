@@ -213,7 +213,24 @@
     .writeup{padding:14px}
     .writeup pre{font-size:16px}
   }
-  @media (max-width:360px){.composer .row{flex-wrap:wrap}}
+  /* The chat fills the visible screen on every device, so the Send row is
+     always on screen, and its controls stay on one row that never wraps:
+     Send first, then the rest; on narrow screens they show as icons, and if
+     they still don't fit the row swipes sideways. */
+  .chatbox{position:relative}
+  .chatbox.playing{height:calc(var(--app-h,100dvh) - 16px);min-height:320px;max-height:none;scroll-margin-top:8px}
+  .chatlog{position:relative;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  .chatlog::-webkit-scrollbar{width:8px} .chatlog::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+  .composer .row{flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-x}
+  .composer .row::-webkit-scrollbar{display:none}
+  .composer .row > *{flex:0 0 auto;white-space:nowrap}
+  .composer .row #sendSay,.composer .row #stopSay{order:-1}
+  @media (max-width:900px){.composer .row .lbl{display:none}}
+  @media (max-width:600px){.composer .row > *{flex:1 0 auto}.composer .row button{padding:10px 8px;min-width:40px}.composer .row #sendSay{flex:2 0 auto;padding:10px 12px}}
+  @media (max-width:430px){.composer .row{gap:4px}.composer .row button{padding:10px 6px;min-width:36px}.composer .row #sendSay{padding:10px 8px}}
+  @media (max-width:340px){.composer .row{gap:3px}.composer .row button{padding:9px 4px;min-width:32px}.composer .row #sendSay{padding:9px 6px;letter-spacing:0}}
+  /* Back to the newest message after scrolling up through the chat. */
+  .chatbox button.tolatest{position:absolute;left:50%;transform:translateX(-50%);z-index:3;font-family:Inter,sans-serif;letter-spacing:0;font-size:13.5px;padding:8px 16px;border-radius:999px;background:var(--card);border-color:var(--gold);box-shadow:0 4px 16px rgba(0,0,0,.45)}
   @media (pointer:coarse){
     .chatbox button.copymsg{opacity:.8;padding:8px;top:-8px}
     .say.me button.copymsg{top:2px;right:2px}
@@ -931,6 +948,7 @@ function drawChat() {
   <section class="chatbox" aria-label="Chat with the lore-keeper">
     <div class="chathead"><span>THE LORE-KEEPER</span>${c && c.mode === "chat" ? `<span class="topic"><label for="topicPick">On</label><select id="topicPick" title="What the lore-keeper thinks this chat is about. It works this out as you talk; pick one to pin it.">${topicOptions(c)}</select></span>` : `<span class="about">${c ? esc(chatTitle(c)) : "Characters, regions, rules and more"}</span>`}</div>
     <div class="chatlog" id="chatlog" aria-live="polite"></div>
+    <button type="button" class="tolatest" id="toLatest" hidden>↓ Latest</button>
     <div class="chatstatus" id="chatstatus" role="status" aria-live="polite"></div>
     <div class="chatnote" id="reviewSave" style="padding:0 16px" hidden></div>
     <div class="composer" id="composer" ${c ? "" : "hidden"}>
@@ -979,6 +997,8 @@ function drawChat() {
   $("ownerCancel").onclick = () => { $("ownerRow").hidden = true; $("ownerToken").value = ""; savePending = ""; };
   if (c) {
     $("sendSay").onclick = sendSay;
+    $("chatlog").addEventListener("scroll", jumpBtn, { passive: true });
+    $("toLatest").onclick = () => { const log = $("chatlog"); log.scrollTo({ top: log.scrollHeight, behavior: "smooth" }); };
     $("say").oninput = fitSay;
     $("say").onfocus = () => { if (phone.matches) setTimeout(showChatBox, 300); };
     fitSay();
@@ -1025,13 +1045,29 @@ const phone = matchMedia("(max-width:600px)"), touch = matchMedia("(pointer:coar
 function fitHeight() {
   const vv = window.visualViewport;
   document.documentElement.style.setProperty("--app-h", Math.round(vv ? vv.height : innerHeight) + "px");
-  const log = $("chatlog"); if (log && openChat()) log.scrollTop = log.scrollHeight;
+  if ($("chatlog") && openChat()) toLatest();
 }
 (window.visualViewport || window).addEventListener("resize", fitHeight);
 fitHeight();
 function showChatBox() {
   const box = document.querySelector(".chatbox.playing");
-  if (phone.matches && box) box.scrollIntoView({ block: "start", behavior: "smooth" });
+  if (box) box.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+// Scroll the chat to what's newest: the bottom, or the start of the last
+// reply when it's taller than the window, so it reads from the top.
+function toLatest() {
+  const log = $("chatlog"); if (!log) return;
+  const last = log.lastElementChild;
+  if (last && last.classList.contains("keeper") && !last.classList.contains("writing") && last.offsetHeight > log.clientHeight - 40) log.scrollTop = last.offsetTop - 12;
+  else log.scrollTop = log.scrollHeight;
+  jumpBtn();
+}
+// The "↓ Latest" button shows once you've scrolled a good way up.
+function jumpBtn() {
+  const log = $("chatlog"), b = $("toLatest"); if (!log || !b) return;
+  const far = openChat() && log.scrollHeight - log.scrollTop - log.clientHeight > 160;
+  b.hidden = !far;
+  if (far) b.style.bottom = (log.parentElement.offsetHeight - log.offsetTop - log.offsetHeight + 10) + "px";
 }
 // The message box grows with what's typed (up to a limit), then scrolls.
 function fitSay() {
@@ -1094,7 +1130,7 @@ function drawLog() {
     d.appendChild(copyButton(m.content));
     log.appendChild(d);
   }
-  log.scrollTop = log.scrollHeight;
+  toLatest();
   const w = $("writeup");
   w.hidden = !c.writeup || !!c.writeupClosed;
   $("reopenWrite").hidden = !c.writeup || !c.writeupClosed;

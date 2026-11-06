@@ -48,6 +48,11 @@
   .dot.up{background:var(--green)} .dot.down{background:var(--ember)}
   ul.links{margin:0;padding-left:20px}
   code{font-size:13px;background:var(--bg2);padding:1px 6px;border-radius:6px}
+  .lkcard{border-color:var(--gold)}
+  /* The lore-keeper, one tap away from anywhere on the page. */
+  .lkfab{position:fixed;right:16px;bottom:16px;z-index:50;display:inline-flex;align-items:center;gap:8px;background:var(--gold);color:var(--bg);font-weight:600;font-size:15px;text-decoration:none;border-radius:999px;padding:12px 18px;box-shadow:0 6px 22px rgba(0,0,0,.5)}
+  .lkfab:hover{background:var(--gold2)} .lkfab:focus-visible{outline:2px solid var(--gold2);outline-offset:3px}
+  .wrap{padding-bottom:96px}
   footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
 </style>
 </head>
@@ -59,6 +64,12 @@
     <h1>Orrery control</h1>
     <p class="tag">The control page for the Grand Orrery, the lore-keeper and the Wake in Verrowen narrator. Changes reach the live Orrery only through the Review Clone.</p>
   </header>
+
+  <section class="card lkcard" aria-labelledby="h-lk">
+    <h2 id="h-lk">✒️ The lore-keeper</h2>
+    <p class="note">Build Verrowen with the lore-keeper. Your chats save on their own, and you can file what you settle on from the Review Clone.</p>
+    <div class="row"><a class="btnlink" href="/orrery/#chat">✒️ Chat with the lore-keeper</a><a class="btnlink" href="/orrery/control/review/#h-pitch">💡 Pitches</a></div>
+  </section>
 
   <section class="card" aria-labelledby="h-review">
     <h2 id="h-review">Review Clone</h2>
@@ -101,6 +112,7 @@
 
   <footer><a href="/">Tavernworks</a> · Brewed by Stoned Sheamus</footer>
 </div>
+<a class="lkfab" href="/orrery/#chat" title="Chat with the lore-keeper">✒️ Lore-keeper</a>
 <script>
 const SERVER = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
 const KEY = "verrowen-owner";   // the same key the Wake in Verrowen model picker uses

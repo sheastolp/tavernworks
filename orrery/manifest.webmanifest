@@ -35,6 +35,17 @@
   ],
   "shortcuts": [
     {
+      "name": "Chat with the lore-keeper",
+      "short_name": "Lore-keeper",
+      "url": "/orrery/#chat",
+      "icons": [
+        {
+          "src": "/orrery/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
       "name": "Review the waiting changes",
       "short_name": "Review",
       "url": "/orrery/control/review/",
@@ -49,17 +60,6 @@
       "name": "Open the Review Clone",
       "short_name": "Review Clone",
       "url": "/orrery/?clone=review",
-      "icons": [
-        {
-          "src": "/orrery/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Chat with the lore-keeper",
-      "short_name": "Chat",
-      "url": "/orrery/#chat",
       "icons": [
         {
           "src": "/orrery/icon-192.png",
