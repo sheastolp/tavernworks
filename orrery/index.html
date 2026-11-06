@@ -238,6 +238,7 @@
   <main id="view"></main>
   <footer><a href="/">Tavernworks</a> · <a href="/verrowen/">Wake in Verrowen</a> · <button class="btn" type="button" id="reload">Reload from GitHub</button><br><a href="/verrowen/#model" title="For the laptop's owner: pick which AI model the lore-keeper and narrator use">🤖 Change AI model</a> · <a href="/orrery/control/" title="For the owner: the Orrery control page">🔒 Admin</a></footer>
 </div>
+<script src="/orrery/review-summary.js"></script>
 <script src="/orrery-review.js"></script>
 <script src="/pwa.js" data-sw="/orrery/sw.js" data-scope="/orrery/" data-badge="review"></script>
 <script src="/voice-input.js"></script>
@@ -259,8 +260,14 @@ if (CLONE) {
   const m = document.createElement("meta"); m.name = "robots"; m.content = "noindex, nofollow"; document.head.appendChild(m);
   const bar = document.createElement("div");
   bar.className = "clonebar";
-  bar.innerHTML = '<b>🔍 Review Clone.</b> This is the Orrery with every change still waiting for the owner, read from the <code>review</code> branch. <a href="/orrery/control/review/">Review the changes</a> · <a href="/orrery/">Live Orrery</a>';
+  bar.innerHTML = '<b>🔍 Review Clone.</b> This is the Orrery as it will look once the owner publishes what\'s waiting on the <code>review</code> branch. <span id="cloneSum"></span> <a href="/orrery/control/review/">Review the changes</a> · <a href="/orrery/">Live Orrery</a>';
   document.body.prepend(bar);
+  // One line on what's waiting, from /orrery/review-summary.js.
+  fetch("https://api.github.com/repos/sheastolp/grand-orrery/compare/main...review", { cache: "no-store", headers: { accept: "application/vnd.github+json" } })
+    .then((r) => (r.ok ? r.json() : Promise.reject()))
+    .then((j) => (j.ahead_by ? (window.ReviewSummary ? ReviewSummary.build(j) : null) : { short: "Nothing is waiting: it matches the live Orrery." }))
+    .then((s) => { const el = document.getElementById("cloneSum"); if (el && s && s.short) el.textContent = s.short; })
+    .catch(() => {});
 }
 const DOCS = [
   { id: "universe", file: "universe.md", title: "Stoutwell & Beyond", sub: "The universe draft · decided" },
