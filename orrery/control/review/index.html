@@ -120,14 +120,14 @@
 
   <section class="card" aria-labelledby="h-pitch">
     <h2 id="h-pitch">💡 Pitches</h2>
-    <p class="note">Every <b>(Pitch)</b> in <code>working-notes.md</code> and <code>resources.md</code> on the review branch. <b>✔ Accept as is</b> keeps its words exactly and only marks it <b>(Your idea)</b>. <b>✕ Reject</b> takes it out of the file (a heading pitch with its whole section). Either one is a single change on the review branch: it joins "Waiting for you" below and goes live when you publish, and Throw it all away undoes it. To change the words first, use <b>Edit</b>.</p>
+    <p class="note">Every <b>(Pitch)</b> in <code>working-notes.md</code>, <code>resources.md</code> and <code>bestiary.md</code> on the review branch. <b>✔ Accept as is</b> keeps its words exactly and only marks it <b>(Your idea)</b>. <b>✕ Reject</b> takes it out of the file (a heading pitch with its whole section). Either one is a single change on the review branch: it joins "Waiting for you" below and goes live when you publish, and Throw it all away undoes it. To change the words first, use <b>Edit</b>.</p>
     <div class="row"><button type="button" id="pLoad">Check again</button><span class="note" id="pStatus" role="status"></span></div>
     <div id="pList" style="display:flex;flex-direction:column;gap:10px"></div>
   </section>
 
   <section class="card" aria-labelledby="h-catch">
     <h2 id="h-catch">📜 Lore catch-up</h2>
-    <p class="note">Keeps <code>lore.md</code>, what the Wake in Verrowen narrator reads, in step with what you've decided. It finds every <b>(Your idea)</b> section in the notes and <code>resources.md</code> that's new or changed since the last catch-up, and the laptop's AI drafts the lines the lore is missing. Pitches never go in. Check and edit the draft, then add it: it goes on the review branch like everything else.</p>
+    <p class="note">Keeps <code>lore.md</code>, what the Wake in Verrowen narrator reads, in step with what you've decided. It finds every <b>(Your idea)</b> section in the notes, <code>resources.md</code> and <code>bestiary.md</code> that's new or changed since the last catch-up, and the laptop's AI drafts the lines the lore is missing. Pitches never go in. Check and edit the draft, then add it: it goes on the review branch like everything else.</p>
     <div class="row"><button class="primary" type="button" id="cuGo">📜 Catch the lore up</button><span class="note" id="cuStatus" role="status"></span></div>
     <div class="draft" id="cuDraft" hidden>
       <details id="cuFromWrap"><summary class="note" id="cuFromSum"></summary><ul class="commits" id="cuFrom"></ul></details>
@@ -503,7 +503,7 @@ $("cuAdd").addEventListener("click", async () => {
 // ── Pitches ──
 // Every "(Pitch)" line in the lore files on the review branch. Accepting one
 // as is asks the laptop to swap that one "(Pitch)" for "(Your idea)".
-const PITCH_FILES = ["working-notes.md", "resources.md"];
+const PITCH_FILES = ["working-notes.md", "resources.md", "bestiary.md"];
 let pitches = [];
 function findPitches(file, text){
   const lines = text.replace(/\r/g, "").split("\n"), out = [], heads = [];

@@ -322,6 +322,7 @@ const DOCS = [
   { id: "notes", file: "working-notes.md", title: "Village Hero", sub: "Working notes · tagged per section" },
   { id: "lore", file: "lore.md", title: "Narrator lore", sub: "What Wake in Verrowen reads every turn" },
   { id: "resources", file: "resources.md", title: "Resources", sub: "Items and resources by category and type" },
+  { id: "bestiary", file: "bestiary.md", title: "GuildScribe's Bestiary", sub: "Where GuildScribe's adventurers hunt and duel, and what lives there · the bots read it" },
   { id: "midkemia", file: "midkemia.md", title: "World of Midkemia", sub: "Rose's D&D campaign · DM lore" },
   { id: "readme", file: "README.md", title: "About the repo", sub: "README · where everyone shows up" },
   { id: "maps", file: "maps/README.md", title: "Maps notes", sub: "maps/README.md" },
@@ -778,8 +779,9 @@ async function load() {
   const got = await Promise.all(DOCS.map((d) => fetch(RAW + d.file + bust, { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => "")));
   DOCS.forEach((d, k) => (text[d.id] = got[k]));
   buildItems();
-  // resources.md may not be on this branch yet; the built-in items cover it.
-  const missing = DOCS.filter((d) => !text[d.id] && d.id !== "resources");
+  // resources.md and bestiary.md may not be on this branch yet; the
+  // built-in items cover the first, and the second is simply left out.
+  const missing = DOCS.filter((d) => !text[d.id] && d.id !== "resources" && d.id !== "bestiary");
   if (missing.length === DOCS.length) {
     $("status").className = "status err";
     $("status").textContent = "Couldn't reach GitHub to read the orrery. Try Reload in a moment.";

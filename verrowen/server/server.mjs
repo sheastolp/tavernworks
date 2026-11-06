@@ -21,9 +21,9 @@
 //   POST /admin/inbox    (owner's token) { id, action: "file" | "accept" | "dismiss", title?, body? }  ->  { ok, sha? }
 //                        "file" files it as a Pitch, "accept" as Your idea
 //   POST /admin/accept-pitch (owner's token) { file, line }  ->  { ok, sha, url }   turns one (Pitch)
-//                        in working-notes.md or resources.md into (Your idea), on the review branch
+//                        in working-notes.md, resources.md or bestiary.md into (Your idea), on the review branch
 //   POST /admin/reject-pitch (owner's token) { file, line }  ->  { ok, sha, url }   removes one (Pitch)
-//                        from working-notes.md or resources.md on the review branch: a heading with
+//                        from working-notes.md, resources.md or bestiary.md on the review branch: a heading with
 //                        its whole section, or a single bullet line
 //   POST /admin/lore-catchup (owner's token) {}  ->  { base, head, sections, cut, lines }   a draft of the
 //                        lore.md lines the decided notes gained since the last catch-up (by the model)
@@ -350,7 +350,7 @@ async function fileReviewItem(it) {
 // "### Elwen Cole (Pitch)" or a bullet like "- **Name ideas (Pitch):** …")
 // gets "(Your idea)" instead, as one commit on the review branch. Nothing
 // else in the file changes, so it waits for the owner's publish like the rest.
-const PITCH_FILES = [NOTES, "resources.md"];
+const PITCH_FILES = [NOTES, "resources.md", "bestiary.md"];
 async function acceptPitch(b) {
   const file = String(b.file || ""), want = String(b.line || "").replace(/\r/g, "");
   if (!PITCH_FILES.includes(file)) throw Object.assign(new Error("Pitches can only be accepted in " + PITCH_FILES.join(" or ")), { status: 400 });
@@ -400,7 +400,7 @@ async function rejectPitch(b) {
 // changes until the owner adds the (edited) lines, as one commit on review.
 // The last catch-up is remembered in lore.md's second line, which the game
 // never sends to the narrator: "<!-- caught up to review@<sha> -->".
-const CANON_FILES = [NOTES, "resources.md", "universe.md"];
+const CANON_FILES = [NOTES, "resources.md", "universe.md", "bestiary.md"];
 const CAUGHT_UP = /<!-- caught up to review@([0-9a-f]{7,40}) -->/;
 const MAX_CHANGES = 20000;
 // Decided sections only: tagged (Your idea), or untagged under nothing but
