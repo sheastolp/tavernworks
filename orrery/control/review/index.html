@@ -95,6 +95,12 @@
   .msg b{display:block;font-family:Cinzel,serif;font-size:11px;letter-spacing:.14em;color:var(--muted)}
   .msg.you b{color:var(--gold)}
   pre.writeup{white-space:pre-wrap;font:14px/1.55 Inter,system-ui,sans-serif;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0 0}
+  a.btn.primary{background:var(--gold);border-color:var(--gold);color:var(--bg);font-weight:600}
+  .lkrow{margin-top:12px}
+  /* The lore-keeper, one tap away from anywhere on the page. */
+  .lkfab{position:fixed;right:16px;bottom:16px;z-index:50;display:inline-flex;align-items:center;gap:8px;background:var(--gold);color:var(--bg);font-weight:600;font-size:15px;text-decoration:none;border-radius:999px;padding:12px 18px;box-shadow:0 6px 22px rgba(0,0,0,.5)}
+  .lkfab:hover{background:var(--gold2)} .lkfab:focus-visible{outline:2px solid var(--gold2);outline-offset:3px}
+  .wrap{padding-bottom:96px}
   footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
 </style>
 </head>
@@ -109,7 +115,15 @@
       <p>The review is <b>everything waiting to go live, taken together</b>: your edits, lore-keeper write-ups, Codex notes and Wake in Verrowen characters, each one filed on the <code>review</code> branch as you send or accept it. The <b>Review Clone</b> is the whole Orrery Explorer read from that branch, so you can browse it exactly as it will look.</p>
       <p><b>✔ Publish</b> puts all of it live at once: the Explorer, the lore-keeper and the narrator read it from then on. <b>Throw it all away</b> drops all of it and lines the clone back up with what's live. To keep some and drop the rest, edit the files on the review branch first. A <b>(Pitch)</b> stays an idea even once published; only <b>(Your idea)</b> is canon.</p>
     </details>
+    <div class="row lkrow"><a class="btn primary" href="/orrery/#chat">✒️ Chat with the lore-keeper</a><a class="btn" href="/orrery/control/">Orrery control</a></div>
   </header>
+
+  <section class="card" aria-labelledby="h-pitch">
+    <h2 id="h-pitch">💡 Pitches</h2>
+    <p class="note">Every <b>(Pitch)</b> in <code>working-notes.md</code> and <code>resources.md</code> on the review branch. <b>✔ Accept as is</b> keeps its words exactly and only marks it <b>(Your idea)</b>, as one change on the review branch. It joins "Waiting for you" below and goes live when you publish. To change the words first, use <b>Edit</b>.</p>
+    <div class="row"><button type="button" id="pLoad">Check again</button><span class="note" id="pStatus" role="status"></span></div>
+    <div id="pList" style="display:flex;flex-direction:column;gap:10px"></div>
+  </section>
 
   <section class="card" aria-labelledby="h-wait">
     <h2 id="h-wait">Waiting for you</h2>
@@ -129,7 +143,7 @@
         <p class="note" id="lkMeta"></p>
         <div class="chat" id="lkLog"></div>
         <details id="lkWriteWrap" hidden><summary class="note">The write-up</summary><pre class="writeup" id="lkWrite"></pre></details>
-        <div class="row"><button type="button" id="lkCopy">Copy the whole chat</button><button type="button" id="rvOpen">📝 Turn into a review item</button></div>
+        <div class="row"><button type="button" id="lkCopy">Copy the whole chat</button><button type="button" id="rvOpen">📝 Turn into a review item</button><a class="btn" href="/orrery/#chat">✒️ Carry on in the lore-keeper</a></div>
         <p class="note" id="rvFiled" hidden></p>
         <div class="draft" id="rvDraft" hidden>
           <p class="note">This becomes a <b>Pitch</b> section at the end of <code>working-notes.md</code> on the review branch, under "From the lore-keeper", or a <b>Your idea</b> section if you accept it. It waits here with the other changes until you publish or throw it away. Edit it as you like first.</p>
@@ -154,12 +168,6 @@
     <div id="inList" style="display:flex;flex-direction:column;gap:10px"></div>
   </section>
 
-  <section class="card" aria-labelledby="h-pitch">
-    <h2 id="h-pitch">💡 Pitches</h2>
-    <p class="note">Every <b>(Pitch)</b> in <code>working-notes.md</code> and <code>resources.md</code> on the review branch. <b>✔ Accept as is</b> keeps its words exactly and only marks it <b>(Your idea)</b>, as one change on the review branch. It joins "Waiting for you" above and goes live when you publish. To change the words first, use <b>Edit</b>.</p>
-    <div class="row"><button type="button" id="pLoad">Show the pitches</button><span class="note" id="pStatus" role="status"></span></div>
-    <div id="pList" style="display:flex;flex-direction:column;gap:10px"></div>
-  </section>
 
   <section class="card" aria-labelledby="h-log" id="logCard" hidden>
     <h2 id="h-log">The changes, newest first</h2>
@@ -184,6 +192,7 @@
 
   <footer><a href="/orrery/control/">Orrery control</a> · <a href="/orrery/">Live Orrery</a> · <a href="/">Tavernworks</a></footer>
 </div>
+<a class="lkfab" href="/orrery/#chat" title="Chat with the lore-keeper">✒️ Lore-keeper</a>
 <script>
 const SERVER = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
 const REPO = "sheastolp/grand-orrery";
@@ -481,11 +490,12 @@ async function loadPitches(){
   </div>`).join("");
 }
 $("pLoad").addEventListener("click", loadPitches);
+loadPitches();   // the pitches sit at the top, so they show straight away
 $("pList").addEventListener("click", async (e) => {
   const b = e.target.closest("button[data-act=accept]"); if (!b) return;
   const box = b.closest("[data-p]"), st = box.querySelector("[data-st]"), p = pitches[+box.dataset.p];
   const token = $("token").value.trim();
-  if (!token){ st.textContent = "Enter the owner's token above first."; $("token").focus(); return; }
+  if (!token){ st.textContent = "Enter the owner's token in Waiting for you first."; $("token").focus(); return; }
   b.disabled = true; st.textContent = "Marking it Your idea on the review branch…";
   try{
     const r = await fetch(SERVER + "/admin/accept-pitch", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ file: p.file, line: p.line }) });
