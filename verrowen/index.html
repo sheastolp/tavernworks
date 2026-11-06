@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <link rel="canonical" href="https://tavernworks.dev/verrowen/">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Wake in Verrowen · Tavernworks</title>
 <meta name="description" content="Wake in Verrowen: an AI-narrated roleplay in the Grand Orrery universe. You wake with no memory, and your choices reveal who you are.">
 <meta property="og:title" content="Wake in Verrowen · Tavernworks">
@@ -46,11 +46,14 @@
   .pill.down{background:rgba(201,87,43,.15);color:var(--ember)}
 
   /* The chat box: the story log scrolls inside; the reply box stays pinned at its foot. */
-  .box{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;height:min(78vh,760px);min-height:460px;overflow:hidden}
+  .box{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;height:min(78vh,760px);height:min(78dvh,760px);min-height:460px;overflow:hidden}
+  /* Before the story starts, the box just fits the start screen. */
+  .box:not(.playing){height:auto;min-height:0}
+  .box:not(.playing) .log{overflow:visible}
   .boxhead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);font-family:Cinzel,serif;color:var(--gold);letter-spacing:.12em;font-size:13px}
   .boxhead .who{font-family:Inter,sans-serif;letter-spacing:0;color:var(--muted);font-size:13px;text-align:right}
-  .log{flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth}
-  .turn{max-width:66ch;white-space:pre-wrap;font-family:Spectral,Georgia,serif;font-size:18px;line-height:1.6}
+  .log{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:18px 16px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth}
+  .turn{max-width:66ch;white-space:pre-wrap;overflow-wrap:anywhere;font-family:Spectral,Georgia,serif;font-size:18px;line-height:1.6}
   .turn::before{display:block;font-family:Cinzel,serif;font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:2px;white-space:normal}
   .turn.narrator::before{content:"The Narrator";color:var(--muted)}
   .turn.player{align-self:flex-end;background:rgba(0,0,0,.25);border:1px solid var(--line);border-left:3px solid var(--gold);padding:10px 14px;border-radius:10px;font-size:17px}
@@ -96,7 +99,7 @@
   @keyframes micpulse{50%{opacity:.7}}
   .chip[aria-pressed="true"]{border-color:var(--gold);background:var(--gold);color:var(--bg)}
 
-  .composer{border-top:1px solid var(--line);padding:12px 16px 14px;display:flex;flex-direction:column;gap:8px;background:rgba(0,0,0,.18)}
+  .composer{border-top:1px solid var(--line);padding:12px 16px max(14px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;background:rgba(0,0,0,.18)}
   .finish{display:flex;flex-direction:column;gap:8px;border:1px solid var(--gold);border-radius:10px;padding:12px}
   .status{font-size:13.5px;color:var(--muted);min-height:1.3em;padding:0 16px 8px}
   .status.err{color:var(--ember)}
@@ -119,14 +122,46 @@
   dialog#owner input{max-width:none}
   footer button.link{background:none;border:0;padding:0;font:inherit;letter-spacing:0;color:inherit;cursor:pointer}
   footer button.link:hover{color:var(--gold2)}
-  @media (max-width:520px){ .turn{font-size:17px} .box{height:80vh} .boxhead .who{display:none} }
+  /* Phones: the story box fills the screen (shrinking with the keyboard),
+     the reply box grows as you type, and the controls sit on one row. */
+  @media (max-width:600px){
+    nav{padding-top:14px}
+    header{padding:20px 0 16px}
+    .sign{font-size:10.5px;letter-spacing:.22em;padding:5px 12px;margin-bottom:10px}
+    .tag{font-size:15.5px;margin-top:10px}
+    .badges{margin-top:12px}
+    .box{border-radius:14px;scroll-margin-top:8px}
+    .box.playing{height:calc(var(--app-h,100dvh) - 16px);min-height:320px}
+    .boxhead{padding:10px 14px}
+    .boxhead .who{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+    .log{padding:14px 12px;gap:14px}
+    .turn{font-size:17px;line-height:1.55}
+    .turn.player{font-size:16.5px;padding:8px 12px;max-width:92%}
+    .composer{padding:10px 12px max(10px,env(safe-area-inset-bottom));gap:8px}
+    .composer textarea{min-height:46px;max-height:30vh;resize:none;padding:10px 12px}
+    .status{padding:0 12px 6px}
+    #composerRow{flex-wrap:nowrap;gap:6px}
+    #composerRow button{padding:10px 11px;min-height:44px;white-space:nowrap}
+    #composerRow #sendBtn{flex:1 1 auto}
+    #composerRow .lbl{display:none}
+    .finish .row button{flex:1 1 auto}
+    select{font-size:16px}
+    .opt{padding:12px}
+    .opt .del{padding:8px 10px}
+    .chip{padding:10px 12px}
+    .start .row button,.profile .row button{flex:1 1 auto;min-height:44px}
+    .profile{padding:16px;margin-top:14px}
+    .profile pre{font-size:16px}
+  }
+  @media (max-width:360px){ #composerRow #wrapBtn .lbl2{display:none} }
+  @media (pointer:coarse){ button{min-height:44px} footer button.link{min-height:0} }
   @media (prefers-reduced-motion:reduce){ .log{scroll-behavior:auto} button.mic.listening{animation:none} }
 
   /* Embedded in the home page's chat window: just the story. */
   .embed nav,.embed header,.embed .about,.embed footer{display:none}
   .embed body{background:var(--bg)}
   .embed .wrap{max-width:none;padding:0}
-  .embed .box{height:100vh;min-height:0;border:0;border-radius:0}
+  .embed .box,.embed .box.playing{height:100vh;height:var(--app-h,100dvh);min-height:0;border:0;border-radius:0}
   .embed .profile{margin:0;border-radius:0;border-width:1px 0 0}
 </style>
 </head>
@@ -185,7 +220,7 @@
     <div class="status" id="status" role="status" aria-live="polite"></div>
     <div class="composer" id="composer" hidden>
       <label class="sr" for="reply">Your reply</label>
-      <textarea id="reply" placeholder="What do you do?  (Ctrl+Enter sends, or 🎤 to speak)"></textarea>
+      <textarea id="reply" rows="2" enterkeyhint="enter" placeholder="What do you do?  (Ctrl+Enter sends, or 🎤 to speak)"></textarea>
       <div class="finish" id="finishPanel" hidden>
         <div class="fieldlabel">How would you like your character?</div>
         <div class="row">
@@ -199,9 +234,9 @@
         <button class="primary" id="sendBtn">Send</button>
         <button class="stopbtn" id="stopBtn" type="button" title="Stop waiting for this reply" hidden>■ Stop</button>
         <button class="mic" id="micBtn" type="button" title="Speak your reply" aria-label="Voice typing" hidden>🎤</button>
-        <button class="quiet" id="resendBtn" type="button" title="Ask the narrator to write the last reply again. Handy right after the laptop wakes up.">↻ Resend</button>
-        <button id="wrapBtn">Wrap it up</button>
-        <button class="quiet" id="resetBtn" title="Back to the start. This story is kept, so you can continue it later.">← Back</button>
+        <button class="quiet" id="resendBtn" type="button" title="Ask the narrator to write the last reply again. Handy right after the laptop wakes up." aria-label="Resend">↻<span class="lbl"> Resend</span></button>
+        <button id="wrapBtn">Wrap<span class="lbl2"> it up</span></button>
+        <button class="quiet" id="resetBtn" title="Back to the start. This story is kept, so you can continue it later." aria-label="Back to the start">←<span class="lbl"> Back</span></button>
       </div>
     </div>
   </section>
@@ -331,6 +366,29 @@ function genName(race){
   return first.charAt(0).toUpperCase() + first.slice(1) + " " + pick(n.last);
 }
 
+// ── Phones ──
+// --app-h is the height actually visible, so the story box (and the embedded
+// chat) shrinks above the on-screen keyboard instead of hiding behind it.
+const phone = matchMedia("(max-width:600px)"), touch = matchMedia("(pointer:coarse)");
+function fitHeight(){
+  const vv = window.visualViewport, h = vv ? vv.height : window.innerHeight;
+  document.documentElement.style.setProperty("--app-h", Math.round(h) + "px");
+  const log = $("log"); if (!$("composer").hidden) log.scrollTop = log.scrollHeight;
+}
+(window.visualViewport || window).addEventListener("resize", fitHeight);
+fitHeight();
+// On a phone, keep the story box in view once the story is going.
+function showBox(){
+  if (!phone.matches || document.documentElement.classList.contains("embed")) return;
+  $("log").closest(".box").scrollIntoView({block: "start", behavior: "smooth"});
+}
+// The reply box grows with what's typed (up to a limit), then scrolls.
+function fitReply(){
+  const r = $("reply"); if (!r || !phone.matches) { if (r) r.style.height = ""; return; }
+  r.style.height = "auto"; r.style.height = Math.min(r.scrollHeight + 2, innerHeight * .3) + "px";
+}
+if (touch.matches) $("reply").placeholder = "What do you do?";
+
 // ── Storage (this browser only; the laptop keeps its own copy) ──
 const store = {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
@@ -365,6 +423,7 @@ function render(){
     log.appendChild(d);
   }
   const started = messages.length > 0;
+  $("log").closest(".box").classList.toggle("playing", started);
   $("startPanel").hidden = started;
   $("composer").hidden = !started;
   $("profilePanel").hidden = !profile || continued;
@@ -377,7 +436,8 @@ function render(){
   sn.hidden = !character || !character.label;
   sn.textContent = character && character.label ? "Character: " + character.label + "." : "";
   $("resendBtn").hidden = !messages.length || (!!profile && !continued);
-  log.scrollTop = log.scrollHeight;
+  log.scrollTop = started ? log.scrollHeight : 0;
+  fitReply();
 }
 function setStatus(t, err){ const s = $("status"); s.textContent = t || ""; s.className = "status" + (err ? " err" : ""); }
 function setBusy(b){ busy = b; ["sendBtn","wrapBtn","beginBtn","resetBtn","resetBtn2","finishCancel","continueBtn","resendBtn"].forEach(id => { $(id).disabled = b; }); $("stopBtn").hidden = !b; document.querySelectorAll("[data-finish]").forEach(el => { el.disabled = b; }); }
@@ -393,7 +453,9 @@ async function narrate(mode, onDone){
   const live = document.createElement("div");
   live.className = "turn narrator writing"; live.textContent = "The narrator is writing…";
   $("startPanel").hidden = true; $("composer").hidden = false;
+  $("log").closest(".box").classList.add("playing");
   $("log").appendChild(live); $("log").scrollTop = $("log").scrollHeight;
+  showBox();
   const ctrl = stopper = new AbortController();
   try{
     const lore = await loadLore();
@@ -409,7 +471,7 @@ async function narrate(mode, onDone){
     setStatus(stopped ? "Stopped." + (messages.length ? " Press ↻ Resend to ask again." : "")
       : offline ? "The narrator couldn't be reached. The laptop may be asleep; try again later."
       : "The narrator couldn't answer: " + e.message + "." + (messages.length ? " Press ↻ Resend to try again." : ""), !stopped);
-    if (!messages.length){ $("startPanel").hidden = false; $("composer").hidden = true; }
+    if (!messages.length){ $("startPanel").hidden = false; $("composer").hidden = true; $("log").closest(".box").classList.remove("playing"); }
   }finally{ if (stopper === ctrl) stopper = null; setBusy(false); }
 }
 
@@ -621,6 +683,8 @@ $("stopBtn").addEventListener("click", () => { if (stopper) stopper.abort(); });
 const voice = VoiceInput.attach($("micBtn"), $("reply"), {
   onStatus(t, err){ if (t || $("status").textContent.startsWith("Listening")) setStatus(t, err); }
 });
+$("reply").addEventListener("input", fitReply);
+$("reply").addEventListener("focus", () => { if (phone.matches) setTimeout(showBox, 300); });
 $("reply").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)){ e.preventDefault(); sendReply(); } });
 // "Wrap it up" first asks what the player wants, then writes it.
 $("wrapBtn").addEventListener("click", () => {
@@ -701,6 +765,7 @@ if (setup && !setup.resume){
 
 if (playerName) $("playerName").value = playerName;
 render();
+if (messages.length) showBox();
 if (setup && !setup.resume && (playerName || characterName)){ seed = makeSeed(); narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); }); }
 loadLore().catch(() => {});
 </script>
