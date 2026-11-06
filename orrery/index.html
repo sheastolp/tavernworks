@@ -57,6 +57,10 @@
   details.doc>summary{cursor:pointer;font-family:Cinzel,serif;color:var(--gold);font-size:17px;letter-spacing:.06em;padding:6px 0}
   .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.06);color:var(--muted);margin-left:6px;font-family:Inter,sans-serif;letter-spacing:0;vertical-align:middle}
   .who{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+  .who a.pill{text-decoration:none}
+  .pill.on{background:var(--gold);color:var(--bg)}
+  .pill.pitch{background:rgba(224,120,60,.18);color:var(--ember);margin-left:0}
+  h2.sec .pill{font-size:11px}
   /* Rendered Markdown */
   .md{font-family:Spectral,Georgia,serif;font-size:17px;line-height:1.6;overflow-wrap:anywhere}
   .md h1,.md h2,.md h3,.md h4{font-family:Cinzel,serif;color:var(--gold2);line-height:1.25;margin:1.1em 0 .4em}
@@ -228,6 +232,7 @@
     <div class="tabs">
       <a href="#roster" data-tab="roster">Roster</a>
       <a href="#items" data-tab="items">Items</a>
+      <a href="#resources" data-tab="resources">Resources</a>
       <a href="#maps" data-tab="maps">Maps</a>
       <a href="#docs" data-tab="docs">Documents</a>
       <a href="#chat" data-tab="chat">✒️ Chat</a>
@@ -245,15 +250,22 @@
 <script>
 // Orrery Explorer: reads the grand-orrery repo's Markdown straight from
 // GitHub (like Wake in Verrowen reads lore.md), so it's always current.
-// Views (in the URL hash): #roster, #person/<id>, #items, #item/<id>, #maps, #docs, #doc/<id>,
-// #find/<text>. A person's page gathers every section of every document that
+// Views (in the URL hash): #roster, #person/<id>, #items, #item/<id>,
+// #resources, #resources/<category>, #resources/<category>/<type>, #maps,
+// #docs, #doc/<id>, #find/<text>. Items and resources come from the repo's
+// resources.md (## category, ### type, #### entry), so new ones show up on
+// their own. A person's page gathers every section of every document that
 // mentions them, the way a search would, so new notes show up on their own.
 // /orrery/?clone=review is the Review Clone: the same Explorer, read from
 // grand-orrery's review branch, where changes wait until the owner puts
 // them live from /orrery/control/review/.
 const CLONE = new URLSearchParams(location.search).get("clone") === "review";
 const BRANCH = CLONE ? "review" : "main";
-const RAW = "https://raw.githubusercontent.com/sheastolp/grand-orrery/" + BRANCH + "/";
+// RAW is pinned to the branch's newest commit on every load (see load()):
+// raw.githubusercontent.com caches a branch name for minutes, but a commit
+// id is always exactly that version, so a fresh publish shows up straight away.
+const RAW_BASE = "https://raw.githubusercontent.com/sheastolp/grand-orrery/";
+let RAW = RAW_BASE + BRANCH + "/";
 const BLOB = "https://github.com/sheastolp/grand-orrery/blob/" + BRANCH + "/";
 if (CLONE) {
   document.title = "Review Clone · " + document.title;
@@ -273,6 +285,7 @@ const DOCS = [
   { id: "universe", file: "universe.md", title: "Stoutwell & Beyond", sub: "The universe draft · decided" },
   { id: "notes", file: "working-notes.md", title: "Village Hero", sub: "Working notes · tagged per section" },
   { id: "lore", file: "lore.md", title: "Narrator lore", sub: "What Wake in Verrowen reads every turn" },
+  { id: "resources", file: "resources.md", title: "Resources", sub: "Items and resources by category and type" },
   { id: "midkemia", file: "midkemia.md", title: "World of Midkemia", sub: "Rose's D&D campaign · DM lore" },
   { id: "readme", file: "README.md", title: "About the repo", sub: "README · where everyone shows up" },
   { id: "maps", file: "maps/README.md", title: "Maps notes", sub: "maps/README.md" },
@@ -319,9 +332,10 @@ const PEOPLE = [
   { group: "Midkemia", id: "morgana", name: "Morgana", role: "Morrigan's neutral sister", names: ["Morgana"] },
 ];
 
-// Murrow's enchanted items. Each one shows how the rules of magic work.
-// `names` match like the roster's; `by` links the people who make them.
-const ITEMS = [
+// Murrow's enchanted items, used only until resources.md is on the branch
+// (or if it can't be read). `names` match like the roster's; `by` links the
+// people who make them. The live list is ITEMS, built from resources.md.
+const BUILTIN_ITEMS = [
   { id: "hearthstone", icon: "🔥", name: "Hearthstone", names: ["Hearthstones?"], by: ["murrow"],
     does: "Keeps a stove warm through the night without new wood.",
     made: "A fire user charges a smooth river stone in Murrow's shop. Murrow sets the charge so it releases slowly instead of all at once.",
@@ -348,6 +362,74 @@ const ITEMS = [
     limits: "About 80% complete, and still a secret.",
     story: "It ties the village to Arandur, the rifts, and the wider universe." },
 ];
+const BUILTIN = BUILTIN_ITEMS.map((it) => ({ ...it, cat: "Enchanted items", type: "Murrow's shop", status: "Your idea", extra: [], body: "" }));
+let ITEMS = BUILTIN, CATS = [], fromFile = false;
+
+// ── resources.md → ITEMS ──
+// ## Category / ### Type / #### <icon> Name (tag), then "- **Field:** value"
+// bullets. Anything else under an entry is kept as its body.
+const FIELD = { "does": "does", "made": "made", "limits": "limits", "rules": "rules", "story": "story", "note": "sub", "made by": "by", "also called": "also", "icon": "icon" };
+const idOf = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// "Rift compass" -> "[Rr]ift compass(?:e?s)?": either case first letter, plural ok.
+const nameRe = (n) => { const e = reEsc(n.trim()); return (/^[a-z]/i.test(e) ? `[${e[0].toUpperCase()}${e[0].toLowerCase()}]` + e.slice(1) : e) + "(?:e?s)?"; };
+function personIds(list) {
+  return list.split(",").map((x) => x.trim()).filter(Boolean).map((n) => {
+    const p = PEOPLE.find((q) => q.name.toLowerCase() === n.toLowerCase() || q.id === n.toLowerCase() || q.names.some((pat) => new RegExp(`^(?:${pat})$`).test(n)));
+    return p ? p.id : null;
+  }).filter(Boolean);
+}
+function parseResources(src) {
+  const out = [], seen = new Set();
+  let cat = "", type = "", it = null;
+  const finish = () => { if (it) { it.body = it.body.trim(); out.push(it); } it = null; };
+  for (const raw of src.replace(/\r/g, "").replace(/<!--[\s\S]*?-->/g, "").split("\n")) {
+    let m;
+    if ((m = raw.match(/^##\s+(.+?)\s*$/)) && !raw.startsWith("###")) { finish(); cat = m[1]; type = ""; continue; }
+    if ((m = raw.match(/^###\s+(.+?)\s*$/)) && !raw.startsWith("####")) { finish(); type = m[1]; continue; }
+    if ((m = raw.match(/^####\s+(.+?)\s*$/))) {
+      finish();
+      if (!cat) continue;
+      let h = m[1], status = "";
+      const t = h.match(/\s*\(([^)]+)\)\s*$/);
+      if (t) { status = t[1]; h = h.slice(0, t.index).trim(); }
+      const e = h.match(/^(\p{Extended_Pictographic}[\u{FE0F}\u{200D}\p{Extended_Pictographic}]*)\s*/u);
+      const icon = e ? e[1] : "📦", name = e ? h.slice(e[0].length).trim() : h;
+      let id = idOf(name) || "item"; while (seen.has(id)) id += "-2"; seen.add(id);
+      it = { id, icon, name, cat, type: type || "Other", status, by: [], also: "", extra: [], body: "" };
+      continue;
+    }
+    if (!it) continue;
+    if ((m = raw.match(/^\s*[-*]\s+\*\*([^*:]+):\*\*\s*(.*)$/))) {
+      const key = FIELD[m[1].trim().toLowerCase()];
+      if (key === "by") it.by = personIds(m[2]);
+      else if (key) it[key] = m[2].trim();
+      else it.extra.push([m[1].trim(), m[2].trim()]);
+    } else it.body += raw + "\n";
+  }
+  finish();
+  return out.map((x) => ({ ...x, names: [x.name, ...x.also.split(",")].map((n) => n.trim()).filter(Boolean).map(nameRe), does: x.does || "" }));
+}
+function buildItems() {
+  const src = text.resources || "";
+  const got = src ? parseResources(src) : [];
+  fromFile = got.length > 0;
+  ITEMS = fromFile ? got : BUILTIN;
+  CATS = [];
+  for (const it of ITEMS) {
+    let c = CATS.find((x) => x.name === it.cat);
+    if (!c) CATS.push(c = { name: it.cat, id: idOf(it.cat), intro: "", types: [] });
+    let t = c.types.find((x) => x.name === it.type);
+    if (!t) c.types.push(t = { name: it.type, id: idOf(it.type), items: [] });
+    t.items.push(it);
+  }
+  // Each category's opening paragraph, shown on its page.
+  for (const s of src.split(/^## /m).slice(1)) {
+    const name = s.split("\n")[0].trim(), c = CATS.find((x) => x.name === name);
+    if (c) c.intro = s.split("\n").slice(1).join("\n").split(/^###/m)[0].replace(/<!--[\s\S]*?-->/g, "").trim();
+  }
+}
+const isPitch = (it) => /pitch|not decided/i.test(it.status || "");
 
 const $ = (id) => document.getElementById(id);
 const view = $("view");
@@ -500,11 +582,33 @@ function person(id) {
     near.length ? `<div class="who">${near.map(([o, n]) => `<a class="pill" href="#person/${o.id}">${esc(o.name)} · ${n}</a>`).join("")}</div>` : ""
   }${makes.length ? `<div class="who"><span class="pill">Makes</span>${makes.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}${renderHits(found, re) || "<p>Nothing written yet.</p>"}`, re };
 }
+function mentions(it) { return matches(patternFor(it.names)).reduce((a, d) => a + d.hits.length, 0); }
+function itemCard(it, showWhere) {
+  const n = mentions(it);
+  const where = showWhere ? `${esc(it.cat)} › ${esc(it.type)} · ` : it.sub ? esc(it.sub) + " · " : "";
+  return `<a class="card" href="#item/${it.id}"><div class="icon">${it.icon}</div><b>${esc(it.name)}</b><span>${esc(it.does || it.sub || "")}</span><div class="count">${isPitch(it) ? '<span class="pill pitch">' + esc(it.status) + "</span> " : ""}${where}${n} section${n === 1 ? "" : "s"} written</div></a>`;
+}
 function items() {
-  return `<p class="tag" style="margin:4px 0 14px">Made or sold in Murrow's shop, Monstradius. Each item shows how the rules of magic work.</p><div class="grid">${ITEMS.map((it) => {
-    const n = matches(patternFor(it.names)).reduce((a, d) => a + d.hits.length, 0);
-    return `<a class="card" href="#item/${it.id}"><div class="icon">${it.icon}</div><b>${esc(it.name)}</b><span>${esc(it.does)}</span><div class="count">${it.sub ? esc(it.sub) + " · " : ""}${n} section${n === 1 ? "" : "s"} written</div></a>`;
-  }).join("")}</div>`;
+  const lead = fromFile
+    ? `Every item and resource in the Orrery, read live from <a href="#doc/resources">resources.md</a>. Browse them by category and type on the <a href="#resources">Resources</a> tab.`
+    : `Made or sold in Murrow's shop, Monstradius. Each item shows how the rules of magic work.`;
+  return `<p class="tag" style="margin:4px 0 14px">${lead}</p>${CATS.map((c) => `<h2 class="sec">${esc(c.name)}<span class="pill">${c.types.reduce((a, t) => a + t.items.length, 0)}</span></h2><div class="grid">${c.types.flatMap((t) => t.items).map((it) => itemCard(it, false)).join("")}</div>`).join("")}`;
+}
+function resources(catId, typeId) {
+  if (!fromFile) return `<p class="tag">Resources come from <code>resources.md</code> in the grand-orrery repo, and it isn't on the <b>${esc(BRANCH)}</b> branch yet${CLONE ? "" : " (it may be waiting on the <a href=\"/orrery/?clone=review#resources\">Review Clone</a>)"}. Until then, here are Murrow's items.</p><div class="grid">${ITEMS.map((it) => itemCard(it, false)).join("")}</div>`;
+  const c = CATS.find((x) => x.id === catId);
+  if (!c) {
+    return `<p class="tag" style="margin:4px 0 14px">Everything people make, use, trade, eat and fight with, by category and then type. Read live from <a href="#doc/resources">resources.md</a>.</p><div class="grid">${CATS.map((c) => {
+      const n = c.types.reduce((a, t) => a + t.items.length, 0);
+      return `<a class="card" href="#resources/${c.id}"><b>${esc(c.name)}</b><span>${c.types.map((t) => esc(t.name)).join(" · ")}</span><div class="count">${c.types.length} type${c.types.length === 1 ? "" : "s"} · ${n} entr${n === 1 ? "y" : "ies"}</div></a>`;
+    }).join("")}</div>`;
+  }
+  const t = c.types.find((x) => x.id === typeId);
+  if (!t) {
+    return `<div class="crumb"><a href="#resources">Resources</a> › ${esc(c.name)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(c.name)}</h2>${c.intro ? `<div class="md tag" style="max-width:none">${md(c.intro)}</div>` : ""}<div class="who">${c.types.map((t) => `<a class="pill" href="#resources/${c.id}/${t.id}">${esc(t.name)} · ${t.items.length}</a>`).join("")}</div>${
+      c.types.map((t) => `<h2 class="sec"><a href="#resources/${c.id}/${t.id}" style="color:inherit;text-decoration:none">${esc(t.name)}</a><span class="pill">${t.items.length}</span></h2><div class="grid">${t.items.map((it) => itemCard(it, false)).join("")}</div>`).join("")}`;
+  }
+  return `<div class="crumb"><a href="#resources">Resources</a> › <a href="#resources/${c.id}">${esc(c.name)}</a> › ${esc(t.name)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(t.name)}</h2><div class="who">${c.types.map((o) => `<a class="pill${o.id === t.id ? " on" : ""}" href="#resources/${c.id}/${o.id}">${esc(o.name)} · ${o.items.length}</a>`).join("")}</div><div class="grid" style="margin-top:14px">${t.items.map((it) => itemCard(it, false)).join("")}</div>`;
 }
 function item(id) {
   const it = ITEMS.find((x) => x.id === id);
@@ -513,10 +617,12 @@ function item(id) {
   const found = matches(re);
   const total = found.reduce((a, d) => a + d.hits.length, 0);
   const by = it.by.map((pid) => PEOPLE.find((p) => p.id === pid)).filter(Boolean);
-  const facts = [["What it does", it.does], ["How it's made", it.made], ["Limits", it.limits], ["Rules it shows", it.rules], ["Story use", it.story]].filter(([, v]) => v);
-  return { html: `<div class="crumb"><a href="#items">Items</a> › Monstradius</div><h2 class="sec" style="margin-top:4px;font-size:26px">${it.icon} ${esc(it.name)}</h2><p class="tag">${it.sub ? esc(it.sub) + " · " : ""}${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}.</p>${
+  const facts = [["What it does", it.does], ["How it's made", it.made], ["Limits", it.limits], ["Rules it shows", it.rules], ["Story use", it.story], ...(it.extra || [])].filter(([, v]) => v);
+  const c = CATS.find((x) => x.name === it.cat), t = c && c.types.find((x) => x.name === it.type);
+  const crumb = fromFile && c && t ? `<a href="#resources">Resources</a> › <a href="#resources/${c.id}">${esc(c.name)}</a> › <a href="#resources/${c.id}/${t.id}">${esc(t.name)}</a>` : `<a href="#items">Items</a> › Monstradius`;
+  return { html: `<div class="crumb">${crumb}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${it.icon} ${esc(it.name)}${it.status ? `<span class="pill${isPitch(it) ? " pitch" : ""}">${esc(it.status)}</span>` : ""}</h2><p class="tag">${it.sub ? esc(it.sub) + " · " : ""}${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}.</p>${
     by.length ? `<div class="who">${by.map((p) => `<a class="pill" href="#person/${p.id}">${esc(p.name)}</a>`).join("")}</div>` : ""
-  }<div class="panel"><dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div>${renderHits(found, re) || "<p>Nothing else written yet.</p>"}`, re };
+  }<div class="panel"><dl class="facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${inline(v)}</dd>`).join("")}</dl>${it.body ? `<div class="md">${md(it.body)}</div>` : ""}</div>${renderHits(found, re) || "<p>Nothing else written yet.</p>"}`, re };
 }
 function find(q) {
   const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
@@ -524,7 +630,7 @@ function find(q) {
   const total = found.reduce((a, d) => a + d.hits.length, 0);
   const plain = new RegExp(re.source, "i");
   const people = PEOPLE.filter((p) => plain.test(p.name + " " + p.role) || p.names.some((n) => new RegExp(`^(?:${n})$`).test(q)));
-  const things = ITEMS.filter((it) => plain.test(it.name + " " + it.does) || it.names.some((n) => new RegExp(`^(?:${n})$`).test(q)));
+  const things = ITEMS.filter((it) => plain.test(it.name + " " + it.does + " " + it.cat + " " + it.type) || it.names.some((n) => new RegExp(`^(?:${n})$`).test(q)));
   const pills = people.map((p) => `<a class="pill" href="#person/${p.id}">${esc(p.name)}</a>`).concat(things.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`));
   return { html: `<h2 class="sec">“${esc(q)}”</h2><p class="tag">${total} section${total === 1 ? "" : "s"} mention it.</p>${
     pills.length ? `<div class="who">${pills.join("")}</div>` : ""
@@ -550,8 +656,9 @@ function route() {
   const arg = decodeURIComponent(rest[0] || ""), extra = rest[1] ? decodeURIComponent(rest[1]) : "";
   if (tab === "find") rest.splice(0, rest.length, rest.join("/"));
   document.body.classList.remove("chatting");
-  document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === (tab === "person" ? "roster" : tab === "item" ? "items" : tab === "doc" ? "docs" : tab)));
+  document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === (tab === "person" ? "roster" : tab === "item" ? (fromFile ? "resources" : "items") : tab === "doc" ? "docs" : tab)));
   let out, re = null;
+  if (tab === "resources") { view.innerHTML = resources(arg, extra); window.scrollTo(0, 0); return; }
   if (tab === "person") ({ html: out, re } = person(arg));
   else if (tab === "find") ({ html: out, re } = find(decodeURIComponent(rest[0] || "")));
   else if (tab === "item") ({ html: out, re } = item(arg));
@@ -571,9 +678,18 @@ async function load() {
   $("status").hidden = false;
   $("status").className = "status";
   $("status").textContent = "Loading the orrery…";
-  const got = await Promise.all(DOCS.map((d) => fetch(RAW + d.file, { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).catch(() => "")));
+  // Pin to the branch's newest commit so a fresh publish shows right away.
+  // If GitHub's API is out of reach (it allows 60 calls an hour per address),
+  // fall back to the branch name, which can lag by a few minutes.
+  const sha = await fetch("https://api.github.com/repos/sheastolp/grand-orrery/commits/" + BRANCH, { cache: "no-store", headers: { accept: "application/vnd.github.sha" } })
+    .then((r) => (r.ok ? r.text() : "")).then((t) => (/^[0-9a-f]{40}$/.test(t.trim()) ? t.trim() : "")).catch(() => "");
+  RAW = RAW_BASE + (sha || BRANCH) + "/";
+  const bust = sha ? "" : "?t=" + Date.now();
+  const got = await Promise.all(DOCS.map((d) => fetch(RAW + d.file + bust, { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => "")));
   DOCS.forEach((d, k) => (text[d.id] = got[k]));
-  const missing = DOCS.filter((d) => !text[d.id]);
+  buildItems();
+  // resources.md may not be on this branch yet; the built-in items cover it.
+  const missing = DOCS.filter((d) => !text[d.id] && d.id !== "resources");
   if (missing.length === DOCS.length) {
     $("status").className = "status err";
     $("status").textContent = "Couldn't reach GitHub to read the orrery. Try Reload in a moment.";
@@ -735,7 +851,7 @@ function canonFor(c) {
     const open = ((text.universe || "").split(/^## Still Being Developed\s*$/m)[1] || "").split(/^## /m)[0].trim();
     if (open) parts.push(["STILL OPEN IN THE CANON", open, 1200]);
   }
-  parts.push(["MURROW'S ENCHANTED ITEMS", ITEMS.map((it) => `${it.name}: ${it.does} Limits: ${it.limits}`).join("\n"), 1500]);
+  parts.push(["ITEMS AND RESOURCES (decided ones only)", ITEMS.filter((it) => !isPitch(it)).map((it) => `${it.name} (${it.cat}, ${it.type}): ${it.does}${it.limits ? " Limits: " + it.limits : ""}`).join("\n"), 2200]);
   const notes = codexNotes().filter((n) => n && n.status !== "pitch" && plain(n.title)).map(codexLine).map((l) => l.length > 500 ? l.slice(0, 499) + "…" : l);
   if (notes.length) parts.push(["NOTES (the author's own Codex, as true as the LORE)", notes.join("\n"), 3000]);
   let left = c.mode === "chat" ? CHAT_BUDGET : CANON_BUDGET, out = "";
@@ -939,7 +1055,7 @@ function drawStart() {
     "How does mana work, and what does it cost?",
     "What lies beyond the Monster Wood?",
     "What laws and customs does Stoutwell live by?",
-    `Give ${pick(ITEMS).name.toLowerCase()} a rival invention from the Kingdom.`,
+    `Give the ${pick(ITEMS.filter((it) => it.cat === "Enchanted items" && !isPitch(it)).length ? ITEMS.filter((it) => it.cat === "Enchanted items" && !isPitch(it)) : BUILTIN).name.toLowerCase()} a rival invention from the Kingdom.`,
   ];
   $("chatlog").innerHTML = `<div class="chatstart">
     <h3>What's on your mind?</h3>
