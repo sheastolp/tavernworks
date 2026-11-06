@@ -1410,6 +1410,16 @@
   document.addEventListener("click", (e) => {
     ["dlMenu", "rollMenu"].forEach((id) => { if (!e.target.closest("#" + id)) $(id).open = false; });
   });
+  // Keep a dropdown's menu on screen: it opens under its button's right edge, which on a
+  // phone can push it off the left side. Slide it back in by however far it overflows.
+  document.querySelectorAll("details.dd").forEach((dd) => dd.addEventListener("toggle", () => {
+    const pop = dd.querySelector(".pop"); if (!pop) return;
+    pop.style.transform = "";
+    if (!dd.open) return;
+    const r = pop.getBoundingClientRect(), w = document.documentElement.clientWidth, pad = 8;
+    const dx = r.left < pad ? pad - r.left : r.right > w - pad ? (w - pad) - r.right : 0;
+    if (dx) pop.style.transform = `translateX(${Math.round(dx)}px)`;
+  }));
 
   // ---------- Dice ----------
   // Rolls like "2d6+3", "d20-1", "4d6kh3" (keep highest 3), "2d20kl1", "d%".

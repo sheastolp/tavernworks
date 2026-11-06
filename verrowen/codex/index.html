@@ -605,6 +605,17 @@
   });
   document.addEventListener("click", (e) => { if (!e.target.closest("#dlMenu")) $("dlMenu").open = false; });
 
+  // Keep a dropdown's menu on screen: it opens under its button's right edge, which on a
+  // phone can push it off the left side. Slide it back in by however far it overflows.
+  document.querySelectorAll("details.dd").forEach((dd) => dd.addEventListener("toggle", () => {
+    const pop = dd.querySelector(".pop"); if (!pop) return;
+    pop.style.transform = "";
+    if (!dd.open) return;
+    const r = pop.getBoundingClientRect(), w = document.documentElement.clientWidth, pad = 8;
+    const dx = r.left < pad ? pad - r.left : r.right > w - pad ? (w - pad) - r.right : 0;
+    if (dx) pop.style.transform = `translateX(${Math.round(dx)}px)`;
+  }));
+
   // ---------- Import a backup ----------
   const pickImport = () => $("importInput").click();
   $("importBtn").onclick = pickImport; $("emptyImport").onclick = pickImport;
