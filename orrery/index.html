@@ -234,6 +234,7 @@
   <main id="view"></main>
   <footer><a href="/">Tavernworks</a> · <a href="/verrowen/">Wake in Verrowen</a> · <button class="btn" type="button" id="reload">Reload from GitHub</button><br><a href="/verrowen/#model" title="For the laptop's owner: pick which AI model the lore-keeper and narrator use">🤖 Change AI model</a> · <a href="/orrery/control/" title="For the owner: the Orrery control page">🔒 Admin</a></footer>
 </div>
+<script src="/orrery-review.js"></script>
 <script src="/pwa.js" data-sw="/orrery/sw.js" data-scope="/orrery/" data-badge="review"></script>
 <script src="/voice-input.js"></script>
 <script>
@@ -355,7 +356,7 @@ function inline(s) {
   return out;
 }
 function md(src) {
-  const lines = src.replace(/\r/g, "").split("\n");
+  const lines = src.replace(/\r/g, "").replace(/<!--[\s\S]*?-->\n?/g, "").split("\n");
   let html = "", i = 0;
   const isList = (l) => /^(\s*)([-*]|\d+\.)\s+/.test(l);
   while (i < lines.length) {
@@ -688,7 +689,7 @@ function codexLine(n) {
   return `${plain(n.title)}${bits.length ? " (" + bits.join("; ") + ")" : ""}${plain(n.body) ? ". " + plain(n.body) : ""}`;
 }
 
-const cleanSection = (b) => b.replace(/^#+\s.*\n?/, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").trim();
+const cleanSection = (b) => b.replace(/^#+\s.*\n?/, "").replace(/<!--[\s\S]*?-->\n?/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").trim();
 const personText = (p) => `${p.name}: ${p.role}.\n\n` + matches(patternFor(p.names)).flatMap(({ doc, hits }) => hits.map((s) => `[${doc.title} › ${s.path.join(" › ")}]\n${cleanSection(s.body)}`)).join("\n\n");
 const chatTopic = (c) => c.pin || c.topic || "general";
 
@@ -827,7 +828,7 @@ function drawChat() {
   <section class="writeup" id="writeup" hidden>
     <div class="writetop"><h3 id="writeHead"></h3><button type="button" class="closew" id="closeWrite" title="Close the write-up. It's kept with this chat." aria-label="Close the write-up">✕</button></div>
     <pre id="writeText"></pre>
-    <div class="row"><button class="primary" type="button" id="copyWrite">Copy</button><button type="button" id="codexWrite" hidden>🗂 Add to the Codex</button><button type="button" id="closeWrite2">Close</button><span class="chatnote" id="writeNote"></span></div>
+    <div class="row"><button class="primary" type="button" id="copyWrite">Copy</button><button type="button" id="codexWrite" hidden>🗂 Add to the Codex</button><button type="button" id="reviewWrite" title="Send this write-up to the Grand Orrery's review. It waits on the Review Clone until the owner publishes it.">📨 Send for review</button><button type="button" id="closeWrite2">Close</button><span class="chatnote" id="writeNote"></span></div>
   </section>
   <p class="chatnote" id="reopenWrite" hidden><button type="button" class="linkbtn" id="showWrite">📄 Show the write-up again</button></p>
   <p class="chatnote" style="margin-top:14px">The lore-keeper is a small AI model on the same laptop as <a href="/local-ai/">Local AI</a> and the <a href="/verrowen/">Wake in Verrowen</a> narrator. It reads the documents above${codexNotes().length ? " and your decided <a href=\"/verrowen/codex/\">Codex</a> notes" : ""} as canon. Chats are kept in this browser only. If the laptop is asleep, it can't answer.</p>`;
@@ -861,11 +862,27 @@ function drawChat() {
     if (window.VoiceInput) chatVoice = VoiceInput.attach($("micSay"), $("say"), { onStatus(t, err) { if (t || $("chatstatus").textContent.startsWith("Listening")) chatStatus(t, err); } });
     $("copyWrite").onclick = async () => { try { await navigator.clipboard.writeText(c.writeup); $("writeNote").textContent = "Copied."; } catch { $("writeNote").textContent = "Copy didn't work here. Select the text and copy it by hand."; } };
     $("codexWrite").onclick = () => addToCodex(c);
+    $("reviewWrite").onclick = () => sendWriteup(c);
     const closeWrite = () => { c.writeupClosed = true; keepChats(); drawLog(); };
     $("closeWrite").onclick = closeWrite; $("closeWrite2").onclick = closeWrite;
     $("showWrite").onclick = () => { c.writeupClosed = false; keepChats(); drawLog(); $("writeup").scrollIntoView({ behavior: "smooth" }); };
   }
   setChatBusy(chatBusy);
+}
+// 📨 Send for review: the write-up goes to the Grand Orrery's review (see
+// /orrery-review.js). The owner's lands on the review branch at once as a
+// pitch; anyone else's waits for the owner first. Sending again updates it.
+async function sendWriteup(c) {
+  if (!c || !c.writeup || !window.OrreryReview) return;
+  const note = $("writeNote"), b = $("reviewWrite");
+  const on = c.mode === "chat" ? topicOf(chatTopic(c)).label : c.target && c.target.name ? "About " + c.target.name : "";
+  b.disabled = true; note.textContent = "Sending for review…";
+  try {
+    const r = await OrreryReview.send({ source: "lore-keeper", key: c.id.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80), chatId: c.id, title: c.title || chatTitle(c), body: c.writeup, about: on });
+    c.sentForReview = Date.now(); keepChats();
+    note.innerHTML = r.queued ? "✔ Sent. It waits for the owner to review it." : `✔ ${r.updated ? "Updated" : "Filed"} on the review branch. See it on the <a href="/orrery/control/review/">review page</a> or the <a href="/orrery/?clone=review">Review Clone</a>.`;
+  } catch (e) { note.textContent = e.message; }
+  finally { b.disabled = false; }
 }
 // The write-up button: on a phone only its icon shows.
 function writeLabel(c) { return writeKind(c) === "review" ? '📋<span class="lbl"> Sum it up</span>' : '✍️<span class="lbl"> Write it up</span>'; }

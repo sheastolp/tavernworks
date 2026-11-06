@@ -126,6 +126,13 @@
     <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Needed to show the chat, file items, publish or throw away">
   </section>
 
+  <section class="card" aria-labelledby="h-inbox">
+    <h2 id="h-inbox">📨 Sent in for review</h2>
+    <p class="note">Codex notes, Wake in Verrowen characters and lore-keeper write-ups that people sent from the Orrery and Verrowen apps or pages wait here on the laptop. Filing one puts it on the review branch as a <b>Pitch</b> in <code>working-notes.md</code>, with the changes above. Turning it down deletes it. What you send yourself, with your token on that device, skips this and is filed straight away.</p>
+    <div class="row"><button type="button" id="inLoad">Show what's waiting</button><span class="note" id="inStatus" role="status"></span></div>
+    <div id="inList" style="display:flex;flex-direction:column;gap:10px"></div>
+  </section>
+
   <section class="card" aria-labelledby="h-log" id="logCard" hidden>
     <h2 id="h-log">The changes, newest first</h2>
     <ul class="commits" id="commits"></ul>
@@ -240,6 +247,49 @@ $("publish").addEventListener("click", (e) => confirmTwice(e.currentTarget, "Tap
 $("discard").addEventListener("click", (e) => confirmTwice(e.currentTarget, "Tap again to throw it all away", () =>
   act("/admin/discard", "Throwing it away…", () => "✔ Thrown away. The Review Clone matches the live Orrery again.")));
 $("refresh").addEventListener("click", load);
+
+// ── Sent in for review ──
+// What others sent with /orrery-review.js waits on the laptop until it's
+// filed here (onto the review branch, as a pitch) or turned down.
+const FROM = { "lore-keeper": "🪶 Lore-keeper", codex: "📜 Codex", verrowen: "🕯 Wake in Verrowen" };
+let inbox = [];
+async function inboxCall(method, body){
+  const token = $("token").value.trim();
+  if (!token) throw new Error("Enter the owner's token first.");
+  const r = await fetch(SERVER + "/admin/inbox", Object.assign({ method, headers: Object.assign({ authorization: "Bearer " + token }, body ? { "content-type": "application/json" } : {}) }, body ? { body: JSON.stringify(body) } : {}));
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
+  if (!r.ok) throw new Error(j.error || "The laptop answered " + r.status + ".");
+  try{ localStorage.setItem(KEY, token); }catch(e){}
+  return j;
+}
+async function loadInbox(){
+  const st = $("inStatus"); st.textContent = "Asking the laptop…";
+  try{ inbox = (await inboxCall("GET")).items || []; }
+  catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; return; }
+  st.textContent = inbox.length ? inbox.length + " waiting." : "Nothing is waiting.";
+  $("inList").innerHTML = inbox.map((it) => `<div class="sub" data-in="${esc(it.id)}">
+    <p class="note">${FROM[it.source] || esc(it.source)} · ${esc(when(it.at))}${it.name ? " · sent by " + esc(it.name) : ""}${it.about ? " · " + esc(it.about) : ""}</p>
+    <label>Title</label><input data-f="title" maxlength="120" value="${esc(it.title)}">
+    <label>Text (Markdown)</label><textarea data-f="body" rows="8" maxlength="12000">${esc(it.body)}</textarea>
+    <div class="row"><button class="primary" type="button" data-act="file">File it for review</button><button type="button" data-act="dismiss">Turn it down</button><span class="note" data-st role="status"></span></div>
+  </div>`).join("");
+}
+$("inLoad").addEventListener("click", loadInbox);
+$("inList").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const box = b.closest("[data-in]"), st = box.querySelector("[data-st]"), id = box.dataset.in;
+  if (b.dataset.act === "dismiss" && b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Tap again to turn it down"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "Turn it down"; }, 5000); return; }
+  box.querySelectorAll("button").forEach((x) => x.disabled = true);
+  st.textContent = b.dataset.act === "file" ? "Filing it on the review branch…" : "Turning it down…";
+  try{
+    await inboxCall("POST", { id, action: b.dataset.act, title: box.querySelector('[data-f="title"]').value, body: box.querySelector('[data-f="body"]').value });
+    box.remove(); inbox = inbox.filter((x) => x.id !== id);
+    $("inStatus").textContent = inbox.length ? inbox.length + " waiting." : "Nothing is waiting.";
+    if (b.dataset.act === "file") setTimeout(load, 1500);
+  }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; box.querySelectorAll("button").forEach((x) => x.disabled = false); }
+});
+if ($("token").value.trim()) loadInbox();
 load();
 
 // ── The owner's latest lore-keeper chat ──

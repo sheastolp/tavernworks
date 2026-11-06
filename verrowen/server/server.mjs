@@ -14,8 +14,13 @@
 //   POST /admin/lorekeeper (owner's token) { chat }  ->  { ok, saved }   the owner's latest Orrery
 //                        lore-keeper chat, kept for review; each save replaces the last
 //   GET  /admin/lorekeeper (owner's token)  ->  { chat | null }
-//   POST /admin/review-item (owner's token) { title, body, about, chatId }  ->  { ok, sha, url }   files a
-//                        lore-keeper pitch in working-notes.md on the review branch
+//   POST /admin/review-item (owner's token) { source, title, body, about, key, decided, loreLine, chatId }
+//                        ->  { ok, sha, url, updated }   files an item in working-notes.md on the review
+//                        branch: source "lore-keeper" (default), "codex" or "verrowen"
+//   GET  /admin/inbox    (owner's token)  ->  { items }   what others sent in, waiting for the owner
+//   POST /admin/inbox    (owner's token) { id, action: "file" | "dismiss", title?, body? }  ->  { ok, sha? }
+//   POST /suggest    { source, title, body, about, key, name }  ->  { ok, queued }
+//                    anyone: waits in the inbox above until the owner files it (always as a pitch)
 //   POST /narrate    { messages: [{ role, content }] }  ->  { text }
 //   POST /save       { playerId, playerName, characterName, seed, messages, profile, purpose, character }  ->  { ok }
 //
@@ -235,38 +240,128 @@ async function saveLorekeeper(b) {
 async function readLorekeeper() {
   try { return JSON.parse(await fs.readFile(LK_FILE(), "utf8")); } catch { return null; }
 }
-// Turn the latest chat into a review item: the owner's edited draft becomes a
-// Pitch section at the end of working-notes.md, committed to the review
-// branch, so it waits under "Waiting for you" until it's published.
-const NOTES = "working-notes.md", LK_HEAD = "## From the lore-keeper";
-async function fileReviewItem(b) {
-  const title = str(b.title, 120).replace(/[\r\n#]+/g, " ").replace(/\s+/g, " ").trim();
-  const body = str(b.body, 12000).replace(/\r\n/g, "\n").trim();
+// Filing things for review: each one becomes a section at the end of
+// working-notes.md on the review branch, under a heading for where it came
+// from, so it waits under "Waiting for you" until the owner publishes it.
+//   lore-keeper  a write-up or chat from the Orrery Explorer's lore-keeper
+//   codex        a note from the Verrowen Codex (decided notes the narrator
+//                should know also get a CODEX: line in lore.md)
+//   verrowen     a character wrapped up in Wake in Verrowen
+// An item with a `key` (a Codex note's id, a character's id) replaces the
+// section filed under the same key before, so sending again updates it.
+const NOTES = "working-notes.md", LORE = "lore.md";
+const SOURCES = {
+  "lore-keeper": { head: "## From the lore-keeper", intro: "Pitches the owner filed from lore-keeper chats on the Orrery Explorer. Nothing here is decided until it's marked **Your idea**.", from: "From a lore-keeper chat", msg: "Lore-keeper pitch" },
+  codex: { head: "## From the Codex", intro: "Notes sent in from the Verrowen Codex. Ones the owner decided are marked **Your idea**; the rest are pitches.", from: "From the Verrowen Codex", msg: "Codex note" },
+  verrowen: { head: "## From Wake in Verrowen", intro: "Characters made in Wake in Verrowen and sent in for review. Nothing here is decided until it's marked **Your idea**.", from: "From a Wake in Verrowen story", msg: "Wake in Verrowen character" },
+};
+const oneLine = (v, n) => str(v, n).replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+function reviewItem(b, { owner }) {
+  const source = SOURCES[b.source] ? b.source : "lore-keeper";
+  const title = oneLine(b.title, 120).replace(/#+/g, "").trim();
+  const body = str(b.body, 12000).replace(/\r\n/g, "\n").replace(/<!--|-->/g, "").trim();
   if (!title || !body) throw Object.assign(new Error("The item needs a title and some text"), { status: 400 });
-  const day = new Date().toISOString().slice(0, 10);
-  const from = str(b.about, 200).replace(/[\r\n]+/g, " ").trim();
-  const path_ = "/contents/" + NOTES;
-  for (let tries = 0; tries < 2; tries++) {
-    const cur = await gh(path_ + "?ref=" + CLONE);
-    if (!cur.ok) throw Object.assign(new Error(`GitHub couldn't read ${NOTES} on the review branch (${cur.status})`), { status: 502 });
-    let text = Buffer.from(cur.j.content || "", "base64").toString("utf8").replace(/\s+$/, "");
-    if (!text.includes("\n" + LK_HEAD + "\n")) text += `\n\n${LK_HEAD}\n\nPitches the owner filed from lore-keeper chats on the Orrery Explorer. Nothing here is decided until it's marked **Your idea**.`;
-    text += `\n\n### ${title} (Pitch)\n\n_From a lore-keeper chat, ${day}${from ? " · " + from : ""}._\n\n${body}\n`;
-    const put = await gh(path_, { method: "PUT", body: JSON.stringify({ message: `Lore-keeper pitch: ${title}`, content: Buffer.from(text, "utf8").toString("base64"), sha: cur.j.sha, branch: CLONE }) });
-    if (put.ok) {
-      const rec = await readLorekeeper();
-      if (rec && b.chatId && rec.id === str(b.chatId, 80)) {
-        rec.filed = { at: new Date().toISOString(), title, sha: put.j.commit.sha };
-        await fs.writeFile(LK_FILE() + ".tmp", JSON.stringify(rec, null, 2));
-        await fs.rename(LK_FILE() + ".tmp", LK_FILE());
-      }
-      return { sha: put.j.commit.sha, url: put.j.commit.html_url };
-    }
-    if (put.status !== 409) throw Object.assign(new Error(`GitHub refused the commit (${put.status}): ${put.j.message || ""}`), { status: 502 });
-    // 409: the file changed on review between the read and the write; read it again once.
-  }
-  throw Object.assign(new Error("working-notes.md kept changing on the review branch. Try again."), { status: 502 });
+  const key = /^[A-Za-z0-9:_-]{1,100}$/.test(String(b.key || "")) ? source + ":" + b.key : "";
+  // Only the owner decides: anything sent in by someone else is a pitch.
+  const decided = owner && source === "codex" && b.decided === true;
+  const loreLine = decided ? oneLine(b.loreLine, 1500) : "";
+  return { source, title, body, key, decided, loreLine, about: oneLine(b.about, 200), name: oneLine(b.name, 60), chatId: str(b.chatId, 80) };
 }
+// Read a file on the review branch, change it, write it back as one commit.
+// A 409 means it changed in between: read it again once.
+async function editOnReview(file, change, message) {
+  for (let tries = 0; tries < 2; tries++) {
+    const cur = await gh("/contents/" + file + "?ref=" + CLONE);
+    if (!cur.ok) throw Object.assign(new Error(`GitHub couldn't read ${file} on the review branch (${cur.status})`), { status: 502 });
+    const before = Buffer.from(cur.j.content || "", "base64").toString("utf8");
+    const after = change(before);
+    if (after === before) return null;
+    const put = await gh("/contents/" + file, { method: "PUT", body: JSON.stringify({ message, content: Buffer.from(after, "utf8").toString("base64"), sha: cur.j.sha, branch: CLONE }) });
+    if (put.ok) return put.j.commit;
+    if (put.status !== 409) throw Object.assign(new Error(`GitHub refused the commit (${put.status}): ${put.j.message || ""}`), { status: 502 });
+  }
+  throw Object.assign(new Error(`${file} kept changing on the review branch. Try again.`), { status: 502 });
+}
+async function fileReviewItem(it) {
+  const src = SOURCES[it.source];
+  const day = new Date().toISOString().slice(0, 10);
+  const mark = it.key ? `<!-- review-key: ${it.key} -->\n` : "";
+  const byline = [src.from + ", " + day, it.name ? "sent by " + it.name : "", it.about].filter(Boolean).join(" · ");
+  const section = `### ${it.title} (${it.decided ? "Your idea" : "Pitch"})\n\n${mark}_${byline}._\n\n${it.body}\n`;
+  let updated = false;
+  const commit = await editOnReview(NOTES, (text) => {
+    text = text.replace(/\s+$/, "");
+    if (it.key) {
+      // The section filed under this key before, up to the next heading.
+      const at = text.indexOf(`<!-- review-key: ${it.key} -->`);
+      if (at >= 0) {
+        const s0 = text.lastIndexOf("\n### ", at), rest = text.slice(at);
+        const next = rest.search(/\n#{2,3} /);
+        if (s0 >= 0) { updated = true; return (text.slice(0, s0 + 1) + section.trimEnd() + (next >= 0 ? "\n" + rest.slice(next) : "")).replace(/\s+$/, "") + "\n"; }
+      }
+    }
+    if (!text.includes("\n" + src.head + "\n")) text += `\n\n${src.head}\n\n${src.intro}`;
+    else {
+      // Add it at the end of its own heading's part, which may not be last.
+      const h = text.indexOf("\n" + src.head + "\n") + 1, rest = text.slice(h + src.head.length);
+      const next = rest.search(/\n## /);
+      if (next >= 0) { const cut = h + src.head.length + next; return text.slice(0, cut).replace(/\s+$/, "") + "\n\n" + section + text.slice(cut) + "\n"; }
+    }
+    return text + "\n\n" + section;
+  }, `${src.msg}: ${it.title}${updated ? " (updated)" : ""}`);
+  // A decided Codex note the narrator should know: its line in lore.md too,
+  // replacing the line from an earlier send of the same note.
+  let lore = null;
+  if (it.loreLine) {
+    const line = "CODEX: " + it.loreLine;
+    const same = (l) => l.startsWith("CODEX: " + it.title + " (") || l.startsWith("CODEX: " + it.title + ".") || l === "CODEX: " + it.title;
+    lore = await editOnReview(LORE, (text) => {
+      const lines = text.replace(/\s+$/, "").split("\n");
+      const i = lines.findIndex(same);
+      if (i >= 0) lines[i] = line;
+      else { let last = -1; lines.forEach((l, n) => { if (l.startsWith("CODEX: ")) last = n; }); lines.splice(last >= 0 ? last + 1 : lines.length, 0, line); }
+      return lines.join("\n") + "\n";
+    }, `Codex note for the narrator: ${it.title}`);
+  }
+  const top = lore || commit;
+  if (!top) return { sha: "", url: "", unchanged: true };
+  if (it.source === "lore-keeper" && it.chatId) {
+    const rec = await readLorekeeper();
+    if (rec && rec.id === it.chatId) {
+      rec.filed = { at: new Date().toISOString(), title: it.title, sha: top.sha };
+      await fs.writeFile(LK_FILE() + ".tmp", JSON.stringify(rec, null, 2));
+      await fs.rename(LK_FILE() + ".tmp", LK_FILE());
+    }
+  }
+  return { sha: top.sha, url: top.html_url, updated };
+}
+
+// ── Sent in for review ──
+// Anyone can send a Codex note or a character for review, but only the
+// owner puts things on the review branch. What others send waits here, on
+// the laptop, until the owner files it or turns it down on the review page.
+const INBOX = () => path.join(SAVE_DIR, "review-inbox");
+const MAX_INBOX = 200;
+async function inboxList() {
+  let files = [];
+  try { files = (await fs.readdir(INBOX())).filter((f) => f.endsWith(".json")); } catch { }
+  const items = [];
+  for (const f of files) { try { items.push(JSON.parse(await fs.readFile(path.join(INBOX(), f), "utf8"))); } catch { } }
+  return items.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+}
+async function inboxAdd(it) {
+  const now = await inboxList();
+  if (now.length >= MAX_INBOX) throw Object.assign(new Error("The review queue is full. Try again after the owner has been through it."), { status: 503 });
+  // The same note or character sent again replaces what's waiting.
+  const old = it.key && now.find((x) => x.key === it.key);
+  const rec = { ...it, id: old ? old.id : crypto.randomBytes(9).toString("base64url"), at: new Date().toISOString() };
+  await fs.mkdir(INBOX(), { recursive: true });
+  const file = path.join(INBOX(), rec.id + ".json");
+  await fs.writeFile(file + ".tmp", JSON.stringify(rec, null, 2));
+  await fs.rename(file + ".tmp", file);
+  return rec.id;
+}
+const inboxFile = (id) => /^[A-Za-z0-9_-]{6,40}$/.test(String(id || "")) ? path.join(INBOX(), id + ".json") : null;
 
 // ── Saving characters ──
 // One file per player, rewritten after every turn, so stories that stop
@@ -339,8 +434,23 @@ const server = http.createServer(async (req, res) => {
       if (lk && req.method === "GET") return send(res, 200, { chat: await readLorekeeper() }, origin);
       if (lk && req.method === "POST") return send(res, 200, { ok: true, saved: await saveLorekeeper(await readJson(req)) }, origin);
       if (req.method === "POST" && url.pathname === "/admin/review-item") {
-        const r = await fileReviewItem(await readJson(req));
-        console.log(new Date().toISOString(), "lore-keeper pitch filed on review", r.sha);
+        const it = reviewItem(await readJson(req), { owner: true });
+        const r = await fileReviewItem(it);
+        console.log(new Date().toISOString(), it.source, "item filed on review:", it.title, r.sha);
+        return send(res, 200, { ok: true, ...r }, origin);
+      }
+      if (req.method === "GET" && url.pathname === "/admin/inbox") return send(res, 200, { items: await inboxList() }, origin);
+      if (req.method === "POST" && url.pathname === "/admin/inbox") {
+        const b = await readJson(req), file = inboxFile(b.id);
+        let rec = null; try { rec = file && JSON.parse(await fs.readFile(file, "utf8")); } catch { }
+        if (!rec) return send(res, 404, { error: "That item isn't waiting any more" }, origin);
+        if (b.action === "dismiss") { await fs.rm(file, { force: true }); return send(res, 200, { ok: true }, origin); }
+        if (b.action !== "file") return send(res, 400, { error: "file or dismiss" }, origin);
+        // The owner may have edited the title and text; it stays a pitch.
+        const it = reviewItem({ ...rec, title: b.title ?? rec.title, body: b.body ?? rec.body, key: String(rec.key || "").split(":").slice(1).join(":") }, { owner: false });
+        const r = await fileReviewItem(it);
+        await fs.rm(file, { force: true });
+        console.log(new Date().toISOString(), "sent-in", it.source, "item filed on review:", it.title, r.sha);
         return send(res, 200, { ok: true, ...r }, origin);
       }
       if (req.method === "POST" && url.pathname === "/admin/publish") {
@@ -354,8 +464,15 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true, ...r }, origin);
       }
     }
-    if (req.method !== "POST" || !["/narrate", "/save"].includes(url.pathname)) return send(res, 404, { error: "Not here" }, origin);
+    if (req.method !== "POST" || !["/narrate", "/save", "/suggest"].includes(url.pathname)) return send(res, 404, { error: "Not here" }, origin);
     const body = await readJson(req);
+    if (url.pathname === "/suggest") {
+      if (!allowed("suggest:" + clientIp(req), { n: 20, ms: PER_IP.ms })) return send(res, 429, { error: "That's a lot sent at once. Wait a few minutes." }, origin);
+      const it = reviewItem(body, { owner: false });
+      await inboxAdd(it);
+      console.log(new Date().toISOString(), "sent in for review:", it.source, it.title);
+      return send(res, 200, { ok: true, queued: true }, origin);
+    }
     if (url.pathname === "/save") {
       if (!allowed("save:" + clientIp(req), { n: 120, ms: PER_IP.ms })) return send(res, 429, { error: "Too many saves" }, origin);
       await save(body);

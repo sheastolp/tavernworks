@@ -147,6 +147,31 @@ review**. The server adds it as a `### <title> (Pitch)` section under
 branch (`POST /admin/review-item`), one commit per item. It then shows up under
 **Waiting for you** like any other change.
 
+### 📨 Send for review, from the Orrery and Verrowen
+
+Three places send straight into this review, on the website and in the
+installed Orrery and Verrowen apps alike (all through `/orrery-review.js`):
+
+| Where | What goes | Section in `working-notes.md` |
+| --- | --- | --- |
+| Orrery Explorer, under a lore-keeper write-up | the write-up | `## From the lore-keeper` |
+| Verrowen Codex, the 📨 button on a note | the note, its facts and text | `## From the Codex` |
+| Wake in Verrowen, under a wrapped-up character | the profile or D&D sheet | `## From Wake in Verrowen` |
+
+- **With the owner's token on the device**, it's filed on `review` at once
+  (`POST /admin/review-item`). A Codex note you marked **Decided** comes in as
+  **(Your idea)**, and one ticked **🕯 The narrator knows this** also gets a
+  `CODEX:` line in `lore.md`, so publishing it puts it in the narrator's lore
+  without pasting anything by hand. Everything else comes in as a **(Pitch)**.
+- **Without it** (any other player), it waits in the laptop's review queue
+  (`POST /suggest`, kept in `review-inbox/` in the save folder, 20 sends per
+  address per 10 minutes, 200 waiting at most). The review page's
+  **📨 Sent in for review** card lists them: edit the title and text, then
+  **File it for review** (always as a pitch) or **Turn it down**.
+- Sending the same note, character or write-up again replaces the section it
+  filed before (each carries a hidden `<!-- review-key: ... -->` mark) or what
+  is still waiting in the queue, so there are never two copies.
+
 Publishing and filing review items go through this server, so they need the
 owner's token and a GitHub token on the laptop:
 

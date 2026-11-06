@@ -249,7 +249,7 @@
   <section class="profile" id="profilePanel" hidden>
     <h2 id="profileHead">Your character</h2>
     <pre id="profileText"></pre>
-    <div class="row"><button class="primary" id="copyBtn">Copy profile</button><button id="continueBtn">Continue the story</button><button class="quiet" id="resetBtn2" title="Back to the start. This story is kept, so you can continue it later.">← Back to the start</button><span class="note" id="copyStatus"></span></div>
+    <div class="row"><button class="primary" id="copyBtn">Copy profile</button><button id="continueBtn">Continue the story</button><button id="sendReviewBtn" title="Put this character forward for the Grand Orrery. The owner reviews it before it becomes part of the world.">📨 Send for review</button><button class="quiet" id="resetBtn2" title="Back to the start. This story is kept, so you can continue it later.">← Back to the start</button><span class="note" id="copyStatus"></span></div>
   </section>
 
   <section class="about">
@@ -273,6 +273,7 @@
   </dialog>
 </div>
 
+<script src="/orrery-review.js"></script>
 <script src="/pwa.js" data-sw="/verrowen/sw.js" data-scope="/verrowen/"></script>
 <script src="/voice-input.js"></script>
 <script>
@@ -732,6 +733,20 @@ $("continueBtn").addEventListener("click", () => {
   continued = true; render(); save();
   setStatus("Pick up where you left off, and wrap it up again whenever you like.");
   $("reply").focus();
+});
+// 📨 Send for review: the wrapped-up character goes to the Grand Orrery's
+// review (see /orrery-review.js). Sending the same story again updates it.
+$("sendReviewBtn").addEventListener("click", async () => {
+  if (!profile || !window.OrreryReview) return;
+  const b = $("sendReviewBtn"), st = $("copyStatus");
+  const name = (profile.match(/^\W*Name\W*:\s*(.+)$/im) || [])[1] || characterName || "A stranger from Wake in Verrowen";
+  b.disabled = true; st.textContent = "Sending for review…";
+  try{
+    const r = await OrreryReview.send({source: "verrowen", key: playerId, title: name.replace(/[*_#]/g, "").trim().slice(0, 120), body: profile,
+      about: purpose === "dnd" ? "D&D character" : "Story", name: playerName});
+    st.textContent = r.queued ? "✔ Sent. The owner reviews it before it joins the Grand Orrery." : "✔ Filed on the review branch. It waits on the Review Clone.";
+  }catch(e){ st.textContent = e.message; }
+  finally{ b.disabled = false; }
 });
 $("copyBtn").addEventListener("click", async () => {
   try{ await navigator.clipboard.writeText(profile); $("copyStatus").textContent = "Copied."; }

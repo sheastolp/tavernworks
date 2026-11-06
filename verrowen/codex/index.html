@@ -178,7 +178,8 @@
       <a href="/journal/">📖 Adventurer's Journal</a>
       <a href="/verrowen/#model" title="For the laptop's owner: pick which AI model narrates">🤖 Change AI model</a>
       <a href="/orrery/control/" title="For the owner: the Orrery control page">🔒 Admin</a>
-      <small>Saved in this browser only. Download a backup now and then.</small>
+      <a href="/orrery/control/review/" title="Where notes sent for review wait for the owner">📨 The review</a>
+      <small>Saved in this browser only. Download a backup now and then. 📨 Send for review puts a note forward for the Grand Orrery itself.</small>
     </div>
   </aside>
   <div class="scrim" id="scrim"></div>
@@ -215,6 +216,7 @@
               <button data-dl="json">Codex backup <small>.json, with pictures, to import later</small></button>
             </div>
           </details>
+          <button class="tb" id="sendBtn" title="Send this note to the Grand Orrery's review, where the owner decides whether it goes into the universe">📨 <span class="lbl">Send for review</span></button>
           <button class="tb del" id="delBtn" title="Delete this note">🗑</button>
         </div>
         <span class="saved" id="saved"></span>
@@ -417,7 +419,7 @@
     $("title").value = cur.title;
     $("text").value = cur.body;
     $("saved").textContent = ""; $("saved").className = "saved";
-    drawFields(); drawFlags(); drawPic(); drawRefs();
+    drawFields(); drawFlags(); drawPic(); drawRefs(); drawSent();
     setPreview(previewing && !!cur.body.trim());
     drawSide();
   }
@@ -440,6 +442,36 @@
   $("cat").addEventListener("change", () => { cur.cat = $("cat").value; drawFields(); ui.shut[cur.cat] = false; saveUi(); touch(true); });
   $("status").addEventListener("change", () => { cur.status = $("status").value; drawFlags(); touch(true); });
   $("narr").addEventListener("change", () => { cur.narrator = $("narr").checked; drawFlags(); touch(true); });
+
+  // ---------- Send for review ----------
+  // The note goes to the Grand Orrery's review (see /orrery-review.js). The
+  // owner's own decided notes come in as decided, and ones the narrator knows
+  // get their line in lore.md too; everyone else's arrive as pitches. Sending
+  // the same note again updates what's waiting instead of adding a copy.
+  const SENT_KEY = "verrowen-codex.sent";
+  const sentList = () => { try { return JSON.parse(localStorage.getItem(SENT_KEY) || "{}") || {}; } catch { return {}; } };
+  function drawSent() {
+    if (!cur) return;
+    const at = sentList()[cur.id];
+    $("sendBtn").innerHTML = at && at >= cur.updated ? '📨 <span class="lbl">Sent ✔</span>' : at ? '📨 <span class="lbl">Send the update</span>' : '📨 <span class="lbl">Send for review</span>';
+  }
+  $("sendBtn").onclick = async () => {
+    if (!cur) return;
+    if (saveTimer) persist();
+    if (!cur.title.trim() || !(cur.body.trim() || Object.values(cur.f || {}).some((v) => String(v).trim()))) { alert("Give the note a title and some text first."); return; }
+    if (!window.OrreryReview) { alert("Couldn't load the review sender. Reload the page and try again."); return; }
+    const n = cur, c = CAT[n.cat] || CAT.other;
+    const body = noteMd(n, "#").replace(/^# .*\n+/, "").replace(/^\*[^\n]*\*\n+/, "").trim();   // no heading or tag line: the section has both
+    $("sendBtn").disabled = true; $("saved").className = "saved"; $("saved").textContent = "Sending for review…";
+    try {
+      const r = await OrreryReview.send({ source: "codex", key: n.id, title: n.title.trim(), body, about: c.one, decided: n.status === "decided",
+        loreLine: n.narrator && n.status === "decided" ? noteLine(n).replace(/^[A-Z ]+:\s*/, "") : "" });
+      const list = sentList(); list[n.id] = n.updated || Date.now();
+      try { localStorage.setItem(SENT_KEY, JSON.stringify(list)); } catch {}
+      $("saved").textContent = r.queued ? "✔ Sent. It waits for the owner to review it." : r.updated ? "✔ Updated on the review branch. It waits on the Review Clone." : "✔ Filed on the review branch. It waits on the Review Clone.";
+    } catch (e) { $("saved").className = "saved bad"; $("saved").textContent = "⚠ " + e.message; }
+    finally { $("sendBtn").disabled = false; if (cur === n) drawSent(); }
+  };
 
   $("delBtn").onclick = () => {
     if (!confirm(`Delete “${cur.title || "Untitled"}”? This can't be undone, unless it's in a backup.`)) return;
@@ -619,6 +651,8 @@
         }
         continue;
       }
+      // CODEX lines are notes sent for review from a codex: "Title (facts). Text."
+      if (key === "CODEX") { const t = (text.match(/^([^(.]+)/) || [])[1]; if (t) add({cat: "other", title: t.trim(), body: text}); continue; }
       add({cat: LORE_CATS[key] || "other", title: LORE_TITLES[key] || key.charAt(0) + key.slice(1).toLowerCase(), body: text});
     }
     persist(); drawSide();
@@ -643,6 +677,7 @@
   if (first) open(first.id); else { show(); drawSide(); }
 })();
 </script>
+<script src="/orrery-review.js"></script>
 <script src="/pwa.js" data-sw="/verrowen/sw.js" data-scope="/verrowen/"></script>
 </body>
 </html>
