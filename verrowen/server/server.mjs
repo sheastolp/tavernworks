@@ -18,7 +18,10 @@
 //                        ->  { ok, sha, url, updated }   files an item in working-notes.md on the review
 //                        branch: source "lore-keeper" (default), "codex" or "verrowen"
 //   GET  /admin/inbox    (owner's token)  ->  { items }   what others sent in, waiting for the owner
-//   POST /admin/inbox    (owner's token) { id, action: "file" | "dismiss", title?, body? }  ->  { ok, sha? }
+//   POST /admin/inbox    (owner's token) { id, action: "file" | "accept" | "dismiss", title?, body? }  ->  { ok, sha? }
+//                        "file" files it as a Pitch, "accept" as Your idea
+//   POST /admin/accept-pitch (owner's token) { file, line }  ->  { ok, sha, url }   turns one (Pitch)
+//                        in working-notes.md or resources.md into (Your idea), on the review branch
 //   POST /suggest    { source, title, body, about, key, name }  ->  { ok, queued }
 //                    anyone: waits in the inbox above until the owner files it (always as a pitch)
 //   POST /narrate    { messages: [{ role, content }] }  ->  { text }
@@ -263,8 +266,8 @@ function reviewItem(b, { owner }) {
   if (!title || !body) throw Object.assign(new Error("The item needs a title and some text"), { status: 400 });
   const key = /^[A-Za-z0-9:_-]{1,100}$/.test(String(b.key || "")) ? source + ":" + b.key : "";
   // Only the owner decides: anything sent in by someone else is a pitch.
-  const decided = owner && source === "codex" && b.decided === true;
-  const loreLine = decided ? oneLine(b.loreLine, 1500) : "";
+  const decided = owner && b.decided === true;
+  const loreLine = decided && source === "codex" ? oneLine(b.loreLine, 1500) : "";
   return { source, title, body, key, decided, loreLine, about: oneLine(b.about, 200), name: oneLine(b.name, 60), chatId: str(b.chatId, 80) };
 }
 // Read a file on the review branch, change it, write it back as one commit.
@@ -334,6 +337,27 @@ async function fileReviewItem(it) {
     }
   }
   return { sha: top.sha, url: top.html_url, updated };
+}
+
+// Accepting a pitch as it is: the one line holding "(Pitch)" (a heading like
+// "### Elwen Cole (Pitch)" or a bullet like "- **Name ideas (Pitch):** …")
+// gets "(Your idea)" instead, as one commit on the review branch. Nothing
+// else in the file changes, so it waits for the owner's publish like the rest.
+const PITCH_FILES = [NOTES, "resources.md"];
+async function acceptPitch(b) {
+  const file = String(b.file || ""), want = String(b.line || "").replace(/\r/g, "");
+  if (!PITCH_FILES.includes(file)) throw Object.assign(new Error("Pitches can only be accepted in " + PITCH_FILES.join(" or ")), { status: 400 });
+  if (!want.includes("(Pitch)") || want.includes("\n") || want.length > 2000) throw Object.assign(new Error("That isn't a pitch line"), { status: 400 });
+  const name = want.replace(/^[#\s>*-]+/, "").split("(Pitch)")[0].replace(/[*_]/g, "").trim().slice(0, 80) || "a pitch";
+  let found = false;
+  const commit = await editOnReview(file, (text) => {
+    const lines = text.split("\n"), i = lines.indexOf(want);
+    if (i < 0) return text;
+    found = true; lines[i] = want.replace("(Pitch)", "(Your idea)");
+    return lines.join("\n");
+  }, `Accept pitch as is: ${name}`);
+  if (!found) throw Object.assign(new Error("That pitch isn't on the review branch any more. Check again to reload the list."), { status: 409 });
+  return { sha: commit.sha, url: commit.html_url, name };
 }
 
 // ── Sent in for review ──
@@ -445,12 +469,19 @@ const server = http.createServer(async (req, res) => {
         let rec = null; try { rec = file && JSON.parse(await fs.readFile(file, "utf8")); } catch { }
         if (!rec) return send(res, 404, { error: "That item isn't waiting any more" }, origin);
         if (b.action === "dismiss") { await fs.rm(file, { force: true }); return send(res, 200, { ok: true }, origin); }
-        if (b.action !== "file") return send(res, 400, { error: "file or dismiss" }, origin);
-        // The owner may have edited the title and text; it stays a pitch.
-        const it = reviewItem({ ...rec, title: b.title ?? rec.title, body: b.body ?? rec.body, key: String(rec.key || "").split(":").slice(1).join(":") }, { owner: false });
+        if (b.action !== "file" && b.action !== "accept") return send(res, 400, { error: "file, accept or dismiss" }, origin);
+        // The owner may have edited the title and text. "file" keeps it a
+        // pitch; "accept" is the owner deciding it, so it goes in as Your idea.
+        const accept = b.action === "accept";
+        const it = reviewItem({ ...rec, title: b.title ?? rec.title, body: b.body ?? rec.body, key: String(rec.key || "").split(":").slice(1).join(":"), decided: accept, loreLine: "" }, { owner: accept });
         const r = await fileReviewItem(it);
         await fs.rm(file, { force: true });
         console.log(new Date().toISOString(), "sent-in", it.source, "item filed on review:", it.title, r.sha);
+        return send(res, 200, { ok: true, ...r }, origin);
+      }
+      if (req.method === "POST" && url.pathname === "/admin/accept-pitch") {
+        const r = await acceptPitch(await readJson(req));
+        console.log(new Date().toISOString(), "pitch accepted on review:", r.name, r.sha);
         return send(res, 200, { ok: true, ...r }, origin);
       }
       if (req.method === "POST" && url.pathname === "/admin/publish") {

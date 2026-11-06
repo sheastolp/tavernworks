@@ -42,6 +42,10 @@
   button.danger{border-color:var(--ember);color:var(--delInk)}
   button:disabled{opacity:.45;cursor:default}
   button:focus-visible,.btn:focus-visible,input:focus{outline:2px solid var(--gold);outline-offset:2px}
+  .pitch .pname{font-weight:600;color:var(--text);overflow-wrap:anywhere}
+  .pitch pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:14px;color:var(--muted);background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0 0;max-height:320px;overflow:auto}
+  .pitch details summary{cursor:pointer;color:var(--gold2);font-size:14px}
+  .pitch.done{opacity:.75}
   .draft{display:flex;flex-direction:column;gap:8px;border:1px solid var(--gold);border-radius:12px;padding:14px;margin-top:10px;background:rgba(0,0,0,.18)}
   textarea,select{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit;font-size:15px}
   textarea{resize:vertical;font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
@@ -128,14 +132,14 @@
         <div class="row"><button type="button" id="lkCopy">Copy the whole chat</button><button type="button" id="rvOpen">📝 Turn into a review item</button></div>
         <p class="note" id="rvFiled" hidden></p>
         <div class="draft" id="rvDraft" hidden>
-          <p class="note">This becomes a <b>Pitch</b> section at the end of <code>working-notes.md</code> on the review branch, under "From the lore-keeper". It waits here with the other changes until you publish or throw it away. Edit it as you like first.</p>
+          <p class="note">This becomes a <b>Pitch</b> section at the end of <code>working-notes.md</code> on the review branch, under "From the lore-keeper", or a <b>Your idea</b> section if you accept it. It waits here with the other changes until you publish or throw it away. Edit it as you like first.</p>
           <label for="rvFrom">Start from</label>
           <select id="rvFrom"></select>
           <label for="rvTitle">Title</label>
           <input id="rvTitle" maxlength="120" spellcheck="true">
           <label for="rvBody">Text (Markdown)</label>
           <textarea id="rvBody" rows="12" maxlength="12000" spellcheck="true"></textarea>
-          <div class="row"><button class="primary" type="button" id="rvFile">File it for review</button><button type="button" id="rvCancel">Cancel</button><span class="note" id="rvStatus" role="status"></span></div>
+          <div class="row"><button class="primary" type="button" id="rvFile">File it for review</button><button type="button" id="rvAccept" title="File it as Your idea instead of a Pitch">✔ Accept as your idea</button><button type="button" id="rvCancel">Cancel</button><span class="note" id="rvStatus" role="status"></span></div>
         </div>
       </div>
     </div>
@@ -145,9 +149,16 @@
 
   <section class="card" aria-labelledby="h-inbox">
     <h2 id="h-inbox">📨 Sent in for review</h2>
-    <p class="note">Codex notes, Wake in Verrowen characters and lore-keeper write-ups that people sent from the Orrery and Verrowen apps or pages wait here on the laptop. Filing one puts it on the review branch as a <b>Pitch</b> in <code>working-notes.md</code>, with the changes above. Turning it down deletes it. What you send yourself, with your token on that device, skips this and is filed straight away.</p>
+    <p class="note">Codex notes, Wake in Verrowen characters and lore-keeper write-ups that people sent from the Orrery and Verrowen apps or pages wait here on the laptop. Filing one puts it on the review branch as a <b>Pitch</b> in <code>working-notes.md</code>, with the changes above. <b>✔ Accept as your idea</b> puts it there as <b>Your idea</b> instead. Turning it down deletes it. What you send yourself, with your token on that device, skips this and is filed straight away.</p>
     <div class="row"><button type="button" id="inLoad">Show what's waiting</button><span class="note" id="inStatus" role="status"></span></div>
     <div id="inList" style="display:flex;flex-direction:column;gap:10px"></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-pitch">
+    <h2 id="h-pitch">💡 Pitches</h2>
+    <p class="note">Every <b>(Pitch)</b> in <code>working-notes.md</code> and <code>resources.md</code> on the review branch. <b>✔ Accept as is</b> keeps its words exactly and only marks it <b>(Your idea)</b>, as one change on the review branch. It joins "Waiting for you" above and goes live when you publish. To change the words first, use <b>Edit</b>.</p>
+    <div class="row"><button type="button" id="pLoad">Show the pitches</button><span class="note" id="pStatus" role="status"></span></div>
+    <div id="pList" style="display:flex;flex-direction:column;gap:10px"></div>
   </section>
 
   <section class="card" aria-labelledby="h-log" id="logCard" hidden>
@@ -294,7 +305,7 @@ async function loadInbox(){
     <p class="note">${FROM[it.source] || esc(it.source)} · ${esc(when(it.at))}${it.name ? " · sent by " + esc(it.name) : ""}${it.about ? " · " + esc(it.about) : ""}</p>
     <label>Title</label><input data-f="title" maxlength="120" value="${esc(it.title)}">
     <label>Text (Markdown)</label><textarea data-f="body" rows="8" maxlength="12000">${esc(it.body)}</textarea>
-    <div class="row"><button class="primary" type="button" data-act="file">File it for review</button><button type="button" data-act="dismiss">Turn it down</button><span class="note" data-st role="status"></span></div>
+    <div class="row"><button class="primary" type="button" data-act="file">File it for review</button><button type="button" data-act="accept">✔ Accept as your idea</button><button type="button" data-act="dismiss">Turn it down</button><span class="note" data-st role="status"></span></div>
   </div>`).join("");
 }
 $("inLoad").addEventListener("click", loadInbox);
@@ -303,12 +314,12 @@ $("inList").addEventListener("click", async (e) => {
   const box = b.closest("[data-in]"), st = box.querySelector("[data-st]"), id = box.dataset.in;
   if (b.dataset.act === "dismiss" && b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Tap again to turn it down"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "Turn it down"; }, 5000); return; }
   box.querySelectorAll("button").forEach((x) => x.disabled = true);
-  st.textContent = b.dataset.act === "file" ? "Filing it on the review branch…" : "Turning it down…";
+  st.textContent = b.dataset.act === "file" ? "Filing it on the review branch…" : b.dataset.act === "accept" ? "Filing it on the review branch as Your idea…" : "Turning it down…";
   try{
     await inboxCall("POST", { id, action: b.dataset.act, title: box.querySelector('[data-f="title"]').value, body: box.querySelector('[data-f="body"]').value });
     box.remove(); inbox = inbox.filter((x) => x.id !== id);
     $("inStatus").textContent = inbox.length ? inbox.length + " waiting." : "Nothing is waiting.";
-    if (b.dataset.act === "file") setTimeout(load, 1500);
+    if (b.dataset.act !== "dismiss") setTimeout(load, 1500);
   }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; box.querySelectorAll("button").forEach((x) => x.disabled = false); }
 });
 if ($("token").value.trim()) loadInbox();
@@ -403,15 +414,17 @@ $("rvOpen").addEventListener("click", () => {
 $("rvFrom").addEventListener("change", pickSource);
 $("rvTitle").addEventListener("input", () => { $("rvTitle").dataset.edited = "1"; });
 $("rvCancel").addEventListener("click", () => { $("rvDraft").hidden = true; });
-$("rvFile").addEventListener("click", async () => {
+$("rvFile").addEventListener("click", () => fileDraft(false));
+$("rvAccept").addEventListener("click", () => fileDraft(true));
+async function fileDraft(decided){
   const st = $("rvStatus"), token = $("token").value.trim();
   const title = $("rvTitle").value.trim(), body = $("rvBody").value.trim();
   if (!token){ st.textContent = "Enter the owner's token below first."; $("token").focus(); return; }
   if (!title || !body){ st.textContent = "It needs a title and some text."; return; }
   const about = [lkChat.title, MODE[lkChat.mode] || lkChat.mode].filter(Boolean).join(" · ");
-  $("rvFile").disabled = true; st.textContent = "Filing it on the review branch…";
+  $("rvFile").disabled = $("rvAccept").disabled = true; st.textContent = decided ? "Filing it on the review branch as Your idea…" : "Filing it on the review branch…";
   try{
-    const r = await fetch(SERVER + "/admin/review-item", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ title, body, about, chatId: lkChat.id }) });
+    const r = await fetch(SERVER + "/admin/review-item", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ title, body, about, chatId: lkChat.id, decided }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(r.status === 404 ? "The laptop's server needs updating first (see the server README)." : j.error || "The laptop answered " + r.status + ".");
     try{ localStorage.setItem(KEY, token); }catch(e){}
@@ -419,7 +432,71 @@ $("rvFile").addEventListener("click", async () => {
     $("rvDraft").hidden = true; drawFiled();
     setTimeout(load, 1500);
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
-  finally{ $("rvFile").disabled = false; }
+  finally{ $("rvFile").disabled = $("rvAccept").disabled = false; }
+}
+
+// ── Pitches ──
+// Every "(Pitch)" line in the lore files on the review branch. Accepting one
+// as is asks the laptop to swap that one "(Pitch)" for "(Your idea)".
+const PITCH_FILES = ["working-notes.md", "resources.md"];
+let pitches = [];
+function findPitches(file, text){
+  const lines = text.replace(/\r/g, "").split("\n"), out = [], heads = [];
+  lines.forEach((l, i) => {
+    const h = l.match(/^(#{1,6})\s+(.*)$/);
+    if (h) heads[h[1].length] = h[2].replace(/\s*\((Your idea|Pitch|Not decided yet|DM lore)[^)]*\)\s*$/, ""), heads.length = h[1].length + 1;
+    if (!l.includes("(Pitch)")) return;
+    let name, body;
+    if (h){
+      name = h[2].split("(Pitch)")[0].trim();
+      const lvl = h[1].length, rest = [];
+      for (let k = i + 1; k < lines.length && !new RegExp("^#{1," + lvl + "}\\s").test(lines[k]); k++) rest.push(lines[k]);
+      body = rest.join("\n").replace(/<!--[\s\S]*?-->/g, "").trim();
+    } else {
+      name = l.replace(/^[\s>*-]+/, "").split("(Pitch)")[0].replace(/[*_]/g, "").trim();
+      body = l.replace(/^[\s>-]+/, "").replace(/^\*\*[^*]*\*\*\s*/, "").trim();
+    }
+    const where = heads.slice(2, h ? h[1].length : undefined).filter(Boolean).slice(-2).join(" › ");
+    out.push({ file, n: i + 1, line: l, name: name || "Untitled pitch", body, where });
+  });
+  return out;
+}
+async function loadPitches(){
+  const st = $("pStatus"); st.textContent = "Reading the review branch…";
+  try{
+    const texts = await Promise.all(PITCH_FILES.map(async (f) => {
+      const r = await fetch("https://api.github.com/repos/" + REPO + "/contents/" + f + "?ref=review", { cache: "no-store", headers: { accept: "application/vnd.github.raw+json" } });
+      if (r.status === 404) return "";
+      if (!r.ok) throw new Error(r.status === 403 ? "GitHub's hourly limit for this browser is used up. Try again later." : "GitHub answered " + r.status + ".");
+      return r.text();
+    }));
+    pitches = PITCH_FILES.flatMap((f, i) => findPitches(f, texts[i]));
+  }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach GitHub." : e.message; return; }
+  st.textContent = pitches.length ? pitches.length + " pitch" + (pitches.length === 1 ? "" : "es") + " on the review branch." : "No pitches left. Everything is decided.";
+  $("pList").innerHTML = pitches.map((p, i) => `<div class="sub pitch" data-p="${i}">
+    <p class="note">${esc(p.file)}${p.where ? " · " + esc(p.where) : ""}</p>
+    <div class="pname">${esc(p.name)}</div>
+    ${p.body ? `<details><summary>Read it</summary><pre>${esc(p.body)}</pre></details>` : ""}
+    <div class="row"><button class="primary" type="button" data-act="accept">✔ Accept as is</button><a class="btn" href="https://github.com/${REPO}/edit/review/${esc(p.file)}" target="_blank" rel="noopener" title="Line ${p.n}">Edit</a><span class="note" data-st role="status"></span></div>
+  </div>`).join("");
+}
+$("pLoad").addEventListener("click", loadPitches);
+$("pList").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-act=accept]"); if (!b) return;
+  const box = b.closest("[data-p]"), st = box.querySelector("[data-st]"), p = pitches[+box.dataset.p];
+  const token = $("token").value.trim();
+  if (!token){ st.textContent = "Enter the owner's token above first."; $("token").focus(); return; }
+  b.disabled = true; st.textContent = "Marking it Your idea on the review branch…";
+  try{
+    const r = await fetch(SERVER + "/admin/accept-pitch", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ file: p.file, line: p.line }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(r.status === 404 && !j.error ? "The laptop's server needs updating first (see the server README)." : j.error || "The laptop answered " + r.status + ".");
+    try{ localStorage.setItem(KEY, token); }catch(err){}
+    box.classList.add("done"); b.remove();
+    st.innerHTML = `✔ Accepted as Your idea (<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>). Publish to put it live.`;
+    // Later pitches in the same file still match by their own line, so the rest stay valid.
+    setTimeout(load, 1500);
+  }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; b.disabled = false; }
 });
 </script>
 <script src="/orrery/review-summary.js"></script>
