@@ -29,9 +29,12 @@ self.addEventListener("fetch", (e) => {
   // Pages are cached without their query/hash, so ?clone=review and #chat
   // still open offline from the one cached copy.
   const key = req.mode === "navigate" ? url.origin + url.pathname : req;
+  // Always ask the server (revalidating the browser's HTTP cache), so a new
+  // version of a page, a script or the lore shows up on the next open.
+  let fresh = req;
+  try { fresh = new Request(req, { cache: "no-cache" }); } catch {}
   e.respondWith(
-    fetch(req).then((res) => {
-      if (res && (res.ok || res.type === "opaque")) {
+    fetch(fresh).catch(() => fetch(req)).then((res) => {      if (res && (res.ok || res.type === "opaque")) {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(key, copy)).catch(() => {});
       }
