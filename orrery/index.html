@@ -138,6 +138,10 @@
   .earlier .row{justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:rgba(0,0,0,.18)}
   .earlier .row span{min-width:0;flex:1;font-size:14px}
   .earlier .row small{display:block;color:var(--muted);font-size:12.5px}
+  details.earlierbox>summary{cursor:pointer;font-family:Cinzel,serif;color:var(--gold2);font-size:15px;padding:4px 0;list-style-position:inside}
+  details.earlierbox>summary .pill{margin-left:8px}
+  details.earlierbox[open]>summary{margin-bottom:8px}
+  .earlier .acts{display:flex;flex-wrap:wrap;gap:6px}
   .composer{border-top:1px solid var(--line);padding:12px 16px 14px;display:flex;flex-direction:column;gap:8px;background:rgba(0,0,0,.18)}
   .chathead .topic{display:flex;align-items:center;gap:8px;font-family:Inter,sans-serif;letter-spacing:0;color:var(--muted);font-size:13px;min-width:0}
   .chathead .topic select{padding:4px 8px;font-size:13.5px;max-width:230px}
@@ -816,14 +820,15 @@ function drawChat() {
         <button class="quiet" type="button" id="resendSay" title="Ask the lore-keeper to answer the last message again. Handy right after the laptop wakes up." aria-label="Resend">↻<span class="lbl"> Resend</span></button>
         <button type="button" id="writeBtn">${c ? writeLabel(c) : ""}</button>
         <button class="quiet" type="button" id="saveReview" title="Save this chat as it stands for the owner's review, on the Review Clone page. It replaces the last one saved." aria-label="Save for review">📥<span class="lbl"> Save for review</span></button>
+        <button class="quiet" type="button" id="copyChat" title="Copy the whole chat as text" aria-label="Copy the chat">📋<span class="lbl"> Copy chat</span></button>
         <button class="quiet" type="button" id="backChat" title="Back to the start. This chat is kept, so you can pick it up later." aria-label="Back to the start">←<span class="lbl"> Back</span></button>
       </div>
-      <div class="ownerrow" id="ownerRow" hidden>
+    </div>
+    <div class="ownerrow" id="ownerRow" style="padding:0 16px 12px" hidden>
         <label class="sr" for="ownerToken">Owner's token</label>
         <input id="ownerToken" type="password" autocomplete="off" spellcheck="false" placeholder="Owner's token, to save on this browser">
         <button type="button" id="ownerSave">Save</button>
         <button class="quiet" type="button" id="ownerCancel">Cancel</button>
-      </div>
     </div>
   </section>
   <section class="writeup" id="writeup" hidden>
@@ -839,6 +844,16 @@ function drawChat() {
   setAi(aiUp);
   if (aiUp === null || aiUp === false) checkAi(); else { const m = $("aiModel"); if (m && aiModel) m.textContent = "Runs " + aiModel + " on our own laptop"; }
   if (!c) drawStart(); else drawLog();
+  $("ownerSave").onclick = () => {
+    const t = $("ownerToken").value.trim();
+    if (!t) return $("ownerToken").focus();
+    try { localStorage.setItem(OWNER_KEY, t); } catch {}
+    $("ownerRow").hidden = true; $("ownerToken").value = "";
+    const w = chats.find((x) => x.id === savePending); savePending = "";
+    if (w) saveNow(w);
+  };
+  $("ownerToken").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); $("ownerSave").click(); } };
+  $("ownerCancel").onclick = () => { $("ownerRow").hidden = true; $("ownerToken").value = ""; savePending = ""; };
   if (c) {
     $("sendSay").onclick = sendSay;
     $("say").oninput = fitSay;
@@ -851,15 +866,8 @@ function drawChat() {
     $("resendSay").onclick = resendSay;
     $("stopSay").onclick = () => { if (chatStopper) chatStopper.abort(); };
     $("backChat").onclick = () => { if (chatBusy) return; chatId = ""; keepChats(); drawChat(); };
-    $("saveReview").onclick = () => saveNow(c);
-    $("ownerSave").onclick = () => {
-      const t = $("ownerToken").value.trim();
-      if (!t) return $("ownerToken").focus();
-      try { localStorage.setItem(OWNER_KEY, t); } catch {}
-      $("ownerRow").hidden = true; $("ownerToken").value = ""; saveNow(c);
-    };
-    $("ownerToken").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); $("ownerSave").click(); } };
-    $("ownerCancel").onclick = () => { $("ownerRow").hidden = true; $("ownerToken").value = ""; };
+    $("saveReview").onclick = () => saveNow(c, $("saveReview"));
+    $("copyChat").onclick = () => copyChat(c, $("copyChat"));
     if (window.VoiceInput) chatVoice = VoiceInput.attach($("micSay"), $("say"), { onStatus(t, err) { if (t || $("chatstatus").textContent.startsWith("Listening")) chatStatus(t, err); } });
     $("copyWrite").onclick = async () => { try { await navigator.clipboard.writeText(c.writeup); $("writeNote").textContent = "Copied."; } catch { $("writeNote").textContent = "Copy didn't work here. Select the text and copy it by hand."; } };
     $("codexWrite").onclick = () => addToCodex(c);
@@ -934,15 +942,18 @@ function drawStart() {
       <textarea id="opener" maxlength="${MAX_SAY}" placeholder="Optional: a halfling miller who hides a fire gift from the Elderhold… or leave it blank and it suggests a few things to work on."></textarea>
       <div class="chips">${starters.map((t) => `<button class="small" type="button" data-start="${esc(t)}">${esc(t)}</button>`).join("")}</div>
       <div class="row"><button class="primary" type="button" id="startOpen">Start the chat</button></div></div>
-    ${earlier.length ? `<h3 style="font-size:15px">Earlier chats</h3><div class="earlier">${earlier.map((c) => {
+    ${earlier.length ? `<details class="earlierbox" id="earlierBox"${earlierOpen() ? " open" : ""}><summary>Earlier chats<span class="pill">${earlier.length}</span></summary><div class="earlier">${earlier.map((c) => {
       const turns = c.messages.filter((m) => m.role === "user").length;
       const on = c.mode === "chat" ? topicOf(chatTopic(c)) : null;
-      return `<div class="row"><span>${esc(chatTitle(c))}<small>${on ? on.icon + " " + esc(on.label) + " · " : ""}${new Date(c.at).toLocaleDateString([], { dateStyle: "medium" })} · ${turns} message${turns === 1 ? "" : "s"} from you${c.writeup ? " · written up" : ""}</small></span><button class="small" type="button" data-open="${c.id}">Continue</button><button class="small del" type="button" data-del="${c.id}">🗑 Delete</button></div>`;
-    }).join("")}</div>` : ""}
+      return `<div class="row"><span>${esc(chatTitle(c))}<small>${on ? on.icon + " " + esc(on.label) + " · " : ""}${new Date(c.at).toLocaleDateString([], { dateStyle: "medium" })} · ${turns} message${turns === 1 ? "" : "s"} from you${c.writeup ? " · written up" : ""}</small></span><span class="acts"><button class="small" type="button" data-open="${c.id}">Continue</button><button class="small" type="button" data-save="${c.id}" title="Save this chat for the owner's review, on the Review Clone page. It replaces the last one saved.">📥 Save for review</button><button class="small" type="button" data-copy="${c.id}" title="Copy the whole chat as text">📋 Copy</button><button class="small del" type="button" data-del="${c.id}">🗑 Delete</button></span></div>`;
+    }).join("")}</div></details>` : ""}
   </div>`;
   $("opener").onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $("startOpen").click(); } };
   $("chatlog").querySelectorAll("[data-start]").forEach((b) => b.onclick = () => { $("opener").value = b.dataset.start; $("opener").focus(); });
   $("startOpen").onclick = () => startChat({ mode: "chat", idea: $("opener").value.trim().slice(0, MAX_SAY) });
+  if ($("earlierBox")) $("earlierBox").ontoggle = () => { try { localStorage.setItem("orrery-earlier-open", $("earlierBox").open ? "1" : ""); } catch {} };
+  $("chatlog").querySelectorAll("[data-save]").forEach((b) => b.onclick = () => { const c = chats.find((x) => x.id === b.dataset.save); if (c) saveNow(c, b); });
+  $("chatlog").querySelectorAll("[data-copy]").forEach((b) => b.onclick = () => { const c = chats.find((x) => x.id === b.dataset.copy); if (c) copyChat(c, b); });
   $("chatlog").querySelectorAll("[data-open]").forEach((b) => b.onclick = () => { chatId = b.dataset.open; keepChats(); drawChat(); });
   $("chatlog").querySelectorAll("[data-del]").forEach((b) => b.onclick = () => {
     const c = chats.find((x) => x.id === b.dataset.del);
@@ -992,7 +1003,7 @@ function saveForReview(c) {
   if (!token || !c) return Promise.resolve(null);
   const chat = { id: c.id, title: c.title || chatTitle(c), mode: c.mode, kind: c.mode === "chat" ? chatTopic(c) : c.kind, idea: c.idea || "", target: c.target, messages: c.messages, writeup: c.writeup || "" };
   const body = JSON.stringify({ chat });
-  const say = (msg) => { const el = $("reviewSave"); if (el && openChat() === c) { el.textContent = msg; el.hidden = false; } };
+  const say = (msg) => { const el = $("reviewSave"); if (el && (openChat() === c || (!openChat() && savingFrom === c.id))) { el.textContent = (openChat() ? "" : chatTitle(c) + ": ") + msg; el.hidden = false; } };
   const done = reviewSaves.then(() => fetch(AI + "/admin/lorekeeper", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body })
     .then((r) => r.ok ? { ok: true, msg: "✔ Saved for review " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) }
       : r.status === 404 ? { msg: "Not saved for review: the laptop's server needs updating (see the server README)" }
@@ -1004,14 +1015,30 @@ function saveForReview(c) {
 }
 // 📥 Save for review: saves the open chat now, at any point in it. On a
 // browser without the owner's token it asks for the token first and keeps it.
-function saveNow(c) {
+let savePending = "", savingFrom = "";
+function saveNow(c, b) {
   if (!c) return;
-  if (!ownerToken()) { $("ownerRow").hidden = false; $("ownerToken").focus(); return; }
-  const b = $("saveReview"); b.disabled = true;
-  const el = $("reviewSave"); el.textContent = "Saving for review…"; el.hidden = false;
+  if (!ownerToken()) { savePending = c.id; $("ownerRow").hidden = false; $("ownerToken").focus(); return; }
+  if (b) b.disabled = true;
+  savingFrom = c.id;
+  const el = $("reviewSave"); el.textContent = (openChat() ? "" : chatTitle(c) + ": ") + "Saving for review…"; el.hidden = false;
   saveForReview(c).then((res) => {
-    if (res && res.status === 401) { try { localStorage.removeItem(OWNER_KEY); } catch {} if ($("ownerRow")) { $("ownerRow").hidden = false; $("ownerToken").focus(); } }
-  }).finally(() => { if ($("saveReview")) $("saveReview").disabled = false; });
+    if (res && res.status === 401) { try { localStorage.removeItem(OWNER_KEY); } catch {} if ($("ownerRow")) { savePending = c.id; $("ownerRow").hidden = false; $("ownerToken").focus(); } }
+  }).finally(() => { if (b && b.isConnected) b.disabled = false; });
+}
+// The "Earlier chats" list starts folded up; this browser remembers if it was opened.
+function earlierOpen() { try { return localStorage.getItem("orrery-earlier-open") === "1"; } catch { return false; } }
+// 📋 Copy: the whole chat as plain text, with who said what.
+function chatText(c) {
+  const head = chatTitle(c) + "\n" + new Date(c.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  const said = c.messages.map((m) => (m.role === "assistant" ? "Lore-keeper" : "You") + ":\n" + m.content).join("\n\n");
+  return head + "\n\n" + said + (c.writeup ? "\n\n--- Write-up ---\n" + c.writeup : "");
+}
+async function copyChat(c, b) {
+  try { await navigator.clipboard.writeText(chatText(c)); } catch { return chatStatus("Copy didn't work here. Open the chat and copy the messages one at a time.", true); }
+  if (!b) return;
+  const was = b.innerHTML; b.innerHTML = b.classList.contains("small") ? "✔ Copied" : '✔<span class="lbl"> Copied</span>';
+  setTimeout(() => { if (b.isConnected) b.innerHTML = was; }, 1500);
 }
 // A small copy icon on each chat message.
 const COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>';
