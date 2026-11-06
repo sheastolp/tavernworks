@@ -46,6 +46,9 @@
   .clonebar{position:sticky;top:0;z-index:50;background:#3a2410;border-bottom:1px solid var(--gold);color:var(--text);font-size:14px;padding:9px 16px;text-align:center}
   .clonebar b{color:var(--gold2)}
   .status.err{color:var(--ember)}
+  .status.hall{font-size:13px;margin-top:2px}
+  .status.hall .warn{color:var(--ember)}
+  .card .live{display:inline-block;font-size:11px;font-weight:600;color:var(--green);margin-left:6px;font-family:Inter,sans-serif;letter-spacing:0;vertical-align:middle}
   main{padding:10px 0 50px}
   h2.sec{font-family:Cinzel,serif;color:var(--gold);letter-spacing:.08em;font-size:18px;margin:26px 0 12px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:12px}
@@ -262,6 +265,7 @@
       <form class="find" id="find"><input type="search" id="q" placeholder="Find anyone or anything…" aria-label="Search the orrery"><button type="submit">Find</button></form>
     </div>
     <p class="status" id="status">Loading the orrery…</p>
+    <p class="status hall" id="hallStatus" hidden></p>
   </header>
   <main id="view"></main>
   <footer><a href="/">Tavernworks</a> · <button class="btn" type="button" id="reload">Reload from GitHub</button><br><a href="/verrowen/#model" title="For the laptop's owner: pick which AI model the lore-keeper and narrator use">🤖 Change AI model</a> · <a href="/orrery/control/" title="For the owner: the Orrery control page">🔒 Admin</a></footer>
@@ -339,6 +343,7 @@ const PEOPLE = [
   { group: "Stoutwell", id: "osric", name: "Osric", role: "Halfling, 142 · Leader of the Elderhold", names: ["Osric"] },
   { group: "Stoutwell", id: "hesketh", name: "Hesketh Reeve", role: "Human, 48 · Captain of the Guard", names: ["Hesketh"] },
   { group: "Stoutwell", id: "murrow", name: "Murrow", role: "Artificer, 550+ · keeper of Monstradius", names: ["Murrow"] },
+  { group: "Stoutwell", id: "burn", name: "Burn", role: "Human, 45 · the Wellhouse's regular, roasts from his bar stool", names: ["Burn"] },
   { group: "Stoutwell", id: "wellhouse", name: "The Wellhouse family", role: "Elves · owners of the village tavern", names: ["Wellhouse"] },
   { group: "The Elderhold", id: "wendeline", name: "Wendeline Brackenford", role: "Halfling, 149 · the eldest, keeper of customs", names: ["Wendeline"] },
   { group: "The Elderhold", id: "fenwick", name: "Fenwick Larkspur", role: "Halfling, 145 · ex-Guard, leans to survival", names: ["Fenwick(?! Loose-Coin)"] },
@@ -654,7 +659,7 @@ function roster() {
   const groups = [...new Set(PEOPLE.map((p) => p.group))];
   return groups.map((g) => `<h2 class="sec">${esc(g)}</h2><div class="grid">${PEOPLE.filter((p) => p.group === g).map((p) => {
     const n = matches(patternFor(p.names)).reduce((a, d) => a + d.hits.length, 0);
-    return `<a class="card" href="#person/${p.id}"><b>${esc(p.name)}</b><span>${esc(p.role)}</span><div class="count">${n} section${n === 1 ? "" : "s"} written</div></a>`;
+    return `<a class="card" href="#person/${p.id}"><b>${esc(p.name)}${p.live ? `<span class="live" title="Live from GuildScribe's parchments">● live</span>` : ""}</b><span>${esc(p.role)}</span><div class="count">${n} section${n === 1 ? "" : "s"} written</div></a>`;
   }).join("")}</div>`).join("");
 }
 function person(id) {
@@ -765,15 +770,23 @@ function route() {
   if (target) target.scrollIntoView(); else window.scrollTo(0, 0);
 }
 
-async function load() {
-  $("status").hidden = false;
-  $("status").className = "status";
-  $("status").textContent = "Loading the orrery…";
+// The branch's newest commit, or "" when GitHub's API is out of reach (it
+// allows 60 calls an hour per address).
+const branchHead = () => fetch("https://api.github.com/repos/sheastolp/grand-orrery/commits/" + BRANCH, { cache: "no-store", headers: { accept: "application/vnd.github.sha" } })
+  .then((r) => (r.ok ? r.text() : "")).then((t) => (/^[0-9a-f]{40}$/.test(t.trim()) ? t.trim() : "")).catch(() => "");
+let canonSha = "";
+// quiet: a background re-read (the canon moved on GitHub). It doesn't show
+// "Loading", and leaves an open chat alone so nothing typed is lost.
+async function load(quiet = false, head) {
+  if (!quiet) {
+    $("status").hidden = false;
+    $("status").className = "status";
+    $("status").textContent = "Loading the orrery…";
+  }
   // Pin to the branch's newest commit so a fresh publish shows right away.
-  // If GitHub's API is out of reach (it allows 60 calls an hour per address),
-  // fall back to the branch name, which can lag by a few minutes.
-  const sha = await fetch("https://api.github.com/repos/sheastolp/grand-orrery/commits/" + BRANCH, { cache: "no-store", headers: { accept: "application/vnd.github.sha" } })
-    .then((r) => (r.ok ? r.text() : "")).then((t) => (/^[0-9a-f]{40}$/.test(t.trim()) ? t.trim() : "")).catch(() => "");
+  // Without the API, fall back to the branch name, which can lag a few minutes.
+  const sha = head !== undefined ? head : await branchHead();
+  canonSha = sha;
   RAW = RAW_BASE + (sha || BRANCH) + "/";
   const bust = sha ? "" : "?t=" + Date.now();
   const got = await Promise.all(DOCS.map((d) => fetch(RAW + d.file + bust, { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => "")));
@@ -789,8 +802,94 @@ async function load() {
     $("status").hidden = !missing.length;
     $("status").textContent = missing.length ? `Couldn't load ${missing.map((d) => d.file).join(", ")}.` : "";
   }
-  route();
+  const onChat = !location.hash || location.hash.startsWith("#chat");
+  if (!quiet || !onChat) route();
 }
+
+// ── The live link with GuildScribe (the Twitch bot's guild hall) ──
+// GuildScribe reads this Orrery (lore.md and bestiary.md on main) and its
+// /api/orrery feed sends the hall back: the adventurers on its parchments
+// right now, their companies, the beasts it has learned, and what it last
+// read from here. The roster's GuildScribe cards follow the feed (names,
+// levels, ranks, companies), viewers who aren't in the canon yet join as
+// "New at GuildScribe", and the lore-keeper is told what the hall says now.
+// The feed is re-read every 2 minutes and the canon checked every 5 while
+// the page is open and showing.
+// On localhost, ?guildscribe=<url> points it at a bot under test.
+const GUILDSCRIBE = (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).get("guildscribe")) || "https://guildscribe.tavernworks.dev";
+const ADV_GROUP = "GuildScribe's adventurers", NEW_GROUP = "New at GuildScribe (not in the canon yet)";
+let hall = null, hallAt = 0;
+const ago = (iso) => {
+  const s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000);
+  return !iso || isNaN(s) ? "never" : s < 90 ? "just now" : s < 5400 ? Math.round(s / 60) + " min ago" : Math.round(s / 3600) + " h ago";
+};
+const advRole = (a) => `${a.race ? a.race.replace(/\b\w/g, (c) => c.toUpperCase()) + " " : ""}${a.cls} · level ${a.level}, ${a.rank}${a.companies.length ? " · " + a.companies.join(", ") : ""}`;
+function applyHall() {
+  if (!hall || !Array.isArray(hall.adventurers)) return;
+  for (let i = PEOPLE.length - 1; i >= 0; i--) if (PEOPLE[i].group === NEW_GROUP) PEOPLE.splice(i, 1);
+  const byViewer = new Map(hall.adventurers.map((a) => [String(a.viewer).toLowerCase(), a]));
+  for (const p of PEOPLE) {
+    if (p.group !== ADV_GROUP) continue;
+    const a = byViewer.get(p.id.replace(/^adv-/, "").toLowerCase());
+    p.live = !!a;
+    if (!a) continue;
+    if (!p.canon) p.canon = { name: p.name, role: p.role };
+    p.name = a.name; p.role = advRole(a);
+    byViewer.delete(p.id.replace(/^adv-/, "").toLowerCase());
+  }
+  const at = PEOPLE.findIndex((p) => p.group === "Other worlds");
+  const fresh = [...byViewer.values()].map((a) => ({ group: NEW_GROUP, id: "adv-" + idOf(a.viewer), name: a.name, role: advRole(a), names: [reEsc(a.viewer)], live: true }));
+  PEOPLE.splice(at < 0 ? PEOPLE.length : at, 0, ...fresh);
+}
+function showHall(err) {
+  const el = $("hallStatus");
+  if (!hall) {
+    el.hidden = !err;
+    el.innerHTML = err ? `🏰 GuildScribe couldn't be reached, so the roster shows the canon's own list of its adventurers.` : "";
+    return;
+  }
+  const o = hall.orrery || {};
+  const warn = Object.entries(o.files || {}).filter(([, f]) => f && f.error).map(([name, f]) => `<span class="warn">GuildScribe can't use ${esc(name)} (${esc(f.error)}).</span>`);
+  if (o.enabled === false) warn.push(`<span class="warn">GuildScribe has its Orrery reading switched off.</span>`);
+  el.hidden = false;
+  el.innerHTML = `🏰 <a href="${GUILDSCRIBE}/" target="_blank" rel="noopener">GuildScribe</a> is linked live: ${hall.adventurers.length} adventurer${hall.adventurers.length === 1 ? "" : "s"} on its parchments, ${(hall.learned || []).length} learned beast${(hall.learned || []).length === 1 ? "" : "s"}, updated ${ago(hall.updatedAt)}. It last checked the Orrery's ${esc(o.branch || "main")} ${ago(o.checkedAt)}${o.commit ? ` (at ${esc(o.commit.slice(0, 7))})` : ""}. ${warn.join(" ")}`;
+}
+async function loadHall() {
+  try {
+    const r = await fetch(GUILDSCRIBE + "/api/orrery", { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    if (!Array.isArray(j.adventurers)) throw new Error("no adventurers");
+    hall = j; hallAt = Date.now();
+    applyHall();
+    showHall();
+    // Redraw a roster or person view so the live cards show; never the chat.
+    if (/^#(roster|person\/|find\/)/.test(location.hash)) route();
+  } catch {
+    showHall(true);
+  }
+}
+// What the lore-keeper is told about the hall right now (canonFor adds it).
+function hallCanon() {
+  if (!hall) return "";
+  const lines = [`As of ${new Date(hall.updatedAt).toUTCString()}. This is newer than the canon's own list of GuildScribe's adventurers: where they differ, this is how things stand now.`];
+  const changed = PEOPLE.filter((p) => p.canon && (p.canon.role !== p.role || p.canon.name !== p.name)).map((p) => `${p.name}${p.canon.name !== p.name ? ` (was ${p.canon.name})` : ""}: ${p.role}`);
+  if (changed.length) lines.push("Changed since the canon was written: " + changed.join("; ") + ".");
+  const fresh = PEOPLE.filter((p) => p.group === NEW_GROUP).map((p) => `${p.name}: ${p.role}`);
+  if (fresh.length) lines.push("New on the parchments, not in the canon yet: " + fresh.join("; ") + ".");
+  const comp = (hall.companies || []).filter((c) => c.members && c.members.length).map((c) => `${c.name} (${c.members.join(", ")})`);
+  if (comp.length) lines.push("Companies: " + comp.join("; ") + ".");
+  if ((hall.learned || []).length) lines.push("Beasts the hall has learned in its fights: " + hall.learned.map((m) => `${m.name}${m.cr ? " (CR " + m.cr + ")" : ""}`).join(", ") + ".");
+  return lines.join("\n");
+}
+// Keep both halves current while the page is open and showing.
+setInterval(() => { if (document.visibilityState === "visible") loadHall(); }, 120000);
+setInterval(async () => {
+  if (document.visibilityState !== "visible") return;
+  const head = await branchHead();
+  if (head && canonSha && head !== canonSha) load(true, head).then(applyHall);
+}, 300000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && Date.now() - hallAt > 120000) loadHall(); });
 
 // ── The chat: the local AI helps create and review characters, and work
 // out worldbuilding and mechanics (magic, physics, how the world works) ──
@@ -939,6 +1038,8 @@ function canonFor(c) {
   const lore = (text.lore || "").replace(/^# .*\n+.*\n+/, "").trim();
   parts.push(["LORE", lore, 9000]);
   parts.push(["ROSTER (named people already in the canon)", PEOPLE.map((p) => `${p.name} (${p.group}): ${p.role}`).join("\n"), 3600]);
+  const live = hallCanon();
+  if (live) parts.push(["GUILDSCRIBE RIGHT NOW (live from the guild hall bot's parchments)", live, 1200]);
   if (c.mode === "world" || (c.mode === "chat" && !["general", "character"].includes(chatTopic(c)))) {
     const open = ((text.universe || "").split(/^## Still Being Developed\s*$/m)[1] || "").split(/^## /m)[0].trim();
     if (open) parts.push(["STILL OPEN IN THE CANON", open, 1200]);
@@ -1381,7 +1482,11 @@ $("find").addEventListener("submit", (e) => {
   const q = $("q").value.trim();
   if (q) location.hash = "find/" + encodeURIComponent(q);
 });
-$("reload").addEventListener("click", load);
+// Reload re-reads the canon here and asks GuildScribe to re-read it too.
+$("reload").addEventListener("click", () => {
+  load();
+  fetch(GUILDSCRIBE + "/api/orrery/refresh", { method: "POST" }).catch(() => {}).finally(() => setTimeout(loadHall, 1500));
+});
 showWorld();
 $("worldPick").addEventListener("change", (e) => {
   world = WORLDS.find((w) => w.id === e.target.value) || WORLDS[0];
@@ -1390,6 +1495,7 @@ $("worldPick").addEventListener("change", (e) => {
 });
 addEventListener("hashchange", route);
 load();
+loadHall();
 </script>
 </body>
 </html>

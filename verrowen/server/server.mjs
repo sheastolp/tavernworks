@@ -9,7 +9,7 @@
 //   GET  /admin/models   (owner's token)  { model, models: [names] }
 //   POST /admin/model    (owner's token)  { model }  ->  { ok, model }   the narrator for everyone
 //   POST /admin/publish  (owner's token)  {}  ->  { ok, sha, how }   puts the Review Clone (grand-orrery's
-//                        review branch) live on main
+//                        review branch) live on main, then tells GuildScribe to re-read it
 //   POST /admin/discard  (owner's token)  {}  ->  { ok, sha }   throws away everything waiting on review
 //   POST /admin/lorekeeper (owner's token) { chat }  ->  { ok, saved }   the owner's latest Orrery
 //                        lore-keeper chat, kept for review; each save replaces the last
@@ -66,6 +66,10 @@ const MAX_WAITING = 4;
 // live on main. Needs a GitHub token that can write grand-orrery's contents.
 const GH_REPO = process.env.ORRERY_REPO || "sheastolp/grand-orrery";
 const GH_TOKEN = process.env.ORRERY_GITHUB_TOKEN || "";
+// GuildScribe reads the live Orrery too; a publish tells it to re-read at
+// once instead of at its next check (POST <bot>/api/orrery/refresh). "off"
+// skips it.
+const GUILDSCRIBE = (process.env.GUILDSCRIBE_URL || "https://guildscribe.tavernworks.dev").replace(/\/$/, "");
 const LIVE = "main", CLONE = "review";              // the GPU writes one reply at a time; past this many, say busy
 
 // ── The narrator model ──
@@ -218,6 +222,14 @@ async function publish() {
   // Bring review up to the merge too, so the next round of changes starts from what's live.
   await gh("/git/refs/heads/" + CLONE, { method: "PATCH", body: JSON.stringify({ sha: m.j.sha, force: false }) });
   return { sha: m.j.sha, how: "merge" };
+}
+// Best-effort: a publish never fails because GuildScribe is down.
+function tellGuildScribe() {
+  if (GUILDSCRIBE === "off") return;
+  fetch(GUILDSCRIBE + "/api/orrery/refresh", { method: "POST", signal: AbortSignal.timeout(15000) })
+    .then((r) => r.json().catch(() => ({})))
+    .then((j) => console.log(new Date().toISOString(), "GuildScribe re-read the Orrery:", j && j.orrery ? j.orrery.commit || "?" : "no answer"))
+    .catch((e) => console.log(new Date().toISOString(), "GuildScribe couldn't be told to re-read the Orrery:", e.message));
 }
 async function discard() {
   const sha = await headOf(LIVE);
@@ -630,6 +642,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === "POST" && url.pathname === "/admin/publish") {
         const r = await publish();
         console.log(new Date().toISOString(), "Review Clone published", r.how, r.sha);
+        tellGuildScribe();
         return send(res, 200, { ok: true, ...r }, origin);
       }
       if (req.method === "POST" && url.pathname === "/admin/discard") {
