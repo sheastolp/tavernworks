@@ -25,6 +25,10 @@
 //   POST /admin/reject-pitch (owner's token) { file, line }  ->  { ok, sha, url }   removes one (Pitch)
 //                        from working-notes.md or resources.md on the review branch: a heading with
 //                        its whole section, or a single bullet line
+//   POST /admin/lore-catchup (owner's token) {}  ->  { base, head, sections, cut, lines }   a draft of the
+//                        lore.md lines the decided notes gained since the last catch-up (by the model)
+//   POST /admin/lore-catchup/apply (owner's token) { head, lines }  ->  { ok, sha, url, added }   adds them
+//                        to lore.md on the review branch and remembers head as the new catch-up point
 //   POST /suggest    { source, title, body, about, key, name }  ->  { ok, queued }
 //                    anyone: waits in the inbox above until the owner files it (always as a pitch)
 //   POST /narrate    { messages: [{ role, content }] }  ->  { text }
@@ -388,6 +392,102 @@ async function rejectPitch(b) {
   return { sha: commit.sha, url: commit.html_url, name };
 }
 
+// ── Lore catch-up ──
+// lore.md is the condensed, decided canon the Wake in Verrowen narrator
+// reads. The catch-up compares the decided sections of the notes now (on the
+// review branch) with how they stood at the last catch-up, asks the model for
+// only the LORE lines that are missing, and hands the owner a draft. Nothing
+// changes until the owner adds the (edited) lines, as one commit on review.
+// The last catch-up is remembered in lore.md's second line, which the game
+// never sends to the narrator: "<!-- caught up to review@<sha> -->".
+const CANON_FILES = [NOTES, "resources.md", "universe.md"];
+const CAUGHT_UP = /<!-- caught up to review@([0-9a-f]{7,40}) -->/;
+const MAX_CHANGES = 20000;
+// Decided sections only: tagged (Your idea), or untagged under nothing but
+// (Your idea). Pitches, open directions, DM lore and the inboxes stay out, and
+// so do inline "(Pitch)" lines and "Still open" bullets inside a decided one.
+function decidedSections(file, text) {
+  const out = new Map(), stack = [];
+  let cur = null;
+  const flush = () => {
+    if (!cur || !cur.decided) return;
+    const body = cur.lines.filter((l) => !/\((Pitch|Not decided yet)\)/.test(l) && !/^\s*[-*]\s+\*\*(Still open|Open|Undecided)\b/i.test(l))
+      .join("\n").replace(/<!--[\s\S]*?-->/g, "").trim();
+    if (body) out.set(cur.key, body);
+  };
+  for (const l of String(text || "").replace(/\r/g, "").split("\n")) {
+    const h = l.match(/^(#{1,6})\s+(.*)$/);
+    if (!h) { if (cur) cur.lines.push(l); continue; }
+    flush();
+    const lvl = h[1].length, m = h[2].match(/\((Your idea|Pitch|Not decided yet|DM lore)[^)]*\)\s*$/);
+    while (stack.length && stack[stack.length - 1].lvl >= lvl) stack.pop();
+    stack.push({ lvl, name: h[2].replace(/\s*\((Your idea|Pitch|Not decided yet|DM lore)[^)]*\)\s*$/, "").trim(), tag: m ? m[1] : "" });
+    const tag = (stack.slice().reverse().find((s) => s.tag) || {}).tag || "";
+    const names = stack.map((s) => s.name);
+    cur = { key: file + " › " + names.slice(1).join(" › "), lines: [],
+      decided: lvl > 1 && (tag === "" || tag === "Your idea") && !names.some((n) => /open questions|still being developed|to fill in|^from (the |wake)|^maps\b/i.test(n)) };
+  }
+  flush();
+  return out;
+}
+async function fileAt(file, ref) {
+  const r = await gh("/contents/" + file + "?ref=" + ref);
+  if (r.status === 404) return "";
+  if (!r.ok) throw Object.assign(new Error(`GitHub couldn't read ${file} (${r.status})`), { status: 502 });
+  return Buffer.from(r.j.content || "", "base64").toString("utf8");
+}
+async function loreCatchupDraft() {
+  const head = await headOf(CLONE), lore = await fileAt(LORE, head);
+  let base = (lore.match(CAUGHT_UP) || [])[1];
+  if (!base) {
+    const c = await gh("/commits?sha=" + head + "&path=" + LORE + "&per_page=1");
+    base = c.ok && c.j[0] && c.j[0].sha;
+  }
+  if (!base) throw Object.assign(new Error("Couldn't tell when lore.md was last caught up"), { status: 502 });
+  const changed = [];
+  for (const f of CANON_FILES) {
+    const [was, now] = await Promise.all([fileAt(f, base), fileAt(f, head)]);
+    const before = decidedSections(f, was);
+    for (const [key, body] of decidedSections(f, now)) if (before.get(key) !== body) changed.push({ key, body });
+  }
+  if (!changed.length) return { base, head, sections: [], lines: "" };
+  let text = "", used = [], cut = false;
+  for (const s of changed) {
+    const part = `### ${s.key}\n${s.body}\n\n`;
+    if (text.length + part.length > MAX_CHANGES) { cut = true; continue; }
+    text += part; used.push(s.key);
+  }
+  const ask = `You keep lore.md, the short, decided canon the narrator of a roleplay game reads. Below are the current LORE and the DECIDED CHANGES made to the universe's notes since it was last caught up.
+
+Write ONLY what LORE is missing: facts in the changes that LORE doesn't already state, or states differently (then write the corrected fact). One line per topic, each starting with an UPPERCASE label like LORE's (STOUTWELL:, LIFE:, MAGIC:, ITEMS:, RESOURCES:, PEOPLE:, BEYOND:, OTHER WORLDS:) or a short new label. Plain, compact sentences. No markdown, no bullets, no commentary. Never add ideas that are still open, or anything not in the changes. If LORE already has everything, reply exactly: NOTHING NEW
+
+LORE:
+${lore.replace(/^# .*\n+.*\n+/, "").trim()}
+
+DECIDED CHANGES:
+${text.trim()}`;
+  const reply = await narrate([{ role: "user", content: ask }]);
+  const lines = /^\s*NOTHING NEW\s*$/i.test(reply) ? "" : reply.replace(/\*+/g, "").split("\n").map((l) => l.replace(/^\s*[-•]\s*/, "").trim())
+    .filter((l) => /^[A-Z][A-Z0-9 '&/-]{1,40}:\s+\S/.test(l)).join("\n");
+  return { base, head, sections: used, cut, lines };
+}
+async function loreCatchupApply(b) {
+  const head = String(b.head || "");
+  if (!/^[0-9a-f]{40}$/.test(head)) throw Object.assign(new Error("Make a new draft first"), { status: 400 });
+  const add = String(b.lines || "").replace(/\r/g, "").split("\n").map((l) => l.trim()).filter(Boolean);
+  if (add.join("\n").length > 12000) throw Object.assign(new Error("That's too much to add in one go"), { status: 400 });
+  const commit = await editOnReview(LORE, (text) => {
+    const lines = text.replace(/\s+$/, "").split("\n");
+    const mark = `<!-- caught up to review@${head} -->`;
+    // The marker rides on the line under the title, which the game drops before the narrator reads it.
+    let at = lines.findIndex((l) => CAUGHT_UP.test(l));
+    if (at < 0) { at = lines.findIndex((l, i) => i > 0 && l.trim()); if (at < 0) at = lines.push("") - 1; lines[at] = (lines[at] + " " + mark).trim(); }
+    else lines[at] = lines[at].replace(CAUGHT_UP, mark);
+    return lines.concat(add).join("\n") + "\n";
+  }, add.length ? `Lore catch-up: ${add.length} line${add.length > 1 ? "s" : ""} for the narrator` : "Lore catch-up: nothing new");
+  return { sha: commit ? commit.sha : "", url: commit ? commit.html_url : "", added: add.length };
+}
+
 // ── Sent in for review ──
 // Anyone can send a Codex note or a character for review, but only the
 // owner puts things on the review branch. What others send waits here, on
@@ -515,6 +615,16 @@ const server = http.createServer(async (req, res) => {
       if (req.method === "POST" && url.pathname === "/admin/reject-pitch") {
         const r = await rejectPitch(await readJson(req));
         console.log(new Date().toISOString(), "pitch rejected on review:", r.name, r.sha);
+        return send(res, 200, { ok: true, ...r }, origin);
+      }
+      if (req.method === "POST" && url.pathname === "/admin/lore-catchup") {
+        const r = await loreCatchupDraft();
+        console.log(new Date().toISOString(), "lore catch-up drafted:", r.sections.length, "changed sections");
+        return send(res, 200, { ok: true, ...r }, origin);
+      }
+      if (req.method === "POST" && url.pathname === "/admin/lore-catchup/apply") {
+        const r = await loreCatchupApply(await readJson(req));
+        console.log(new Date().toISOString(), "lore caught up on review:", r.added, "lines", r.sha);
         return send(res, 200, { ok: true, ...r }, origin);
       }
       if (req.method === "POST" && url.pathname === "/admin/publish") {

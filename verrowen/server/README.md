@@ -231,5 +231,6 @@ server, and this server talks to Ollama on the laptop itself.
 - **The lore comes from GitHub.** The page loads `lore.md` from the
   [grand-orrery](https://github.com/sheastolp/grand-orrery) repo, so editing
   it there changes the game within a few minutes. Nothing here needs updating.
+- **Lore catch-up:** **📜 Catch the lore up** on the review page asks this server to diff the decided notes since `lore.md`'s last catch-up (remembered in a comment on its second line) and have the model draft the missing lines. Adding them commits to `lore.md` on the review branch.
 - **Updating:** run step 2's `curl` again, then `systemctl restart verrowen`.
 - Logs: `journalctl -u verrowen`.

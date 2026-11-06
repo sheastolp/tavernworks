@@ -125,6 +125,19 @@
     <div id="pList" style="display:flex;flex-direction:column;gap:10px"></div>
   </section>
 
+  <section class="card" aria-labelledby="h-catch">
+    <h2 id="h-catch">📜 Lore catch-up</h2>
+    <p class="note">Keeps <code>lore.md</code>, what the Wake in Verrowen narrator reads, in step with what you've decided. It finds every <b>(Your idea)</b> section in the notes and <code>resources.md</code> that's new or changed since the last catch-up, and the laptop's AI drafts the lines the lore is missing. Pitches never go in. Check and edit the draft, then add it: it goes on the review branch like everything else.</p>
+    <div class="row"><button class="primary" type="button" id="cuGo">📜 Catch the lore up</button><span class="note" id="cuStatus" role="status"></span></div>
+    <div class="draft" id="cuDraft" hidden>
+      <details id="cuFromWrap"><summary class="note" id="cuFromSum"></summary><ul class="commits" id="cuFrom"></ul></details>
+      <label for="cuLines">New lines for lore.md, one per line (edit freely)</label>
+      <textarea id="cuLines" rows="10" maxlength="12000" spellcheck="true"></textarea>
+      <p class="note">If a line corrects something the lore already says, also fix the old line with <a href="https://github.com/sheastolp/grand-orrery/edit/review/lore.md" target="_blank" rel="noopener">Edit lore.md</a>.</p>
+      <div class="row"><button class="primary" type="button" id="cuAdd">Add to lore.md for review</button><button type="button" id="cuCancel">Cancel</button><span class="note" id="cuAddSt" role="status"></span></div>
+    </div>
+  </section>
+
   <section class="card" aria-labelledby="h-wait">
     <h2 id="h-wait">Waiting for you</h2>
     <p class="count" id="count">Checking GitHub…</p>
@@ -443,6 +456,49 @@ async function fileDraft(decided){
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
   finally{ $("rvFile").disabled = $("rvAccept").disabled = false; }
 }
+
+// ── Lore catch-up ──
+// The laptop diffs the decided notes since lore.md's last catch-up and asks
+// its model for the missing lines; adding them commits to lore.md on review.
+let cu = null;
+async function cuCall(path, body){
+  const token = $("token").value.trim();
+  if (!token) throw new Error("Enter the owner's token in Waiting for you first.");
+  const r = await fetch(SERVER + path, { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
+  if (!r.ok) throw new Error(j.error || "The laptop answered " + r.status + ".");
+  try{ localStorage.setItem(KEY, token); }catch(e){}
+  return j;
+}
+$("cuGo").addEventListener("click", async () => {
+  const st = $("cuStatus"), go = $("cuGo");
+  go.disabled = true; $("cuDraft").hidden = true; st.textContent = "Reading what you've decided since the last catch-up, then asking the AI. This can take a minute or two…";
+  try{
+    cu = await cuCall("/admin/lore-catchup");
+    if (!cu.sections.length){ st.textContent = "✔ The lore is already caught up. Nothing decided has changed since the last catch-up."; return; }
+    $("cuFromSum").textContent = "From " + cu.sections.length + " new or changed decided section" + (cu.sections.length > 1 ? "s" : "") + (cu.cut ? " (more changed than fits in one go; catch up again after adding these)" : "");
+    $("cuFrom").innerHTML = cu.sections.map((k) => `<li>${esc(k)}</li>`).join("");
+    $("cuLines").value = cu.lines;
+    $("cuAddSt").textContent = "";
+    st.textContent = cu.lines ? "Here's the draft. Check it against the sections it came from." : "The AI found nothing missing. Add it anyway to mark the lore as caught up, or write lines yourself.";
+    $("cuDraft").hidden = false; $("cuLines").focus();
+  }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+  finally{ go.disabled = false; }
+});
+$("cuCancel").addEventListener("click", () => { $("cuDraft").hidden = true; $("cuStatus").textContent = ""; });
+$("cuAdd").addEventListener("click", async () => {
+  if (!cu) return;
+  const st = $("cuAddSt"), b = $("cuAdd");
+  b.disabled = true; st.textContent = "Adding it to lore.md on the review branch…";
+  try{
+    const j = await cuCall("/admin/lore-catchup/apply", { head: cu.head, lines: $("cuLines").value });
+    $("cuDraft").hidden = true;
+    $("cuStatus").innerHTML = j.added ? `✔ Added ${j.added} line${j.added > 1 ? "s" : ""} to lore.md (<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>). Publish to give them to the narrator.` : "✔ Marked as caught up.";
+    setTimeout(load, 1500);
+  }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+  finally{ b.disabled = false; }
+});
 
 // ── Pitches ──
 // Every "(Pitch)" line in the lore files on the review branch. Accepting one
