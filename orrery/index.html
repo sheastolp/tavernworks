@@ -1245,7 +1245,7 @@ function chatRoute(arg, extra) {
 }
 function drawChat() {
   const c = openChat();
-  view.innerHTML = `<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="ai" id="aiPill">Checking the local AI…</span><span class="chatnote" id="aiModel">Runs on our own laptop</span></div>
+  view.innerHTML = `<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="ai" id="aiPill">Checking the local AI…</span><span class="chatnote" id="aiModel">Runs on our own laptop</span><span class="chatnote" title="Abliterated models are open models with their refusal training removed. We use them because of the inherent degeneracy and foul language of our users.">· Abliterated models, because of our users' degeneracy and foul language</span></div>
   <section class="chatbox" aria-label="Chat with the lore-keeper">
     <div class="chathead"><span>THE LORE-KEEPER</span>${c && c.mode === "chat" ? `<span class="topic"><label for="topicPick">On</label><select id="topicPick" title="What the lore-keeper thinks this chat is about. It works this out as you talk; pick one to pin it.">${topicOptions(c)}</select></span>` : `<span class="about">${c ? esc(chatTitle(c)) : "Characters, regions, rules and more"}</span>`}</div>
     <div class="chatlog" id="chatlog" aria-live="polite"></div>
