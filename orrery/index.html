@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Orrery Explorer · Tavernworks</title>
 <meta name="description" content="Browse the Grand Orrery: its maps, documents, character roster and enchanted items, and everything written about each one. A chat with the local AI talks through anything in it: characters, regions, rules, magic and more.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
@@ -32,8 +32,8 @@
   .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px;align-items:center}
   .tabs a{font-family:Cinzel,serif;font-size:13px;letter-spacing:.12em;text-decoration:none;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:7px 16px;background:rgba(0,0,0,.2)}
   .tabs a.on{color:var(--bg);background:var(--gold);border-color:var(--gold)}
-  form.find{margin-left:auto;display:flex;gap:6px;flex:1 1 240px;max-width:360px}
-  form.find input{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 14px;font:inherit;font-size:14px}
+  form.find{margin-left:auto;display:flex;gap:6px;flex:1 1 240px;max-width:360px;min-width:0}
+  form.find input{flex:1;min-width:0;width:0;background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 14px;font:inherit;font-size:14px}
   form.find button,.btn{background:transparent;border:1px solid var(--line);color:var(--gold2);border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
   .status{color:var(--muted);font-size:14px;margin:8px 0}
   .clonebar{position:sticky;top:0;z-index:50;background:#3a2410;border-bottom:1px solid var(--gold);color:var(--text);font-size:14px;padding:9px 16px;text-align:center}
@@ -152,7 +152,62 @@
   .linkbtn{background:none;border:0;padding:0;color:var(--gold2);font:inherit;text-decoration:underline;cursor:pointer}
   .writeup button.primary{background:var(--gold);color:var(--bg);font-weight:800}
   .sr{position:absolute;left:-9999px}
-  @media (max-width:560px){.chathead .about{display:none}.chathead .topic select{max-width:170px}.chatbox{height:80vh}}
+  @media (max-width:560px){.chathead .about{display:none}.chathead .topic select{max-width:170px}}
+  .chatbox{height:min(76dvh,740px)}
+  .chatlog{min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  .say{overflow-wrap:anywhere}
+  .composer{padding-bottom:max(14px,env(safe-area-inset-bottom))}
+  /* Before a chat starts, the box just fits the start screen. */
+  .chatbox:not(.playing){height:auto;min-height:0}
+  .chatbox:not(.playing) .chatlog{overflow:visible}
+  /* Phones: a compact header with the tabs on one swipeable row; the chat
+     fills the screen (shrinking above the keyboard), the message box grows
+     as you type, and the chat's controls sit on one row as icons. */
+  @media (max-width:600px){
+    nav.top{padding-top:14px}
+    header{padding:14px 0 10px}
+    .sign{font-size:10.5px;letter-spacing:.22em;padding:4px 12px;margin-bottom:8px}
+    .tag{font-size:15px}
+    body.chatting .tag{display:none}
+    .tabs{gap:6px;margin:14px 0 6px}
+    .tabs a{font-size:12px;letter-spacing:.04em;padding:8px 10px}
+    form.find{flex:1 1 100%;max-width:none;margin-left:0}
+    form.find input,form.find button,.btn{font-size:16px}
+    form.find input{padding:8px 14px}
+    .panel{padding:14px 14px}
+    .md{font-size:16.5px}
+    .md table{font-size:13.5px}
+    .card{padding:12px 14px}
+    .chatbox{border-radius:14px;scroll-margin-top:8px}
+    .chatbox.playing{height:calc(var(--app-h,100dvh) - 16px);min-height:320px}
+    .chathead{padding:10px 12px;letter-spacing:.08em}
+    .chathead > span:first-child{white-space:nowrap}
+    .chathead .topic label{display:none}
+    .chatlog{padding:14px 12px;gap:14px}
+    .say{font-size:17px;line-height:1.55}
+    .say.me{font-size:16.5px;max-width:92%}
+    .composer{padding:10px 12px max(10px,env(safe-area-inset-bottom))}
+    .composer textarea{min-height:46px;max-height:30vh;resize:none}
+    .chatstatus{padding:0 12px 6px}
+    .composer .row{flex-wrap:nowrap;gap:6px}
+    .composer .row button{padding:10px 11px;min-height:44px;white-space:nowrap}
+    .composer .row #sendSay{flex:1 1 auto}
+    .composer .row .lbl{display:none}
+    .chatbox select,.chatbox textarea,.ownerrow input{font-size:16px}
+    .chathead .topic select{font-size:16px;padding:4px 6px;max-width:min(190px,50vw)}
+    .chatstart .chips button{padding:8px 10px;font-size:13.5px}
+    .earlier .row{flex-wrap:wrap}
+    .earlier .row span{flex-basis:100%}
+    .chatstart .row button,.writeup .row button{flex:1 1 auto;min-height:44px}
+    .writeup{padding:14px}
+    .writeup pre{font-size:16px}
+  }
+  @media (max-width:360px){.composer .row{flex-wrap:wrap}}
+  @media (pointer:coarse){
+    .chatbox button.copymsg{opacity:.8;padding:8px;top:-8px}
+    .say.me button.copymsg{top:2px;right:2px}
+    .chatbox button.small{padding:8px 12px}
+  }
 </style>
 </head>
 <body>
@@ -476,6 +531,7 @@ function route() {
   const [tab, ...rest] = (location.hash.slice(1) || "roster").split("/");
   const arg = decodeURIComponent(rest[0] || ""), extra = rest[1] ? decodeURIComponent(rest[1]) : "";
   if (tab === "find") rest.splice(0, rest.length, rest.join("/"));
+  document.body.classList.remove("chatting");
   document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === (tab === "person" ? "roster" : tab === "item" ? "items" : tab === "doc" ? "docs" : tab)));
   let out, re = null;
   if (tab === "person") ({ html: out, re } = person(arg));
@@ -750,10 +806,10 @@ function drawChat() {
         <button class="primary" type="button" id="sendSay">Send</button>
         <button class="stopbtn" type="button" id="stopSay" title="Stop waiting for this reply" hidden>■ Stop</button>
         <button class="mic" type="button" id="micSay" title="Speak your message" aria-label="Voice typing" hidden>🎤</button>
-        <button class="quiet" type="button" id="resendSay" title="Ask the lore-keeper to answer the last message again. Handy right after the laptop wakes up.">↻ Resend</button>
-        <button type="button" id="writeBtn">${c && writeKind(c) === "review" ? "📋 Sum it up" : "✍️ Write it up"}</button>
-        <button class="quiet" type="button" id="saveReview" title="Save this chat as it stands for the owner's review, on the Review Clone page. It replaces the last one saved.">📥 Save for review</button>
-        <button class="quiet" type="button" id="backChat" title="Back to the start. This chat is kept, so you can pick it up later.">← Back</button>
+        <button class="quiet" type="button" id="resendSay" title="Ask the lore-keeper to answer the last message again. Handy right after the laptop wakes up." aria-label="Resend">↻<span class="lbl"> Resend</span></button>
+        <button type="button" id="writeBtn">${c ? writeLabel(c) : ""}</button>
+        <button class="quiet" type="button" id="saveReview" title="Save this chat as it stands for the owner's review, on the Review Clone page. It replaces the last one saved." aria-label="Save for review">📥<span class="lbl"> Save for review</span></button>
+        <button class="quiet" type="button" id="backChat" title="Back to the start. This chat is kept, so you can pick it up later." aria-label="Back to the start">←<span class="lbl"> Back</span></button>
       </div>
       <div class="ownerrow" id="ownerRow" hidden>
         <label class="sr" for="ownerToken">Owner's token</label>
@@ -770,11 +826,18 @@ function drawChat() {
   </section>
   <p class="chatnote" id="reopenWrite" hidden><button type="button" class="linkbtn" id="showWrite">📄 Show the write-up again</button></p>
   <p class="chatnote" style="margin-top:14px">The lore-keeper is a small AI model on the same laptop as <a href="/local-ai/">Local AI</a> and the <a href="/verrowen/">Wake in Verrowen</a> narrator. It reads the documents above${codexNotes().length ? " and your decided <a href=\"/verrowen/codex/\">Codex</a> notes" : ""} as canon. Chats are kept in this browser only. If the laptop is asleep, it can't answer.</p>`;
+  document.querySelector(".chatbox").classList.toggle("playing", !!c);
+  document.body.classList.add("chatting");
+  if (c && touch.matches) $("say").placeholder = $("say").placeholder.replace(/\s*\(Ctrl\+Enter sends\)$/, "");
   setAi(aiUp);
   if (aiUp === null || aiUp === false) checkAi(); else { const m = $("aiModel"); if (m && aiModel) m.textContent = "Runs " + aiModel + " on our own laptop"; }
   if (!c) drawStart(); else drawLog();
   if (c) {
     $("sendSay").onclick = sendSay;
+    $("say").oninput = fitSay;
+    $("say").onfocus = () => { if (phone.matches) setTimeout(showChatBox, 300); };
+    fitSay();
+    if (location.hash === "#chat") showChatBox();
     $("say").onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendSay(); } };
     $("writeBtn").onclick = writeUp;
     if ($("topicPick")) $("topicPick").onchange = () => { const v = $("topicPick").value; c.pin = v === "auto" ? "" : v; if (!c.pin) c.topic = detectTopic(c); keepChats(); drawChat(); };
@@ -798,6 +861,29 @@ function drawChat() {
     $("showWrite").onclick = () => { c.writeupClosed = false; keepChats(); drawLog(); $("writeup").scrollIntoView({ behavior: "smooth" }); };
   }
   setChatBusy(chatBusy);
+}
+// The write-up button: on a phone only its icon shows.
+function writeLabel(c) { return writeKind(c) === "review" ? '📋<span class="lbl"> Sum it up</span>' : '✍️<span class="lbl"> Write it up</span>'; }
+// ── Phones ──
+// --app-h is the height actually visible, so the chat shrinks above the
+// on-screen keyboard instead of hiding behind it.
+const phone = matchMedia("(max-width:600px)"), touch = matchMedia("(pointer:coarse)");
+function fitHeight() {
+  const vv = window.visualViewport;
+  document.documentElement.style.setProperty("--app-h", Math.round(vv ? vv.height : innerHeight) + "px");
+  const log = $("chatlog"); if (log && openChat()) log.scrollTop = log.scrollHeight;
+}
+(window.visualViewport || window).addEventListener("resize", fitHeight);
+fitHeight();
+function showChatBox() {
+  const box = document.querySelector(".chatbox.playing");
+  if (phone.matches && box) box.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+// The message box grows with what's typed (up to a limit), then scrolls.
+function fitSay() {
+  const r = $("say"); if (!r) return;
+  if (!phone.matches) { r.style.height = ""; return; }
+  r.style.height = "auto"; r.style.height = Math.min(r.scrollHeight + 2, innerHeight * .3) + "px";
 }
 function topicOptions(c) {
   const auto = topicOf(c.topic || "general");
@@ -924,10 +1010,10 @@ function sendSay() {
   if (chatVoice) chatVoice.stop();
   const t = $("say").value.trim();
   if (!t) return chatStatus("Write something first.", true);
-  c.messages.push({ role: "user", content: t.slice(0, MAX_SAY) }); $("say").value = "";
+  c.messages.push({ role: "user", content: t.slice(0, MAX_SAY) }); $("say").value = ""; fitSay();
   if (c.mode === "chat") {
     const was = c.topic; c.topic = detectTopic(c);
-    if (c.topic !== was && !c.pin && $("topicPick")) { $("topicPick").innerHTML = topicOptions(c); $("writeBtn").textContent = writeKind(c) === "review" ? "📋 Sum it up" : "✍️ Write it up"; }
+    if (c.topic !== was && !c.pin && $("topicPick")) { $("topicPick").innerHTML = topicOptions(c); $("writeBtn").innerHTML = writeLabel(c); }
   }
   c.at = Date.now(); keepChats(); drawLog(); saveForReview(c);
   ask(c, "turn", (r) => { c.messages.push({ role: "assistant", content: r }); });
