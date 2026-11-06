@@ -228,6 +228,7 @@
     <div class="tabs">
       <a href="#roster" data-tab="roster">Roster</a>
       <a href="#items" data-tab="items">Items</a>
+      <a href="#sent" data-tab="sent">📨 Sent in</a>
       <a href="#maps" data-tab="maps">Maps</a>
       <a href="#docs" data-tab="docs">Documents</a>
       <a href="#chat" data-tab="chat">✒️ Chat</a>
@@ -244,7 +245,7 @@
 <script>
 // Orrery Explorer: reads the grand-orrery repo's Markdown straight from
 // GitHub (like Wake in Verrowen reads lore.md), so it's always current.
-// Views (in the URL hash): #roster, #person/<id>, #items, #item/<id>, #maps, #docs, #doc/<id>,
+// Views (in the URL hash): #roster, #person/<id>, #items, #item/<id>, #sent, #maps, #docs, #doc/<id>,
 // #find/<text>. A person's page gathers every section of every document that
 // mentions them, the way a search would, so new notes show up on their own.
 // /orrery/?clone=review is the Review Clone: the same Explorer, read from
@@ -341,6 +342,78 @@ const ITEMS = [
     limits: "About 80% complete, and still a secret.",
     story: "It ties the village to Arandur, the rifts, and the wider universe." },
 ];
+
+// ── Sent in for review ──
+// What the owner files from the review page lands in working-notes.md as a
+// "### Title (Pitch)" section under "## From the lore-keeper", "## From Wake
+// in Verrowen" or "## From the Codex" (see verrowen/server/server.mjs). Once
+// it's published, those sections join the roster and the items here, and
+// every one of them is listed on the "Sent in" tab, so nothing filed gets
+// lost at the end of the notes.
+const REVIEW_HEADS = { "From the lore-keeper": "lore-keeper", "From Wake in Verrowen": "verrowen", "From the Codex": "codex" };
+const REVIEW_FROM = { "lore-keeper": "🪶 Lore-keeper", verrowen: "🕯 Wake in Verrowen", codex: "📜 Codex" };
+const CODEX_KIND = { Character: "character", "People or group": "people", Place: "place", Magic: "magic", Item: "item", "Rule or custom": "rule" };
+const TOPIC_KIND = { Characters: "character", "Items & inventions": "item", "Regions & places": "place", "Peoples & groups": "people", Magic: "magic", "Physics & nature": "physics", "Rules & customs": "rule" };
+const KIND_ICON = { character: "🧑", item: "🗝", place: "🗺", people: "🏘", magic: "✨", physics: "⚙️", rule: "⚖", idea: "🪶" };
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+let REVIEWED = [];
+function reviewedEntries() {
+  const notes = DOCS.find((d) => d.id === "notes");
+  return sections(notes).filter((s) => s.level === 3).flatMap((s) => {
+    const source = REVIEW_HEADS[s.path.find((h) => REVIEW_HEADS[h])];
+    if (!source) return [];
+    const tag = (s.heading.match(/\(([^()]+)\)\s*$/) || [])[1] || "Pitch";
+    const title = s.heading.replace(/\s*\([^()]+\)\s*$/, "").trim();
+    const lines = s.body.replace(/^#.*\n?/, "").replace(/<!--[\s\S]*?-->\n?/g, "").split("\n");
+    const bi = lines.findIndex((l) => /^_.+_\s*$/.test(l.trim()));
+    const byline = bi >= 0 ? lines[bi].trim().replace(/^_|\.?_$/g, "") : "";
+    const rest = lines.filter((_, k) => k !== bi);
+    const about = byline.split(" · ").slice(1).pop() || "";
+    // Its name: a "Name: X" line, a bold line on its own, or "Name" with the
+    // name on the next line; otherwise the section's title.
+    const body = rest.map((l) => l.trim());
+    const first = body.filter(Boolean);
+    let name = (body.join("\n").match(/^\W*Name\W*:\s*(.+)$/im) || [])[1] || "";
+    if (!name && /^\*\*[^*]{2,50}\*\*$/.test(first[0] || "")) name = first[0].slice(2, -2);
+    if (!name) {
+      const k = first.findIndex((l) => /^\W*Name\W*$/i.test(l));
+      if (k >= 0 && first[k + 1] && first[k + 1].length <= 50 && !/^(kind|race|the rule|what it is|age|role)\b/i.test(first[k + 1])) name = first[k + 1];
+    }
+    name = (name || title).replace(/[*_]/g, "").replace(/\(suggested\)/i, "").trim().slice(0, 60) || title;
+    let kind = source === "verrowen" ? "character" : source === "codex" ? CODEX_KIND[about] || "idea" : TOPIC_KIND[about] || (/^About /.test(about) ? "character" : "idea");
+    if (source === "lore-keeper" && /\b(items?|inventions?|artifacts?|relics?|weapons?|trinkets?)\b/i.test(title)) kind = "item";
+    return [{ id: "rv-" + slug(name), heading: s.heading, anchor: slug(s.heading), source, tag, title, name, kind, byline, about,
+      blurb: blurbOf(first, name) }];
+  });
+}
+// A line for its card: the first plain sentence, skipping "Label: value" lines.
+function blurbOf(lines, name) {
+  const label = /^\W*[A-Za-z][\w ()'’&/-]{0,30}?\W*:\s*/;
+  const long = lines.map((l) => plain(l)).filter((l) => l.length >= 40 && l !== name);
+  const pick = long.slice(0, 6).find((l) => !label.test(l)) || (long[0] || "").replace(label, "");
+  return pick.length > 150 ? pick.slice(0, 147).replace(/\s+\S*$/, "") + "…" : pick;
+}
+// Put filed characters on the roster and filed items with the items, unless
+// they're already there by name.
+function absorbReviewed() {
+  for (const list of [PEOPLE, ITEMS]) for (let k = list.length - 1; k >= 0; k--) if (list[k].reviewed) list.splice(k, 1);
+  REVIEWED = reviewedEntries();
+  const known = (list, n) => list.some((x) => patternFor(x.names).test(n));
+  for (const e of REVIEWED) {
+    const names = [reEsc(e.name)];
+    const sub = (e.tag === "Pitch" ? "Pitch" : e.tag) + " · " + REVIEW_FROM[e.source].replace(/^\S+ /, "");
+    if (e.kind === "character" && !known(PEOPLE, e.name) && !PEOPLE.some((p) => p.id === e.id))
+      PEOPLE.push({ group: "Sent in for review", id: e.id, name: e.name, role: sub + (e.about && e.source !== "verrowen" ? " · " + e.about : ""), names, reviewed: true });
+    if (e.kind === "item" && !known(ITEMS, e.name) && !ITEMS.some((it) => it.id === e.id))
+      ITEMS.push({ id: e.id, icon: "🗝", name: e.name, sub, names, by: [], does: e.blurb || "Sent in for review.", reviewed: true });
+  }
+}
+function sentIn() {
+  if (!REVIEWED.length) return `<p class="tag">Nothing has been filed for review yet. Codex notes, Wake in Verrowen characters and lore-keeper write-ups show up here once the owner publishes them.</p>`;
+  const link = (e) => PEOPLE.some((p) => p.id === e.id && p.reviewed) ? `#person/${e.id}` : ITEMS.some((it) => it.id === e.id && it.reviewed) ? `#item/${e.id}` : `#doc/notes/${e.anchor}`;
+  return `<p class="tag" style="margin:4px 0 14px">${CLONE ? "Everything filed for review, including what's still waiting to be published." : "Everything the owner filed from the review page and published, newest first."} Nothing here is decided until it's marked <b>Your idea</b>.</p><div class="grid">${REVIEWED.slice().reverse().map((e) =>
+    `<a class="card" href="${link(e)}"><div class="icon">${KIND_ICON[e.kind] || "🪶"}</div><b>${esc(e.name)}</b><span>${esc(e.blurb || e.title)}</span><div class="count">${esc(REVIEW_FROM[e.source])} · ${esc(e.tag)}${e.byline ? " · " + esc((e.byline.match(/\d{4}-\d\d-\d\d/) || [""])[0]) : ""}</div></a>`).join("")}</div>`;
+}
 
 const $ = (id) => document.getElementById(id);
 const view = $("view");
@@ -472,7 +545,7 @@ function renderHits(found, re) {
 // ── Views ──
 function roster() {
   const groups = [...new Set(PEOPLE.map((p) => p.group))];
-  return groups.map((g) => `<h2 class="sec">${esc(g)}</h2><div class="grid">${PEOPLE.filter((p) => p.group === g).map((p) => {
+  return groups.map((g) => `<h2 class="sec">${esc(g)}</h2>${g === "Sent in for review" ? `<p class="tag" style="margin:-6px 0 12px">Characters filed from the review page. Not canon until marked <b>Your idea</b>. <a href="#sent">Everything sent in</a>.</p>` : ""}<div class="grid">${PEOPLE.filter((p) => p.group === g).map((p) => {
     const n = matches(patternFor(p.names)).reduce((a, d) => a + d.hits.length, 0);
     return `<a class="card" href="#person/${p.id}"><b>${esc(p.name)}</b><span>${esc(p.role)}</span><div class="count">${n} section${n === 1 ? "" : "s"} written</div></a>`;
   }).join("")}</div>`).join("");
@@ -494,7 +567,7 @@ function person(id) {
   }${makes.length ? `<div class="who"><span class="pill">Makes</span>${makes.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}${renderHits(found, re) || "<p>Nothing written yet.</p>"}`, re };
 }
 function items() {
-  return `<p class="tag" style="margin:4px 0 14px">Made or sold in Murrow's shop, Monstradius. Each item shows how the rules of magic work.</p><div class="grid">${ITEMS.map((it) => {
+  return `<p class="tag" style="margin:4px 0 14px">Made or sold in Murrow's shop, Monstradius. Each item shows how the rules of magic work.${ITEMS.some((it) => it.reviewed) ? ' Items marked Pitch were <a href="#sent">sent in for review</a>.' : ""}</p><div class="grid">${ITEMS.map((it) => {
     const n = matches(patternFor(it.names)).reduce((a, d) => a + d.hits.length, 0);
     return `<a class="card" href="#item/${it.id}"><div class="icon">${it.icon}</div><b>${esc(it.name)}</b><span>${esc(it.does)}</span><div class="count">${it.sub ? esc(it.sub) + " · " : ""}${n} section${n === 1 ? "" : "s"} written</div></a>`;
   }).join("")}</div>`;
@@ -507,7 +580,7 @@ function item(id) {
   const total = found.reduce((a, d) => a + d.hits.length, 0);
   const by = it.by.map((pid) => PEOPLE.find((p) => p.id === pid)).filter(Boolean);
   const facts = [["What it does", it.does], ["How it's made", it.made], ["Limits", it.limits], ["Rules it shows", it.rules], ["Story use", it.story]].filter(([, v]) => v);
-  return { html: `<div class="crumb"><a href="#items">Items</a> › Monstradius</div><h2 class="sec" style="margin-top:4px;font-size:26px">${it.icon} ${esc(it.name)}</h2><p class="tag">${it.sub ? esc(it.sub) + " · " : ""}${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}.</p>${
+  return { html: `<div class="crumb"><a href="#items">Items</a> › ${it.reviewed ? '<a href="#sent">Sent in for review</a>' : "Monstradius"}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${it.icon} ${esc(it.name)}</h2><p class="tag">${it.sub ? esc(it.sub) + " · " : ""}${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}.</p>${
     by.length ? `<div class="who">${by.map((p) => `<a class="pill" href="#person/${p.id}">${esc(p.name)}</a>`).join("")}</div>` : ""
   }<div class="panel"><dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div>${renderHits(found, re) || "<p>Nothing else written yet.</p>"}`, re };
 }
@@ -550,6 +623,7 @@ function route() {
   else if (tab === "item") ({ html: out, re } = item(arg));
   else if (tab === "items") out = items();
   else if (tab === "maps") out = maps();
+  else if (tab === "sent") out = sentIn();
   else if (tab === "docs") out = docs();
   else if (tab === "doc") out = doc(arg, extra);
   else if (tab === "chat") return chatRoute(arg, extra);
@@ -566,6 +640,7 @@ async function load() {
   $("status").textContent = "Loading the orrery…";
   const got = await Promise.all(DOCS.map((d) => fetch(RAW + d.file, { cache: "no-cache" }).then((r) => (r.ok ? r.text() : "")).catch(() => "")));
   DOCS.forEach((d, k) => (text[d.id] = got[k]));
+  absorbReviewed();
   const missing = DOCS.filter((d) => !text[d.id]);
   if (missing.length === DOCS.length) {
     $("status").className = "status err";
