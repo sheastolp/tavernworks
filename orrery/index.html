@@ -267,7 +267,8 @@ const DOCS = [
   { id: "maps", file: "maps/README.md", title: "Maps notes", sub: "maps/README.md" },
 ];
 const MAPS = [
-  { file: "maps/region.png", title: "The region", caption: "The Kingdom, the Monster Wood, the Woodland Road, the croplands, Stoutwell, the river and the mills." },
+  { file: "maps/region.png", title: "The region", caption: "The Kingdom, the Monster Wood, the Woodland Road, the croplands, Stoutwell, the Ashen Reach, the river and the mills, the lake, the fishing settlement and the mountain wall." },
+  { file: "maps/lake.png", title: "The lake", caption: "Where the river ends: the fishing settlement on the far shore, the corner of the mountain wall, the fishers' hidden pass and the Ashen Reach." },
   { file: "maps/stoutwell.png", title: "Stoutwell", caption: "Districts, the Gathering Hall, the dried well, the Wellhouse, Monstradius, Doric's smithy, the lumber yard and the river mills." },
 ];
 // The roster. `names` are case-sensitive patterns matched as whole words.
@@ -618,7 +619,7 @@ const TOPICS = [
   { id: "character", icon: "🧑", label: "Characters", words: /\b(characters?|npcs?|heroe?s?|villains?|backstory|personality|protagonist|someone|persona|sheet|motives?|secrets?|personalit(?:y|ies)|named?|ages?)\b/gi },
   { id: "magic", icon: "✨", label: "Magic", words: /\b(magic\w*|mana|spells?|enchant\w*|attune\w*|elemental|healers?|healing|runes?|artificers?|charged?|charges|latent|detection|fire users?|gifts?|wells? of)\b/gi },
   { id: "physics", icon: "⚙️", label: "Physics & nature", words: /\b(physics|gravity|weather|seasons?|winters?|summers?|cold|heat|sun|moons?|stars?|sky|orrery|tides?|nature|plants?|animals?|beasts?|blight|disease|light|rifts?|worlds?|cosmology)\b/gi },
-  { id: "place", icon: "🗺", label: "Regions & places", words: /\b(regions?|places?|maps?|towns?|villages?|cit(?:y|ies)|districts?|rivers?|forests?|woods?|roads?|lanes?|kingdoms?|lands?|terrain|mills?|slums|walls?|gates?|geography|borders?|north|south|east|west|Stoutwell|Ashen Reach|Monster Wood|Woodland Road|croplands|Verrowen|Monstradius|smithy|lumber yard|Gathering Hall)\b/gi },
+  { id: "place", icon: "🗺", label: "Regions & places", words: /\b(regions?|places?|maps?|towns?|villages?|cit(?:y|ies)|districts?|rivers?|forests?|woods?|roads?|lanes?|kingdoms?|lands?|terrain|mills?|slums|walls?|gates?|lakes?|shores?|mountains?|pass(?:es)?|fish(?:ing|ers?)?|settlements?|geography|borders?|north|south|east|west|Stoutwell|Ashen Reach|Monster Wood|Woodland Road|croplands|Verrowen|Monstradius|smithy|lumber yard|Gathering Hall)\b/gi },
   { id: "people", icon: "🏘", label: "Peoples & groups", words: /\b(races?|elves|elf|elven|dwarf\w*|halflings?|gnomes?|humans?|goblins?|trolls?|guilds?|factions?|clans?|cultures?|famil(?:y|ies)|Elderhold|Hearthcircle|Guard|GuildScribe|guildscribes?)\b/gi },
   { id: "rule", icon: "⚖", label: "Rules & customs", words: /\b(rules?|laws?|customs?|traditions?|tax(?:es)?|tithes?|trade|religions?|gods?|festivals?|punish\w*|crimes?|courts?|mechanics?|dice|rolls?|stats?|currency|coins?|marriage|inherit\w*|schooling)\b/gi },
   { id: "item", icon: "🗝", label: "Items & inventions", words: /\b(items?|weapons?|swords?|axes?|armou?r|tools?|inventions?|devices?|artifacts?|amulets?|rings?|trinkets?|compass(?:es)?)\b/gi },
