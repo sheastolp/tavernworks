@@ -282,6 +282,7 @@
 <script src="/orrery-review.js"></script>
 <script src="/pwa.js" data-sw="/orrery/sw.js" data-scope="/orrery/" data-badge="review"></script>
 <script src="/voice-input.js"></script>
+<script src="/ai-model-note.js"></script>
 <script>
 // The Orrery: reads the grand-orrery repo's Markdown straight from
 // GitHub (like Wake in Verrowen reads lore.md), so it's always current.
@@ -1226,7 +1227,13 @@ function setAi(up) {
 let aiUp = null, aiModel = "";
 function checkAi() {
   fetch(AI + "/health").then((r) => r.json()).then((j) => { aiUp = !!(j.ok && j.ollama); aiModel = j.model || ""; }).catch(() => { aiUp = false; })
-    .finally(() => { setAi(aiUp); const m = $("aiModel"); if (m) m.textContent = aiModel ? "Runs " + aiModel + " on our own laptop" : "Runs on our own laptop"; });
+    .finally(() => { setAi(aiUp); const m = $("aiModel"); if (m) m.textContent = aiModel ? "Runs " + aiModel + " on our own laptop" : "Runs on our own laptop"; showAiKind(); });
+}
+// Abliterated or standard, worked out from the model's name (/ai-model-note.js).
+function showAiKind() {
+  const k = $("aiKind"); if (!k || !window.AiModelNote) return;
+  const s = AiModelNote.short(aiModel);
+  k.textContent = s ? "· " + s : ""; k.title = AiModelNote.text(aiModel, "lore-keeper"); k.hidden = !s;
 }
 
 function chatRoute(arg, extra) {
@@ -1245,7 +1252,7 @@ function chatRoute(arg, extra) {
 }
 function drawChat() {
   const c = openChat();
-  view.innerHTML = `<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="ai" id="aiPill">Checking the local AI…</span><span class="chatnote" id="aiModel">Runs on our own laptop</span><span class="chatnote" title="Abliterated models are open models with their refusal training removed. We use them because of the inherent degeneracy and foul language of our users.">· Abliterated models, because of our users' degeneracy and foul language</span></div>
+  view.innerHTML = `<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="ai" id="aiPill">Checking the local AI…</span><span class="chatnote" id="aiModel">Runs on our own laptop</span><span class="chatnote" id="aiKind" hidden></span></div>
   <section class="chatbox" aria-label="Chat with the lore-keeper">
     <div class="chathead"><span>THE LORE-KEEPER</span>${c && c.mode === "chat" ? `<span class="topic"><label for="topicPick">On</label><select id="topicPick" title="What the lore-keeper thinks this chat is about. It works this out as you talk; pick one to pin it.">${topicOptions(c)}</select></span>` : `<span class="about">${c ? esc(chatTitle(c)) : "Characters, regions, rules and more"}</span>`}</div>
     <div class="chatlog" id="chatlog" aria-live="polite"></div>
@@ -1284,7 +1291,7 @@ function drawChat() {
   document.body.classList.add("chatting");
   if (c && touch.matches) $("say").placeholder = $("say").placeholder.replace(/\s*\(Ctrl\+Enter sends\)$/, "");
   setAi(aiUp);
-  if (aiUp === null || aiUp === false) checkAi(); else { const m = $("aiModel"); if (m && aiModel) m.textContent = "Runs " + aiModel + " on our own laptop"; }
+  if (aiUp === null || aiUp === false) checkAi(); else { const m = $("aiModel"); if (m && aiModel) m.textContent = "Runs " + aiModel + " on our own laptop"; showAiKind(); }
   if (!c) drawStart(); else drawLog();
   $("ownerSave").onclick = () => {
     const t = $("ownerToken").value.trim();

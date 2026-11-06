@@ -216,7 +216,7 @@
         </fieldset>
         <p class="note" id="setupNote" hidden></p>
         <p class="note">Your story is saved on Sheamus's own computer so your character can join the universe. Every new story starts somewhere different.</p>
-        <p class="note">The narrator runs on <b>abliterated</b> AI models (open models with their refusal training removed), because of the inherent degeneracy and foul language of our players. It won't flinch at what you type, and it can get crude, violent or offensive back.</p>
+        <p class="note" id="modelNote" hidden></p>
         <div class="row"><button class="primary" id="beginBtn">Begin</button></div>
       </div>
     </div>
@@ -274,6 +274,7 @@
 <script src="/orrery-review.js"></script>
 <script src="/pwa.js" data-sw="/verrowen/sw.js" data-scope="/verrowen/"></script>
 <script src="/voice-input.js"></script>
+<script src="/ai-model-note.js"></script>
 <script>
 // Wake in Verrowen: the whole game runs in this page. It loads the lore from
 // the universe repo and sends each turn to the narrator gate on the laptop
@@ -489,6 +490,9 @@ function checkHealth(){
   fetch(NARRATOR + "/health").then(r => r.json()).then(j => {
     setNarrator(!!(j.ok && j.ollama));
     if (j.model) $("modelPill").textContent = "Narrated by " + j.model + " on our own laptop";
+    // Say what kind of model it is (abliterated or standard), from its name.
+    const note = window.AiModelNote ? AiModelNote.text(j.model, "narrator") : "";
+    $("modelNote").textContent = note; $("modelNote").hidden = !note;
   }).catch(() => setNarrator(false));
 }
 checkHealth();

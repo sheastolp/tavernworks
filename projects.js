@@ -653,6 +653,7 @@ window.TAVERN_PROJECTS = {
     ["home","2026-11-05","The Grand Orrery takes the spot under the path, with Wake in Verrowen as the game set inside it","#orrery"],
     ["orrery","2026-11-05","Orrery Explorer gets an Items tab: the Hearthstone, Featherhook, Wardbell, Truthglass and Rift compass, each with what it does, how it's made and its limits","/orrery/#items"],
     ["orrery","2026-11-06","One app, the Orrery: it opens on the lore-keeper chat, with a world picker and a Role play tab into Wake in Verrowen","/orrery/#chat"],
-    ["verrowen","2026-11-06","Wake in Verrowen is for making a character: names aren't known at the start, so the true-name picker is gone and the narrator reveals a name that fits the lore","/verrowen/"]
+    ["verrowen","2026-11-06","Wake in Verrowen is for making a character: names aren't known at the start, so the true-name picker is gone and the narrator reveals a name that fits the lore","/verrowen/"],
+    ["verrowen","2026-11-06","Wake in Verrowen, the lore-keeper and the Terms work out from the model's name whether the laptop runs an abliterated or a standard AI model, and say so","/verrowen/"]
   ]
 };
