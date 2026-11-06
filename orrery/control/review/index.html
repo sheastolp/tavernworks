@@ -120,7 +120,7 @@
 
   <section class="card" aria-labelledby="h-pitch">
     <h2 id="h-pitch">💡 Pitches</h2>
-    <p class="note">Every <b>(Pitch)</b> in <code>working-notes.md</code> and <code>resources.md</code> on the review branch. <b>✔ Accept as is</b> keeps its words exactly and only marks it <b>(Your idea)</b>, as one change on the review branch. It joins "Waiting for you" below and goes live when you publish. To change the words first, use <b>Edit</b>.</p>
+    <p class="note">Every <b>(Pitch)</b> in <code>working-notes.md</code> and <code>resources.md</code> on the review branch. <b>✔ Accept as is</b> keeps its words exactly and only marks it <b>(Your idea)</b>. <b>✕ Reject</b> takes it out of the file (a heading pitch with its whole section). Either one is a single change on the review branch: it joins "Waiting for you" below and goes live when you publish, and Throw it all away undoes it. To change the words first, use <b>Edit</b>.</p>
     <div class="row"><button type="button" id="pLoad">Check again</button><span class="note" id="pStatus" role="status"></span></div>
     <div id="pList" style="display:flex;flex-direction:column;gap:10px"></div>
   </section>
@@ -486,27 +486,30 @@ async function loadPitches(){
     <p class="note">${esc(p.file)}${p.where ? " · " + esc(p.where) : ""}</p>
     <div class="pname">${esc(p.name)}</div>
     ${p.body ? `<details><summary>Read it</summary><pre>${esc(p.body)}</pre></details>` : ""}
-    <div class="row"><button class="primary" type="button" data-act="accept">✔ Accept as is</button><a class="btn" href="https://github.com/${REPO}/edit/review/${esc(p.file)}" target="_blank" rel="noopener" title="Line ${p.n}">Edit</a><span class="note" data-st role="status"></span></div>
+    <div class="row"><button class="primary" type="button" data-act="accept">✔ Accept as is</button><button class="danger" type="button" data-act="reject">✕ Reject</button><a class="btn" href="https://github.com/${REPO}/edit/review/${esc(p.file)}" target="_blank" rel="noopener" title="Line ${p.n}">Edit</a><span class="note" data-st role="status"></span></div>
   </div>`).join("");
 }
 $("pLoad").addEventListener("click", loadPitches);
 loadPitches();   // the pitches sit at the top, so they show straight away
 $("pList").addEventListener("click", async (e) => {
-  const b = e.target.closest("button[data-act=accept]"); if (!b) return;
+  const b = e.target.closest("button[data-act]"); if (!b) return;
   const box = b.closest("[data-p]"), st = box.querySelector("[data-st]"), p = pitches[+box.dataset.p];
-  const token = $("token").value.trim();
+  const token = $("token").value.trim(), reject = b.dataset.act === "reject";
   if (!token){ st.textContent = "Enter the owner's token in Waiting for you first."; $("token").focus(); return; }
-  b.disabled = true; st.textContent = "Marking it Your idea on the review branch…";
+  if (reject && b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Tap again to reject"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "✕ Reject"; }, 5000); return; }
+  const btns = box.querySelectorAll("button"); btns.forEach((x) => x.disabled = true);
+  st.textContent = reject ? "Taking it out on the review branch…" : "Marking it Your idea on the review branch…";
   try{
-    const r = await fetch(SERVER + "/admin/accept-pitch", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ file: p.file, line: p.line }) });
+    const r = await fetch(SERVER + (reject ? "/admin/reject-pitch" : "/admin/accept-pitch"), { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ file: p.file, line: p.line }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(r.status === 404 && !j.error ? "The laptop's server needs updating first (see the server README)." : j.error || "The laptop answered " + r.status + ".");
     try{ localStorage.setItem(KEY, token); }catch(err){}
-    box.classList.add("done"); b.remove();
-    st.innerHTML = `✔ Accepted as Your idea (<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>). Publish to put it live.`;
+    box.classList.add("done"); btns.forEach((x) => x.remove());
+    const link = `<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>`;
+    st.innerHTML = reject ? `✕ Rejected and taken out (${link}). Publish to make it final.` : `✔ Accepted as Your idea (${link}). Publish to put it live.`;
     // Later pitches in the same file still match by their own line, so the rest stay valid.
     setTimeout(load, 1500);
-  }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; b.disabled = false; }
+  }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; btns.forEach((x) => x.disabled = false); if (reject) b.textContent = "✕ Reject"; }
 });
 </script>
 <script src="/orrery/review-summary.js"></script>

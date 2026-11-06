@@ -22,6 +22,9 @@
 //                        "file" files it as a Pitch, "accept" as Your idea
 //   POST /admin/accept-pitch (owner's token) { file, line }  ->  { ok, sha, url }   turns one (Pitch)
 //                        in working-notes.md or resources.md into (Your idea), on the review branch
+//   POST /admin/reject-pitch (owner's token) { file, line }  ->  { ok, sha, url }   removes one (Pitch)
+//                        from working-notes.md or resources.md on the review branch: a heading with
+//                        its whole section, or a single bullet line
 //   POST /suggest    { source, title, body, about, key, name }  ->  { ok, queued }
 //                    anyone: waits in the inbox above until the owner files it (always as a pitch)
 //   POST /narrate    { messages: [{ role, content }] }  ->  { text }
@@ -360,6 +363,31 @@ async function acceptPitch(b) {
   return { sha: commit.sha, url: commit.html_url, name };
 }
 
+// Rejecting a pitch: the one line holding "(Pitch)" comes out of the file, as
+// one commit on the review branch. A heading takes its whole section with it
+// (up to the next heading at the same level or above); a bullet goes alone.
+// Like everything on review, it isn't final until the owner publishes, and
+// Throw it all away brings it back.
+async function rejectPitch(b) {
+  const file = String(b.file || ""), want = String(b.line || "").replace(/\r/g, "");
+  if (!PITCH_FILES.includes(file)) throw Object.assign(new Error("Pitches can only be rejected in " + PITCH_FILES.join(" or ")), { status: 400 });
+  if (!want.includes("(Pitch)") || want.includes("\n") || want.length > 2000) throw Object.assign(new Error("That isn't a pitch line"), { status: 400 });
+  const name = want.replace(/^[#\s>*-]+/, "").split("(Pitch)")[0].replace(/[*_]/g, "").trim().slice(0, 80) || "a pitch";
+  let found = false;
+  const commit = await editOnReview(file, (text) => {
+    const lines = text.split("\n"), i = lines.indexOf(want);
+    if (i < 0) return text;
+    found = true;
+    const h = want.match(/^(#{1,6})\s/);
+    let end = i + 1;
+    if (h) { const stop = new RegExp("^#{1," + h[1].length + "}\\s"); while (end < lines.length && !stop.test(lines[end])) end++; }
+    lines.splice(i, end - i);
+    return lines.join("\n").replace(/\n{3,}/g, "\n\n").replace(/\s*$/, "\n");
+  }, `Reject pitch: ${name}`);
+  if (!found) throw Object.assign(new Error("That pitch isn't on the review branch any more. Check again to reload the list."), { status: 409 });
+  return { sha: commit.sha, url: commit.html_url, name };
+}
+
 // ── Sent in for review ──
 // Anyone can send a Codex note or a character for review, but only the
 // owner puts things on the review branch. What others send waits here, on
@@ -482,6 +510,11 @@ const server = http.createServer(async (req, res) => {
       if (req.method === "POST" && url.pathname === "/admin/accept-pitch") {
         const r = await acceptPitch(await readJson(req));
         console.log(new Date().toISOString(), "pitch accepted on review:", r.name, r.sha);
+        return send(res, 200, { ok: true, ...r }, origin);
+      }
+      if (req.method === "POST" && url.pathname === "/admin/reject-pitch") {
+        const r = await rejectPitch(await readJson(req));
+        console.log(new Date().toISOString(), "pitch rejected on review:", r.name, r.sha);
         return send(res, 200, { ok: true, ...r }, origin);
       }
       if (req.method === "POST" && url.pathname === "/admin/publish") {
