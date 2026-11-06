@@ -9,6 +9,9 @@
 <meta property="og:title" content="Wake in Verrowen · Tavernworks">
 <meta property="og:description" content="Wake with no memory in the world of Verrowen. A narrator running on our own laptop reveals who you are through your choices.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕯️</text></svg>">
+<link rel="manifest" href="/verrowen/manifest.webmanifest">
+<meta name="theme-color" content="#15100c">
+<link rel="apple-touch-icon" href="/verrowen/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
@@ -163,12 +166,14 @@
   .embed .wrap{max-width:none;padding:0}
   .embed .box,.embed .box.playing{height:100vh;height:var(--app-h,100dvh);min-height:0;border:0;border-radius:0}
   .embed .profile{margin:0;border-radius:0;border-width:1px 0 0}
+  .navr{display:flex;gap:12px;align-items:center}
+  [data-install] button{font-size:13px;padding:4px 12px}
 </style>
 </head>
 <body>
 <script>if (/[?&]embed\b/.test(location.search)) document.documentElement.classList.add("embed");</script>
 <div class="wrap">
-  <nav><a class="back" href="/">← Back to the tavern</a><a class="back" href="/verrowen/codex/" title="World notes: characters, places, magic, items and rules">📜 Codex</a></nav>
+  <nav><a class="back" href="/">← Back to the tavern</a><span class="navr"><span data-install="quiet" hidden></span><a class="back" href="/verrowen/codex/" title="World notes: characters, places, magic, items and rules">📜 Codex</a></span></nav>
 
   <header>
     <div class="sign">THE GRAND ORRERY · VERROWEN</div>
@@ -268,6 +273,7 @@
   </dialog>
 </div>
 
+<script src="/pwa.js" data-sw="/verrowen/sw.js" data-scope="/verrowen/"></script>
 <script src="/voice-input.js"></script>
 <script>
 // Wake in Verrowen: the whole game runs in this page. It loads the lore from

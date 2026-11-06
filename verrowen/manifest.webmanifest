@@ -1,0 +1,21 @@
+{
+  "id": "/verrowen/",
+  "name": "Wake in Verrowen",
+  "short_name": "Verrowen",
+  "description": "An AI-narrated roleplay in the Grand Orrery universe. You wake with no memory, and your choices reveal who you are.",
+  "start_url": "/verrowen/",
+  "scope": "/verrowen/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#15100c",
+  "theme_color": "#15100c",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "/verrowen/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/verrowen/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/verrowen/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Codex", "url": "/verrowen/codex/", "icons": [{ "src": "/verrowen/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

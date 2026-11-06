@@ -6,6 +6,9 @@
 <title>Orrery Explorer · Tavernworks</title>
 <meta name="description" content="Browse the Grand Orrery: its maps, documents, character roster and enchanted items, and everything written about each one. A chat with the local AI talks through anything in it: characters, regions, rules, magic and more.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
+<link rel="manifest" href="/orrery/manifest.webmanifest">
+<meta name="theme-color" content="#15100c">
+<link rel="apple-touch-icon" href="/orrery/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
@@ -208,11 +211,12 @@
     .say.me button.copymsg{top:2px;right:2px}
     .chatbox button.small{padding:8px 12px}
   }
+  [data-install] button{font-size:13px;padding:4px 12px;margin-left:8px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <nav class="top"><a class="back" href="/">← Tavernworks</a></nav>
+  <nav class="top"><a class="back" href="/">← Tavernworks</a> <span data-install="btn" hidden></span></nav>
   <header>
     <div class="sign">THE WORKBENCH</div>
     <h1>Orrery Explorer</h1>
@@ -230,6 +234,7 @@
   <main id="view"></main>
   <footer><a href="/">Tavernworks</a> · <a href="/verrowen/">Wake in Verrowen</a> · <button class="btn" type="button" id="reload">Reload from GitHub</button><br><a href="/verrowen/#model" title="For the laptop's owner: pick which AI model the lore-keeper and narrator use">🤖 Change AI model</a> · <a href="/orrery/control/" title="For the owner: the Orrery control page">🔒 Admin</a></footer>
 </div>
+<script src="/pwa.js" data-sw="/orrery/sw.js" data-scope="/orrery/"></script>
 <script src="/voice-input.js"></script>
 <script>
 // Orrery Explorer: reads the grand-orrery repo's Markdown straight from
