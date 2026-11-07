@@ -84,6 +84,10 @@
   details.cat>summary:hover h2.sec{color:var(--gold2)}
   details.cat>summary h2.sec{margin:16px 0 10px}
   details.cat>.grid{margin-bottom:8px}
+  details.doc>summary{list-style:none}
+  details.doc>summary::-webkit-details-marker{display:none}
+  details.doc>summary::before{content:"▸";display:inline-block;width:1em;transition:transform .15s}
+  details.doc[open]>summary::before{transform:rotate(90deg)}
   /* Rendered Markdown */
   .md{font-family:Spectral,Georgia,serif;font-size:17px;line-height:1.6;overflow-wrap:anywhere}
   .md h1,.md h2,.md h3,.md h4{font-family:Cinzel,serif;color:var(--gold2);line-height:1.25;margin:1.1em 0 .4em}
@@ -953,8 +957,18 @@ function highlight(root, re) {
     n.replaceWith(...span.childNodes);
   }
 }
+// Every section in the Explorer folds: a heading with a ▸ that starts closed
+// and opens on a tap. What a visitor opens stays open for the rest of the
+// visit (coming back from an item, or when live data redraws the page).
+const openCats = new Set();
+document.addEventListener("toggle", (e) => {
+  const d = e.target;
+  if (d instanceof HTMLDetailsElement && d.dataset.cat) d.open ? openCats.add(d.dataset.cat) : openCats.delete(d.dataset.cat);
+}, true);
+const folded = (key) => `data-cat="${esc(key)}"${openCats.has(key) ? " open" : ""}`;
+const fold = (key, head, body) => `<details class="cat" ${folded(key)}><summary><h2 class="sec">${head}</h2></summary>${body}</details>`;
 function renderHits(found, re) {
-  const html = found.map(({ doc, hits }) => `<details class="doc" open><summary>${esc(doc.title)}<span class="pill">${hits.length} section${hits.length === 1 ? "" : "s"}</span></summary>${
+  const html = found.map(({ doc, hits }) => `<details class="doc" ${folded("hits:" + location.hash + ":" + doc.id)}><summary>${esc(doc.title)}<span class="pill">${hits.length} section${hits.length === 1 ? "" : "s"}</span></summary>${
     hits.map((s) => `<div class="panel"><div class="crumb"><a href="#doc/${doc.id}${s.sentence ? "" : "/" + slug(s.heading)}">${s.path.map(esc).join(" › ")}</a></div><div class="md">${s.sentence ? `<p>${inline(s.body)}</p>` : md(s.body)}</div></div>`).join("")
   }</details>`).join("");
   return html;
@@ -968,10 +982,10 @@ function roster() {
   const createCard = `<a class="card create" href="${CREATE_URL}"><b>✨ Create a character</b><span>Play Wake in Verrowen. You wake with no memory, and everything about them, from name and race to past and magic, comes out of how you play.</span><div class="count">Sent for review when you wrap it up</div></a>`;
   return groups.map((g) => {
     const people = PEOPLE.filter((p) => p.group === g), wake = g === VERROWEN_GROUP, waiting = people.filter((p) => p.pending).length;
-    return `<h2 class="sec">${esc(g)}${wake && waiting ? `<span class="pill pitch">${waiting} pending review</span>` : ""}</h2>${g === ADV_GROUP ? hallNow() : ""}${wake ? `<p class="tag" style="margin:-4px 0 12px">Characters made by playing Wake in Verrowen. Nothing about them is canon until the owner accepts them on the <a href="/orrery/control/review/">review page</a>.</p>` : ""}<div class="grid">${wake ? createCard : ""}${people.map((p) => {
+    return fold("roster:" + g, `${esc(g)}<span class="pill">${people.length}</span>${wake && waiting ? `<span class="pill pitch">${waiting} pending review</span>` : ""}`, `${g === ADV_GROUP ? hallNow() : ""}${wake ? `<p class="tag" style="margin:-4px 0 12px">Characters made by playing Wake in Verrowen. Nothing about them is canon until the owner accepts them on the <a href="/orrery/control/review/">review page</a>.</p>` : ""}<div class="grid">${wake ? createCard : ""}${people.map((p) => {
     const n = matches(patternFor(p.names)).reduce((a, d) => a + d.hits.length, 0);
     return `<a class="card" href="#person/${p.id}"><b>${esc(p.name)}${p.live ? liveTag(p) : ""}</b><span>${esc(p.role)}</span>${p.doing ? `<div class="doing">${esc(p.doing.text)}${doingWhen(p.doing)}</div>` : ""}<div class="count">${p.pending ? `<span class="pill pitch">${esc(p.status)}</span> ` : ""}${n} section${n === 1 ? "" : "s"} written</div></a>`;
-  }).join("")}</div>`;
+  }).join("")}</div>`);
   }).join("");
 }
 function person(id) {
@@ -1002,15 +1016,9 @@ function items() {
   const lead = fromFile
     ? `Every item and resource in the Orrery, read live from <a href="#doc/resources">resources.md</a>. Browse them by category and type on the <a href="#resources">Resources</a> tab.`
     : `Made or sold in Murrow's shop, Monstradius. Each item shows how the rules of magic work.`;
-  // Each category starts collapsed; tap its heading to open it. Ones opened
-  // this visit stay open when you come back from an item.
-  return `<p class="tag" style="margin:4px 0 14px">${lead}</p>${CATS.map((c) => `<details class="cat" data-cat="${esc(c.id)}"${openCats.has(c.id) ? " open" : ""}><summary><h2 class="sec">${esc(c.name)}<span class="pill">${c.types.reduce((a, t) => a + t.items.length, 0)}</span></h2></summary><div class="grid">${c.types.flatMap((t) => t.items).map((it) => itemCard(it, false)).join("")}</div></details>`).join("")}`;
+  return `<p class="tag" style="margin:4px 0 14px">${lead}</p>${CATS.map((c) => fold("items:" + c.id, `${esc(c.name)}<span class="pill">${c.types.reduce((a, t) => a + t.items.length, 0)}</span>`, `<div class="grid">${c.types.flatMap((t) => t.items).map((it) => itemCard(it, false)).join("")}</div>`)).join("")}`;
 }
-const openCats = new Set();
-document.addEventListener("toggle", (e) => {
-  const d = e.target;
-  if (d instanceof HTMLDetailsElement && d.classList.contains("cat")) d.open ? openCats.add(d.dataset.cat) : openCats.delete(d.dataset.cat);
-}, true);
+
 function resources(catId, typeId) {
   if (!fromFile) return `<p class="tag">Resources come from <code>resources.md</code> in the grand-orrery repo, and it isn't on the <b>${esc(BRANCH)}</b> branch yet${CLONE ? "" : " (it may be waiting on the <a href=\"/orrery/?clone=review#resources\">Review Clone</a>)"}. Until then, here are Murrow's items.</p><div class="grid">${ITEMS.map((it) => itemCard(it, false)).join("")}</div>`;
   const c = CATS.find((x) => x.id === catId);
@@ -1023,7 +1031,7 @@ function resources(catId, typeId) {
   const t = c.types.find((x) => x.id === typeId);
   if (!t) {
     return `<div class="crumb"><a href="#resources">Resources</a> › ${esc(c.name)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(c.name)}</h2>${c.intro ? `<div class="md tag" style="max-width:none">${md(c.intro)}</div>` : ""}<div class="who">${c.types.map((t) => `<a class="pill" href="#resources/${c.id}/${t.id}">${esc(t.name)} · ${t.items.length}</a>`).join("")}</div>${
-      c.types.map((t) => `<h2 class="sec"><a href="#resources/${c.id}/${t.id}" style="color:inherit;text-decoration:none">${esc(t.name)}</a><span class="pill">${t.items.length}</span></h2><div class="grid">${t.items.map((it) => itemCard(it, false)).join("")}</div>`).join("")}`;
+      c.types.map((t) => fold("res:" + c.id + "/" + t.id, `${esc(t.name)}<span class="pill">${t.items.length}</span>`, `<div class="grid">${t.items.map((it) => itemCard(it, false)).join("")}</div>`)).join("")}`;
   }
   return `<div class="crumb"><a href="#resources">Resources</a> › <a href="#resources/${c.id}">${esc(c.name)}</a> › ${esc(t.name)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(t.name)}</h2><div class="who">${c.types.map((o) => `<a class="pill${o.id === t.id ? " on" : ""}" href="#resources/${c.id}/${o.id}">${esc(o.name)} · ${o.items.length}</a>`).join("")}</div><div class="grid" style="margin-top:14px">${t.items.map((it) => itemCard(it, false)).join("")}</div>`;
 }
@@ -1073,7 +1081,7 @@ function placedHtml(it){
   for (const l of own.concat(named)) { if (!byMap.has(l.map)) byMap.set(l.map, []); byMap.get(l.map).push(l); }
   const lines = [...byMap].map(([m, ls]) => `<li><b>${esc(m.title)}</b>: ${ls.map((l) => `${own.includes(l) ? "📍 " : ""}${esc(l.label)}`).join(", ")}</li>`).join("");
   const figs = [...byMap].sort((a, b) => b[1].filter((l) => own.includes(l)).length - a[1].filter((l) => own.includes(l)).length).slice(0, 2).map(([m, ls]) => mapFig([m, ls.map((l) => l.label)])).join("");
-  return `<h2 class="sec">Where it's found</h2><p class="tag">${own.length ? "📍 marks a map that shows it by name. The others are" : "These are"} places its own entry names, as the maps show them.</p><div class="panel"><ul style="margin:0;padding-left:20px">${lines}</ul></div><div class="maps">${figs}</div>`;
+  return fold("where:item:" + it.id, "Where it's found", `<p class="tag">${own.length ? "📍 marks a map that shows it by name. The others are" : "These are"} places its own entry names, as the maps show them.</p><div class="panel"><ul style="margin:0;padding-left:20px">${lines}</ul></div><div class="maps">${figs}</div>`);
 }
 // The items a map places by name (📍), for the Maps tab.
 const itemsOnMap = (m) => ITEMS.filter((it) => placesOf(it).own.some((l) => l.map === m));
@@ -1096,23 +1104,23 @@ function beastCard(b) {
 function learnedBeasts() {
   const learned = (hall && hall.learned) || [];
   if (!learned.length) return "";
-  return `<h2 class="sec">Learned in GuildScribe's fights<span class="pill">${learned.length}</span></h2><p class="tag">Beasts the hall has fought and written up, live from GuildScribe.</p><div class="who">${learned.map((m) => {
+  return fold("beasts:learned", `Learned in GuildScribe's fights<span class="pill">${learned.length}</span>`, `<p class="tag">Beasts the hall has fought and written up, live from GuildScribe.</p><div class="who">${learned.map((m) => {
     const b = BEASTS.find((x) => sameName(x, m.name)), label = esc(m.name) + (m.cr ? " · CR " + esc(m.cr) : "");
     return b ? `<a class="pill" href="#beast/${b.id}">${b.icon} ${label}</a>` : `<span class="pill">${label}</span>`;
-  }).join("")}</div>`;
+  }).join("")}</div>`);
 }
 function beasts(placeId) {
   if (!PLACES.length) return { html: `<p class="tag">Beasts come from <code>bestiary.md</code> in the grand-orrery repo, and it isn't on the <b>${esc(BRANCH)}</b> branch yet${CLONE ? "" : " (it may be waiting on the <a href=\"/orrery/?clone=review#beasts\">Review Clone</a>)"}.</p>${learnedBeasts()}`, re: null };
   const pl = PLACES.find((p) => p.id === placeId);
   if (!pl) {
-    return { html: `<p class="tag" style="margin:4px 0 14px">Where GuildScribe's adventurers hunt, duel and get robbed, and what lives there. Read live from <a href="#doc/bestiary">bestiary.md</a>, which the GuildScribe bots fight with.</p><h2 class="sec">Places<span class="pill">${PLACES.length}</span></h2><div class="grid">${PLACES.map((p) => `<a class="card" href="#beasts/${p.id}"><b>${esc(p.name)}</b><span>${esc(p.where)}</span><div class="count">${isPitch(p) ? '<span class="pill pitch">' + esc(p.status) + "</span> " : ""}${[p.for, p.levels && "levels " + p.levels].filter(Boolean).map(esc).join(" · ")}${p.beasts.length ? ` · ${p.beasts.length} beast${p.beasts.length === 1 ? "" : "s"}` : ""}</div></a>`).join("")}</div>${
-      PLACES.filter((p) => p.beasts.length).map((p) => `<h2 class="sec"><a href="#beasts/${p.id}" style="color:inherit;text-decoration:none">${esc(p.name)}</a><span class="pill">${p.beasts.length}</span></h2><div class="grid">${p.beasts.map(beastCard).join("")}</div>`).join("")}${learnedBeasts()}`, re: null };
+    return { html: `<p class="tag" style="margin:4px 0 14px">Where GuildScribe's adventurers hunt, duel and get robbed, and what lives there. Read live from <a href="#doc/bestiary">bestiary.md</a>, which the GuildScribe bots fight with.</p>${fold("beasts:places", `Places<span class="pill">${PLACES.length}</span>`, `<div class="grid">${PLACES.map((p) => `<a class="card" href="#beasts/${p.id}"><b>${esc(p.name)}</b><span>${esc(p.where)}</span><div class="count">${isPitch(p) ? '<span class="pill pitch">' + esc(p.status) + "</span> " : ""}${[p.for, p.levels && "levels " + p.levels].filter(Boolean).map(esc).join(" · ")}${p.beasts.length ? ` · ${p.beasts.length} beast${p.beasts.length === 1 ? "" : "s"}` : ""}</div></a>`).join("")}</div>`)}${
+      PLACES.filter((p) => p.beasts.length).map((p) => fold("beasts:" + p.id, `${esc(p.name)}<span class="pill">${p.beasts.length}</span>`, `<div class="grid">${p.beasts.map(beastCard).join("")}</div>`)).join("")}${learnedBeasts()}`, re: null };
   }
   const re = patternFor(pl.names), found = matches(re), total = found.reduce((a, d) => a + d.hits.length, 0);
   const facts = [["Where", pl.where], ["For", pl.for], ["Levels", pl.levels], ...pl.extra].filter(([, v]) => v);
   return { html: `<div class="crumb"><a href="#beasts">Beasts</a> › Places</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(pl.name)}${statusPill(pl)}</h2><p class="tag">${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}. <a href="#doc/bestiary/${slug(pl.heading)}">In the bestiary</a></p><div class="who">${PLACES.map((o) => `<a class="pill${o.id === pl.id ? " on" : ""}" href="#beasts/${o.id}">${esc(o.name)}</a>`).join("")}</div>${itemPills(itemsNaming(pl.names))}<div class="panel"><dl class="facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${inline(v)}</dd>`).join("")}${pl.lines.length ? `<dt>Fight lines</dt><dd><ul class="lines">${pl.lines.map((l) => `<li>${inline(l)}</li>`).join("")}</ul></dd>` : ""}</dl></div>${
-    pl.beasts.length ? `<h2 class="sec">Beasts here<span class="pill">${pl.beasts.length}</span></h2><div class="grid">${pl.beasts.map(beastCard).join("")}</div>` : ""
-  }<h2 class="sec">On the map</h2><div class="maps one">${mapsFor(pl).map(mapFig).join("")}</div><h2 class="sec">In the documents</h2>${renderHits(found, re) || "<p>Nothing else written yet.</p>"}`, re };
+    pl.beasts.length ? fold("place:" + pl.id + ":beasts", `Beasts here<span class="pill">${pl.beasts.length}</span>`, `<div class="grid">${pl.beasts.map(beastCard).join("")}</div>`) : ""
+  }${fold("place:" + pl.id + ":map", "On the map", `<div class="maps one">${mapsFor(pl).map(mapFig).join("")}</div>`)}<h2 class="sec">In the documents</h2>${renderHits(found, re) || "<p>Nothing else written yet.</p>"}`, re };
 }
 function beast(id) {
   const b = BEASTS.find((x) => x.id === id);
@@ -1125,7 +1133,7 @@ function beast(id) {
   return { html: `<div class="crumb"><a href="#beasts">Beasts</a>${pl ? ` › <a href="#beasts/${pl.id}">${esc(pl.name)}</a>` : ""}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${b.icon} ${esc(b.name)}${statusPill(b)}${learned ? `<span class="pill" style="color:var(--green)" title="GuildScribe has fought it">● learned at GuildScribe</span>` : ""}</h2><p class="tag">${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}. <a href="#doc/bestiary/${slug(b.heading)}">In the bestiary</a></p>${
     kin.length ? `<div class="who"><span class="pill" style="margin-left:0">Also here</span>${kin.map((o) => `<a class="pill" href="#beast/${o.id}">${o.icon} ${esc(o.name)}</a>`).join("")}</div>` : ""
   }${itemPills(itemsNaming(b.names))}<div class="panel">${statBlock(b)}<dl class="facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${inline(v)}</dd>`).join("")}</dl></div>${
-    pl ? `<h2 class="sec">Where it's found</h2><div class="panel"><b style="font-family:Cinzel,serif"><a href="#beasts/${pl.id}" style="color:var(--gold2)">${esc(pl.name)}</a></b> ${placeMeta(pl)}<div class="md" style="margin-top:6px"><p>${inline(pl.where)}</p></div></div><div class="maps one">${mapsFor(pl).slice(0, 1).map(mapFig).join("")}</div>` : ""
+    pl ? fold("where:beast:" + b.id, "Where it's found", `<div class="panel"><b style="font-family:Cinzel,serif"><a href="#beasts/${pl.id}" style="color:var(--gold2)">${esc(pl.name)}</a></b> ${placeMeta(pl)}<div class="md" style="margin-top:6px"><p>${inline(pl.where)}</p></div></div><div class="maps one">${mapsFor(pl).slice(0, 1).map(mapFig).join("")}</div>`) : ""
   }<h2 class="sec">In the documents</h2>${renderHits(found, re) || "<p>Nothing else written yet.</p>"}`, re };
 }
 function docs() {
