@@ -535,7 +535,7 @@ async function loreCatchupDraft() {
   }
   const ask = `You keep lore.md, the short, decided canon the narrator of a roleplay game reads. Below are the current LORE and the DECIDED CHANGES made to the universe's notes since it was last caught up.
 
-Write ONLY what LORE is missing: facts in the changes that LORE doesn't already state, or states differently (then write the corrected fact). One line per topic, each starting with an UPPERCASE label like LORE's (STOUTWELL:, LIFE:, MAGIC:, ITEMS:, RESOURCES:, PEOPLE:, BEYOND:, OTHER WORLDS:) or a short new label. Plain, compact sentences. No markdown, no bullets, no commentary. Never add ideas that are still open, or anything not in the changes. If LORE already has everything, reply exactly: NOTHING NEW
+Write ONLY what LORE is missing: facts in the changes that LORE doesn't already state, or states differently (then write the corrected fact). One line per topic, each starting with an UPPERCASE label like LORE's (WORLD:, BEYOND:, KINGDOM:, MAGIC:, ITEMS:, RESOURCES:, PEOPLE:, STOUTWELL:, LIFE:, OTHER WORLDS:) or a short new label. Put a fact under the label for where it actually is: only things in Stoutwell go under STOUTWELL:, and a place elsewhere in Verrowen can get its own label. Plain, compact sentences. No markdown, no bullets, no commentary. Never add ideas that are still open, or anything not in the changes. If LORE already has everything, reply exactly: NOTHING NEW
 
 LORE:
 ${lore.replace(/^# .*\n+.*\n+/, "").trim()}
@@ -891,10 +891,10 @@ ${opts.headings["bestiary.md"].join("\n")}
 <<<
 ${ask0}
 >>>
-Write it so it fits the LORE below and contradicts nothing in it. Magic is weak, everyday and costs the user; objects hold magic but don't make it. Keep it PG-13, suitable for children aged 6 to 10. Keep everything the author said, fill small gaps sensibly, and don't invent big new facts. Use plain sentences.
+Write it so it fits the LORE below and contradicts nothing in it. Magic is weak, everyday and costs the user; objects hold magic but don't make it. Keep it PG-13, suitable for children aged 6 to 10. Keep everything the author said, fill small gaps sensibly, and don't invent big new facts. If the author didn't say where it is: ${WORLD_FOCUS} Use plain sentences.
 Reply with these blocks and nothing else:
 TITLE: a short name for it
-LORE: one compact line for lore.md, starting with an UPPERCASE label like LORE's (PEOPLE:, STOUTWELL:, ITEMS:, BEYOND:, KINGDOM:, MAGIC:)
+LORE: one compact line for lore.md, starting with an UPPERCASE label like LORE's (PEOPLE:, BEYOND:, KINGDOM:, WORLD:, ITEMS:, MAGIC:, or STOUTWELL: only for things in Stoutwell)
 ${blocks[kind]}
 
 Universe headings:
@@ -1217,24 +1217,32 @@ function keepView(section, verdict, why, from) {
   rest.views[NOTES + "\n" + k.line] = { key: k.key, verdict, why, at: new Date().toISOString(), ...(from ? { from } : {}) };
 }
 
+// Every AI prompt that invents or files lore carries this, so new canon
+// spreads across Verrowen instead of piling up in Stoutwell.
+const WORLD_FOCUS = `Verrowen is a whole world and Stoutwell is only one small village in it, not its center. Unless asked about Stoutwell, set new things across Verrowen: the Kingdom and its capital, its great houses and roads, the Woodland Road, the Monster Wood and its deep woods, the croplands, the river and its mills, the lake and the fishing settlement, the Ashen Reach, the mountain wall, and the villages and peoples beyond. Don't put something in Stoutwell just because it's the best-described place.`;
+
 // Automatic lore: one small new piece of canon, about a different kind of
 // thing each time, written from the lore and checked against what exists.
+// Most topics are out in Verrowen; Stoutwell gets one turn in the cycle.
 const IDEA_TOPICS = [
-  "a person who lives in Stoutwell (name, race, age, trade, one want and one fear, ties to named people)",
-  "a custom, saying, food or rule of daily life in Stoutwell",
-  "a small everyday magic item or tool, who makes it, what it costs and its limits",
-  "a creature of the Monster Wood: where it lives, what it does, its limits",
-  "a place in the Kingdom's capital or on the Kingdom's roads",
-  "a piece of Stoutwell's or the Kingdom's history",
-  "one of the market peddlers' relics and the story they tell about it",
-  "something about the Guard: a post, a habit, a piece of gear or a person",
-  "something GuildScribe's guild hall keeps, does or is known for",
+  "a person who lives somewhere in Verrowen outside Stoutwell: the capital, the fishing settlement, the roads, the mills or a village not yet named (name, race, age, trade, one want and one fear, ties to named people or places)",
+  "a place in Verrowen beyond Stoutwell's walls: on the Woodland Road, by the river or the lake, in the croplands, the Ashen Reach or the mountain wall",
+  "a creature of the Monster Wood, its deep woods or the mountains: where it lives, what it does, its limits",
+  "a custom, saying, food or rule of daily life somewhere in Verrowen other than Stoutwell",
+  "a place, office or great house in the Kingdom's capital",
+  "a small everyday magic item or tool found or made somewhere in Verrowen, who makes it, what it costs and its limits",
+  "a piece of Verrowen's history: the Kingdom, the old roads, the rifts or the lands around them",
+  "a people, trade, guild or group found across Verrowen, and where they live or travel",
+  "one of the market peddlers' relics and the far place in Verrowen it came from",
+  "something GuildScribe's guild hall in the capital keeps, does or is known for",
+  "a person, custom or piece of history in Stoutwell (name, race, age, trade, one want and one fear, ties to named people)",
 ];
 async function makeIdea() {
   const [lore, notes] = await Promise.all([restCanon(), fileAt(NOTES, CLONE)]);
   const titles = [...notes.matchAll(/^#{2,4}\s+(.+?)\s*(?:\((?:Your idea|Pitch|Not decided yet|DM lore)[^)]*\))?\s*$/gm)].map((m) => m[1]).join("; ").slice(0, 3000);
   const topic = IDEA_TOPICS[rest.rounds % IDEA_TOPICS.length];
   const ask = `You help build the Grand Orrery, a medieval fantasy universe. Using only the LORE below, invent ONE new, small piece of canon about: ${topic}.
+${WORLD_FOCUS}
 It must fit everything in LORE and contradict nothing. Magic is weak, everyday and costs the user. Keep it PG-13 and suitable for children aged 6 to 10. Don't repeat anything that already exists. These titles already exist: ${titles}
 Reply with a TITLE line and then the idea, and nothing else:
 TITLE: a short name
