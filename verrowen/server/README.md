@@ -235,7 +235,9 @@ Every `REST_EVERY_MIN` minutes (20) it runs a round, all on its own:
    small new piece of canon from the lore, about something different each
    time (a Stoutwell villager, a custom, an everyday magic item, a Monster
    Wood creature, a place, some history, a peddler's relic, the Guard, the
-   guild hall), checked against the existing titles. The AI judges it
+   guild hall), checked against the existing titles. It can be a single line
+   or use any of the labels (What it is, Who, Where, How it works, Limits,
+   Ties) that fit: a short idea is kept so you can build on it. The AI judges it
    **before it's filed**: one it accepts goes under `## From rest mode` in
    `working-notes.md` as **(Your idea)**, in a single change; one it rejects
    is never filed, and only shows in the log (with its text). One it can't
@@ -265,6 +267,17 @@ the 📨 queue isn't deleted: it stays there marked *Auto mode would turn this
 down: …*, for you to file or turn down. Check it all, then **✔ Publish** or
 **Throw it all away** as usual. The round's log says how many changes are
 waiting for you.
+
+### 🗑 Deleting what the AI added
+
+Everything rest mode or auto mode files (its own ideas, and what it filed
+from the 📨 queue) is marked `<!-- added by the AI -->` in its section. The
+review page's **🤖 Added by the AI** card lists all of it on `review`, pitch
+or Your idea, and **🗑 Delete** (also on those pitches in 💡 Pitches) takes
+the whole section out as one commit (`POST /admin/delete-ai { line }`). Only
+sections the AI added can be deleted this way. Publish to take it off the
+live Orrery; if the lore catch-up already added lines for a decided one,
+take those out of `lore.md` by hand.
 
 How the AI decides: it gets the lore and one item at a time and must answer
 `VERDICT: APPROVE` or `VERDICT: REJECT` with a one-line reason. It approves

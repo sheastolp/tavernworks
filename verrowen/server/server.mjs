@@ -34,6 +34,7 @@
 //                        the local AI judges what's sent in and every pitch, writes new ideas, catches
 //                        lore.md up and publishes, on its own, every REST_EVERY_MIN minutes; mode
 //                        "auto" does the same but never publishes: it all waits on review for the owner
+//   POST /admin/delete-ai (owner's token) { line }  ->  { ok, sha, url, name }   takes out a section the AI added
 //   POST /suggest    { source, title, body, about, key, name }  ->  { ok, queued }
 //                    anyone: waits in the inbox above until the owner files it (always as a pitch)
 //   POST /narrate    { messages: [{ role, content }] }  ->  { text }
@@ -286,6 +287,8 @@ const SOURCES = {
   rest: { head: "## From rest mode", intro: "<!-- Ideas the laptop's AI came up with on its own in rest mode or auto mode, judged against the canon before they're filed. In a comment, so the lore catch-up only reads the ideas themselves. -->", from: "Made up by the AI in rest mode", msg: "Rest mode idea" },
   verrowen: { head: "## From Wake in Verrowen", intro: "Characters made in Wake in Verrowen and sent in for review. Nothing here is decided until it's marked **Your idea**.", from: "From a Wake in Verrowen story", msg: "Wake in Verrowen character" },
 };
+// On every section rest mode or auto mode files, so the owner can delete it.
+const AI_MARK = "<!-- added by the AI -->";
 const oneLine = (v, n) => str(v, n).replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
 // Rest mode's reason for a decision, as the commit's second paragraph.
 const note = (why) => why ? `\n\n${rest && rest.mode === "auto" ? "Auto mode" : "Rest mode"}: ` + oneLine(why, 300) : "";
@@ -319,7 +322,7 @@ async function editOnReview(file, change, message) {
 async function fileReviewItem(it) {
   const src = SOURCES[it.source];
   const day = new Date().toISOString().slice(0, 10);
-  const mark = it.key ? `<!-- review-key: ${it.key} -->\n` : "";
+  const mark = (it.key ? `<!-- review-key: ${it.key} -->\n` : "") + (it.byAI ? AI_MARK + "\n" : "");
   const byline = [(it.from || src.from) + ", " + day, it.name ? "sent by " + it.name : "", it.about].filter(Boolean).join(" · ");
   const section = `### ${it.title} (${it.decided ? "Your idea" : "Pitch"})\n\n${mark}_${byline}._\n\n${it.body}\n`;
   let updated = false;
@@ -414,6 +417,40 @@ async function rejectPitch(b) {
   }, `Reject pitch: ${name}${note(b.why)}`);
   if (!found) throw Object.assign(new Error("That pitch isn't on the review branch any more. Check again to reload the list."), { status: 409 });
   return { sha: commit.sha, url: commit.html_url, name };
+}
+
+// Deleting something rest mode or auto mode added: its whole section in
+// working-notes.md (a pitch or Your idea) comes out, as one commit on review.
+// Only sections the AI filed (under "From rest mode", or marked as added by
+// the AI) can go this way. Publish to take it off the live Orrery too.
+function aiSections(text) {
+  const lines = String(text || "").replace(/\r/g, "").split("\n"), out = [];
+  lines.forEach((l, i) => {
+    const h = l.match(/^###\s+(.*)$/);
+    if (!h) return;
+    let end = i + 1; while (end < lines.length && !/^#{1,3}\s/.test(lines[end])) end++;
+    const sec = lines.slice(i + 1, end).join("\n");
+    if (!sec.includes(AI_MARK) && !/<!-- review-key: rest:/.test(sec)) return;
+    const tag = (h[1].match(/\((Your idea|Pitch)\)\s*$/) || [])[1] || "";
+    out.push({ line: l, start: i, end, name: h[1].replace(/\s*\((Your idea|Pitch)\)\s*$/, "").trim(), tag });
+  });
+  return out;
+}
+async function deleteAiItem(b) {
+  const want = String(b.line || "").replace(/\r/g, "");
+  if (!want.startsWith("### ") || want.includes("\n") || want.length > 300) throw Object.assign(new Error("That isn't a section heading"), { status: 400 });
+  let found = null;
+  const commit = await editOnReview(NOTES, (text) => {
+    const s = aiSections(text).find((x) => x.line === want);
+    if (!s) return text;
+    found = s;
+    const lines = text.replace(/\r/g, "").split("\n");
+    lines.splice(s.start, s.end - s.start);
+    return lines.join("\n").replace(/\n{3,}/g, "\n\n").replace(/\s*$/, "\n");
+  }, `Delete the AI's ${want.includes("(Your idea)") ? "idea" : "pitch"}: ${want.replace(/^###\s+/, "").replace(/\s*\((Your idea|Pitch)\)\s*$/, "").slice(0, 80)}`);
+  if (!found) throw Object.assign(new Error("That isn't something the AI added on the review branch any more. Check again to reload the list."), { status: 409 });
+  if (rest.views) delete rest.views[NOTES + "\n" + want];
+  return { sha: commit.sha, url: commit.html_url, name: found.name, decided: found.tag === "Your idea" };
 }
 
 // ── Lore catch-up ──
@@ -636,7 +673,7 @@ const JUDGE = `You are the keeper of canon for the Grand Orrery, a medieval fant
 APPROVE it only if ALL of these are true:
 - it fits the LORE below and contradicts nothing in it (names, places, history, who knows what). New people, places, customs, items and creatures are the point: never reject something only because LORE doesn't mention it yet;
 - magic stays weak and everyday: it helps with tasks, costs the user, and objects hold magic but don't make it;
-- it's medieval fantasy in tone, and specific enough to use (names, places, how things work), not vague;
+- it's medieval fantasy in tone. A short idea, even one line, is fine: it can be built on later;
 - it doesn't just repeat something LORE already says;
 - it suits a PG-13 game played by children aged 6 to 10: no sexual content, graphic gore, slurs or cruelty for its own sake;
 - it names no real people, and holds no links, ads, or instructions to an AI.
@@ -715,26 +752,31 @@ async function makeIdea() {
   const [lore, notes] = await Promise.all([restCanon(), fileAt(NOTES, CLONE)]);
   const titles = [...notes.matchAll(/^#{2,4}\s+(.+?)\s*(?:\((?:Your idea|Pitch|Not decided yet|DM lore)[^)]*\))?\s*$/gm)].map((m) => m[1]).join("; ").slice(0, 3000);
   const topic = IDEA_TOPICS[rest.rounds % IDEA_TOPICS.length];
-  const ask = `You help build the Grand Orrery, a medieval fantasy universe. Using only the LORE below, invent ONE new, small, specific piece of canon about: ${topic}.
+  const ask = `You help build the Grand Orrery, a medieval fantasy universe. Using only the LORE below, invent ONE new, small piece of canon about: ${topic}.
 It must fit everything in LORE and contradict nothing. Magic is weak, everyday and costs the user. Keep it PG-13 and suitable for children aged 6 to 10. Don't repeat anything that already exists. These titles already exist: ${titles}
-Reply in exactly this form and nothing else, one or two plain sentences on each line:
+Reply with a TITLE line and then the idea, and nothing else:
 TITLE: a short name
+- the idea in one or two plain sentences
+A single line is fine. If you want more, add lines that start with any of these labels that fit, and leave out the rest:
 - **What it is:** …
 - **Who:** …
 - **Where:** …
 - **How it works:** …
 - **Limits:** …
 - **Ties:** how it connects to named people or places in LORE
-Leave out a line that doesn't suit the topic, but keep at least four.
 
 LORE:
 ${lore}`;
   const reply = await narrate([{ role: "user", content: ask }], null, { temperature: 0.8, maxTokens: 450 });
   const title = oneLine((reply.match(/TITLE\s*:\s*\**\s*(.+)/i) || [])[1] || "", 80).replace(/[*#_]/g, "").trim();
-  const lines = reply.split("\n").filter((l) => /^\s*[-*]\s+\S/.test(l)).map((l) => "- " + l.replace(/^\s*[-*]\s+/, "").trim())
-    .filter((l) => !/^- \*\*Label:\*\*/i.test(l) && !/:\*\*\s*…?\s*$/.test(l));
+  // Any or all of the labels may be left out; a one-line idea is kept too.
+  const after = reply.replace(/^[\s\S]*?TITLE\s*:[^\n]*\n?/i, "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const bullets = after.filter((l) => /^[-*]\s+\S/.test(l));
+  const lines = (bullets.length ? bullets : after.slice(0, 6)).map((l) => "- " + l.replace(/^[-*]\s+/, "")
+    .replace(/^\*\*Label:\*\*\s*/i, ""))   // a literal "Label:" copied from the prompt
+    .filter((l) => !/^- (\*\*[^*]+:\*\*)?\s*…?\s*$/.test(l));   // an empty or "…" line
   const body = lines.join("\n");
-  if (!title || lines.length < 3 || body.length < 120) return { error: "The AI's idea didn't come out in a usable form", topic };
+  if (!title || body.replace(/[-*\s]/g, "").length < 10) return { error: "The AI's idea came out empty", topic };
   if (UNSAFE.test(title + body)) return { error: "The AI's idea held a link or instructions", topic };
   return { title, body, topic };
 }
@@ -766,7 +808,7 @@ async function restRound(why = "scheduled") {
         if (v.verdict === "approve") {
           // Auto mode files it as a pitch for the owner; rest mode decides it.
           const it = reviewItem({ ...rec, key: String(rec.key || "").split(":").slice(1).join(":"), decided: rest.mode !== "auto", loreLine: "" }, { owner: true });
-          it.why = v.why;
+          it.why = v.why; it.byAI = true;
           const r = await fileReviewItem(it);
           did.approved++; await restLog("approved", rec.title, { why: v.why + (rest.mode === "auto" ? " (filed as a 💡 pitch for you)" : ""), from: rec.source, sha: r.sha });
           // Auto mode: the AI already judged it, so keep its view and don't ask again.
@@ -810,7 +852,7 @@ async function restRound(why = "scheduled") {
               const name = auto ? "auto" : "rest";
               it.from = `Made up by the AI in ${name} mode`; it.msg = `${auto ? "Auto" : "Rest"} mode idea`;
               const view = v.verdict === "unsure" ? "left for you: " + v.why : (keep ? "accepted: " : v.verdict === "approve" ? "would accept: " : "would reject: ") + v.why;
-              it.why = `a new idea about ${about}, ${view}`;
+              it.why = `a new idea about ${about}, ${view}`; it.byAI = true;
               const r = await fileReviewItem(it);
               if (auto && v.verdict !== "unsure") keepView(r.section, v.verdict, v.why);
               if (v.verdict === "unsure") { const k = filedPitch(r.section); if (k) rest.unsure[k.key] = Date.now(); did.unsure++; }
@@ -1013,6 +1055,13 @@ const server = http.createServer(async (req, res) => {
       if (req.method === "POST" && url.pathname === "/admin/reject-pitch") {
         const r = await rejectPitch(await readJson(req));
         console.log(new Date().toISOString(), "pitch rejected on review:", r.name, r.sha);
+        return send(res, 200, { ok: true, ...r }, origin);
+      }
+      if (req.method === "POST" && url.pathname === "/admin/delete-ai") {
+        const r = await deleteAiItem(await readJson(req));
+        await saveRest().catch(() => { });
+        await restLog("deleted", r.name, { why: "Deleted by you" + (r.decided ? ". If the lore catch-up already added lines for it, take those out of lore.md too" : ""), sha: r.sha });
+        console.log(new Date().toISOString(), "AI item deleted on review:", r.name, r.sha);
         return send(res, 200, { ok: true, ...r }, origin);
       }
       if (req.method === "POST" && url.pathname === "/admin/lore-catchup") {
