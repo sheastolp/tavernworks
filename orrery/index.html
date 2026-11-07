@@ -84,6 +84,13 @@
   details.cat>summary:hover h2.sec{color:var(--gold2)}
   details.cat>summary h2.sec{margin:16px 0 10px}
   details.cat>.grid{margin-bottom:8px}
+  .panel.rift{border-color:rgba(160,120,255,.45);background:linear-gradient(180deg,rgba(120,80,220,.14),var(--bg2))}
+  .riftname{font-family:Cinzel,serif;color:var(--gold2);font-size:18px;letter-spacing:.06em}
+  .riftlinks{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+  .riftlinks.inchat{margin:-4px 0 14px}
+  .riftlinks .tag{margin:0}
+  a.riftlink{display:inline-block;padding:6px 12px;border-radius:999px;border:1px solid rgba(160,120,255,.55);color:var(--text);text-decoration:none;font:600 13px Inter,sans-serif;background:rgba(120,80,220,.18)}
+  a.riftlink:hover{background:rgba(120,80,220,.32)}
   details.doc>summary{list-style:none}
   details.doc>summary::-webkit-details-marker{display:none}
   details.doc>summary::before{content:"▸";display:inline-block;width:1em;transition:transform .15s}
@@ -440,6 +447,7 @@ const DOCS = [
   { id: "resources", file: "resources.md", title: "Resources", sub: "Items and resources by category and type" },
   { id: "bestiary", file: "bestiary.md", title: "GuildScribe's Bestiary", sub: "Where GuildScribe's adventurers hunt and duel, and what lives there · the bots read it" },
   { id: "midkemia", file: "midkemia.md", title: "World of Midkemia", sub: "Rose's D&D campaign · DM lore" },
+  { id: "rifts", file: "rifts.md", title: "Through the Rifts", sub: "The worlds the rifts reach, and where to play or follow each" },
   { id: "readme", file: "README.md", title: "About the repo", sub: "README · where everyone shows up" },
   { id: "maps", file: "maps/README.md", title: "Maps notes", sub: "maps/README.md" },
 ];
@@ -957,6 +965,47 @@ function highlight(root, re) {
     n.replaceWith(...span.childNodes);
   }
 }
+// ── Through the Rifts ──
+// rifts.md lists the worlds on the other side of the rifts and where to go
+// to play or follow each: a campaign, its Discord, a game. Each world is a
+// "## Name" with optional "- **Document:** file.md", "- **People:** a, b"
+// and "- **Also called:** …" bullets, then a | Link | URL | table. Only
+// https links show, so a row can wait with its URL blank.
+let RIFTS = [];
+function buildRifts() {
+  const out = [];
+  let r = null;
+  for (const line of (text.rifts || "").split(/\r?\n/)) {
+    const h = line.match(/^##\s+(.+?)\s*$/);
+    if (h) { out.push(r = { name: h[1].replace(/[*_`]/g, "").trim(), what: "", doc: "", people: [], also: [], links: [] }); continue; }
+    if (!r) continue;
+    const b = line.match(/^\s*[-*]\s+\*\*(.+?):\*\*\s*(.*)$/);
+    if (b) {
+      const k = b[1].toLowerCase(), v = b[2].trim();
+      const list = v.split(",").map((x) => x.replace(/[*_`]/g, "").trim()).filter(Boolean);
+      if (k === "what it is") r.what = v;
+      else if (k === "document") r.doc = v.replace(/[`*]/g, "").replace(/^.*\(([^)]+)\).*$/, "$1").trim();
+      else if (k === "people") r.people = list;
+      else if (k === "also called") r.also = list;
+      continue;
+    }
+    if (!isRow(line) || /^\s*\|\s*:?-{3,}/.test(line)) continue;
+    const [label, url] = line.trim().replace(/^\||\|$/g, "").split("|").map((x) => x.trim());
+    const href = (url || "").replace(/^<|>$/g, "").replace(/^\[.*?\]\((.+)\)$/, "$1");
+    if (label && !/^link$/i.test(label) && /^https:\/\/[^\s"'<>]+$/.test(href)) r.links.push({ label: label.replace(/\*\*/g, ""), url: href });
+  }
+  RIFTS = out;
+}
+const isRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+const riftLinks = (r) => r.links.map((l) => `<a class="riftlink" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("");
+function riftPanel(list) {
+  return list.map((r) => `<div class="panel rift"><div class="crumb">🌀 Through the rift · <a href="#doc/rifts">all the worlds</a></div><b class="riftname">${esc(r.name)}</b>${r.what ? `<div class="md tag" style="margin:4px 0 0">${inline(r.what)}</div>` : ""}<div class="riftlinks">${r.links.length ? riftLinks(r) : `<span class="tag">No links yet: add them to <a href="#doc/rifts">rifts.md</a>.</span>`}</div></div>`).join("");
+}
+// The worlds a piece of text names (by name or "Also called").
+function riftsNamed(t) {
+  return RIFTS.filter((r) => r.links.length && [r.name, ...r.also].some((n) => n.length > 2 && new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(t)));
+}
+
 // Every section in the Explorer folds: a heading with a ▸ that starts closed
 // and opens on a tap. What a visitor opens stays open for the rest of the
 // visit (coming back from an item, or when live data redraws the page).
@@ -1004,7 +1053,7 @@ function person(id) {
   const wake = p.group === VERROWEN_GROUP ? `<div class="panel"><div class="crumb">${esc(p.byline || "From a Wake in Verrowen story")}${p.where === "review" ? ` · <a href="/orrery/?clone=review#roster">on the Review Clone</a>` : ""}${p.pending ? ` · <a href="/orrery/control/review/">review it</a>` : ""}</div><div class="md">${(p.profile || "").split("\n").filter((l) => l.trim()).map((l) => `<p style="margin:0 0 6px">${inline(l.replace(/\*\*/g, "").replace(/^\s*([A-Z][\w &'/-]{1,30}):/, "**$1:**"))}</p>`).join("")}</div></div>` : "";
   return { html: `<div class="crumb"><a href="#roster">Roster</a> › ${esc(p.group)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(p.name)}${p.status && p.group === VERROWEN_GROUP ? `<span class="pill${p.pending ? " pitch" : ""}">${esc(p.status)}</span>` : ""}</h2><p class="tag">${esc(p.role)} · ${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}.${OWNER ? ` <a href="#chat/review/${p.id}">✒️ Review ${esc(p.name)} in the chat</a>` : ""}</p>${p.doing ? `<div class="hallnow"><b>Right now at GuildScribe</b>${liveTag(p)}<div style="margin-top:4px">${esc(p.doing.text)}${doingWhen(p.doing)}</div>${hall && hall.clock ? `<div class="tag" style="margin-top:4px">${esc(hall.clock.text)}</div>` : ""}</div>` : ""}${wake}${
     near.length ? `<div class="who">${near.map(([o, n]) => `<a class="pill" href="#person/${o.id}">${esc(o.name)} · ${n}</a>`).join("")}</div>` : ""
-  }${makes.length ? `<div class="who"><span class="pill">Makes</span>${makes.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}${renderHits(found, re) || "<p>Nothing written yet.</p>"}`, re };
+  }${makes.length ? `<div class="who"><span class="pill">Makes</span>${makes.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}${riftPanel(RIFTS.filter((r) => r.people.some((n) => n.toLowerCase() === p.name.toLowerCase())))}${renderHits(found, re) || "<p>Nothing written yet.</p>"}`, re };
 }
 function mentions(it) { return matches(patternFor(it.names)).reduce((a, d) => a + d.hits.length, 0); }
 function itemCard(it, showWhere) {
@@ -1143,7 +1192,7 @@ function doc(id) {
   const d = DOCS.find((x) => x.id === id);
   if (!d) return `<p>No such document. <a href="#docs">All documents</a>.</p>`;
   const heads = sections(d).filter((s) => s.level === 2 || s.level === 3);
-  return `<div class="crumb"><a href="#docs">Documents</a> › ${esc(d.file)} · <a href="${BLOB}${d.file}" target="_blank" rel="noopener">on GitHub</a></div>${
+  return `<div class="crumb"><a href="#docs">Documents</a> › ${esc(d.file)} · <a href="${BLOB}${d.file}" target="_blank" rel="noopener">on GitHub</a></div>${riftPanel(RIFTS.filter((r) => r.doc === d.file))}${
     heads.length > 3 ? `<div class="panel"><ul class="toc">${heads.map((s) => `<li style="margin-left:${(s.level - 2) * 14}px"><a href="#doc/${d.id}/${slug(s.heading)}">${inline(s.heading)}</a></li>`).join("")}</ul></div>` : ""
   }<div class="panel md">${md(text[d.id] || "")}</div>`;
 }
@@ -1433,12 +1482,13 @@ async function load(quiet = false, head) {
   });
   await readMapLabels(bust);
   buildItems();
+  buildRifts();
   buildBeasts();
   buildVerrowen();
   loadVerrowenPending();
   // resources.md and bestiary.md may not be on this branch yet; the
   // built-in items cover the first, and the second is simply left out.
-  const missing = DOCS.filter((d) => !text[d.id] && d.id !== "resources" && d.id !== "bestiary");
+  const missing = DOCS.filter((d) => !text[d.id] && d.id !== "resources" && d.id !== "bestiary" && d.id !== "rifts");
   if (missing.length === DOCS.length) {
     $("status").className = "status err";
     $("status").textContent = "Couldn't reach GitHub to read the orrery. Try Reload in a moment.";
@@ -2008,6 +2058,17 @@ function drawLog() {
     d.textContent = m.content;
     d.appendChild(copyButton(m.content));
     log.appendChild(d);
+    // A reply about a world on the other side of a rift links to where it's played.
+    if (m.role === "assistant") {
+      const prev = c.messages[c.messages.indexOf(m) - 1];
+      const worlds = riftsNamed(m.content + "\n" + (prev && prev.role === "user" ? prev.content : ""));
+      if (worlds.length) {
+        const r = document.createElement("div");
+        r.className = "riftlinks inchat";
+        r.innerHTML = worlds.map((w) => `<span class="tag">🌀 ${esc(w.name)}:</span>${riftLinks(w)}`).join("");
+        log.appendChild(r);
+      }
+    }
   }
   toLatest();
   const w = $("writeup");
