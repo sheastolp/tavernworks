@@ -108,6 +108,14 @@
   .restlog li.approved,.restlog li.accepted{border-color:var(--green)}
   .restlog li.rejected,.restlog li.error{border-color:var(--ember)}
   .restlog li.idea,.restlog li.lore,.restlog li.published{border-color:var(--gold)}
+  /* Every card folds shut on its heading; the lore-keeper chat minimizes on its own. */
+  button.fold{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;cursor:pointer;font:inherit;color:inherit;letter-spacing:inherit;border-radius:6px}
+  button.fold:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
+  button.fold::after{content:"▾";margin-left:auto;font-family:Inter,system-ui,sans-serif;font-size:14px;letter-spacing:0;color:var(--muted);transition:transform .15s}
+  button.fold[aria-expanded="false"]::after{transform:rotate(-90deg)}
+  button.fold:hover::after{color:var(--gold2)}
+  .card.shut > :not(h2), .sub.shut > :not(h3){display:none!important}
+  .card.shut{gap:0}
   footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
 </style>
 </head>
@@ -308,6 +316,28 @@ const KEY = "verrowen-owner";
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 try{ $("token").value = localStorage.getItem(KEY) || ""; }catch(e){}
+
+// ── Folding: every card starts shut and opens on its heading; the lore-keeper chat minimizes on its own ──
+function setFold(box, open){
+  box.classList.toggle("shut", !open);
+  const b = box.querySelector(":scope > h2 > button.fold, :scope > h3 > button.fold");
+  if (b) b.setAttribute("aria-expanded", String(open));
+}
+function makeFold(box, head, open){
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "fold";
+  b.append(...head.childNodes); head.append(b);
+  b.addEventListener("click", () => setFold(box, box.classList.contains("shut")));
+  setFold(box, open);
+}
+document.querySelectorAll("section.card").forEach((c) => { const h = c.querySelector(":scope > h2"); if (h) makeFold(c, h, false); });
+{ const lk = $("h-lk"); makeFold(lk.closest(".sub"), lk, true); }
+// Opens whatever card (and the chat) holds el, so the page can point at it.
+function reveal(el){
+  const s = el.closest(".sub.shut"); if (s) setFold(s, true);
+  const c = el.closest(".card"); if (c) setFold(c, true);
+  return el;
+}
 
 function when(iso){
   try{ return new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }catch(e){ return iso; }
@@ -537,7 +567,7 @@ $("rvAccept").addEventListener("click", () => fileDraft(true));
 async function fileDraft(decided){
   const st = $("rvStatus"), token = $("token").value.trim();
   const title = $("rvTitle").value.trim(), body = $("rvBody").value.trim();
-  if (!token){ st.textContent = "Enter the owner's token below first."; $("token").focus(); return; }
+  if (!token){ st.textContent = "Enter the owner's token below first."; reveal($("token")).focus(); return; }
   if (!title || !body){ st.textContent = "It needs a title and some text."; return; }
   const about = [lkChat.title, MODE[lkChat.mode] || lkChat.mode].filter(Boolean).join(" · ");
   $("rvFile").disabled = $("rvAccept").disabled = true; st.textContent = decided ? "Filing it on the review branch as Your idea…" : "Filing it on the review branch…";
@@ -811,12 +841,13 @@ $("mpMarks").addEventListener("click", (e) => {
   $("mpSaveSt").textContent = "Not saved yet.";
 });
 async function mpOpenFor(hint, label){
+  reveal($("mapCard"));
   const want = String(hint || "").toLowerCase();
   const m = [...$("mpPick").options].find((o) => want && o.textContent.toLowerCase().includes(want.replace(/^the /, ""))) || $("mpPick").options[0];
   $("mpPick").value = m.value;
   await mpOpen();
   $("mpLabel").value = label || "";
-  $("mapCard").scrollIntoView({ behavior: "smooth" });
+  reveal($("mapCard")).scrollIntoView({ behavior: "smooth" });
 }
 async function mpOpen(){
   const st = $("mpStatus"), file = $("mpPick").value;
@@ -1082,7 +1113,7 @@ function drawAi(text){
 }
 async function deleteAi(line, b, box, st){
   const token = $("token").value.trim();
-  if (!token){ st.textContent = "Enter the owner's token in Waiting for you first."; $("token").focus(); return; }
+  if (!token){ st.textContent = "Enter the owner's token in Waiting for you first."; reveal($("token")).focus(); return; }
   if (b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Tap again to delete"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "🗑 Delete"; }, 5000); return; }
   const btns = box.querySelectorAll("button"); btns.forEach((x) => x.disabled = true);
   st.textContent = "Taking it out on the review branch…";
@@ -1108,7 +1139,7 @@ $("pList").addEventListener("click", async (e) => {
   const box = b.closest("[data-p]"), st = box.querySelector("[data-st]"), p = pitches[+box.dataset.p];
   if (b.dataset.act === "delete") return deleteAi(p.line, b, box, st);
   const token = $("token").value.trim(), reject = b.dataset.act === "reject";
-  if (!token){ st.textContent = "Enter the owner's token in Waiting for you first."; $("token").focus(); return; }
+  if (!token){ st.textContent = "Enter the owner's token in Waiting for you first."; reveal($("token")).focus(); return; }
   if (reject && b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Tap again to reject"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "✕ Reject"; }, 5000); return; }
   const btns = box.querySelectorAll("button"); btns.forEach((x) => x.disabled = true);
   st.textContent = reject ? "Taking it out on the review branch…" : "Marking it Your idea on the review branch…";
