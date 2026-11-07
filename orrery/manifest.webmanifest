@@ -2,7 +2,7 @@
   "id": "/orrery/",
   "name": "Orrery Explorer",
   "short_name": "Orrery",
-  "description": "Browse the Grand Orrery's maps, documents, people and items, and talk them through with the lore-keeper.",
+  "description": "Open the Scroll: one ledger of everything in the Grand Orrery (people, items, beasts, places, maps and documents), browse it in the Explorer, and talk it through with the lore-keeper.",
   "start_url": "/orrery/",
   "scope": "/orrery/",
   "display": "standalone",
@@ -34,6 +34,17 @@
     }
   ],
   "shortcuts": [
+    {
+      "name": "The Scroll of All Things",
+      "short_name": "Scroll",
+      "url": "/orrery/#scroll",
+      "icons": [
+        {
+          "src": "/orrery/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
     {
       "name": "Chat with the lore-keeper",
       "short_name": "Lore-keeper",

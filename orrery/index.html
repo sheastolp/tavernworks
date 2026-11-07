@@ -260,6 +260,79 @@
     .chatbox button.small{padding:8px 12px}
   }
   [data-install] button{font-size:13px;padding:4px 12px;margin-left:8px}
+  /* The Scroll: the whole Orrery as one parchment ledger, rolled on two rods. */
+  .scroll{--ink:#2b1d10;--ink2:#5e4429;--rule:rgba(94,60,28,.32);--red:#8a2b12;--leaf:#3f5a24;max-width:920px;margin:6px auto 0;padding:0 14px}
+  .scroll .rod{position:relative;z-index:2;height:28px;margin:0 -14px;border-radius:14px;background:linear-gradient(180deg,#2d190a,#7a4a20 22%,#c48a4c 42%,#9a6430 58%,#5a3414 80%,#2d190a);box-shadow:0 8px 16px rgba(0,0,0,.55)}
+  .scroll .rod::before,.scroll .rod::after{content:"";position:absolute;top:-6px;width:24px;height:40px;border-radius:45%;background:radial-gradient(circle at 38% 32%,#f5c873,#b07a2e 50%,#4a2a10 92%);box-shadow:0 3px 8px rgba(0,0,0,.5)}
+  .scroll .rod::before{left:-16px}.scroll .rod::after{right:-16px}
+  .parch{position:relative;margin:-10px 0;padding:46px clamp(16px,6vw,68px) 50px;color:var(--ink);font-family:Spectral,Georgia,serif;font-size:17px;line-height:1.55;
+    background:radial-gradient(ellipse 60% 40% at 18% 12%,rgba(255,250,235,.55),transparent 70%),radial-gradient(ellipse 50% 45% at 85% 88%,rgba(128,78,26,.2),transparent 70%),radial-gradient(ellipse 40% 30% at 70% 30%,rgba(150,100,40,.08),transparent 70%),linear-gradient(90deg,rgba(110,68,26,.3),transparent 5%,transparent 95%,rgba(110,68,26,.3)),#e9d6ae;
+    box-shadow:inset 0 18px 20px -12px rgba(60,30,8,.6),inset 0 -18px 20px -12px rgba(60,30,8,.6)}
+  .parch a{color:var(--red)}
+  .parch .crest{text-align:center;font-family:Cinzel,serif;letter-spacing:.32em;font-size:11.5px;color:var(--ink2)}
+  .parch h2.title{font-family:Cinzel,serif;font-weight:800;text-align:center;font-size:clamp(24px,5vw,38px);line-height:1.15;color:var(--ink);margin:6px 0 4px}
+  .parch .orn{text-align:center;color:var(--red);font-size:20px;letter-spacing:.6em;margin:2px 0 10px}
+  .parch .lede{text-align:center;font-style:italic;color:var(--ink2);max-width:600px;margin:0 auto}
+  .parch .asof{text-align:center;font-size:13px;color:var(--ink2);margin-top:8px;font-family:Inter,sans-serif}
+  .parch .tally{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px;margin:14px 0 4px;font-family:Cinzel,serif;font-size:12.5px;letter-spacing:.06em;color:var(--ink2)}
+  .parch .tally b{color:var(--ink);font-size:15px;margin-right:4px}
+  .ledgerbar{margin:22px 0 6px;padding:12px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);display:flex;flex-direction:column;gap:10px}
+  .ledgerbar .seek{display:flex;gap:8px;align-items:center}
+  .ledgerbar input{flex:1;min-width:0;background:rgba(255,250,235,.5);border:1px solid var(--rule);border-radius:6px;color:var(--ink);font:17px Spectral,Georgia,serif;padding:8px 12px}
+  .ledgerbar input::placeholder{color:#8a6e4c;font-style:italic}
+  .ledgerbar input:focus,.ledgerbar select:focus,.ledgerbar button:focus-visible,.parch summary:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+  .ledgerbar .kinds{display:flex;flex-wrap:wrap;gap:6px}
+  .ledgerbar button,.ledgerbar select{font:600 12.5px Inter,sans-serif;color:var(--ink);background:transparent;border:1px solid var(--rule);border-radius:999px;padding:5px 11px;cursor:pointer}
+  .ledgerbar button.on{background:var(--ink);color:#f3e4c2;border-color:var(--ink)}
+  .ledgerbar .opts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font:12.5px Inter,sans-serif;color:var(--ink2)}
+  .ledgerbar .opts .grow{flex:1}
+  .ledgerbar select{border-radius:6px;background:rgba(255,250,235,.5)}
+  .contents{margin:18px 0 6px;columns:2 240px;column-gap:28px;list-style:none;padding:0}
+  .contents li{display:flex;gap:8px;align-items:baseline;break-inside:avoid;padding:2px 0}
+  .contents a{text-decoration:none;color:var(--ink)}
+  .contents .num{font-family:Cinzel,serif;color:var(--red);font-size:13px;min-width:2.4em}
+  .contents .dots,.entry .dots{flex:1;border-bottom:2px dotted var(--rule);min-width:10px;transform:translateY(-5px)}
+  .contents small{font-family:Inter,sans-serif;font-size:12px;color:var(--ink2)}
+  .chap{margin-top:34px;scroll-margin-top:14px}
+  .chap>h3{text-align:center;font-family:Cinzel,serif;font-size:22px;color:var(--ink);line-height:1.2}
+  .chap>h3 .num{display:block;font-size:12px;letter-spacing:.3em;color:var(--red);margin-bottom:2px}
+  .chap>h3 small{display:block;font:italic 14px Spectral,serif;color:var(--ink2);letter-spacing:0;margin-top:2px}
+  .chap>h4{display:flex;align-items:center;gap:12px;font-family:Cinzel,serif;font-size:14px;letter-spacing:.1em;color:var(--ink2);margin:20px 0 4px}
+  .chap>h4::before,.chap>h4::after{content:"";flex:1;border-top:1px solid var(--rule)}
+  .entries{list-style:none;padding:0;margin:0}
+  .entry{border-bottom:1px solid rgba(94,60,28,.12)}
+  .entry summary{display:grid;grid-template-columns:1.7em minmax(0,max-content) minmax(10px,1fr) auto;column-gap:8px;align-items:baseline;cursor:pointer;list-style:none;padding:7px 0 6px}
+  .entry summary::-webkit-details-marker{display:none}
+  .entry .ic{font-size:16px;line-height:1}
+  .entry .nm{font-weight:600;overflow-wrap:anywhere}
+  .entry .meta{font:12px Inter,sans-serif;color:var(--ink2);white-space:nowrap;text-align:right}
+  .entry .ln{grid-column:2/-1;font-style:italic;color:var(--ink2);font-size:15px;line-height:1.4}
+  .entry .st{display:inline-block;font:600 10.5px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;border:1px solid currentColor;border-radius:4px;padding:0 5px;margin-right:6px;color:var(--leaf)}
+  .entry .st.pend{color:var(--red)}
+  .entry details[open] summary .nm{color:var(--red)}
+  .rec{margin:2px 0 12px calc(1.7em + 8px);padding:10px 14px;border-left:2px solid var(--red);background:rgba(255,250,235,.35);border-radius:0 8px 8px 0}
+  .rec dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px}
+  .rec dt{font-family:Cinzel,serif;font-size:12px;letter-spacing:.06em;color:var(--ink2);padding-top:3px}
+  .rec dd{font-size:16px;line-height:1.45;overflow-wrap:anywhere}
+  .rec .acts{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font:13px Inter,sans-serif}
+  .rec img{display:block;max-width:100%;border-radius:6px;border:1px solid var(--rule);margin:8px 0 2px}
+  .rec .refs{margin:8px 0 0;padding-left:1.2em;font-size:14.5px}
+  .rec .refs a{text-decoration:none}
+  .parch .colophon{text-align:center;font-style:italic;color:var(--ink2);font-size:14px;margin-top:36px}
+  .parch .none{text-align:center;font-style:italic;color:var(--ink2);margin:30px 0}
+  @media (max-width:560px){
+    .scroll{padding:0 8px}
+    .scroll .rod{margin:0 -8px;height:22px}
+    .scroll .rod::before,.scroll .rod::after{width:18px;height:32px}
+    .scroll .rod::before{left:-10px}.scroll .rod::after{right:-10px}
+    .parch{font-size:16px}
+    .entry summary{grid-template-columns:1.6em minmax(0,1fr) auto}
+    .entry .dots{display:none}
+    .rec{margin-left:0}
+    .rec dl{grid-template-columns:1fr;gap:0}.rec dd{margin-bottom:6px}
+    .ledgerbar input,.ledgerbar select{font-size:16px}
+  }
+  @media print{nav.top,header,footer,.ledgerbar,.scroll .rod{display:none!important}.parch{box-shadow:none;background:#fff}}
 </style>
 </head>
 <body>
@@ -271,6 +344,7 @@
     <p class="tag">Talk through anything in the Grand Orrery with the lore-keeper: characters, regions, rules, magic and more. Browse its people, items, maps and documents, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo, or make a character by role-playing in it.</p>
     <p class="worldpick"><label for="worldPick">WORLD</label><select id="worldPick"></select><small id="worldNote"></small></p>
     <div class="tabs">
+      <a href="#scroll" data-tab="scroll">📜 Scroll</a>
       <a href="#chat" data-tab="chat">✒️ Chat</a>
       <a href="#roster" data-tab="roster">Roster</a>
       <a href="#items" data-tab="items">Items</a>
@@ -295,7 +369,8 @@
 <script>
 // The Orrery: reads the grand-orrery repo's Markdown straight from
 // GitHub (like Wake in Verrowen reads lore.md), so it's always current.
-// Views (in the URL hash): #chat (the default), #roster, #person/<id>, #items, #item/<id>,
+// Views (in the URL hash): #scroll (the default, and what the app opens to:
+// everything below as one ledger), #scroll/<chapter>, #chat, #roster, #person/<id>, #items, #item/<id>,
 // #resources, #resources/<category>, #resources/<category>/<type>, #maps,
 // #beasts, #beasts/<place>, #beast/<id> (from bestiary.md),
 // #docs, #doc/<id>, #find/<text>. Items and resources come from the repo's
@@ -742,6 +817,7 @@ async function loadVerrowenPending() {
   await Promise.all(jobs);
   buildVerrowen();
   if (/^#(roster|person\/|find\/)/.test(location.hash)) route();
+  else refreshScroll();
 }
 
 const $ = (id) => document.getElementById(id);
@@ -1047,13 +1123,233 @@ function maps() {
   return `<div class="maps">${MAPS.map((m) => { const on = itemsOnMap(m); return `<figure><img src="${RAW + m.file}" alt="${esc(m.title)} map" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'Not uploaded yet: save it into grand-orrery/${m.file}'}))"><figcaption><b>${esc(m.title)}.</b> ${esc(m.caption)}${on.length ? `<div class="who" style="margin-top:6px"><span class="pill" style="margin-left:0">📍 Items on it</span>${on.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}</figcaption></figure>`; }).join("")}</div><div class="panel md">${md(text.maps || "")}</div>`;
 }
 
+// ── The Scroll: the whole Orrery as one ledger ──
+// #scroll (the default view, and what the installed app opens to) gathers
+// every record the Explorer knows into one parchment document: the people
+// (with GuildScribe's live adventurers and the Wake in Verrowen characters),
+// items and resources, beasts, places (the bestiary's and every label on the
+// maps), the maps, the documents and this browser's Codex notes. Each entry
+// opens to its full record and links to its own Explorer page. Everything is
+// built from what load() already read, so it follows the canon on its own.
+// Search, filters and the JSON/CSV export make it a small database.
+const LEDGER = [
+  { kind: "person", title: "The People", sub: "Every soul in the roster, the hall and the stories", one: "person", many: "people" },
+  { kind: "item", title: "Items & Resources", sub: "All that is made, traded, eaten and fought with", one: "entry", many: "entries" },
+  { kind: "beast", title: "The Bestiary", sub: "What lives in the wild places, and what it does", one: "beast", many: "beasts" },
+  { kind: "place", title: "Places", sub: "Where things happen, and every name on the maps", one: "place", many: "places" },
+  { kind: "map", title: "The Maps", sub: "The land as it has been drawn", one: "map", many: "maps" },
+  { kind: "doc", title: "The Writings", sub: "Every document of the canon, and its sections", one: "document", many: "documents" },
+  { kind: "note", title: "Your Codex", sub: "Notes kept in this browser's Codex", one: "note", many: "notes" },
+];
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+const ledgerQ = { q: "", kind: "", status: "", sort: "chapter" };
+try { const s = JSON.parse(localStorage.getItem("orrery-scroll") || "{}"); for (const k of ["kind", "status", "sort"]) if (typeof s[k] === "string") ledgerQ[k] = s[k]; } catch {}
+const keepLedgerQ = () => { try { localStorage.setItem("orrery-scroll", JSON.stringify({ kind: ledgerQ.kind, status: ledgerQ.status, sort: ledgerQ.sort })); } catch {} };
+let ledgerMemo = null, ledgerKey = "";
+function ledgerRecords() {
+  const notes = (() => { try { return codexNotes(); } catch { return []; } })();
+  const key = [canonSha, BRANCH, PEOPLE.length, PEOPLE.filter((p) => p.live).length, ITEMS.length, BEASTS.length, PLACES.length, DOCS.length, MAPS.length, MAPLABELS.length, PEOPLE.map((p) => p.name + p.role + (p.doing ? p.doing.text : "")).join("~"), notes.map((n) => n && (n.title + n.status + (n.body || "").length)).join("~"), Object.values(text).reduce((a, t) => a + (t || "").length, 0)].join("|");
+  if (ledgerMemo && key === ledgerKey) return ledgerMemo;
+  // Every section of every document, once, so each record can count where it's written about.
+  const secs = DOCS.flatMap((d) => sections(d).map((s) => ({ d, s })));
+  const hitsFor = (re) => re ? secs.filter(({ s }) => { re.lastIndex = 0; return re.test(s.body); }) : [];
+  const out = [];
+  const add = (r) => {
+    const hits = hitsFor(r.re || (r.names && r.names.length ? patternFor(r.names) : null));
+    const fields = (r.fields || []).filter(([, v]) => v && String(v).trim());
+    out.push({ ...r, fields, refs: hits.length,
+      seen: hits.slice(0, 8).map(({ d, s }) => ({ path: (s.path[0] && s.path[0].startsWith(d.title.split(":")[0]) ? s.path : [d.title, ...s.path]).map((x) => x.replace(/[*_`]/g, "")).join(" › "), href: `#doc/${d.id}${s.sentence ? "" : "/" + slug(s.heading)}` })),
+      hay: [r.name, r.group, r.status, r.line, ...fields.map(([k, v]) => k + " " + v), ...(r.extraHay || [])].join(" ").toLowerCase() });
+  };
+  for (const p of PEOPLE) {
+    const fresh = p.group === NEW_GROUP;
+    add({ kind: "person", id: p.id, icon: p.group === ADV_GROUP || fresh ? "🛡️" : p.group === VERROWEN_GROUP ? "🕯️" : "👤", name: p.name, group: p.group,
+      status: p.pending ? p.status : fresh ? "Not in the canon yet" : p.status || "Decided", pending: !!(p.pending || fresh),
+      line: p.role, names: p.names, href: `#person/${p.id}`, ask: `#chat/review/${p.id}`,
+      fields: [["Group", p.group], ["Who", p.role], ["Right now", p.doing && p.doing.text], ["Live", p.live ? "On GuildScribe's parchments now" : ""], ["Canon name", p.canon && p.canon.name !== p.name ? p.canon.name : ""], ["Sent in", p.byline]],
+      extraHay: [p.profile || ""] });
+  }
+  for (const it of ITEMS) {
+    const by = (it.by || []).map((id) => (PEOPLE.find((p) => p.id === id) || {}).name).filter(Boolean).join(", ");
+    add({ kind: "item", id: it.id, icon: it.icon || "📦", name: it.name, group: `${it.cat} › ${it.type}`, status: it.status || "", pending: isPitch(it),
+      line: it.does || it.sub || "", names: it.names, href: `#item/${it.id}`,
+      fields: [["Category", it.cat], ["Type", it.type], ["What it does", it.does], ["How it's made", it.made], ["Made by", by], ["Limits", it.limits], ["Rules it shows", it.rules], ["Story use", it.story], ["Also called", it.also], ["Note", it.sub], ...(it.extra || [])],
+      extraHay: [it.body || ""] });
+  }
+  for (const b of BEASTS) {
+    const pl = PLACES.find((p) => p.id === b.place);
+    add({ kind: "beast", id: b.id, icon: b.icon || "🐾", name: b.name, group: pl ? pl.name : "The wild", status: b.status || "", pending: isPitch(b),
+      line: b.does || "", names: b.names, href: `#beast/${b.id}`,
+      fields: [["Found in", pl && pl.name], ["Stats", b.stats], ["What it does", b.does], ["Limits", b.limits], ["Story use", b.story], ["In GuildScribe", b.gs], ["Also called", b.also], ...(b.extra || [])] });
+  }
+  const placeNames = new Set();
+  for (const pl of PLACES) {
+    placeNames.add(pl.name.toLowerCase().replace(/^the /, ""));
+    add({ kind: "place", id: pl.id, icon: "🏞️", name: pl.name, group: "Where GuildScribe's adventurers go", status: pl.status || "", pending: isPitch(pl),
+      line: pl.where || "", names: pl.names, href: `#beasts/${pl.id}`,
+      fields: [["Where", pl.where], ["For", pl.for], ["Levels", pl.levels], ["Beasts here", pl.beasts.map((b) => b.name).join(", ")], ["Fight lines", pl.lines.length ? pl.lines.length + " lines the bots post" : ""], ...(pl.extra || [])] });
+  }
+  for (const l of MAPLABELS) {
+    const k = l.label.toLowerCase().replace(/^the /, "");
+    if (placeNames.has(k)) continue;
+    placeNames.add(k);
+    add({ kind: "place", id: "map-" + idOf(l.label), icon: "📍", name: l.label, group: `On the map: ${l.map.title}`, status: l.placed ? "Placed on the admin page" : "", pending: false,
+      line: `Marked on the ${l.map.title.replace(/^the /i, "")} map.`, re: new RegExp(l.re.source, "gi"), href: `#find/${encodeURIComponent(l.label.replace(/^the /i, ""))}`, img: RAW + l.map.file,
+      fields: [["Map", l.map.title], ["Items here", (typeof placesOf === "function" ? ITEMS.filter((it) => placesOf(it).own.some((x) => x === l)) : []).map((it) => it.name).join(", ")]] });
+  }
+  for (const m of MAPS) {
+    const on = MAPLABELS.filter((l) => l.map === m).map((l) => l.label);
+    add({ kind: "map", id: "map:" + m.file, icon: "🧭", name: m.title, group: "Maps", status: "", pending: false, line: m.caption, href: "#maps", img: RAW + m.file,
+      fields: [["File", m.file], ["Shows", m.caption], ["Names on it", on.join(", ")]] });
+  }
+  for (const d of DOCS) {
+    const src = text[d.id] || "";
+    const heads = sections(d).filter((s) => s.level === 2 || s.level === 3);
+    add({ kind: "doc", id: d.id, icon: "📖", name: d.title, group: "Documents", status: "", pending: false, line: d.sub || d.file, href: `#doc/${d.id}`, file: d.file,
+      fields: [["File", d.file], ["Words", src ? src.split(/\s+/).filter(Boolean).length.toLocaleString() : "Not on this branch"], ["Sections", heads.length ? String(heads.length) : ""]],
+      toc: heads.map((s) => ({ level: s.level, heading: s.heading, href: `#doc/${d.id}/${slug(s.heading)}` })),
+      extraHay: heads.map((s) => s.heading) });
+  }
+  for (const n of notes) {
+    if (!n || !plain(n.title)) continue;
+    const f = n.f && typeof n.f === "object" ? n.f : {};
+    add({ kind: "note", id: "note-" + (n.id || idOf(n.title)), icon: "🪶", name: plain(n.title), group: n.cat ? n.cat.charAt(0).toUpperCase() + n.cat.slice(1) : "Notes",
+      status: n.status === "pitch" ? "Pitch" : "Decided", pending: n.status === "pitch", line: plain(n.body).slice(0, 180), href: "/verrowen/codex/", outside: true,
+      names: plain(n.title).length > 3 ? [reEsc(plain(n.title))] : [],
+      fields: [["Race", plain(f.race)], ["Sex", plain(f.sex)], ["Age", plain(f.age)], ["Role", plain(f.role)], ["Lives in", plain(f.home)], ["Held by", plain(f.owner)], ["What it does", plain(f.power)], ["Where", plain(f.where)], ["Note", plain(n.body)]] });
+  }
+  ledgerKey = key;
+  return (ledgerMemo = out);
+}
+function ledgerShown(recs) {
+  const words = ledgerQ.q.toLowerCase().split(/\s+/).filter(Boolean);
+  return recs.filter((r) => (!ledgerQ.kind || r.kind === ledgerQ.kind)
+    && (!ledgerQ.status || (ledgerQ.status === "canon" ? !r.pending : r.pending))
+    && words.every((w) => r.hay.includes(w)));
+}
+const ledgerCount = (n, ch) => `${n.toLocaleString()} ${n === 1 ? ch.one : ch.many}`;
+function ledgerEntry(r) {
+  const st = r.status ? `<span class="st${r.pending ? " pend" : ""}">${esc(r.status)}</span>` : "";
+  const meta = `${st}${r.refs ? `${r.refs} ref${r.refs === 1 ? "" : "s"}` : r.kind === "doc" ? "" : "—"}`;
+  const facts = r.fields.length ? `<dl>${r.fields.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${inline(String(v))}</dd>`).join("")}</dl>` : "";
+  const toc = r.toc && r.toc.length ? `<ol class="refs">${r.toc.map((s) => `<li style="margin-left:${(s.level - 2) * 14}px"><a href="${s.href}">${inline(s.heading)}</a></li>`).join("")}</ol>` : "";
+  const seen = r.seen.length ? `<div style="margin-top:8px;font:12px Inter,sans-serif;color:var(--ink2)">WRITTEN OF IN</div><ul class="refs">${r.seen.map((s) => `<li><a href="${s.href}">${esc(s.path)}</a></li>`).join("")}${r.refs > r.seen.length ? `<li><a href="${r.href}">and ${r.refs - r.seen.length} more…</a></li>` : ""}</ul>` : "";
+  const img = r.img ? `<a href="#maps"><img src="${r.img}" alt="${esc(r.name)}" loading="lazy" onerror="this.remove()"></a>` : "";
+  const acts = [`<a href="${r.href}">${r.outside ? "Open in the Codex" : "Open in the Explorer"} →</a>`, r.ask ? `<a href="${r.ask}">✒️ Talk it through with the lore-keeper</a>` : "", r.file ? `<a href="${BLOB}${r.file}" target="_blank" rel="noopener">On GitHub</a>` : ""].filter(Boolean).join("");
+  return `<li class="entry"><details data-id="${esc(r.kind + ":" + r.id)}"><summary><span class="ic" aria-hidden="true">${r.icon}</span><span class="nm">${esc(r.name)}</span><span class="dots"></span><span class="meta">${meta}</span>${r.line ? `<span class="ln">${inline(r.line.length > 200 ? r.line.slice(0, 199) + "…" : r.line)}</span>` : ""}</summary><div class="rec">${img}${facts}${toc}${seen}<div class="acts">${acts}</div></div></details></li>`;
+}
+function ledgerBody() {
+  const recs = ledgerRecords(), shown = ledgerShown(recs);
+  const findMore = ledgerQ.q.trim() ? ` <a href="#find/${encodeURIComponent(ledgerQ.q.trim())}">Search every word of every document for “${esc(ledgerQ.q.trim())}” →</a>` : "";
+  if (!shown.length) return `<p class="none">Nothing in the ledger answers to that.${findMore}</p>`;
+  const head = `<p class="asof" style="margin:10px 0 0">${shown.length === recs.length ? `All ${recs.length.toLocaleString()} entries.` : `${shown.length.toLocaleString()} of ${recs.length.toLocaleString()} entries.`}${findMore}</p>`;
+  if (ledgerQ.sort === "az") {
+    const sorted = [...shown].sort((a, b) => a.name.replace(/^the\s+/i, "").localeCompare(b.name.replace(/^the\s+/i, ""), undefined, { sensitivity: "base" }));
+    const letters = [...new Set(sorted.map((r) => (r.name.replace(/^the\s+/i, "")[0] || "#").toUpperCase()))];
+    return head + letters.map((L) => `<section class="chap"><h4>${esc(L)}</h4><ol class="entries">${sorted.filter((r) => (r.name.replace(/^the\s+/i, "")[0] || "#").toUpperCase() === L).map(ledgerEntry).join("")}</ol></section>`).join("");
+  }
+  return head + LEDGER.map((ch, k) => {
+    const mine = shown.filter((r) => r.kind === ch.kind);
+    if (!mine.length) return "";
+    const groups = [...new Set(mine.map((r) => r.group))];
+    return `<section class="chap" id="ch-${ch.kind}"><h3><span class="num">CHAPTER ${ROMAN[k]}</span>${esc(ch.title)}<small>${esc(ch.sub)} · ${ledgerCount(mine.length, ch)}</small></h3>${
+      groups.map((g) => `${groups.length > 1 ? `<h4>${esc(g)}</h4>` : ""}<ol class="entries">${mine.filter((r) => r.group === g).map(ledgerEntry).join("")}</ol>`).join("")}</section>`;
+  }).join("");
+}
+function scroll() {
+  const recs = (ledgerDrawn = ledgerRecords());
+  const n = (kind) => recs.filter((r) => r.kind === kind).length;
+  const pend = recs.filter((r) => r.pending).length;
+  const today = new Date().toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+  const chapters = LEDGER.map((ch, k) => [ch, k, n(ch.kind)]).filter(([, , c]) => c);
+  return `<div class="scroll"><div class="rod" aria-hidden="true"></div><article class="parch" aria-label="The Scroll of the Grand Orrery">
+    <div class="crest">THE GRAND ORRERY · ${esc(world.name.toUpperCase())}</div>
+    <h2 class="title">The Scroll of All Things</h2>
+    <div class="orn" aria-hidden="true">❦ ✦ ❦</div>
+    <p class="lede">Being a true ledger of every soul, thing, beast, place, map and writing kept in the Orrery and shown in its Explorer, set down from the canon as it stands.</p>
+    <p class="asof">Read from the <b>${esc(BRANCH)}</b> branch${canonSha ? ` at ${esc(canonSha.slice(0, 7))}` : ""} · ${esc(today)}${CLONE ? " · the Review Clone: what waits to be published" : ""}</p>
+    <div class="tally">${chapters.map(([ch, , c]) => `<span><b>${c.toLocaleString()}</b>${esc(c === 1 ? ch.one : ch.many)}</span>`).join("")}${pend ? `<span><b>${pend}</b>awaiting the owner</span>` : ""}</div>
+    <div class="ledgerbar">
+      <div class="seek"><input type="search" id="ledgerSeek" placeholder="Seek a name, a place, a word…" aria-label="Search the scroll" value="${esc(ledgerQ.q)}" autocomplete="off"></div>
+      <div class="kinds" role="group" aria-label="Show only">${[["", "Everything"], ...LEDGER.filter((ch) => n(ch.kind)).map((ch) => [ch.kind, ch.title.replace(/^The /, "")])].map(([k, t]) => `<button type="button" data-kind="${k}" class="${ledgerQ.kind === k ? "on" : ""}" aria-pressed="${ledgerQ.kind === k}">${esc(t)}</button>`).join("")}</div>
+      <div class="opts"><label>Standing <select id="ledgerStatus"><option value="">All</option><option value="canon"${ledgerQ.status === "canon" ? " selected" : ""}>Decided only</option><option value="pending"${ledgerQ.status === "pending" ? " selected" : ""}>Pitches and pending</option></select></label>
+        <label>Order <select id="ledgerSort"><option value="chapter">By chapter</option><option value="az"${ledgerQ.sort === "az" ? " selected" : ""}>A to Z</option></select></label>
+        <span class="grow"></span><button type="button" id="ledgerOpen" title="Open or close every entry shown">Unroll all</button><button type="button" data-export="json" title="Save the ledger as JSON">⤓ JSON</button><button type="button" data-export="csv" title="Save the ledger as a spreadsheet">⤓ CSV</button></div>
+    </div>
+    <ol class="contents">${chapters.map(([ch, k, c]) => `<li><span class="num">${ROMAN[k]}.</span><a href="#scroll/${ch.kind}">${esc(ch.title)}</a><span class="dots"></span><small>${c.toLocaleString()}</small></li>`).join("")}</ol>
+    <div id="ledgerBody">${ledgerBody()}</div>
+    <p class="colophon">Here ends the scroll. It rewrites itself whenever the canon changes in the <a href="https://github.com/sheastolp/grand-orrery" target="_blank" rel="noopener">grand-orrery</a> repo.</p>
+  </article><div class="rod" aria-hidden="true"></div></div>`;
+}
+// Redraw only the entries, keeping the search box and the reader's place.
+function drawLedger() { const b = $("ledgerBody"); if (b) b.innerHTML = ledgerBody(); }
+function onScroll() { return !location.hash || /^#scroll(\/|$)/.test(location.hash); }
+// Background updates (the canon moved, GuildScribe's feed, pending characters)
+// redraw it only when the ledger really changed, and keep open entries open.
+let ledgerDrawn = null;
+function refreshScroll() {
+  if (!onScroll() || !$("ledgerBody")) return;
+  if (ledgerRecords() === ledgerDrawn) return;
+  const y = window.scrollY, open = [...view.querySelectorAll("#ledgerBody details[open]")].map((d) => d.dataset.id);
+  const seek = $("ledgerSeek"), typing = document.activeElement === seek, caret = typing ? seek.selectionStart : 0;
+  view.innerHTML = scroll(); wireScroll();
+  view.querySelectorAll("#ledgerBody details").forEach((d) => { if (open.includes(d.dataset.id)) d.open = true; });
+  window.scrollTo(0, y);
+  if (typing) { $("ledgerSeek").focus(); try { $("ledgerSeek").setSelectionRange(caret, caret); } catch {} }
+}
+function ledgerExport(kind) {
+  const recs = ledgerShown(ledgerRecords());
+  const base = location.origin + "/orrery/" + (CLONE ? "?clone=review" : "");
+  const rows = recs.map((r) => ({ kind: r.kind, id: r.id, name: r.name, group: r.group, status: r.status || "", pending: r.pending, line: r.line || "", refs: r.refs,
+    fields: Object.fromEntries(r.fields.map(([k, v]) => [k, String(v)])), link: r.outside ? location.origin + r.href : base + r.href }));
+  const stamp = new Date().toISOString().slice(0, 10);
+  let blob, name;
+  if (kind === "csv") {
+    const cell = (v) => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
+    const cols = ["kind", "id", "name", "group", "status", "pending", "line", "refs", "link"];
+    const extra = [...new Set(rows.flatMap((r) => Object.keys(r.fields)))];
+    const lines = [cols.concat(extra).map(cell).join(",")].concat(rows.map((r) => cols.map((c) => cell(r[c])).concat(extra.map((k) => cell(r.fields[k]))).join(",")));
+    blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv" }); name = `orrery-scroll-${stamp}.csv`;
+  } else {
+    blob = new Blob([JSON.stringify({ kind: "grand-orrery-scroll", v: 1, branch: BRANCH, commit: canonSha || null, exported: new Date().toISOString(), filter: { ...ledgerQ }, count: rows.length, records: rows }, null, 1)], { type: "application/json" });
+    name = `orrery-scroll-${stamp}.json`;
+  }
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: name });
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function wireScroll() {
+  const root = view.querySelector(".scroll");
+  if (!root) return;
+  let t = 0;
+  $("ledgerSeek").addEventListener("input", (e) => { clearTimeout(t); t = setTimeout(() => { ledgerQ.q = e.target.value; drawLedger(); }, 140); });
+  $("ledgerStatus").addEventListener("change", (e) => { ledgerQ.status = e.target.value; keepLedgerQ(); drawLedger(); });
+  $("ledgerSort").addEventListener("change", (e) => { ledgerQ.sort = e.target.value; keepLedgerQ(); drawLedger(); });
+  root.querySelectorAll("[data-kind]").forEach((b) => b.addEventListener("click", () => {
+    ledgerQ.kind = b.dataset.kind; keepLedgerQ();
+    root.querySelectorAll("[data-kind]").forEach((o) => { o.classList.toggle("on", o === b); o.setAttribute("aria-pressed", o === b); });
+    drawLedger();
+  }));
+  root.querySelectorAll("[data-export]").forEach((b) => b.addEventListener("click", () => ledgerExport(b.dataset.export)));
+  $("ledgerOpen").addEventListener("click", (e) => {
+    const all = [...root.querySelectorAll("#ledgerBody details")], open = all.some((d) => !d.open);
+    all.forEach((d) => (d.open = open));
+    e.target.textContent = open ? "Roll up all" : "Unroll all";
+  });
+}
+
 function route() {
-  const [tab, ...rest] = (location.hash.slice(1) || "chat").split("/");
+  const [tab, ...rest] = (location.hash.slice(1) || "scroll").split("/");
   const arg = decodeURIComponent(rest[0] || ""), extra = rest[1] ? decodeURIComponent(rest[1]) : "";
   if (tab === "find") rest.splice(0, rest.length, rest.join("/"));
   document.body.classList.remove("chatting");
   document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === (tab === "person" ? "roster" : tab === "item" ? (fromFile ? "resources" : "items") : tab === "doc" ? "docs" : tab === "beast" ? "beasts" : tab)));
   let out, re = null;
+  if (tab === "scroll") {
+    view.innerHTML = scroll(); wireScroll();
+    const ch = arg && document.getElementById("ch-" + arg);
+    if (ch) ch.scrollIntoView(); else window.scrollTo(0, 0);
+    return;
+  }
   if (tab === "resources") { view.innerHTML = resources(arg, extra); window.scrollTo(0, 0); return; }
   if (tab === "person") ({ html: out, re } = person(arg));
   else if (tab === "find") ({ html: out, re } = find(decodeURIComponent(rest[0] || "")));
@@ -1116,8 +1412,10 @@ async function load(quiet = false, head) {
     $("status").hidden = !missing.length;
     $("status").textContent = missing.length ? `Couldn't load ${missing.map((d) => d.file).join(", ")}.` : "";
   }
-  const onChat = !location.hash || location.hash.startsWith("#chat");
-  if (!quiet || !onChat) route();
+  const onChat = location.hash.startsWith("#chat");
+  // A background re-read redraws the Scroll in place, so the reader keeps their place.
+  if (quiet && onScroll()) refreshScroll();
+  else if (!quiet || !onChat) route();
 }
 
 // ── The live link with GuildScribe (the Twitch bot's guild hall) ──
@@ -1220,6 +1518,7 @@ async function loadHall() {
     showHall();
     // Redraw a roster or person view so the live cards show; never the chat.
     if (/^#(roster|person\/|find\/|beasts?\b)/.test(location.hash)) redrawInPlace();
+    else refreshScroll();
   } catch {
     showHall(true);
   }
