@@ -218,6 +218,36 @@ To make sure nothing skips the review, protect `main` on GitHub
 (**Settings → Branches → Add rule**, require a pull request) and let only
 the token above bypass it, or simply commit to `review` every time.
 
+## ✨ Growing the Orrery from the review page (owner only)
+
+Everything needed to expand the Orrery is on the review page, with the
+laptop's local AI doing the writing. Nothing needs Claude:
+
+- **✨ Add to the Orrery:** pick what it is (a person, a place, an item, a
+  creature, something else) and describe it. The local AI drafts every part
+  it belongs in (`POST /admin/expand/draft`): a line for the narrator in
+  `lore.md`, a roster row, a section under a chosen heading of
+  `universe.md` (or any other document), an entry in `resources.md`, a
+  creature under a bestiary place. Every part can be edited, moved to
+  another heading, dropped or added by hand, and **Write it myself** skips
+  the AI altogether. **Add it as Your idea** writes each part into its file
+  on `review`, one commit per file; **File it as a pitch** puts it all in
+  one pitch under `## From the admin page` in `working-notes.md`
+  (`POST /admin/expand/apply`).
+- **🗺 Maps:** open any map, click where a place goes, name it, pick a
+  symbol and add it; marks added this way (in the SVG's `orrery-added`
+  group) can be taken off again. **Save the map on review** keeps the SVG
+  and draws its PNG in the browser (`POST /admin/map/save`). **＋ New map**
+  starts a blank parchment map, which is listed in `orrery.json` so the
+  Explorer shows it. The documents catch-up's *Not on a map yet* list and a
+  drafted place both open the right map with the name filled in.
+- **📄 New document:** starts a new `.md` document on `review` and lists it
+  in `orrery.json` (`POST /admin/new-document`), so the Explorer shows it
+  once it's published. Fill it from ✨ Add to the Orrery.
+
+`orrery.json` in grand-orrery holds `{ "documents": [{ id, file, title, sub }],
+"maps": [{ file, title, caption }] }`, added to the Explorer's own lists.
+
 ## 📚 Documents catch-up (owner only)
 
 The **📚 Documents catch-up** card on the review page is the lore catch-up

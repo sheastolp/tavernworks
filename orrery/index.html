@@ -356,6 +356,21 @@ const MAPS = [
   { file: "maps/stoutwell.png", title: "Stoutwell", caption: "Districts, the Gathering Hall, the dried well, the Wellhouse, Monstradius, Doric's smithy, the lumber yard and the river mills." },
   { file: "maps/capital.png", title: "The Kingdom's capital", caption: "The old wall with the Crown's seat and the Rolls House, the mint, GuildScribe, the market square, the workshop quarter and Glumtom's workshop; the poor quarters and newer walls outside; the heartland; the Clerk's road east." },
 ];
+// orrery.json (in grand-orrery) lists documents and maps the owner added on
+// the admin page, so they show up here without a code change.
+function addExtras(j){
+  if (!j || typeof j !== "object") return;
+  for (const d of Array.isArray(j.documents) ? j.documents : []) {
+    if (!d || !/^[a-z0-9][a-z0-9-]{0,60}\.md$/.test(d.file) || DOCS.some((x) => x.file === d.file)) continue;
+    let id = String(d.id || d.file.slice(0, -3)).replace(/[^a-z0-9-]/g, "") || "doc";
+    while (DOCS.some((x) => x.id === id)) id += "-2";
+    DOCS.splice(DOCS.findIndex((x) => x.id === "readme"), 0, { id, file: d.file, title: String(d.title || d.file).slice(0, 100), sub: String(d.sub || "").slice(0, 160) });
+  }
+  for (const m of Array.isArray(j.maps) ? j.maps : []) {
+    if (!m || !/^maps\/[a-z0-9][a-z0-9-]{0,40}\.png$/.test(m.file) || MAPS.some((x) => x.file === m.file)) continue;
+    MAPS.push({ file: m.file, title: String(m.title || m.file).slice(0, 80), caption: String(m.caption || "").slice(0, 300) });
+  }
+}
 // The roster. `names` are case-sensitive patterns matched as whole words.
 const PEOPLE = [
   { group: "Stoutwell", id: "tobin", name: "Tobin Ashby", role: "Halfling, 33 · blacksmith's apprentice", names: ["Tobin"] },
@@ -997,6 +1012,8 @@ async function load(quiet = false, head) {
   canonSha = sha;
   RAW = RAW_BASE + (sha || BRANCH) + "/";
   const bust = sha ? "" : "?t=" + Date.now();
+  // Documents and maps added on the admin page are listed in orrery.json.
+  try{ addExtras(await fetch(RAW + "orrery.json" + bust, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))); }catch(e){}
   const got = await Promise.all(DOCS.map((d) => fetch(RAW + d.file + bust, { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => "")));
   DOCS.forEach((d, k) => (text[d.id] = got[k]));
   buildItems();

@@ -29,6 +29,15 @@
 //                        lore.md lines the decided notes gained since the last catch-up (by the model)
 //   POST /admin/lore-catchup/apply (owner's token) { head, lines }  ->  { ok, sha, url, added }   adds them
 //                        to lore.md on the review branch and remembers head as the new catch-up point
+//   GET  /admin/expand/options (owner's token)  ->  { docs, headings, tables, cats }   where things can go
+//   POST /admin/expand/draft (owner's token) { kind, request }  ->  { title, changes, map, options }   the local
+//                        AI's draft of something new, for every file it belongs in
+//   POST /admin/expand/apply (owner's token) { title, changes, asPitch }  ->  { done, skipped }   on review
+//   GET  /admin/file?path=maps/x.svg|orrery.json (owner's token)  ->  { text, orrery }   from review
+//   POST /admin/map/save (owner's token) { file, svg, png, what, isNew, title, caption }  ->  { sha }   a map
+//                        edited on the page, its SVG and PNG, on review (a new one is listed in orrery.json)
+//   POST /admin/new-document (owner's token) { name, title, sub, intro, first }  ->  { file, sha }   a new
+//                        document on review, listed in orrery.json for the Explorer
 //   POST /admin/docs-catchup (owner's token) {}  ->  { running, step, of, doing }   starts the documents
 //                        catch-up in the background; GET it for progress and, once done, its draft
 //                        { head, fixes, adds, items, maps }
@@ -132,11 +141,11 @@ function send(res, status, body, origin) {
   res.writeHead(status, headers);
   res.end(JSON.stringify(body));
 }
-async function readJson(req) {
+async function readJson(req, max = MAX_BODY) {
   let size = 0; const chunks = [];
   for await (const c of req) {
     size += c.length;
-    if (size > MAX_BODY) throw Object.assign(new Error("That story is too long to send"), { status: 413 });
+    if (size > max) throw Object.assign(new Error("That story is too long to send"), { status: 413 });
     chunks.push(c);
   }
   try { return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); }
@@ -287,6 +296,7 @@ async function readLorekeeper() {
 const NOTES = "working-notes.md", LORE = "lore.md";
 const SOURCES = {
   "lore-keeper": { head: "## From the lore-keeper", intro: "Pitches the owner filed from lore-keeper chats on the Orrery Explorer. Nothing here is decided until it's marked **Your idea**.", from: "From a lore-keeper chat", msg: "Lore-keeper pitch" },
+  owner: { head: "## From the admin page", intro: "Pitches the owner drafted on the admin page with the local AI. Nothing here is decided until it's marked **Your idea**.", from: "Drafted on the admin page", msg: "Admin page pitch" },
   codex: { head: "## From the Codex", intro: "Notes sent in from the Verrowen Codex. Ones the owner decided are marked **Your idea**; the rest are pitches.", from: "From the Verrowen Codex", msg: "Codex note" },
   // Rest mode and auto mode file their ideas here; each idea names its own mode (it.from, it.msg).
   rest: { head: "## From rest mode", intro: "<!-- Ideas the laptop's AI came up with on its own in rest mode or auto mode, judged against the canon before they're filed. In a comment, so the lore catch-up only reads the ideas themselves. -->", from: "Made up by the AI in rest mode", msg: "Rest mode idea" },
@@ -299,7 +309,7 @@ const oneLine = (v, n) => str(v, n).replace(/[\r\n]+/g, " ").replace(/\s+/g, " "
 const note = (why) => why ? `\n\n${rest && rest.mode === "auto" ? "Auto mode" : "Rest mode"}: ` + oneLine(why, 300) : "";
 function reviewItem(b, { owner, rest = false }) {
   // "rest" is rest mode's own heading: nobody else can file under it.
-  const source = SOURCES[b.source] && (b.source !== "rest" || rest) ? b.source : "lore-keeper";
+  const source = SOURCES[b.source] && (b.source !== "rest" || rest) && (b.source !== "owner" || owner) ? b.source : "lore-keeper";
   const title = oneLine(b.title, 120).replace(/#+/g, "").trim();
   const body = str(b.body, 12000).replace(/\r\n/g, "\n").replace(/<!--|-->/g, "").trim();
   if (!title || !body) throw Object.assign(new Error("The item needs a title and some text"), { status: 400 });
@@ -784,6 +794,240 @@ async function docsCatchupApply(b) {
     if (commit) done.push({ file, changes: used, sha: commit.sha, url: commit.html_url });
   }
   return { done, skipped };
+}
+
+// ── Expanding the Orrery from the admin page ──
+// The owner describes something new in plain words; the local AI drafts it
+// into every file it belongs in (a lore line, a roster row, a universe
+// section, a resources.md entry, a bestiary creature), the owner checks and
+// edits the draft, and it goes on the review branch. Maps are edited on the
+// page itself (marks placed by clicking) and saved here, SVG and PNG.
+// orrery.json in grand-orrery lists documents and maps added this way, so
+// the Explorer shows them without a code change.
+const ORRERY_JSON = "orrery.json";
+const EXPAND_KINDS = {
+  person: "a person: who they are, race, sex and age, role, where they live, one line about them, and a secret if they have one",
+  place: "a place: where it is, what's there, who uses it",
+  item: "an item, material, tool, weapon, food, drink, coin or paper",
+  creature: "a creature: where it lives, what it does, its limits, and a stat line",
+  other: "anything else: a custom, a rule of magic, a piece of history, a group",
+};
+// Top-level documents the expander may add to. lore.md has its own op;
+// README and the DM's Midkemia are never changed from here.
+const isDocFile = (f) => /^[a-z0-9][a-z0-9-]{0,60}\.md$/.test(f) && !["README.md", "lore.md", "midkemia.md"].includes(f);
+const headingsOf = (text, re = /^#{2,4}\s/) => String(text || "").replace(/\r/g, "").split("\n").filter((l) => re.test(l));
+async function readOrreryJson(ref = CLONE) {
+  try { const t = await fileAt(ORRERY_JSON, ref); const j = t ? JSON.parse(t) : {}; return { documents: Array.isArray(j.documents) ? j.documents : [], maps: Array.isArray(j.maps) ? j.maps : [] }; }
+  catch { return { documents: [], maps: [] }; }
+}
+// Create or replace a file on review (text or binary, as base64).
+async function putOnReview(file, base64, message) {
+  const cur = await gh("/contents/" + file + "?ref=" + CLONE);
+  if (!cur.ok && cur.status !== 404) throw Object.assign(new Error(`GitHub couldn't read ${file} on the review branch (${cur.status})`), { status: 502 });
+  const put = await gh("/contents/" + file, { method: "PUT", body: JSON.stringify({ message, content: base64, ...(cur.ok ? { sha: cur.j.sha } : {}), branch: CLONE }) });
+  if (!put.ok) throw Object.assign(new Error(`GitHub refused the commit (${put.status}): ${put.j.message || ""}`), { status: 502 });
+  return put.j.commit;
+}
+async function editOrreryJson(change, message) {
+  const j = await readOrreryJson();
+  change(j);
+  return putOnReview(ORRERY_JSON, Buffer.from(JSON.stringify(j, null, 2) + "\n", "utf8").toString("base64"), message);
+}
+async function expandOptions() {
+  const extra = await readOrreryJson();
+  const docs = ["universe.md", "working-notes.md", "bestiary.md", ...extra.documents.map((d) => d.file).filter(isDocFile)];
+  const [roster, resources, bestiary, ...texts] = await Promise.all(["roster.md", "resources.md", "bestiary.md", ...docs].map((f) => fileAt(f, CLONE)));
+  const headings = Object.fromEntries(docs.map((f, i) => [f, headingsOf(texts[i])]));
+  headings["bestiary.md"] = headingsOf(bestiary, /^##\s/);
+  const tables = headingsOf(roster, /^###\s/).filter((h) => { const after = roster.slice(roster.indexOf(h)); const head = (after.match(/^\|.*\|$/m) || [""])[0]; return /In a line/.test(head) && /Secret/.test(head); });
+  const cats = {};
+  let cat = null;
+  for (const l of resources.replace(/\r/g, "").split("\n")) {
+    const c = l.match(/^##\s+(.+)$/), t = l.match(/^###\s+(.+)$/);
+    if (c) { cat = c[1].trim(); cats[cat] = []; } else if (t && cat) cats[cat].push(t[1].trim());
+  }
+  return { docs, headings, tables, cats, kinds: Object.keys(EXPAND_KINDS) };
+}
+async function expandDraft(b) {
+  const kind = EXPAND_KINDS[b.kind] ? b.kind : "other";
+  const ask0 = oneLine(b.request, 3000);
+  if (ask0.length < 3) throw Object.assign(new Error("Say what you'd like to add first"), { status: 400 });
+  if (UNSAFE.test(ask0)) throw Object.assign(new Error("Links and instructions to an AI can't go in the Orrery"), { status: 400 });
+  const [lore, opts] = await Promise.all([fileAt(LORE, CLONE), expandOptions()]);
+  const canon = loreBody(lore);
+  const uniHeads = opts.headings["universe.md"].filter((h) => /^##\s|^###\s/.test(h)).join("\n");
+  const blocks = {
+    person: `ROSTER: one of these roster tables, copied exactly | Name | Race, sex, age | Role | One line about them | Their secret, or nothing
+${opts.tables.join("\n")}
+UNIVERSE: one of the universe headings below, copied exactly (the new profile goes at the end of that part)
+### Their name
+- **Race / sex / age:** …
+- **Role:** …
+- **Personality:** …
+(more bullets as the request gives)`,
+    place: `UNIVERSE: one of the universe headings below, copied exactly (the new place goes at the end of that part)
+- **The place's name:** what and where it is, in one or two sentences
+(or a ### heading with several bullets if there's a lot to say)
+MAP: the map it belongs on (the region, Stoutwell, the lake, the capital) | a short label for the map`,
+    item: `RESOURCE: one emoji, then the name | a category from this list | a type (an existing one or a short new one)
+${Object.entries(opts.cats).map(([c, t]) => c + ": " + t.join(", ")).join("\n")}
+- **Does:** …
+- **Made:** … (if known)
+- **Limits:** … (if known)
+- **Made by:** names of people (if known)`,
+    creature: `CREATURE: one of these bestiary places, copied exactly
+${opts.headings["bestiary.md"].join("\n")}
+#### one emoji, then the name
+- **Stats:** CR 2 · AC 13 · HP 45 · +5 to hit · 1d10+3 (sized to the places' levels)
+- **Does:** …
+- **Limits:** …
+- **Story:** …`,
+    other: `UNIVERSE: one of the universe headings below, copied exactly (it goes at the end of that part)
+- **A short label:** one or two sentences
+(more bullets as the request gives)`,
+  };
+  const ask = `You help the author of the Grand Orrery, a medieval fantasy universe, write what they ask for into its documents. The author wants to add ${EXPAND_KINDS[kind]}:
+<<<
+${ask0}
+>>>
+Write it so it fits the LORE below and contradicts nothing in it. Magic is weak, everyday and costs the user; objects hold magic but don't make it. Keep it PG-13, suitable for children aged 6 to 10. Keep everything the author said, fill small gaps sensibly, and don't invent big new facts. Use plain sentences.
+Reply with these blocks and nothing else:
+TITLE: a short name for it
+LORE: one compact line for lore.md, starting with an UPPERCASE label like LORE's (PEOPLE:, STOUTWELL:, ITEMS:, BEYOND:, KINGDOM:, MAGIC:)
+${blocks[kind]}
+
+Universe headings:
+${uniHeads}
+
+LORE:
+${canon}`;
+  const reply = await narrate([{ role: "user", content: ask }], null, { temperature: 0.5, maxTokens: 1200 });
+  // Split into blocks by their keyword lines.
+  const parts = [], keys = /^(TITLE|LORE|ROSTER|UNIVERSE|RESOURCE|CREATURE|MAP)\s*:\s*(.*)$/;
+  for (const raw of reply.replace(/\r/g, "").split("\n")) {
+    const l = raw.replace(/^\*\*(\w+)\*\*\s*:/, "$1:");
+    const m = l.match(keys);
+    if (m) parts.push({ key: m[1], head: m[2].replace(/\*+/g, "").trim(), lines: [] });
+    else if (parts.length) parts[parts.length - 1].lines.push(raw);
+  }
+  const body = (p) => p.lines.join("\n").replace(/^\s*\(.*\)\s*$/gm, "").trim();
+  const pick = (list, h) => list.find((x) => x === h) || list.find((x) => x.replace(/^#+\s*/, "") === h.replace(/^#+\s*/, "")) || "";
+  const changes = [];
+  let title = "", map = null;
+  for (const p of parts) {
+    if (p.key === "TITLE") title = oneLine(p.head, 100).replace(/[#*]/g, "");
+    else if (p.key === "LORE") { const t = oneLine(p.head + " " + body(p), 1500).trim(); if (t) changes.push({ op: "lore", file: LORE, text: /^[A-Z][A-Z0-9 '&/()-]{1,40}:/.test(t) ? t : "LORE: " + t }); }
+    else if (p.key === "ROSTER") {
+      const cells = p.head.split("|").map((x) => x.trim());
+      const heading = pick(opts.tables, cells[0] || "") || opts.tables[0] || "";
+      const rest = cells.slice(1).filter((x, i) => i < 5);
+      if (rest[0]) changes.push({ op: "row", file: "roster.md", heading, cells: rest.concat(["", "", "", "", ""]).slice(0, 5) });
+    } else if (p.key === "UNIVERSE") changes.push({ op: "section", file: "universe.md", heading: pick(opts.headings["universe.md"], p.head), text: body(p) });
+    else if (p.key === "CREATURE") {
+      const t = body(p).replace(/^(####\s+.+?)\s*(\((Your idea|Pitch|Not decided yet|DM lore)\))?\s*$/m, "$1 (Your idea)");
+      changes.push({ op: "section", file: "bestiary.md", heading: pick(opts.headings["bestiary.md"], p.head), text: t });
+    } else if (p.key === "RESOURCE") {
+      const [nm, cat, type] = p.head.split("|").map((x) => oneLine(x, 80));
+      const m = (nm || "").match(/^(\S+)\s+(.+)$/), emoji = m && /\p{Extended_Pictographic}/u.test(m[1]);
+      changes.push({ op: "resource", file: "resources.md", icon: emoji ? m[1] : "📦", name: (emoji ? m[2] : nm || title).replace(/[#()]/g, "").trim(), cat: Object.keys(opts.cats).find((c) => c.toLowerCase() === String(cat || "").toLowerCase()) || cat || "Materials", type: type || "Other", text: body(p) });
+    } else if (p.key === "MAP") { const [m1, label] = p.head.split("|").map((x) => oneLine(x, 80)); map = { map: m1 || "", label: label || title }; }
+  }
+  const usable = changes.filter((c) => (c.text || (c.cells || []).join("")).trim());
+  if (!usable.length) throw Object.assign(new Error("The AI's draft didn't come out in a usable form. Try again, or say it a little differently."), { status: 502 });
+  return { kind, title: title || oneLine(ask0, 60), changes: usable, map, options: opts };
+}
+// Insert a block at the end of a heading's part: before the next heading at
+// the same level or above.
+function addUnder(text, heading, block) {
+  const lines = text.replace(/\r/g, "").replace(/\s+$/, "").split("\n");
+  const at = lines.indexOf(heading), lvl = (heading.match(/^(#+)/) || [, ""])[1].length;
+  if (at < 0 || !lvl) return null;
+  let end = lines.findIndex((l, i) => i > at && new RegExp("^#{1," + lvl + "}\\s").test(l)); if (end < 0) end = lines.length;
+  while (end > at + 1 && !lines[end - 1].trim()) end--;
+  const add = String(block).replace(/\r/g, "").trim().replace(/^(#{1,6} .+)\n(?!\n)/gm, "$1\n\n").split("\n");
+  const sep = /^#/.test(add[0]) || /^\|/.test(lines[end - 1] || "") ? [""] : (/^\s*[-*]\s/.test(add[0]) && /^\s*[-*]\s/.test(lines[end - 1] || "") ? [] : [""]);
+  lines.splice(end, 0, ...sep, ...add, ...(end < lines.length ? [""] : []));
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n") + "\n";
+}
+function addRow(text, heading, cells) {
+  const lines = text.replace(/\r/g, "").split("\n");
+  const at = lines.indexOf(heading);
+  if (at < 0) return null;
+  let i = at + 1; while (i < lines.length && !/^\|/.test(lines[i])) { if (/^#/.test(lines[i])) return null; i++; }
+  const cols = (lines[i] || "").split("|").length - 2;
+  let end = i; while (end < lines.length && /^\|/.test(lines[end])) end++;
+  const c = cells.map((x) => oneLine(x, 400).replace(/\|/g, "/"));
+  if (c[0] && !/^\*\*/.test(c[0])) c[0] = `**${c[0]}**`;
+  while (c.length < cols) c.push(""); c.length = cols;
+  lines.splice(end, 0, "| " + c.join(" | ") + " |");
+  return lines.join("\n");
+}
+async function expandApply(b) {
+  const list = (Array.isArray(b.changes) ? b.changes : []).slice(0, 20);
+  if (!list.length) throw Object.assign(new Error("Tick at least one part first"), { status: 400 });
+  if (UNSAFE.test(JSON.stringify(list))) throw Object.assign(new Error("A part holds a link or instructions to an AI"), { status: 400 });
+  const title = oneLine(b.title, 100).replace(/[#*]/g, "") || "an addition";
+  if (b.asPitch) {
+    // One pitch section in working-notes.md with everything in it.
+    const text = list.map((c) => c.op === "row" ? `- **Roster:** ${c.cells.filter(Boolean).join(" · ")}` : c.op === "lore" ? `- **For the narrator:** ${c.text}` : c.op === "resource" ? `- **${c.icon} ${c.name}** (${c.cat} › ${c.type})\n${c.text}` : String(c.text || "")).join("\n\n");
+    const it = reviewItem({ source: "owner", title, body: text, about: "drafted on the admin page with the local AI" }, { owner: true });
+    const r = await fileReviewItem(it);
+    return { done: [{ file: NOTES, changes: 1, sha: r.sha, url: r.url }], skipped: [] };
+  }
+  const per = {};
+  for (const c of list) {
+    const file = c.op === "lore" ? LORE : c.op === "row" ? "roster.md" : c.op === "resource" ? "resources.md" : String(c.file || "");
+    if (c.op === "section" && !isDocFile(file)) throw Object.assign(new Error(file + " can't be changed from here"), { status: 400 });
+    (per[file] = per[file] || []).push(c);
+  }
+  const done = [], skipped = [];
+  for (const [file, cs] of Object.entries(per)) {
+    let used = 0;
+    const commit = await editOnReview(file, (text) => {
+      used = 0;
+      for (const c of cs) {
+        let t = null;
+        if (c.op === "lore") { const line = oneLine(c.text, 1500); if (line) t = text.replace(/\s+$/, "") + "\n" + line + "\n"; }
+        else if (c.op === "row") t = addRow(text, String(c.heading || ""), (c.cells || []).map(String));
+        else if (c.op === "resource") { if (c.name && String(c.text || "").trim()) t = addResource(text, { icon: oneLine(c.icon, 8) || "📦", name: oneLine(c.name, 80).replace(/[#()]/g, ""), cat: oneLine(c.cat, 60).replace(/#/g, "") || "Materials", type: oneLine(c.type, 60).replace(/#/g, "") || "Other", text: str(c.text, 3000) }); }
+        else if (c.op === "section") t = addUnder(text, String(c.heading || ""), str(c.text, 6000));
+        if (t) { text = t; used++; } else skipped.push(`${file}: ${c.heading || c.name || "a part"} (its heading wasn't found)`);
+      }
+      return text;
+    }, `Added from the admin page: ${title} (${file})`);
+    if (commit) done.push({ file, changes: used, sha: commit.sha, url: commit.html_url });
+  }
+  return { done, skipped };
+}
+// Maps: the page sends the edited SVG and the PNG it drew from it.
+const MAP_FILE = /^maps\/[a-z0-9][a-z0-9-]{0,40}\.svg$/;
+const BAD_SVG = /<script|<foreignObject|\son[a-z]+\s*=|javascript:|<iframe|<image[^>]+href\s*=\s*["']?https?:/i;
+async function mapSave(b) {
+  const file = String(b.file || ""), svg = String(b.svg || ""), png = String(b.png || "");
+  if (!MAP_FILE.test(file)) throw Object.assign(new Error("A map is a maps/<name>.svg file"), { status: 400 });
+  if (!/^\s*(<\?xml[^>]*>\s*)?<svg[\s>]/.test(svg) || BAD_SVG.test(svg) || svg.length > 4_000_000) throw Object.assign(new Error("That isn't a map the Orrery can keep"), { status: 400 });
+  if (!/^iVBORw0KGgo/.test(png) || png.length > 16_000_000) throw Object.assign(new Error("The map's picture didn't come through"), { status: 400 });
+  const what = oneLine(b.what, 200) || "edited on the admin page";
+  const s = await putOnReview(file, Buffer.from(svg, "utf8").toString("base64"), `Map ${file.slice(5, -4)}: ${what}`);
+  const p = await putOnReview(file.replace(/\.svg$/, ".png"), png, `Map ${file.slice(5, -4)}: ${what} (picture)`);
+  if (b.isNew) await editOrreryJson((j) => {
+    const png1 = file.replace(/\.svg$/, ".png");
+    j.maps = j.maps.filter((m) => m.file !== png1).concat([{ file: png1, title: oneLine(b.title, 80) || file.slice(5, -4), caption: oneLine(b.caption, 300) }]);
+  }, `A new map for the Explorer: ${oneLine(b.title, 80) || file}`);
+  return { sha: p.sha, url: p.html_url, svgSha: s.sha };
+}
+async function newDocument(b) {
+  const name = String(b.name || "").toLowerCase().replace(/\.md$/, "").replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50);
+  const file = name + ".md", title = oneLine(b.title, 100).replace(/#/g, "");
+  if (!name || !isDocFile(file) || !title) throw Object.assign(new Error("A new document needs a file name and a title"), { status: 400 });
+  const exists = await gh("/contents/" + file + "?ref=" + CLONE);
+  if (exists.ok) throw Object.assign(new Error(file + " already exists"), { status: 409 });
+  const intro = str(b.intro, 3000).replace(/\r/g, "").trim();
+  if (UNSAFE.test(title + intro)) throw Object.assign(new Error("Links and instructions to an AI can't go in the Orrery"), { status: 400 });
+  const body = `# ${title}\n\n${new Date().toISOString().slice(0, 10)} · Sheamus\n\n${intro || "A new document. Sections marked **Your idea** are decided; **Pitch** ones are suggestions."}\n\n## ${oneLine(b.first, 100).replace(/#/g, "") || "Notes"} (Your idea)\n\n`;
+  const c = await putOnReview(file, Buffer.from(body, "utf8").toString("base64"), `New document: ${title}`);
+  await editOrreryJson((j) => { j.documents = j.documents.filter((d) => d.file !== file).concat([{ id: name, file, title, sub: oneLine(b.sub, 120) || "Added on the admin page" }]); }, `A new document for the Explorer: ${title}`);
+  return { file, sha: c.sha, url: c.html_url };
 }
 
 // ── Sent in for review ──
@@ -1299,6 +1543,30 @@ const server = http.createServer(async (req, res) => {
         await saveRest().catch(() => { });
         await restLog("deleted", r.name, { why: "Deleted by you" + (r.decided ? ". If the lore catch-up already added lines for it, take those out of lore.md too" : ""), sha: r.sha });
         console.log(new Date().toISOString(), "AI item deleted on review:", r.name, r.sha);
+        return send(res, 200, { ok: true, ...r }, origin);
+      }
+      if (url.pathname === "/admin/expand/options") return send(res, 200, { ok: true, ...(await expandOptions()) }, origin);
+      if (req.method === "POST" && url.pathname === "/admin/expand/draft") {
+        if (!(await gpuFree(60_000))) return send(res, 503, { error: "The local AI is busy with players. Try again in a minute." }, origin);
+        return send(res, 200, { ok: true, ...(await expandDraft(await readJson(req))) }, origin);
+      }
+      if (req.method === "POST" && url.pathname === "/admin/expand/apply") {
+        const r = await expandApply(await readJson(req));
+        console.log(new Date().toISOString(), "added from the admin page:", r.done.map((d) => d.file).join(", "));
+        return send(res, 200, { ok: true, ...r }, origin);
+      }
+      if (url.pathname === "/admin/file") {
+        const f = url.searchParams.get("path") || "";
+        if (!MAP_FILE.test(f) && f !== ORRERY_JSON) return send(res, 400, { error: "Only maps and orrery.json are read this way" }, origin);
+        return send(res, 200, { ok: true, path: f, text: await fileAt(f, CLONE), orrery: await readOrreryJson() }, origin);
+      }
+      if (req.method === "POST" && url.pathname === "/admin/map/save") {
+        const r = await mapSave(await readJson(req, 24 * 1024 * 1024));
+        console.log(new Date().toISOString(), "map saved on review:", r.sha);
+        return send(res, 200, { ok: true, ...r }, origin);
+      }
+      if (req.method === "POST" && url.pathname === "/admin/new-document") {
+        const r = await newDocument(await readJson(req));
         return send(res, 200, { ok: true, ...r }, origin);
       }
       if (url.pathname === "/admin/docs-catchup") {

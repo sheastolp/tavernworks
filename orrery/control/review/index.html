@@ -157,6 +157,24 @@
     <div id="aiList" style="display:flex;flex-direction:column;gap:10px"></div>
   </section>
 
+  <section class="card" aria-labelledby="h-add" id="addCard">
+    <h2 id="h-add">✨ Add to the Orrery</h2>
+    <p class="note">Say what you'd like to add, in your own words, and the laptop's local AI writes it into every file it belongs in: a line for the narrator in <code>lore.md</code>, a row in the roster, a section of the universe draft, an entry in <code>resources.md</code> or a creature in the bestiary. Check and edit every part, add or drop parts, then add it as <b>Your idea</b> or file it as a <b>pitch</b>. It goes on the review branch like everything else. You can also skip the AI and write the parts yourself.</p>
+    <label for="adKind">What is it?</label>
+    <select id="adKind"><option value="person">A person</option><option value="place">A place</option><option value="item">An item or resource</option><option value="creature">A creature</option><option value="other">Something else (a custom, a rule, some history)</option></select>
+    <label for="adAsk">Describe it</label>
+    <textarea id="adAsk" rows="4" maxlength="3000" spellcheck="true" placeholder="e.g. Stoutwell's tanner, a human woman in her forties named Maren Tull who hates the smell of her own work and trades leather for the Wellhouse's ale"></textarea>
+    <div class="row"><button class="primary" type="button" id="adGo">✨ Draft it with the local AI</button><button type="button" id="adHand">Write it myself</button><span class="note" id="adStatus" role="status"></span></div>
+    <div class="draft" id="adDraft" hidden>
+      <label for="adTitle">Name</label>
+      <input id="adTitle" maxlength="100">
+      <div id="adParts" style="display:flex;flex-direction:column;gap:12px;margin-top:10px"></div>
+      <div class="row"><span class="note">Add a part:</span><button type="button" data-add="lore">📜 Lore line</button><button type="button" data-add="section">📖 Section</button><button type="button" data-add="row">👤 Roster row</button><button type="button" data-add="resource">📦 Item</button><button type="button" data-add="creature">🐾 Creature</button></div>
+      <div class="row" id="adMapRow" hidden><button type="button" id="adMap">🗺 Place it on a map</button><span class="note" id="adMapNote"></span></div>
+      <div class="row"><button class="primary" type="button" id="adApply">✔ Add it as Your idea</button><button type="button" id="adPitch">💡 File it as a pitch instead</button><button type="button" id="adCancel">Cancel</button><span class="note" id="adApplySt" role="status"></span></div>
+    </div>
+  </section>
+
   <section class="card" aria-labelledby="h-catch">
     <h2 id="h-catch">📜 Lore catch-up</h2>
     <p class="note">Keeps <code>lore.md</code>, what the Wake in Verrowen narrator reads, in step with what you've decided. It finds every <b>(Your idea)</b> section in the notes, <code>resources.md</code> and <code>bestiary.md</code> that's new or changed since the last catch-up, and the laptop's AI drafts the lines the lore is missing. Pitches never go in. Check and edit the draft, then add it: it goes on the review branch like everything else.</p>
@@ -178,6 +196,41 @@
       <div id="dcList" style="display:flex;flex-direction:column;gap:14px"></div>
       <div class="row"><button class="primary" type="button" id="dcApply">Apply the ticked changes on review</button><button type="button" id="dcAll">Tick all</button><button type="button" id="dcNone">Untick all</button><span class="note" id="dcApplySt" role="status"></span></div>
     </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-maps" id="mapCard">
+    <h2 id="h-maps">🗺 Maps</h2>
+    <p class="note">Open a map, click where something goes, name it and pick a symbol, and add it. Marks you added can be taken off again. <b>Save the map on review</b> keeps the map's editable SVG and redraws its picture from it, in your browser. You can also start a new map, which the Explorer lists on its own.</p>
+    <div class="row"><label for="mpPick" style="flex:0 0 auto">Map</label><select id="mpPick" style="width:auto"></select><button type="button" id="mpOpen">Open it</button><button type="button" id="mpNewBtn">＋ New map</button><span class="note" id="mpStatus" role="status"></span></div>
+    <div class="draft" id="mpNew" hidden>
+      <label for="mpNewTitle">Title</label><input id="mpNewTitle" maxlength="80" placeholder="e.g. The road to the capital">
+      <label for="mpNewCap">What it shows (the Explorer's caption)</label><input id="mpNewCap" maxlength="300">
+      <div class="row"><button class="primary" type="button" id="mpNewGo">Start the map</button><button type="button" id="mpNewCancel">Cancel</button></div>
+    </div>
+    <div id="mpEdit" hidden>
+      <div id="mpView" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:10px;cursor:crosshair;background:#e6d09f"></div>
+      <p class="note" id="mpWhere">Click the map where the new mark goes.</p>
+      <div class="row">
+        <input id="mpLabel" maxlength="60" placeholder="Name on the map" style="flex:2 1 180px">
+        <input id="mpNote" maxlength="80" placeholder="Small line under it (optional)" style="flex:2 1 180px">
+        <select id="mpSym" style="width:auto"><option value="dot">● Dot</option><option value="house">🏠 Settlement</option><option value="tower">🗼 Tower</option><option value="tree">🌲 Tree</option><option value="mountain">⛰ Mountain</option><option value="cross">✕ Spot</option><option value="none">Label only</option></select>
+        <select id="mpSize" style="width:auto"><option value="1">Normal</option><option value="0.75">Small</option><option value="1.4">Large</option></select>
+        <button type="button" id="mpAdd">Add the mark</button>
+      </div>
+      <ul class="commits" id="mpMarks"></ul>
+      <div class="row"><button class="primary" type="button" id="mpSave">Save the map on review</button><span class="note" id="mpSaveSt" role="status"></span></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-newdoc">
+    <h2 id="h-newdoc">📄 New document</h2>
+    <p class="note">Starts a new document in grand-orrery on the review branch, such as a new world, a city's notes or a campaign, and lists it in the Explorer once published. Fill it with <b>✨ Add to the Orrery</b> (pick it under Section) or edit it on GitHub.</p>
+    <label for="ndTitle">Title</label><input id="ndTitle" maxlength="100" placeholder="e.g. The Capital: Streets & Houses">
+    <label for="ndName">File name</label><input id="ndName" maxlength="50" placeholder="e.g. capital (becomes capital.md)">
+    <label for="ndSub">One line for the Explorer</label><input id="ndSub" maxlength="120">
+    <label for="ndIntro">Opening paragraph</label><textarea id="ndIntro" rows="3" maxlength="3000"></textarea>
+    <label for="ndFirst">First section's heading</label><input id="ndFirst" maxlength="100" placeholder="Notes">
+    <div class="row"><button class="primary" type="button" id="ndGo">📄 Start the document</button><span class="note" id="ndStatus" role="status"></span></div>
   </section>
 
   <section class="card" aria-labelledby="h-wait">
@@ -577,7 +630,7 @@ function dcShow(j, quiet){
     sec(`✏️ Fixes (${dc.fixes.length})`, "Where a document says something different from the lore. Edit the new words if you like.", dc.fixes.map((x) => box("fix", x, `${esc(x.file)}${x.why ? ` <small class="note">· ${esc(x.why)}</small>` : ""}<br><span class="minus" style="font-weight:400">− ${esc(x.old)}</span><textarea rows="2" maxlength="1500" style="margin-top:6px;width:100%">${esc(x.new)}</textarea>`)).join("")) +
     sec(`➕ Missing facts (${dc.adds.length})`, "Facts in the lore the universe draft doesn't state, added as a bullet at the end of the section named.", dc.adds.map((x) => box("add", x, `${esc(x.file)} › ${esc(x.heading.replace(/^#+\s*/, ""))}<textarea rows="2" maxlength="1500" style="margin-top:6px;width:100%">${esc(x.text)}</textarea>`)).join("")) +
     sec(`📦 New items and resources (${dc.items.length})`, "Things the lore names that resources.md has no entry for, as Your idea entries under their category and type.", dc.items.map((x) => box("item", x, `${esc(x.icon)} ${esc(x.name)} <small class="note">· ${esc(x.cat)} › ${esc(x.type)}</small><textarea rows="4" maxlength="3000" style="margin-top:6px;width:100%">${esc(x.text)}</textarea>`)).join("")) +
-    sec(`🗺 Not on a map yet (${dc.maps.length})`, `The maps are drawn by hand, so these aren't changed for you. Each map's editable source is an SVG in <a href="https://github.com/${REPO}/tree/review/maps" target="_blank" rel="noopener">grand-orrery/maps</a>; ask Claude Code to add them, or edit it yourself.`, dc.maps.length && `<ul style="margin:0;padding-left:20px">${dc.maps.map((m) => `<li><b>${esc(m.place)}</b>${m.map ? ` · ${esc(m.map)} map` : ""}${m.where ? ` · <span class="note">${esc(m.where)}</span>` : ""}</li>`).join("")}</ul>`);
+    sec(`🗺 Not on a map yet (${dc.maps.length})`, `The maps are drawn by hand, so these aren't changed for you. Each map's editable source is an SVG in <a href="https://github.com/${REPO}/tree/review/maps" target="_blank" rel="noopener">grand-orrery/maps</a>. <b>Place it</b> opens it in 🗺 Maps below, to click where it goes.`, dc.maps.length && `<ul style="margin:0;padding-left:20px">${dc.maps.map((m) => `<li><b>${esc(m.place)}</b>${m.map ? ` · ${esc(m.map)} map` : ""}${m.where ? ` · <span class="note">${esc(m.where)}</span>` : ""} <button type="button" data-place="${esc(m.place)}" data-map="${esc(m.map)}">Place it</button></li>`).join("")}</ul>`);
   $("dcApplySt").textContent = "";
   $("dcDraft").hidden = !(n || dc.maps.length);
   $("dcApply").hidden = $("dcAll").hidden = $("dcNone").hidden = !n;
@@ -586,6 +639,7 @@ $("dcGo").addEventListener("click", async () => {
   const st = $("dcStatus"); $("dcDraft").hidden = true; st.textContent = "Starting it on the laptop…";
   try{ dcShow(await cuCall("/admin/docs-catchup")); }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
 });
+$("dcList").addEventListener("click", (e) => { const b = e.target.closest("[data-place]"); if (b) mpOpenFor(b.dataset.map, b.dataset.place); });
 $("dcAll").addEventListener("click", () => $("dcList").querySelectorAll("input[type=checkbox]").forEach((c) => c.checked = true));
 $("dcNone").addEventListener("click", () => $("dcList").querySelectorAll("input[type=checkbox]").forEach((c) => c.checked = false));
 $("dcApply").addEventListener("click", async () => {
@@ -611,6 +665,275 @@ $("dcApply").addEventListener("click", async () => {
   finally{ b.disabled = false; }
 });
 if ($("token").value.trim()) dcGet().then((j) => dcShow(j, true)).catch(() => {});
+
+// ── Add to the Orrery ──
+// The local AI drafts the parts (POST /admin/expand/draft); every part is
+// edited here, then POST /admin/expand/apply puts them on review.
+let adOpts = null, adMapHint = null;
+async function adGetOpts(){
+  if (adOpts) return adOpts;
+  const token = $("token").value.trim();
+  if (!token) throw new Error("Enter the owner's token in Waiting for you first.");
+  const r = await fetch(SERVER + "/admin/expand/options", { headers: { authorization: "Bearer " + token } });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
+  if (!r.ok) throw new Error(j.error || "The laptop answered " + r.status + ".");
+  return (adOpts = j);
+}
+const opt = (v, cur, text) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(text || v)}</option>`;
+function adPart(c){
+  const o = adOpts, el = document.createElement("div");
+  el.className = "sub pitch"; el.dataset.op = c.op;
+  const top = (t) => `<label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" checked style="width:auto"> ${t} <button type="button" data-drop style="margin-left:auto">Remove</button></label>`;
+  if (c.op === "lore") el.innerHTML = top("📜 A line for the narrator (lore.md)") + `<textarea data-f="text" rows="3" maxlength="1500" style="width:100%">${esc(c.text || "")}</textarea>`;
+  else if (c.op === "row") el.innerHTML = top("👤 Roster row") + `<select data-f="heading">${o.tables.map((h) => opt(h, c.heading, h.replace(/^#+\s*/, ""))).join("")}</select>` +
+    ["Name", "Race, sex, age", "Role", "In a line", "Secret"].map((p, i) => `<input data-f="cell" maxlength="400" placeholder="${p}" value="${esc((c.cells || [])[i] || "")}">`).join("");
+  else if (c.op === "resource") el.innerHTML = top("📦 Entry in resources.md") + `<div class="row"><input data-f="icon" maxlength="8" style="width:4em" value="${esc(c.icon || "📦")}"><input data-f="name" maxlength="80" placeholder="Name" value="${esc(c.name || "")}" style="flex:1"></div>` +
+    `<div class="row"><select data-f="cat" style="width:auto">${Object.keys(o.cats).map((k) => opt(k, c.cat)).join("")}${c.cat && !o.cats[c.cat] ? opt(c.cat, c.cat, c.cat + " (new)") : ""}</select><input data-f="type" maxlength="60" placeholder="Type (e.g. Charged stones)" value="${esc(c.type || "")}" list="adTypes" style="flex:1"></div>` +
+    `<textarea data-f="text" rows="5" maxlength="3000" style="width:100%">${esc(c.text || "- **Does:** ")}</textarea>`;
+  else {
+    const file = c.file || (c.op === "creature" ? "bestiary.md" : "universe.md");
+    el.dataset.op = "section";
+    el.innerHTML = top("📖 Section") + `<div class="row"><select data-f="file" style="width:auto">${o.docs.map((f) => opt(f, file)).join("")}</select><select data-f="heading" style="flex:1"></select></div>` +
+      `<p class="note">It goes at the end of the part under that heading.</p><textarea data-f="text" rows="7" maxlength="6000" style="width:100%">${esc(c.text || (c.op === "creature" ? "#### 🐾 Name (Your idea)\n\n- **Stats:** CR 2 · AC 13 · HP 45 · +5 to hit · 1d10+3\n- **Does:** \n- **Limits:** \n- **Story:** " : "- **Label:** "))}</textarea>`;
+    const fill = () => { const f = el.querySelector("[data-f=file]").value; el.querySelector("[data-f=heading]").innerHTML = (o.headings[f] || []).map((h) => opt(h, c.heading, h)).join(""); };
+    el.querySelector("[data-f=file]").addEventListener("change", fill); fill();
+  }
+  el.querySelector("[data-drop]").addEventListener("click", () => el.remove());
+  $("adParts").appendChild(el);
+}
+function adShow(d){
+  $("adTitle").value = d.title || "";
+  $("adParts").innerHTML = "";
+  (d.changes || []).forEach(adPart);
+  adMapHint = d.map || null;
+  $("adMapRow").hidden = !adMapHint;
+  $("adMapNote").textContent = adMapHint ? `The AI suggests the ${adMapHint.map || "region"} map, as "${adMapHint.label}".` : "";
+  $("adApplySt").textContent = "";
+  $("adDraft").hidden = false;
+}
+$("adGo").addEventListener("click", async () => {
+  const st = $("adStatus"), b = $("adGo");
+  if ($("adAsk").value.trim().length < 3){ st.textContent = "Describe it first."; $("adAsk").focus(); return; }
+  b.disabled = true; st.textContent = "The local AI is writing it. This can take a minute or two…";
+  try{ await adGetOpts(); const d = await cuCall("/admin/expand/draft", { kind: $("adKind").value, request: $("adAsk").value }); adShow(d); st.textContent = "Here's the draft. Check every part before adding it."; }
+  catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+  finally{ b.disabled = false; }
+});
+$("adHand").addEventListener("click", async () => {
+  const st = $("adStatus");
+  try{
+    await adGetOpts();
+    const k = $("adKind").value, parts = [{ op: "lore", text: "" }];
+    if (k === "person") parts.push({ op: "row" }, { op: "section", file: "universe.md" });
+    else if (k === "item") parts.push({ op: "resource" });
+    else if (k === "creature") parts.push({ op: "creature" });
+    else parts.push({ op: "section", file: "universe.md" });
+    adShow({ title: "", changes: parts, map: k === "place" ? { map: "region", label: "" } : null }); st.textContent = "";
+  }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+});
+$("adDraft").addEventListener("click", (e) => { const b = e.target.closest("[data-add]"); if (b) adPart({ op: b.dataset.add }); });
+$("adCancel").addEventListener("click", () => { $("adDraft").hidden = true; $("adStatus").textContent = ""; });
+function adCollect(){
+  const out = [];
+  $("adParts").querySelectorAll("[data-op]").forEach((el) => {
+    if (!el.querySelector("input[type=checkbox]").checked) return;
+    const f = (n) => (el.querySelector(`[data-f=${n}]`) || {}).value || "";
+    const op = el.dataset.op;
+    if (op === "lore" && f("text").trim()) out.push({ op, text: f("text").trim() });
+    if (op === "row"){ const cells = [...el.querySelectorAll("[data-f=cell]")].map((x) => x.value.trim()); if (cells[0]) out.push({ op, heading: f("heading"), cells }); }
+    if (op === "resource" && f("name").trim()) out.push({ op, icon: f("icon"), name: f("name").trim(), cat: f("cat"), type: f("type").trim() || "Other", text: f("text") });
+    if (op === "section" && f("text").trim()) out.push({ op, file: f("file"), heading: f("heading"), text: f("text") });
+  });
+  return out;
+}
+async function adApply(asPitch){
+  const st = $("adApplySt"), changes = adCollect();
+  if (!changes.length){ st.textContent = "Nothing ticked has any words in it yet."; return; }
+  if (!$("adTitle").value.trim()){ st.textContent = "Give it a name first."; $("adTitle").focus(); return; }
+  $("adApply").disabled = $("adPitch").disabled = true; st.textContent = "Putting it on the review branch…";
+  try{
+    const j = await cuCall("/admin/expand/apply", { title: $("adTitle").value, changes, asPitch });
+    $("adDraft").hidden = true; adOpts = null;
+    $("adStatus").innerHTML = `✔ ${asPitch ? "Filed as a pitch" : "Added as Your idea"} on the review branch: ${j.done.map((d) => `${esc(d.file)} (<a href="${esc(d.url || "#")}" target="_blank" rel="noopener">${esc(String(d.sha || "").slice(0, 7))}</a>)`).join(", ")}.${j.skipped.length ? " Not added: " + esc(j.skipped.join("; ")) + "." : ""} Publish under Waiting for you to put it live.`;
+    $("adAsk").value = "";
+    setTimeout(load, 1500);
+  }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+  finally{ $("adApply").disabled = $("adPitch").disabled = false; }
+}
+$("adApply").addEventListener("click", () => adApply(false));
+$("adPitch").addEventListener("click", () => adApply(true));
+$("adMap").addEventListener("click", () => mpOpenFor(adMapHint ? adMapHint.map : "", adMapHint && adMapHint.label || $("adTitle").value));
+
+// ── Maps ──
+// The map's SVG is read from review through the laptop, marks are added in
+// a <g id="orrery-added"> group, and the PNG is drawn from the SVG right here.
+const MAP_LIST = [["maps/region.svg", "The region"], ["maps/stoutwell.svg", "Stoutwell"], ["maps/lake.svg", "The lake"], ["maps/capital.svg", "The Kingdom's capital"]];
+let mp = null;   // { file, svg (element), isNew, title, caption, at: {x,y} }
+async function mpFile(path){
+  const token = $("token").value.trim();
+  if (!token) throw new Error("Enter the owner's token in Waiting for you first.");
+  const r = await fetch(SERVER + "/admin/file?path=" + encodeURIComponent(path), { headers: { authorization: "Bearer " + token } });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
+  if (!r.ok) throw new Error(j.error || "The laptop answered " + r.status + ".");
+  return j;
+}
+function mpFillPick(extra){
+  const list = MAP_LIST.concat((extra || []).map((m) => [m.file.replace(/\.png$/, ".svg"), m.title]).filter(([f]) => !MAP_LIST.some(([g]) => g === f)));
+  const cur = $("mpPick").value;
+  $("mpPick").innerHTML = list.map(([f, t]) => opt(f, cur, t)).join("");
+}
+mpFillPick([]);
+function mpShow(text){
+  const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+  const svg = doc.documentElement;
+  if (svg.nodeName !== "svg") throw new Error("That map's SVG couldn't be read.");
+  const el = document.importNode(svg, true);
+  el.style.width = "100%"; el.style.height = "auto"; el.style.display = "block";
+  $("mpView").innerHTML = ""; $("mpView").appendChild(el);
+  mp.svg = el; mp.at = null;
+  $("mpEdit").hidden = false; $("mpWhere").textContent = "Click the map where the new mark goes.";
+  mpList();
+}
+function mpGroup(){
+  let g = mp.svg.querySelector("#orrery-added");
+  if (!g){ g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.setAttribute("id", "orrery-added"); mp.svg.appendChild(g); }
+  return g;
+}
+function mpList(){
+  const marks = [...mp.svg.querySelectorAll("#orrery-added > g[data-label]")];
+  $("mpMarks").innerHTML = marks.length ? marks.map((m, i) => `<li>${esc(m.dataset.label)} <button type="button" data-rm="${i}">Take it off</button></li>`).join("") : '<li class="note">No marks added from here yet.</li>';
+}
+$("mpMarks").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-rm]"); if (!b) return;
+  const marks = [...mp.svg.querySelectorAll("#orrery-added > g[data-label]")]; marks[+b.dataset.rm].remove(); mpList();
+  $("mpSaveSt").textContent = "Not saved yet.";
+});
+async function mpOpenFor(hint, label){
+  const want = String(hint || "").toLowerCase();
+  const m = [...$("mpPick").options].find((o) => want && o.textContent.toLowerCase().includes(want.replace(/^the /, ""))) || $("mpPick").options[0];
+  $("mpPick").value = m.value;
+  await mpOpen();
+  $("mpLabel").value = label || "";
+  $("mapCard").scrollIntoView({ behavior: "smooth" });
+}
+async function mpOpen(){
+  const st = $("mpStatus"), file = $("mpPick").value;
+  st.textContent = "Reading the map from the review branch…";
+  try{ const j = await mpFile(file); mpFillPick(j.orrery && j.orrery.maps); $("mpPick").value = file; mp = { file }; mpShow(j.text); st.textContent = ""; $("mpSaveSt").textContent = ""; }
+  catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+}
+$("mpOpen").addEventListener("click", mpOpen);
+$("mpView").addEventListener("click", (e) => {
+  if (!mp || !mp.svg) return;
+  const pt = mp.svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  const p = pt.matrixTransform(mp.svg.getScreenCTM().inverse());
+  mp.at = { x: Math.round(p.x), y: Math.round(p.y) };
+  let pin = mp.svg.querySelector("#mp-pin");
+  if (!pin){ pin = document.createElementNS("http://www.w3.org/2000/svg", "circle"); pin.setAttribute("id", "mp-pin"); pin.setAttribute("r", "9"); pin.setAttribute("fill", "none"); pin.setAttribute("stroke", "#d0342c"); pin.setAttribute("stroke-width", "3"); mp.svg.appendChild(pin); }
+  pin.setAttribute("cx", mp.at.x); pin.setAttribute("cy", mp.at.y);
+  $("mpWhere").textContent = "The mark goes at the red circle. Name it and add it, or click somewhere else.";
+  $("mpLabel").focus();
+});
+const SYM = {
+  dot: '<circle r="7" fill="#8a2b1d" stroke="#3b2a1a" stroke-width="2"/>',
+  house: '<rect x="-9" y="-6" width="18" height="12" fill="#b07a4a" stroke="#3b2a1a" stroke-width="1.5"/><path d="M-12,-6 L0,-16 L12,-6 Z" fill="#8a2b1d" stroke="#3b2a1a" stroke-width="1.5"/>',
+  tower: '<rect x="-6" y="-22" width="12" height="28" fill="#c9b48a" stroke="#3b2a1a" stroke-width="1.5"/><path d="M-9,-22 L0,-34 L9,-22 Z" fill="#5b4a63" stroke="#3b2a1a" stroke-width="1.5"/>',
+  tree: '<path d="M0,-20 L-10,4 L10,4 Z" fill="#4f7a3c" stroke="#2f4a24" stroke-width="1.2"/><rect x="-2" y="4" width="4" height="5" fill="#5a4632"/>',
+  mountain: '<path d="M-16,8 L0,-18 L16,8 Z" fill="#a39684" stroke="#4a3f33" stroke-width="1.6"/><path d="M0,-18 L-6,-8 L0,-10 L6,-8 Z" fill="#f4f1ea" stroke="#4a3f33" stroke-width="1"/>',
+  cross: '<path d="M-8,-8 L8,8 M8,-8 L-8,8" stroke="#8a2b1d" stroke-width="4" stroke-linecap="round"/>',
+  none: "",
+};
+const xmlEsc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+$("mpAdd").addEventListener("click", () => {
+  if (!mp || !mp.svg) return;
+  const label = $("mpLabel").value.trim();
+  if (!mp.at){ $("mpWhere").textContent = "Click the map first, where the mark goes."; return; }
+  if (!label){ $("mpLabel").focus(); return; }
+  const k = Number($("mpSize").value) || 1, sym = $("mpSym").value, note = $("mpNote").value.trim();
+  const t = (y, size, it, bold, txt) => `<text x="0" y="${y}" font-size="${size}" fill="#3b2a1a" text-anchor="middle" font-style="${it ? "italic" : "normal"}" font-weight="${bold ? "bold" : "normal"}" paint-order="stroke" stroke="#f3e6c4" stroke-width="4" stroke-linejoin="round">${xmlEsc(txt)}</text>`;
+  const y0 = sym === "none" ? 0 : 26;
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  g.setAttribute("transform", `translate(${mp.at.x},${mp.at.y}) scale(${k})`);
+  g.setAttribute("data-label", label);
+  g.innerHTML = SYM[sym] + t(y0, 17, false, true, label) + (note ? t(y0 + 17, 13, true, false, note) : "");
+  mpGroup().appendChild(g);
+  const pin = mp.svg.querySelector("#mp-pin"); if (pin) pin.remove();
+  mp.at = null; $("mpLabel").value = ""; $("mpNote").value = "";
+  $("mpWhere").textContent = "Added. Click the map for another, or save it.";
+  $("mpSaveSt").textContent = "Not saved yet.";
+  mpList();
+});
+async function mpPng(svgText, w, h){
+  const url = URL.createObjectURL(new Blob([svgText], { type: "image/svg+xml" }));
+  try{
+    const img = new Image();
+    await new Promise((ok, bad) => { img.onload = ok; img.onerror = () => bad(new Error("Your browser couldn't draw the map.")); img.src = url; });
+    // Small maps are drawn at twice their size, like the ones already in the repo.
+    const k = w < 1200 ? 2 : 1, c = document.createElement("canvas"); c.width = w * k; c.height = h * k;
+    c.getContext("2d").drawImage(img, 0, 0, w * k, h * k);
+    return c.toDataURL("image/png").split(",")[1];
+  } finally { URL.revokeObjectURL(url); }
+}
+$("mpSave").addEventListener("click", async () => {
+  if (!mp || !mp.svg) return;
+  const st = $("mpSaveSt"), b = $("mpSave");
+  b.disabled = true; st.textContent = "Drawing the picture and saving it on the review branch…";
+  try{
+    const copy = mp.svg.cloneNode(true);
+    copy.querySelectorAll("#mp-pin").forEach((x) => x.remove());
+    copy.removeAttribute("style");
+    const svgText = new XMLSerializer().serializeToString(copy);
+    const vb = (copy.getAttribute("viewBox") || "").split(/[\s,]+/).map(Number);
+    const w = Number(copy.getAttribute("width")) || vb[2] || 1600, h = Number(copy.getAttribute("height")) || vb[3] || 1100;
+    const png = await mpPng(svgText, w, h);
+    const marks = [...copy.querySelectorAll("#orrery-added > g[data-label]")].map((m) => m.dataset.label);
+    const j = await cuCall("/admin/map/save", { file: mp.file, svg: svgText, png, isNew: !!mp.isNew, title: mp.title, caption: mp.caption, what: mp.isNew ? "a new map" : (marks.length ? "marks: " + marks.join(", ") : "marks taken off") });
+    mp.isNew = false;
+    st.innerHTML = `✔ Saved on the review branch (<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>). Publish to put it live.`;
+    setTimeout(load, 1500);
+  }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+  finally{ b.disabled = false; }
+});
+$("mpNewBtn").addEventListener("click", () => { $("mpNew").hidden = false; $("mpNewTitle").focus(); });
+$("mpNewCancel").addEventListener("click", () => { $("mpNew").hidden = true; });
+$("mpNewGo").addEventListener("click", () => {
+  const title = $("mpNewTitle").value.trim();
+  if (!title){ $("mpNewTitle").focus(); return; }
+  const slug = title.toLowerCase().replace(/^the /, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "map";
+  const W = 1600, H = 1100;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="GFS Baskerville, FreeSerif, serif">
+<defs><radialGradient id="parch" cx="50%" cy="50%" r="75%"><stop offset="0" stop-color="#f3e6c4"/><stop offset="0.8" stop-color="#e6d09f"/><stop offset="1" stop-color="#c9a96a"/></radialGradient></defs>
+<rect width="${W}" height="${H}" fill="url(#parch)"/>
+<rect x="14" y="14" width="${W - 28}" height="${H - 28}" fill="none" stroke="#5a3d1e" stroke-width="4"/><rect x="24" y="24" width="${W - 48}" height="${H - 48}" fill="none" stroke="#5a3d1e" stroke-width="1.5"/>
+<rect x="380" y="34" width="840" height="78" rx="6" fill="#f3e6c4" fill-opacity="0.85" stroke="#5a3d1e" stroke-width="1.5"/>
+<text x="800" y="72" font-size="34" fill="#3b2a1a" text-anchor="middle" font-weight="bold">${xmlEsc(title.toUpperCase())}</text>
+<text x="800" y="98" font-size="15" fill="#3b2a1a" text-anchor="middle" font-style="italic">Rough sketch, not to scale.</text>
+<g transform="translate(1460,190)"><circle r="34" fill="#f3e6c4" stroke="#3b2a1a" stroke-width="2"/><path d="M0,-30 L7,0 L0,30 L-7,0 Z" fill="#3b2a1a"/><path d="M-30,0 L0,-6 L30,0 L0,6 Z" fill="#8a7a5a"/><text y="-40" font-size="16" text-anchor="middle" font-weight="bold" fill="#3b2a1a">N</text></g>
+</svg>`;
+  mp = { file: "maps/" + slug + ".svg", isNew: true, title, caption: $("mpNewCap").value.trim() };
+  if (![...$("mpPick").options].some((o) => o.value === mp.file)) $("mpPick").insertAdjacentHTML("beforeend", opt(mp.file, mp.file, title + " (new)"));
+  $("mpPick").value = mp.file;
+  mpShow(svg); $("mpNew").hidden = true;
+  $("mpSaveSt").textContent = "A new map: add marks, then save it to keep it.";
+});
+
+// ── New document ──
+$("ndTitle").addEventListener("input", () => { if (!$("ndName").dataset.touched) $("ndName").value = $("ndTitle").value.toLowerCase().replace(/^the /, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50); });
+$("ndName").addEventListener("input", () => { $("ndName").dataset.touched = "1"; });
+$("ndGo").addEventListener("click", async () => {
+  const st = $("ndStatus"), b = $("ndGo");
+  if (!$("ndTitle").value.trim() || !$("ndName").value.trim()){ st.textContent = "It needs a title and a file name."; return; }
+  b.disabled = true; st.textContent = "Starting it on the review branch…";
+  try{
+    const j = await cuCall("/admin/new-document", { name: $("ndName").value, title: $("ndTitle").value, sub: $("ndSub").value, intro: $("ndIntro").value, first: $("ndFirst").value });
+    st.innerHTML = `✔ ${esc(j.file)} is on the review branch (<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>). Add to it with ✨ Add to the Orrery, then publish.`;
+    adOpts = null; ["ndTitle", "ndName", "ndSub", "ndIntro", "ndFirst"].forEach((id) => { $(id).value = ""; }); delete $("ndName").dataset.touched;
+    setTimeout(load, 1500);
+  }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+  finally{ b.disabled = false; }
+});
 
 // ── Rest mode ──
 // The laptop runs the rounds itself (verrowen/server, POST /admin/rest-mode),
