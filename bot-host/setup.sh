@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sets a laptop up to host the Tavernworks Twitch bots:
-# GuildScribe and UndercoverBurn.
+# GuildScribe, UndercoverBurn, GuildScribe for Discord and Town Crier.
 #
 #   As root (recommended):   bash setup.sh
 #     The bots run as system services under their own unprivileged account,
@@ -21,7 +21,7 @@
 # What it does:
 #   - installs Deno if it's missing, plus ffmpeg and streamlink (UndercoverBurn
 #     uses them to hear the streamer)
-#   - clones the three bot repos
+#   - clones the bot repos
 #   - creates a settings file per bot (from each repo's .env.example) for you
 #     to fill in
 #   - installs a service per bot, a timer that pulls new commits from GitHub
@@ -41,6 +41,7 @@ BOTS=(
   "guildscribe dnd-twitch-bot 8801"
   "undercoverburn UndercoverBurn 8802"
   "guildscribe-discord guildscribe-discord 8803"
+  "towncrier TownCrier 8804"
 )
 
 if [ "$(id -u)" = 0 ]; then
@@ -223,7 +224,7 @@ WantedBy=timers.target
 UNIT
 
 $SYSTEMCTL daemon-reload
-$SYSTEMCTL enable tavernworks-guildscribe tavernworks-undercoverburn tavernworks-guildscribe-discord >/dev/null 2>&1
+$SYSTEMCTL enable tavernworks-guildscribe tavernworks-undercoverburn tavernworks-guildscribe-discord tavernworks-towncrier >/dev/null 2>&1
 $SYSTEMCTL enable --now tavernworks-update.timer tavernworks-backup.timer >/dev/null 2>&1
 if [ "$MODE" = user ]; then
   me=${USER:-$(id -un)}
@@ -241,6 +242,6 @@ cat <<MSG
 Done. Next:
   1. Fill in the settings files in $CONF_DIR/
   2. Copy the old data in (README.md, "Move the data off Val Town")
-  3. Start the bots:  $SYSTEMCTL start tavernworks-guildscribe tavernworks-undercoverburn tavernworks-guildscribe-discord
+  3. Start the bots:  $SYSTEMCTL start tavernworks-guildscribe tavernworks-undercoverburn tavernworks-guildscribe-discord tavernworks-towncrier
   4. Set up the Cloudflare Tunnel (README.md)
 MSG

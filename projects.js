@@ -124,6 +124,32 @@ window.TAVERN_PROJECTS = {
       }
     },
     {
+      "key": "crier",
+      "icon": "📯",
+      "name": "Town Crier",
+      "href": "https://crier.tavernworks.dev/",
+      "dir": "",
+      "card": {
+        "section": "bots",
+        "title": "Town Crier",
+        "text": "Hear ye! A Twitch chat bot for ad breaks, in as many channels as want it: a heads-up a minute before a scheduled ad, a notice when it starts or gets snoozed, and a welcome-back when it ends. <code>!nextad</code> for chat; on/off and announcements on/off for you and your mods.",
+        "href": "",
+        "url": "crier.tavernworks.dev",
+        "pill": "NEW",
+        "pillKind": "beta",
+        "links": [
+          {
+            "label": "📯 Add it",
+            "href": "https://crier.tavernworks.dev/"
+          },
+          {
+            "label": "⚙️ Manage",
+            "href": "https://crier.tavernworks.dev/my"
+          }
+        ]
+      }
+    },
+    {
       "key": "journal",
       "icon": "📖",
       "name": "Journal",
@@ -654,6 +680,7 @@ window.TAVERN_PROJECTS = {
     ["orrery","2026-11-05","Orrery Explorer gets an Items tab: the Hearthstone, Featherhook, Wardbell, Truthglass and Rift compass, each with what it does, how it's made and its limits","/orrery/#items"],
     ["orrery","2026-11-06","One app, the Orrery: it opens on the lore-keeper chat, with a world picker and a Role play tab into Wake in Verrowen","/orrery/#chat"],
     ["verrowen","2026-11-06","Wake in Verrowen is for making a character: names aren't known at the start, so the true-name picker is gone and the narrator reveals a name that fits the lore","/verrowen/"],
-    ["verrowen","2026-11-06","Wake in Verrowen, the lore-keeper and the Terms work out from the model's name whether the laptop runs an abliterated or a standard AI model, and say so","/verrowen/"]
+    ["verrowen","2026-11-06","Wake in Verrowen, the lore-keeper and the Terms work out from the model's name whether the laptop runs an abliterated or a standard AI model, and say so","/verrowen/"],
+    ["crier","2026-11-06","Town Crier: GuildScribe's and UndercoverBurn's ad-break alerts become one bot of their own, for any channel","https://crier.tavernworks.dev/"]
   ]
 };

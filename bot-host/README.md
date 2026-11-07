@@ -9,6 +9,7 @@ Town and GitHub Actions.)
 | GuildScribe | `sheastolp/dnd-twitch-bot` | 8801 | guildscribe.tavernworks.dev |
 | UndercoverBurn | `sheastolp/UndercoverBurn` (private) | 8802 | burn.tavernworks.dev |
 | GuildScribe for Discord | `sheastolp/guildscribe-discord` | 8803 | guildscribe-discord.tavernworks.dev |
+| Town Crier | `sheastolp/TownCrier` | 8804 | crier.tavernworks.dev |
 
 How the pieces fit:
 
@@ -33,9 +34,11 @@ All steps below run as **root** (e.g. a `tailscale ssh root@<yoga>` session).
 `setup.sh` also works as a normal user, with systemd user services and
 everything under the home folder; use `systemctl --user` then.
 
-`<bot>` below is `guildscribe`, `undercoverburn` or `guildscribe-discord`.
-GuildScribe for Discord came later; on a laptop that's already set up, see
-[Adding GuildScribe for Discord](#adding-guildscribe-for-discord).
+`<bot>` below is `guildscribe`, `undercoverburn`, `guildscribe-discord` or
+`towncrier`. GuildScribe for Discord and Town Crier came later; on a laptop
+that's already set up, see
+[Adding GuildScribe for Discord](#adding-guildscribe-for-discord) and
+[Adding Town Crier](#adding-town-crier).
 
 ## 1. Prepare the Yoga
 
@@ -286,6 +289,37 @@ the tunnel, like the others. Its own README covers the Discord side in full.
    GitHub Actions workflow in `guildscribe-discord` copies the Twitch bot's
    game code every 15 minutes and commits it only when its type-check and
    tests pass. The updater here then deploys it like any other commit.
+
+## Adding Town Crier
+
+Town Crier is the ad-break bot: heads-ups, start, snooze and welcome-back
+notices, for any number of channels. It's its own process with its own
+database (`towncrier.sqlite`) and its own Twitch app. Its README covers the
+Twitch side.
+
+1. **GitHub:** push the bot to `sheastolp/TownCrier` (public; make it
+   private and add it to `PRIVATE_REPOS` otherwise).
+2. **Twitch:** create an app at dev.twitch.tv/console with the redirect
+   `https://crier.tavernworks.dev/auth/callback`, and a Twitch account for
+   the bot to speak as.
+3. **Yoga:** pull this repo (`git -C /root/tavernworks pull`) and run
+   `setup.sh` again. It clones the bot and writes
+   `/etc/tavernworks/towncrier.env`. Fill in `TWITCH_CLIENT_ID`,
+   `TWITCH_CLIENT_SECRET`, and `ADMIN_KEY` and `EVENTSUB_SECRET`
+   (each `openssl rand -hex 32`).
+4. **Tunnel:** add the hostname to `/etc/cloudflared/config.yml` (it's in
+   `cloudflared-config.yml` here) and route it:
+
+   ```sh
+   cloudflared tunnel route dns tavernworks-bots crier.tavernworks.dev
+   systemctl restart cloudflared
+   systemctl start tavernworks-towncrier
+   curl -s https://crier.tavernworks.dev/health   # ok
+   ```
+
+5. **Bot account:** log in to Twitch as the bot account, open
+   `https://crier.tavernworks.dev/dashboard` and click *Connect the bot
+   account*. Then streamers add it from `https://crier.tavernworks.dev/`.
 
 ## Day to day
 
