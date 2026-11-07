@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>The Orrery · Tavernworks</title>
-<meta name="description" content="The Orrery: chat with the lore-keeper about the Grand Orrery, pick a world, browse its maps, documents, character roster and enchanted items, and everything written about each one. A chat with the local AI talks through anything in it: characters, regions, rules, magic and more.">
+<meta name="description" content="The Orrery: explore the Grand Orrery. Pick a world, browse its maps, documents, character roster and enchanted items, and everything written about each one, or play Wake in Verrowen to make a character by role-playing in it.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
 <link rel="manifest" href="/orrery/manifest.webmanifest">
 <meta name="theme-color" content="#15100c">
@@ -341,25 +341,25 @@
   <header>
     <div class="sign">THE GRAND ORRERY</div>
     <h1>The Orrery</h1>
-    <p class="tag">Talk through anything in the Grand Orrery with the lore-keeper: characters, regions, rules, magic and more. Browse its people, items, maps and documents, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo, or make a character by role-playing in it.</p>
+    <p class="tag">Explore the Grand Orrery: its people, items, beasts, maps and documents, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Or wake up in it: play <a href="/verrowen/">Wake in Verrowen</a> and make a character by role-playing.</p>
     <p class="worldpick"><label for="worldPick">WORLD</label><select id="worldPick"></select><small id="worldNote"></small></p>
     <div class="tabs">
       <a href="#scroll" data-tab="scroll">📜 Scroll</a>
-      <a href="#chat" data-tab="chat">✒️ Chat</a>
+      <a href="#chat" data-tab="chat" id="chatTab" hidden title="Owner only: the lore-keeper">🔒 Lore-keeper</a>
       <a href="#roster" data-tab="roster">Roster</a>
       <a href="#items" data-tab="items">Items</a>
       <a href="#beasts" data-tab="beasts">Beasts</a>
       <a href="#resources" data-tab="resources">Resources</a>
       <a href="#maps" data-tab="maps">Maps</a>
       <a href="#docs" data-tab="docs">Documents</a>
-      <a href="/verrowen/" id="playLink" title="Make a character by role-playing in this world: Wake in Verrowen">🕯️ Role play</a>
+      <a href="/verrowen/" id="playLink" title="Make a character by role-playing in this world: Wake in Verrowen">🕯️ Wake in Verrowen</a>
       <form class="find" id="find"><input type="search" id="q" placeholder="Find anyone or anything…" aria-label="Search the orrery"><button type="submit">Find</button></form>
     </div>
     <p class="status" id="status">Loading the orrery…</p>
     <p class="status hall" id="hallStatus" hidden></p>
   </header>
   <main id="view"></main>
-  <footer><a href="/">Tavernworks</a> · <button class="btn" type="button" id="reload">Reload from GitHub</button><br><a href="/verrowen/#model" title="For the laptop's owner: pick which AI model the lore-keeper and narrator use">🤖 Change AI model</a> · <a href="/orrery/control/" title="For the owner: the Orrery control page">🔒 Admin</a></footer>
+  <footer><a href="/">Tavernworks</a> · <button class="btn" type="button" id="reload">Reload from GitHub</button><br><a href="/orrery/control/" title="For the owner: approve changes and work with the lore-keeper">🔒 Owner</a></footer>
 </div>
 <script src="/orrery/review-summary.js"></script>
 <script src="/orrery-review.js"></script>
@@ -381,6 +381,12 @@
 // grand-orrery's review branch, where changes wait until the owner puts
 // them live from /orrery/control/review/.
 const CLONE = new URLSearchParams(location.search).get("clone") === "review";
+// The public Orrery is a view-only explorer (plus Wake in Verrowen, which has
+// its own page). The lore-keeper chat, its write-ups and the owner's queue are
+// the private side: they only show on a browser holding the owner's token,
+// set from /orrery/control/, where changes are approved or turned down.
+const OWNER = (() => { try { return !!localStorage.getItem("verrowen-owner"); } catch { return false; } })();
+if (OWNER) document.getElementById("chatTab").hidden = false;
 const BRANCH = CLONE ? "review" : "main";
 // RAW is pinned to the branch's newest commit on every load (see load()):
 // raw.githubusercontent.com caches a branch name for minutes, but a commit
@@ -413,7 +419,7 @@ function showWorld() {
   $("worldPick").innerHTML = WORLDS.map((w) => `<option value="${w.id}"${w === world ? " selected" : ""}>${esc(w.name)}</option>`).join("");
   $("worldNote").textContent = world.note;
   $("playLink").hidden = !world.play;
-  if (world.play) { $("playLink").href = world.play; $("playLink").title = "Make a character by role-playing in " + world.name + ": " + world.game; }
+  if (world.play) { $("playLink").href = world.play; $("playLink").textContent = "🕯️ " + world.game; $("playLink").title = "Make a character by role-playing in " + world.name + ": " + world.game; }
 }
 const DOCS = [
   { id: "universe", file: "universe.md", title: "Stoutwell & Beyond", sub: "The universe draft · decided" },
@@ -975,7 +981,7 @@ function person(id) {
   const makes = ITEMS.filter((it) => it.by.includes(p.id));
   // A Wake in Verrowen character: their profile as it was sent, and where it stands.
   const wake = p.group === VERROWEN_GROUP ? `<div class="panel"><div class="crumb">${esc(p.byline || "From a Wake in Verrowen story")}${p.where === "review" ? ` · <a href="/orrery/?clone=review#roster">on the Review Clone</a>` : ""}${p.pending ? ` · <a href="/orrery/control/review/">review it</a>` : ""}</div><div class="md">${(p.profile || "").split("\n").filter((l) => l.trim()).map((l) => `<p style="margin:0 0 6px">${inline(l.replace(/\*\*/g, "").replace(/^\s*([A-Z][\w &'/-]{1,30}):/, "**$1:**"))}</p>`).join("")}</div></div>` : "";
-  return { html: `<div class="crumb"><a href="#roster">Roster</a> › ${esc(p.group)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(p.name)}${p.status && p.group === VERROWEN_GROUP ? `<span class="pill${p.pending ? " pitch" : ""}">${esc(p.status)}</span>` : ""}</h2><p class="tag">${esc(p.role)} · ${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}. <a href="#chat/review/${p.id}">✒️ Review ${esc(p.name)} in the chat</a></p>${p.doing ? `<div class="hallnow"><b>Right now at GuildScribe</b>${liveTag(p)}<div style="margin-top:4px">${esc(p.doing.text)}${doingWhen(p.doing)}</div>${hall && hall.clock ? `<div class="tag" style="margin-top:4px">${esc(hall.clock.text)}</div>` : ""}</div>` : ""}${wake}${
+  return { html: `<div class="crumb"><a href="#roster">Roster</a> › ${esc(p.group)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(p.name)}${p.status && p.group === VERROWEN_GROUP ? `<span class="pill${p.pending ? " pitch" : ""}">${esc(p.status)}</span>` : ""}</h2><p class="tag">${esc(p.role)} · ${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}.${OWNER ? ` <a href="#chat/review/${p.id}">✒️ Review ${esc(p.name)} in the chat</a>` : ""}</p>${p.doing ? `<div class="hallnow"><b>Right now at GuildScribe</b>${liveTag(p)}<div style="margin-top:4px">${esc(p.doing.text)}${doingWhen(p.doing)}</div>${hall && hall.clock ? `<div class="tag" style="margin-top:4px">${esc(hall.clock.text)}</div>` : ""}</div>` : ""}${wake}${
     near.length ? `<div class="who">${near.map(([o, n]) => `<a class="pill" href="#person/${o.id}">${esc(o.name)} · ${n}</a>`).join("")}</div>` : ""
   }${makes.length ? `<div class="who"><span class="pill">Makes</span>${makes.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}${renderHits(found, re) || "<p>Nothing written yet.</p>"}`, re };
 }
@@ -1165,7 +1171,7 @@ function ledgerRecords() {
     const fresh = p.group === NEW_GROUP;
     add({ kind: "person", id: p.id, icon: p.group === ADV_GROUP || fresh ? "🛡️" : p.group === VERROWEN_GROUP ? "🕯️" : "👤", name: p.name, group: p.group,
       status: p.pending ? p.status : fresh ? "Not in the canon yet" : p.status || "Decided", pending: !!(p.pending || fresh),
-      line: p.role, names: p.names, href: `#person/${p.id}`, ask: `#chat/review/${p.id}`,
+      line: p.role, names: p.names, href: `#person/${p.id}`, ask: OWNER ? `#chat/review/${p.id}` : "",
       fields: [["Group", p.group], ["Who", p.role], ["Right now", p.doing && p.doing.text], ["Live", p.live ? "On GuildScribe's parchments now" : ""], ["Canon name", p.canon && p.canon.name !== p.name ? p.canon.name : ""], ["Sent in", p.byline]],
       extraHay: [p.profile || ""] });
   }
@@ -1337,6 +1343,11 @@ function wireScroll() {
   });
 }
 
+// What a visitor sees at #chat: the lore-keeper lives on the private side.
+function privateNote() {
+  return `<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-top:8px"><h2 class="sec" style="margin-top:0">🔒 The lore-keeper is on the private side</h2><p>The public Orrery is for exploring. The lore-keeper chat, and approving or turning down changes, are for the owner: unlock them with the owner's token on <a href="/orrery/control/">Orrery control</a>.</p><p>To make a character of your own, play <a href="${CREATE_URL}">🕯️ Wake in Verrowen</a>. It's sent for review when you wrap it up.</p><p><a href="#scroll">← Back to the Scroll</a></p></div>`;
+}
+
 function route() {
   const [tab, ...rest] = (location.hash.slice(1) || "scroll").split("/");
   const arg = decodeURIComponent(rest[0] || ""), extra = rest[1] ? decodeURIComponent(rest[1]) : "";
@@ -1360,6 +1371,7 @@ function route() {
   else if (tab === "maps") out = maps();
   else if (tab === "docs") out = docs();
   else if (tab === "doc") out = doc(arg, extra);
+  else if (tab === "chat" && !OWNER) out = privateNote();
   else if (tab === "chat") return chatRoute(arg, extra);
   else out = roster();
   view.innerHTML = out;

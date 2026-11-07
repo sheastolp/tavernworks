@@ -2,7 +2,7 @@
   "id": "/orrery/",
   "name": "Orrery Explorer",
   "short_name": "Orrery",
-  "description": "Open the Scroll: one ledger of everything in the Grand Orrery (people, items, beasts, places, maps and documents), browse it in the Explorer, and talk it through with the lore-keeper.",
+  "description": "Open the Scroll: one ledger of everything in the Grand Orrery (people, items, beasts, places, maps and documents), browse it in the Explorer, or wake up in it with Wake in Verrowen.",
   "start_url": "/orrery/",
   "scope": "/orrery/",
   "display": "standalone",
@@ -46,9 +46,9 @@
       ]
     },
     {
-      "name": "Chat with the lore-keeper",
-      "short_name": "Lore-keeper",
-      "url": "/orrery/#chat",
+      "name": "Wake in Verrowen",
+      "short_name": "Verrowen",
+      "url": "/verrowen/",
       "icons": [
         {
           "src": "/orrery/icon-192.png",
