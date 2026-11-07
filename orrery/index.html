@@ -614,7 +614,7 @@ function verrowenSections(src) {
 }
 // "Race: Halfling" or "**Species:** Halfling" in a wrapped-up profile.
 const profileLine = (body, labels) => {
-  for (const l of labels) { const m = body.match(new RegExp(`^\\W*${l}\\W*:\\**\\s*(.+)$`, "im")); if (m) return m[1].replace(/[*_]/g, "").replace(/\s*\((?:suggested)\)/gi, "").trim(); }
+  for (const l of labels) { const m = body.match(new RegExp(`^\\W*${l}\\W*:\\**\\s*(.+)$`, "im")); if (m) return m[1].replace(/[*_]/g, "").replace(/\s*\((?:suggested|not found out yet)\)/gi, "").trim(); }
   return "";
 };
 function verrowenPerson(s, status, where) {

@@ -121,15 +121,25 @@ new token, delete `owner-token.txt` there and restart the service.
 
 Stick to models that fit the GTX 1650's 4 GB, or every turn gets slow.
 
-## Younger players
+## Made for 6 to 10
 
-The game's start screen has **🧒 A younger player (about 6 to 10)**
-(or open `/verrowen/?young`). It makes the story gentle and simple: short
-turns, a few numbered ideas each turn, nothing gory or too scary, no
-personal questions, a 🔊 button to read each turn aloud, and bigger text.
+Every story is written for a player about 6 to 10: short turns in easy
+words, a question and 2 or 3 numbered ideas each turn, no personal
+questions. What happens in the story is kept to PG-13: real danger, fights,
+villains and the lore's darker parts are fine, graphic gore, sexual content
+and strong swearing are not. Each turn has
+a 🔊 button to read it aloud, and the text is bigger. The page's own words
+are written for that age too.
 
-It only changes what the narrator is told: every story, a younger player's
-too, runs on the narrator model picked with **🤖 Change AI model**.
+Who the character is gets **learned, not supplied**. The narrator quietly
+decides the name, race, age, looks, past and magic, then lets the player
+find them out through clues (a reflection, someone who knows them, a name
+sewn into a coat). It never asks the player who they are, and a fact the
+player claims is treated as the character's guess, which the story shows
+right or wrong. Anything never found out is marked "(not found out yet)" at
+the wrap-up.
+
+Every story runs on the narrator model picked with **🤖 Change AI model**.
 
 ## The Review Clone (owner only)
 
