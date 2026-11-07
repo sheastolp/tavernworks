@@ -77,6 +77,13 @@
   .pill.on{background:var(--gold);color:var(--bg)}
   .pill.pitch{background:rgba(224,120,60,.18);color:var(--ember);margin-left:0}
   h2.sec .pill{font-size:11px}
+  details.cat>summary{list-style:none;cursor:pointer}
+  details.cat>summary::-webkit-details-marker{display:none}
+  details.cat>summary h2.sec::before{content:"▸";display:inline-block;width:1em;transition:transform .15s}
+  details.cat[open]>summary h2.sec::before{transform:rotate(90deg)}
+  details.cat>summary:hover h2.sec{color:var(--gold2)}
+  details.cat>summary h2.sec{margin:16px 0 10px}
+  details.cat>.grid{margin-bottom:8px}
   /* Rendered Markdown */
   .md{font-family:Spectral,Georgia,serif;font-size:17px;line-height:1.6;overflow-wrap:anywhere}
   .md h1,.md h2,.md h3,.md h4{font-family:Cinzel,serif;color:var(--gold2);line-height:1.25;margin:1.1em 0 .4em}
@@ -995,8 +1002,15 @@ function items() {
   const lead = fromFile
     ? `Every item and resource in the Orrery, read live from <a href="#doc/resources">resources.md</a>. Browse them by category and type on the <a href="#resources">Resources</a> tab.`
     : `Made or sold in Murrow's shop, Monstradius. Each item shows how the rules of magic work.`;
-  return `<p class="tag" style="margin:4px 0 14px">${lead}</p>${CATS.map((c) => `<h2 class="sec">${esc(c.name)}<span class="pill">${c.types.reduce((a, t) => a + t.items.length, 0)}</span></h2><div class="grid">${c.types.flatMap((t) => t.items).map((it) => itemCard(it, false)).join("")}</div>`).join("")}`;
+  // Each category starts collapsed; tap its heading to open it. Ones opened
+  // this visit stay open when you come back from an item.
+  return `<p class="tag" style="margin:4px 0 14px">${lead}</p>${CATS.map((c) => `<details class="cat" data-cat="${esc(c.id)}"${openCats.has(c.id) ? " open" : ""}><summary><h2 class="sec">${esc(c.name)}<span class="pill">${c.types.reduce((a, t) => a + t.items.length, 0)}</span></h2></summary><div class="grid">${c.types.flatMap((t) => t.items).map((it) => itemCard(it, false)).join("")}</div></details>`).join("")}`;
 }
+const openCats = new Set();
+document.addEventListener("toggle", (e) => {
+  const d = e.target;
+  if (d instanceof HTMLDetailsElement && d.classList.contains("cat")) d.open ? openCats.add(d.dataset.cat) : openCats.delete(d.dataset.cat);
+}, true);
 function resources(catId, typeId) {
   if (!fromFile) return `<p class="tag">Resources come from <code>resources.md</code> in the grand-orrery repo, and it isn't on the <b>${esc(BRANCH)}</b> branch yet${CLONE ? "" : " (it may be waiting on the <a href=\"/orrery/?clone=review#resources\">Review Clone</a>)"}. Until then, here are Murrow's items.</p><div class="grid">${ITEMS.map((it) => itemCard(it, false)).join("")}</div>`;
   const c = CATS.find((x) => x.id === catId);
