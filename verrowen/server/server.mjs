@@ -871,6 +871,7 @@ UNIVERSE: one of the universe headings below, copied exactly (the new profile go
 MAP: the map it belongs on (the region, Stoutwell, the lake, the capital) | a short label for the map`,
     item: `RESOURCE: one emoji, then the name | a category from this list | a type (an existing one or a short new one)
 ${Object.entries(opts.cats).map(([c, t]) => c + ": " + t.join(", ")).join("\n")}
+- **Where:** where it's found, kept or made, naming places on the maps (if known)
 - **Does:** …
 - **Made:** … (if known)
 - **Limits:** … (if known)
@@ -1557,7 +1558,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (url.pathname === "/admin/file") {
         const f = url.searchParams.get("path") || "";
-        if (!MAP_FILE.test(f) && f !== ORRERY_JSON) return send(res, 400, { error: "Only maps and orrery.json are read this way" }, origin);
+        if (!MAP_FILE.test(f) && f !== ORRERY_JSON && f !== "resources.md") return send(res, 400, { error: "Only maps, resources.md and orrery.json are read this way" }, origin);
         return send(res, 200, { ok: true, path: f, text: await fileAt(f, CLONE), orrery: await readOrreryJson() }, origin);
       }
       if (req.method === "POST" && url.pathname === "/admin/map/save") {

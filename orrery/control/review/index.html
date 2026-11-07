@@ -211,7 +211,7 @@
       <div id="mpView" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:10px;cursor:crosshair;background:#e6d09f"></div>
       <p class="note" id="mpWhere">Click the map where the new mark goes.</p>
       <div class="row">
-        <input id="mpLabel" maxlength="60" placeholder="Name on the map" style="flex:2 1 180px">
+        <input id="mpLabel" maxlength="60" placeholder="Name on the map (or pick an item)" list="mpItems" style="flex:2 1 180px"><datalist id="mpItems"></datalist>
         <input id="mpNote" maxlength="80" placeholder="Small line under it (optional)" style="flex:2 1 180px">
         <select id="mpSym" style="width:auto"><option value="dot">● Dot</option><option value="house">🏠 Settlement</option><option value="tower">🗼 Tower</option><option value="tree">🌲 Tree</option><option value="mountain">⛰ Mountain</option><option value="cross">✕ Spot</option><option value="none">Label only</option></select>
         <select id="mpSize" style="width:auto"><option value="1">Normal</option><option value="0.75">Small</option><option value="1.4">Large</option></select>
@@ -821,10 +821,20 @@ async function mpOpenFor(hint, label){
 async function mpOpen(){
   const st = $("mpStatus"), file = $("mpPick").value;
   st.textContent = "Reading the map from the review branch…";
-  try{ const j = await mpFile(file); mpFillPick(j.orrery && j.orrery.maps); $("mpPick").value = file; mp = { file }; mpShow(j.text); st.textContent = ""; $("mpSaveSt").textContent = ""; }
+  try{ const j = await mpFile(file); mpFillPick(j.orrery && j.orrery.maps); $("mpPick").value = file; mp = { file }; mpShow(j.text); st.textContent = ""; $("mpSaveSt").textContent = ""; mpItemNames(); }
   catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
 }
 $("mpOpen").addEventListener("click", mpOpen);
+// Item names from resources.md, offered for a mark's name: a mark named for
+// an item places it, and the Explorer shows the item on this map.
+async function mpItemNames(){
+  if ($("mpItems").options.length) return;
+  try{
+    const j = await mpFile("resources.md");
+    const names = [...String(j.text || "").matchAll(/^####\s+\S+\s+(.+?)\s*\((?:Your idea|Pitch|Not decided yet|DM lore)\)/gm)].map((m) => m[1]);
+    $("mpItems").innerHTML = [...new Set(names)].map((n) => `<option value="${esc(n)}"></option>`).join("");
+  }catch(e){}
+}
 $("mpView").addEventListener("click", (e) => {
   if (!mp || !mp.svg) return;
   const pt = mp.svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;

@@ -344,6 +344,7 @@ const DOCS = [
   { id: "universe", file: "universe.md", title: "Stoutwell & Beyond", sub: "The universe draft · decided" },
   { id: "notes", file: "working-notes.md", title: "Village Hero", sub: "Working notes · tagged per section" },
   { id: "lore", file: "lore.md", title: "Narrator lore", sub: "What Wake in Verrowen reads every turn" },
+  { id: "roster", file: "roster.md", title: "Character Roster", sub: "Everyone decided, at a glance" },
   { id: "resources", file: "resources.md", title: "Resources", sub: "Items and resources by category and type" },
   { id: "bestiary", file: "bestiary.md", title: "GuildScribe's Bestiary", sub: "Where GuildScribe's adventurers hunt and duel, and what lives there · the bots read it" },
   { id: "midkemia", file: "midkemia.md", title: "World of Midkemia", sub: "Rose's D&D campaign · DM lore" },
@@ -370,6 +371,72 @@ function addExtras(j){
     if (!m || !/^maps\/[a-z0-9][a-z0-9-]{0,40}\.png$/.test(m.file) || MAPS.some((x) => x.file === m.file)) continue;
     MAPS.push({ file: m.file, title: String(m.title || m.file).slice(0, 80), caption: String(m.caption || "").slice(0, 300) });
   }
+}
+// Every Markdown document in grand-orrery (at the top and in maps/), so
+// each one can be read here, not only the ones listed above. Needs GitHub's
+// API; without it, the list above and orrery.json still show.
+async function findDocs(sha){
+  try{
+    const r = await fetch("https://api.github.com/repos/sheastolp/grand-orrery/git/trees/" + (sha || BRANCH) + "?recursive=1", { cache: "no-store" });
+    if (!r.ok) return;
+    const j = await r.json();
+    for (const t of j.tree || []) {
+      if (t.type !== "blob" || !/^(maps\/)?[^/]+\.md$/i.test(t.path) || DOCS.some((d) => d.file === t.path)) continue;
+      let id = idOf(t.path.replace(/\.md$/i, "")) || "doc";
+      while (DOCS.some((d) => d.id === id)) id += "-2";
+      DOCS.splice(Math.max(0, DOCS.findIndex((d) => d.id === "readme")), 0, { id, file: t.path, title: t.path, sub: t.path, found: true });
+    }
+  }catch(e){}
+}
+// Where things are: every label on every map, read from the maps' SVGs (the
+// marks placed on the admin page included). An item is placed where a map
+// names it, or where its text names a place a map shows.
+let MAPLABELS = [];
+const GENERIC_LABEL = /^(n|e|s|w|the|a|an|and|map|key|legend|grain|river|lumber|mills|landing|footpath|troll|rough sketch.*|.*not to scale.*|north gate|south gate|east gate|west gate|.*\bgate)$/i;
+async function readMapLabels(bust){
+  const got = await Promise.all(MAPS.map((m) => fetch(RAW + m.file.replace(/\.png$/, ".svg") + (bust || ""), { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => "")));
+  MAPLABELS = [];
+  MAPS.forEach((m, k) => {
+    if (!got[k]) return;
+    let svg;
+    try{ svg = new DOMParser().parseFromString(got[k], "image/svg+xml"); }catch(e){ return; }
+    const seen = new Set();
+    const add = (raw, placed) => {
+      const label = String(raw || "").replace(/\s+/g, " ").replace(/[:;,.]+$/, "").trim();
+      const key = label.toLowerCase().replace(/^the /, "");
+      // The map's own title isn't a place on it.
+      if (key === m.title.toLowerCase().replace(/^the /, "")) return;
+      if (key.length < 4 || label.length > 40 || /\d/.test(label) || GENERIC_LABEL.test(label) || seen.has(key)) return;
+      // Labels are names: starting with a capital, or placed from the admin page.
+      if (!placed && (!/^(the |The )?[A-Z]/.test(label) || /'s$/.test(label))) return;
+      seen.add(key);
+      MAPLABELS.push({ map: m, label, placed, re: new RegExp(`(?<![\\w-])(?:the\\s+)?${reEsc(key).replace(/ /g, "\\s+")}(?![\\w])`, "i") });
+    };
+    svg.querySelectorAll("#orrery-added > g[data-label]").forEach((g) => add(g.getAttribute("data-label"), true));
+    // A label that only points somewhere else ("Stoutwell (off the map, north)") isn't a place on this map.
+    svg.querySelectorAll("text").forEach((t) => { const next = t.nextElementSibling; if (!t.closest("#orrery-added") && !(next && /^\(?off the map/i.test(next.textContent || ""))) add(t.textContent, false); });
+  });
+}
+// The labels an item is placed at: a map label that is its name (or one of
+// its names), or a place its own text names. Specific places beat broad ones.
+function placesOf(it){
+  if (it._places) return it._places;
+  const test = (l, t) => { l.re.lastIndex = 0; return l.re.test(t); };
+  // 📍 A map that names it, or the places its **Where:** line names.
+  let own = MAPLABELS.filter((l) => it.names.some((n) => new RegExp(`^(?:the\\s+)?(?:${n})$`, "i").test(l.label)) || (it.where && test(l, it.where)));
+  if (own.some((l) => !broadLabel(l))) own = own.filter((l) => !broadLabel(l));
+  // Then the places its own text names, leaving out the broad ones (a whole
+  // village or kingdom) that most entries name; failing that, its category's.
+  let named = MAPLABELS.filter((l) => !own.includes(l) && !broadLabel(l) && test(l, itemText(it)));
+  // With a 📍 place known, only other places on those same maps add anything.
+  if (own.length) named = named.filter((l) => own.some((o) => o.map === l.map));
+  if (!own.length && !named.length) { const c = CATS.find((x) => x.name === it.cat); if (c && c.intro) named = MAPLABELS.filter((l) => !broadLabel(l) && test(l, c.intro)); }
+  return (it._places = { own, named });
+}
+// A label most entries mention (Stoutwell, the Kingdom) says little about where a thing is.
+function broadLabel(l){
+  if (l._broad == null) { const n = ITEMS.filter((it) => { l.re.lastIndex = 0; return l.re.test(itemText(it)); }).length; l._broad = n > Math.max(4, ITEMS.length * 0.08); }
+  return l._broad;
 }
 // The roster. `names` are case-sensitive patterns matched as whole words.
 const PEOPLE = [
@@ -499,7 +566,7 @@ let ITEMS = BUILTIN, CATS = [], fromFile = false;
 // ── resources.md → ITEMS ──
 // ## Category / ### Type / #### <icon> Name (tag), then "- **Field:** value"
 // bullets. Anything else under an entry is kept as its body.
-const FIELD = { "does": "does", "made": "made", "limits": "limits", "rules": "rules", "story": "story", "note": "sub", "made by": "by", "also called": "also", "icon": "icon" };
+const FIELD = { "where": "where", "does": "does", "made": "made", "limits": "limits", "rules": "rules", "story": "story", "note": "sub", "made by": "by", "also called": "also", "icon": "icon" };
 const idOf = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // "Rift compass" -> "[Rr]ift compass(?:e?s)?": either case first letter, plural ok.
@@ -871,12 +938,12 @@ function item(id) {
   const found = matches(re);
   const total = found.reduce((a, d) => a + d.hits.length, 0);
   const by = it.by.map((pid) => PEOPLE.find((p) => p.id === pid)).filter(Boolean);
-  const facts = [["What it does", it.does], ["How it's made", it.made], ["Limits", it.limits], ["Rules it shows", it.rules], ["Story use", it.story], ...(it.extra || [])].filter(([, v]) => v);
+  const facts = [["What it does", it.does], ["Where", it.where], ["How it's made", it.made], ["Limits", it.limits], ["Rules it shows", it.rules], ["Story use", it.story], ...(it.extra || [])].filter(([, v]) => v);
   const c = CATS.find((x) => x.name === it.cat), t = c && c.types.find((x) => x.name === it.type);
   const crumb = fromFile && c && t ? `<a href="#resources">Resources</a> › <a href="#resources/${c.id}">${esc(c.name)}</a> › <a href="#resources/${c.id}/${t.id}">${esc(t.name)}</a>` : `<a href="#items">Items</a> › Monstradius`;
   return { html: `<div class="crumb">${crumb}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${it.icon} ${esc(it.name)}${it.status ? `<span class="pill${isPitch(it) ? " pitch" : ""}">${esc(it.status)}</span>` : ""}</h2><p class="tag">${it.sub ? esc(it.sub) + " · " : ""}${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}.</p>${
     by.length ? `<div class="who">${by.map((p) => `<a class="pill" href="#person/${p.id}">${esc(p.name)}</a>`).join("")}</div>` : ""
-  }<div class="panel"><dl class="facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${inline(v)}</dd>`).join("")}</dl>${it.body ? `<div class="md">${md(it.body)}</div>` : ""}</div>${renderHits(found, re) || "<p>Nothing else written yet.</p>"}`, re };
+  }<div class="panel"><dl class="facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${inline(v)}</dd>`).join("")}</dl>${it.body ? `<div class="md">${md(it.body)}</div>` : ""}</div>${placedHtml(it)}${renderHits(found, re) || "<p>Nothing else written yet.</p>"}`, re };
 }
 function find(q) {
   const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
@@ -902,6 +969,18 @@ function mapsFor(pl) {
   return got.length ? got : [[MAPS[0], []]];
 }
 const mapFig = ([m, w]) => `<figure><a href="#maps"><img src="${RAW + m.file}" alt="${esc(m.title)} map" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'Not uploaded yet: save it into grand-orrery/${m.file}'}))"></a><figcaption><b>${esc(m.title)}.</b> ${w.length ? "Shows " + w.map(esc).join(", ") + "." : esc(m.caption)}</figcaption></figure>`;
+// "Where it's found": the maps that place the item, with the labels on each.
+function placedHtml(it){
+  const { own, named } = placesOf(it);
+  if (!own.length && !named.length) return "";
+  const byMap = new Map();
+  for (const l of own.concat(named)) { if (!byMap.has(l.map)) byMap.set(l.map, []); byMap.get(l.map).push(l); }
+  const lines = [...byMap].map(([m, ls]) => `<li><b>${esc(m.title)}</b>: ${ls.map((l) => `${own.includes(l) ? "📍 " : ""}${esc(l.label)}`).join(", ")}</li>`).join("");
+  const figs = [...byMap].sort((a, b) => b[1].filter((l) => own.includes(l)).length - a[1].filter((l) => own.includes(l)).length).slice(0, 2).map(([m, ls]) => mapFig([m, ls.map((l) => l.label)])).join("");
+  return `<h2 class="sec">Where it's found</h2><p class="tag">${own.length ? "📍 marks a map that shows it by name. The others are" : "These are"} places its own entry names, as the maps show them.</p><div class="panel"><ul style="margin:0;padding-left:20px">${lines}</ul></div><div class="maps">${figs}</div>`;
+}
+// The items a map places by name (📍), for the Maps tab.
+const itemsOnMap = (m) => ITEMS.filter((it) => placesOf(it).own.some((l) => l.map === m));
 const itemText = (it) => [it.name, it.does, it.made, it.limits, it.rules, it.story, it.sub, it.body, ...(it.extra || []).map((x) => x.join(" "))].filter(Boolean).join(" ");
 const itemsNaming = (names) => { const re = patternFor(names); return ITEMS.filter((it) => { re.lastIndex = 0; return re.test(itemText(it)); }); };
 const itemPills = (list) => list.length ? `<div class="who"><span class="pill" style="margin-left:0">Items</span>${list.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : "";
@@ -965,7 +1044,7 @@ function doc(id) {
   }<div class="panel md">${md(text[d.id] || "")}</div>`;
 }
 function maps() {
-  return `<div class="maps">${MAPS.map((m) => `<figure><img src="${RAW + m.file}" alt="${esc(m.title)} map" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'Not uploaded yet: save it into grand-orrery/${m.file}'}))"><figcaption><b>${esc(m.title)}.</b> ${esc(m.caption)}</figcaption></figure>`).join("")}</div><div class="panel md">${md(text.maps || "")}</div>`;
+  return `<div class="maps">${MAPS.map((m) => { const on = itemsOnMap(m); return `<figure><img src="${RAW + m.file}" alt="${esc(m.title)} map" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'Not uploaded yet: save it into grand-orrery/${m.file}'}))"><figcaption><b>${esc(m.title)}.</b> ${esc(m.caption)}${on.length ? `<div class="who" style="margin-top:6px"><span class="pill" style="margin-left:0">📍 Items on it</span>${on.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}</figcaption></figure>`; }).join("")}</div><div class="panel md">${md(text.maps || "")}</div>`;
 }
 
 function route() {
@@ -1014,8 +1093,15 @@ async function load(quiet = false, head) {
   const bust = sha ? "" : "?t=" + Date.now();
   // Documents and maps added on the admin page are listed in orrery.json.
   try{ addExtras(await fetch(RAW + "orrery.json" + bust, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))); }catch(e){}
+  await findDocs(sha);
   const got = await Promise.all(DOCS.map((d) => fetch(RAW + d.file + bust, { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => "")));
-  DOCS.forEach((d, k) => (text[d.id] = got[k]));
+  DOCS.forEach((d, k) => {
+    text[d.id] = got[k];
+    // A document found in the repo gets its title from its own first heading.
+    const h = d.found && (got[k].match(/^#\s+(.+)$/m) || [])[1];
+    if (h) d.title = h.replace(/[*_`]/g, "").trim();
+  });
+  await readMapLabels(bust);
   buildItems();
   buildBeasts();
   buildVerrowen();
