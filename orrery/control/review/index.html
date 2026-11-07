@@ -170,6 +170,16 @@
     </div>
   </section>
 
+  <section class="card" aria-labelledby="h-docs" id="docsCard">
+    <h2 id="h-docs">📚 Documents catch-up</h2>
+    <p class="note">The other way round from the lore catch-up: <code>lore.md</code> is the decided canon, and this brings the documents in line with it. The laptop's AI reads <code>universe.md</code>, <code>roster.md</code>, <code>resources.md</code>, <code>bestiary.md</code> and the decided parts of the working notes, and drafts <b>fixes</b> where they contradict the lore, <b>facts</b> the universe draft is missing, <b>new item and resource entries</b> for things the lore names that have none, and a list of <b>places no map shows yet</b>. It runs on the laptop in the background, so you can leave the page; players always go first, so it can take a while. Nothing changes until you tick what to keep and apply it: one change per file on the review branch, which you publish as usual.</p>
+    <div class="row"><button class="primary" type="button" id="dcGo">📚 Catch the documents up</button><span class="note" id="dcStatus" role="status"></span></div>
+    <div class="draft" id="dcDraft" hidden>
+      <div id="dcList" style="display:flex;flex-direction:column;gap:14px"></div>
+      <div class="row"><button class="primary" type="button" id="dcApply">Apply the ticked changes on review</button><button type="button" id="dcAll">Tick all</button><button type="button" id="dcNone">Untick all</button><span class="note" id="dcApplySt" role="status"></span></div>
+    </div>
+  </section>
+
   <section class="card" aria-labelledby="h-wait">
     <h2 id="h-wait">Waiting for you</h2>
     <p class="count" id="count">Checking GitHub…</p>
@@ -532,6 +542,75 @@ $("cuAdd").addEventListener("click", async () => {
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
   finally{ b.disabled = false; }
 });
+
+// ── Documents catch-up ──
+// The laptop drafts it in the background (POST /admin/docs-catchup), and this
+// polls for progress, then shows the draft to tick, edit and apply.
+let dc = null, dcTimer = null;
+async function dcGet(){
+  const token = $("token").value.trim();
+  if (!token) throw new Error("Enter the owner's token under Waiting for you first.");
+  const r = await fetch(SERVER + "/admin/docs-catchup", { headers: { authorization: "Bearer " + token } });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
+  if (!r.ok) throw new Error(j.error || "The laptop answered " + r.status + ".");
+  return j;
+}
+function dcShow(j, quiet){
+  const st = $("dcStatus");
+  clearTimeout(dcTimer);
+  if (j.running){
+    $("dcGo").disabled = true;
+    st.textContent = `Working on it: step ${j.step || 0} of ${j.of || "…"}${j.doing ? ". " + j.doing + "…" : "…"}`;
+    dcTimer = setTimeout(() => dcGet().then((x) => dcShow(x, true)).catch((e) => { st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }), 5000);
+    return;
+  }
+  $("dcGo").disabled = false;
+  if (j.error){ st.textContent = "It stopped: " + j.error; return; }
+  if (!j.draft){ if (!quiet) st.textContent = ""; return; }
+  dc = j.draft;
+  const n = dc.fixes.length + dc.adds.length + dc.items.length;
+  st.textContent = (n ? `Done ${j.finished ? when(j.finished) : ""}: ${n} change${n > 1 ? "s" : ""} to check.` : "✔ Done: the documents already match the lore.") + (dc.maps.length ? ` ${dc.maps.length} place${dc.maps.length > 1 ? "s aren't" : " isn't"} on a map yet.` : "") + (j.errors ? ` ${j.errors} step${j.errors > 1 ? "s" : ""} failed${j.lastError ? " (" + j.lastError + ")" : ""}.` : "");
+  const box = (kind, x, inner) => `<div class="sub pitch" data-k="${kind}" data-id="${esc(x.id)}"><label style="display:flex;gap:8px;align-items:flex-start;font-weight:600"><input type="checkbox" checked style="width:auto;margin-top:4px"> <span style="flex:1;min-width:0">${inner}</span></label></div>`;
+  const sec = (title, note, html) => html ? `<div><h3 style="margin:0 0 6px">${title}</h3>${note ? `<p class="note">${note}</p>` : ""}<div style="display:flex;flex-direction:column;gap:10px">${html}</div></div>` : "";
+  $("dcList").innerHTML =
+    sec(`✏️ Fixes (${dc.fixes.length})`, "Where a document says something different from the lore. Edit the new words if you like.", dc.fixes.map((x) => box("fix", x, `${esc(x.file)}${x.why ? ` <small class="note">· ${esc(x.why)}</small>` : ""}<br><span class="minus" style="font-weight:400">− ${esc(x.old)}</span><textarea rows="2" maxlength="1500" style="margin-top:6px;width:100%">${esc(x.new)}</textarea>`)).join("")) +
+    sec(`➕ Missing facts (${dc.adds.length})`, "Facts in the lore the universe draft doesn't state, added as a bullet at the end of the section named.", dc.adds.map((x) => box("add", x, `${esc(x.file)} › ${esc(x.heading.replace(/^#+\s*/, ""))}<textarea rows="2" maxlength="1500" style="margin-top:6px;width:100%">${esc(x.text)}</textarea>`)).join("")) +
+    sec(`📦 New items and resources (${dc.items.length})`, "Things the lore names that resources.md has no entry for, as Your idea entries under their category and type.", dc.items.map((x) => box("item", x, `${esc(x.icon)} ${esc(x.name)} <small class="note">· ${esc(x.cat)} › ${esc(x.type)}</small><textarea rows="4" maxlength="3000" style="margin-top:6px;width:100%">${esc(x.text)}</textarea>`)).join("")) +
+    sec(`🗺 Not on a map yet (${dc.maps.length})`, `The maps are drawn by hand, so these aren't changed for you. Each map's editable source is an SVG in <a href="https://github.com/${REPO}/tree/review/maps" target="_blank" rel="noopener">grand-orrery/maps</a>; ask Claude Code to add them, or edit it yourself.`, dc.maps.length && `<ul style="margin:0;padding-left:20px">${dc.maps.map((m) => `<li><b>${esc(m.place)}</b>${m.map ? ` · ${esc(m.map)} map` : ""}${m.where ? ` · <span class="note">${esc(m.where)}</span>` : ""}</li>`).join("")}</ul>`);
+  $("dcApplySt").textContent = "";
+  $("dcDraft").hidden = !(n || dc.maps.length);
+  $("dcApply").hidden = $("dcAll").hidden = $("dcNone").hidden = !n;
+}
+$("dcGo").addEventListener("click", async () => {
+  const st = $("dcStatus"); $("dcDraft").hidden = true; st.textContent = "Starting it on the laptop…";
+  try{ dcShow(await cuCall("/admin/docs-catchup")); }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+});
+$("dcAll").addEventListener("click", () => $("dcList").querySelectorAll("input[type=checkbox]").forEach((c) => c.checked = true));
+$("dcNone").addEventListener("click", () => $("dcList").querySelectorAll("input[type=checkbox]").forEach((c) => c.checked = false));
+$("dcApply").addEventListener("click", async () => {
+  if (!dc) return;
+  const st = $("dcApplySt"), b = $("dcApply");
+  const picked = { fixes: [], adds: [], items: [] };
+  $("dcList").querySelectorAll("[data-k]").forEach((el) => {
+    if (!el.querySelector("input[type=checkbox]").checked) return;
+    const v = el.querySelector("textarea").value.trim(), id = el.dataset.id;
+    if (el.dataset.k === "fix"){ const x = dc.fixes.find((f) => f.id === id); if (x && v) picked.fixes.push({ file: x.file, old: x.old, new: v }); }
+    if (el.dataset.k === "add"){ const x = dc.adds.find((f) => f.id === id); if (x && v) picked.adds.push({ file: x.file, heading: x.heading, text: v }); }
+    if (el.dataset.k === "item"){ const x = dc.items.find((f) => f.id === id); if (x && v) picked.items.push({ icon: x.icon, name: x.name, cat: x.cat, type: x.type, text: v }); }
+  });
+  const n = picked.fixes.length + picked.adds.length + picked.items.length;
+  if (!n){ st.textContent = "Tick at least one change first."; return; }
+  b.disabled = true; st.textContent = `Putting ${n} change${n > 1 ? "s" : ""} on the review branch…`;
+  try{
+    const j = await cuCall("/admin/docs-catchup/apply", picked);
+    $("dcDraft").hidden = true; dc = null;
+    $("dcStatus").innerHTML = `✔ On the review branch: ${j.done.map((d) => `${esc(d.file)} (${d.changes}, <a href="${esc(d.url || "#")}" target="_blank" rel="noopener">${esc(String(d.sha || "").slice(0, 7))}</a>)`).join(", ") || "nothing changed"}.${j.skipped.length ? ` ${j.skipped.length} couldn't be applied because the text had changed: ${esc(j.skipped.join("; "))}.` : ""} Publish under Waiting for you to put it live.`;
+    setTimeout(load, 1500);
+  }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+  finally{ b.disabled = false; }
+});
+if ($("token").value.trim()) dcGet().then((j) => dcShow(j, true)).catch(() => {});
 
 // ── Rest mode ──
 // The laptop runs the rounds itself (verrowen/server, POST /admin/rest-mode),

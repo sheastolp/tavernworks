@@ -218,6 +218,32 @@ To make sure nothing skips the review, protect `main` on GitHub
 (**Settings → Branches → Add rule**, require a pull request) and let only
 the token above bypass it, or simply commit to `review` every time.
 
+## 📚 Documents catch-up (owner only)
+
+The **📚 Documents catch-up** card on the review page is the lore catch-up
+the other way round: `lore.md` is the decided canon, and this brings the
+documents in line with it. **📚 Catch the documents up** starts it here on
+the laptop, in the background (players always go first, so it can take a
+while; the page shows the step it's on, and you can leave and come back).
+The AI drafts:
+
+- **Fixes:** an exact phrase in `universe.md`, `roster.md`, `resources.md`,
+  `bestiary.md` or a decided part of `working-notes.md` that contradicts the
+  lore, and its corrected words. Only phrases found word for word, once, are
+  kept.
+- **Missing facts:** facts in a lore line that the universe draft doesn't
+  state, as a bullet under one of its headings.
+- **New items and resources:** things the lore names that `resources.md` has
+  no entry for, drafted from the lore only, as **(Your idea)** entries under
+  their category and type.
+- **Not on a map yet:** places the lore names that `maps/README.md` doesn't
+  list. The maps are drawn by hand, so this is a list for you, not a change.
+
+Tick what to keep, edit the words, and **Apply the ticked changes on
+review**: one commit per file on `review` (`POST /admin/docs-catchup/apply`),
+published like everything else. A fix whose words have changed since the
+draft is skipped and named.
+
 ## 😴 Rest mode (owner only)
 
 The **😴 Rest mode** card at the top of the review page hands the Orrery to

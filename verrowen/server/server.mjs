@@ -29,6 +29,11 @@
 //                        lore.md lines the decided notes gained since the last catch-up (by the model)
 //   POST /admin/lore-catchup/apply (owner's token) { head, lines }  ->  { ok, sha, url, added }   adds them
 //                        to lore.md on the review branch and remembers head as the new catch-up point
+//   POST /admin/docs-catchup (owner's token) {}  ->  { running, step, of, doing }   starts the documents
+//                        catch-up in the background; GET it for progress and, once done, its draft
+//                        { head, fixes, adds, items, maps }
+//   POST /admin/docs-catchup/apply (owner's token) { fixes, adds, items }  ->  { ok, done, skipped }   the
+//                        ticked changes, one commit per file on the review branch
 //   GET  /admin/rest-mode (owner's token)  ->  { on, until, lastRound, nextRound, running, log }
 //   POST /admin/rest-mode (owner's token) { on, hours, mode: "rest" | "auto" } | { action: "run" }  ->  { ok, on, … }   rest mode:
 //                        the local AI judges what's sent in and every pitch, writes new ideas, catches
@@ -549,6 +554,238 @@ async function loreCatchupApply(b) {
   return { sha: commit ? commit.sha : "", url: commit ? commit.html_url : "", added: add.length };
 }
 
+// ── Documents catch-up ──
+// The other way round from the lore catch-up: lore.md is the decided canon,
+// and this brings the documents in line with it. The laptop's AI, a step at
+// a time in the background (the GPU is shared with players):
+//   1. reads every decided part of the documents and finds what
+//      contradicts the lore: a FIX is an exact phrase and its correction
+//   2. checks each lore line against the universe draft: an ADD is a fact
+//      the draft is missing, put under one of its headings
+//   3. lists what the lore names that resources.md has no entry for: an
+//      ITEM is a new entry, drafted from the lore only
+//   4. lists places the lore names that no map shows (the maps are
+//      drawn by hand, so that part is only a report)
+// Nothing changes until the owner ticks what to keep on the review page and
+// applies it: one commit per file on the review branch, published as usual.
+const DOC_FILES = ["universe.md", "roster.md", "resources.md", "bestiary.md", NOTES];
+const DOC_CHUNK = 5000;
+const RES_CATS = ["Enchanted items", "Materials", "Tools", "Weapons & armor", "Food & drink", "Coin & trade", "Records & papers"];
+let docsJob = null;   // { running, started, finished, step, of, doing, errors, draft, error }
+const loreBody = (lore) => lore.replace(/^# .*\n+.*\n+/, "").replace(/<!--[\s\S]*?-->/g, "").trim();
+const STOP = new Set("that this with from they their them have into were what when where which while there about than then only also some other more most every each been being does done just like very over such your these those would could should because after before under still never ever".split(" "));
+const wordsOf = (t) => new Set((String(t).toLowerCase().match(/[a-z][a-z']{3,}/g) || []).filter((w) => !STOP.has(w)));
+// A document's sections by heading (levels 2 to 4), with their text.
+function docSections(text) {
+  const lines = String(text || "").replace(/\r/g, "").split("\n"), out = [];
+  let cur = null;
+  lines.forEach((l) => {
+    const h = l.match(/^(#{2,4})\s+(.*)$/);
+    if (h) { cur = { heading: l, name: h[2].trim(), lines: [] }; out.push(cur); }
+    else if (cur) cur.lines.push(l);
+  });
+  return out.map((s) => ({ ...s, body: s.lines.join("\n").replace(/<!--[\s\S]*?-->/g, "").trim() }));
+}
+function parseBlocks(reply, key) {
+  return String(reply || "").replace(/\*\*(OLD|NEW|WHY|FIX)\*\*/g, "$1").split(new RegExp("^\\s*" + key + "\\s*$", "im")).slice(1);
+}
+const field = (block, name) => oneLine(((block.match(new RegExp("^\\s*" + name + "\\s*:\\s*(.+)$", "im")) || [])[1] || "").replace(/^["“]|["”]$/g, ""), 1500);
+
+async function docsCatchupRun() {
+  const head = await headOf(CLONE);
+  const [lore, ...texts] = await Promise.all([LORE, ...DOC_FILES, "maps/README.md"].map((f) => fileAt(f, head)));
+  const files = Object.fromEntries(DOC_FILES.map((f, i) => [f, texts[i]]));
+  const mapsNote = texts[DOC_FILES.length];
+  const canon = loreBody(lore);
+  const draft = { head, fixes: [], adds: [], items: [], maps: [] };
+  let n = 0;
+  const id = () => "c" + (++n);
+  // The work, as steps, so the page can show how far along it is.
+  const steps = [];
+  for (const f of DOC_FILES) {
+    let part = "";
+    for (const [key, body] of decidedSections(f, files[f])) {
+      const piece = `### ${key.split(" › ").pop()}\n${body}\n\n`;
+      if (part && part.length + piece.length > DOC_CHUNK) { steps.push({ kind: "fix", file: f, part }); part = ""; }
+      part += piece.slice(0, DOC_CHUNK);
+    }
+    if (part) steps.push({ kind: "fix", file: f, part });
+  }
+  const uni = docSections(files["universe.md"]);
+  for (const line of canon.split("\n").filter((l) => /^[A-Z][A-Z0-9 '&/()-]{1,40}:\s/.test(l))) steps.push({ kind: "add", line });
+  steps.push({ kind: "items" }, { kind: "maps" });
+  docsJob.of = steps.length;
+
+  for (const st of steps) {
+    docsJob.step++;
+    if (!(await gpuFree(600_000))) { docsJob.errors++; continue; }
+    try {
+      if (st.kind === "fix") {
+        docsJob.doing = "Checking " + st.file + " against the lore";
+        const reply = await narrate([{ role: "user", content: `You check a fantasy universe's documents against its LORE, the decided canon. Below is one PART of the document ${st.file}. Find statements in the PART that CONTRADICT the LORE: a different age, place, name, number, rule, or who did what. Ignore anything the LORE doesn't mention, extra detail, open questions, style and wording.
+For each contradiction reply with this block:
+FIX
+OLD: words copied exactly from the PART, one sentence or less
+NEW: the same words, corrected to agree with the LORE
+WHY: one short sentence
+If nothing in the PART contradicts the LORE, reply exactly: NOTHING
+
+LORE:
+${canon}
+
+PART:
+${st.part}` }], null, { temperature: 0.2, maxTokens: 700 });
+        for (const b of parseBlocks(reply, "FIX")) {
+          const old = field(b, "OLD"), neu = field(b, "NEW"), why = field(b, "WHY");
+          const text = files[st.file];
+          if (old.length < 8 || !neu || neu === old || UNSAFE.test(neu)) continue;
+          if (text.split(old).length !== 2) continue;   // must be exact and only once
+          if (draft.fixes.some((x) => x.file === st.file && x.old === old)) continue;
+          draft.fixes.push({ id: id(), file: st.file, old, new: neu, why });
+        }
+      } else if (st.kind === "add") {
+        docsJob.doing = "Looking for " + st.line.split(":")[0] + " facts the universe draft is missing";
+        const want = wordsOf(st.line);
+        const near = uni.map((s) => ({ s, score: [...wordsOf(s.name + " " + s.body)].filter((w) => want.has(w)).length }))
+          .filter((x) => x.score > 1).sort((a, b) => b.score - a.score).slice(0, 4).map((x) => x.s);
+        let sections = "";
+        for (const s of near) { const p = `${s.heading}\n${s.body}\n\n`; if (sections.length + p.length < 7000) sections += p; }
+        if (!sections) continue;
+        const reply = await narrate([{ role: "user", content: `Below are one LORE LINE, from a fantasy universe's decided canon, and some SECTIONS of its universe draft. List the facts in the LORE LINE that none of the SECTIONS state. For each, reply with one line:
+ADD: heading copied exactly from one of the SECTIONS (the line starting with #) | the missing fact as one plain sentence
+Only facts the LORE LINE really states, never ideas of your own. If the SECTIONS already state every fact, reply exactly: NOTHING
+
+LORE LINE:
+${st.line}
+
+SECTIONS:
+${sections}` }], null, { temperature: 0.2, maxTokens: 500 });
+        for (const m of String(reply).matchAll(/^\s*ADD\s*:\s*(.+?)\s*\|\s*(.+)$/gim)) {
+          const heading = m[1].replace(/\*+/g, "").trim(), fact = oneLine(m[2].replace(/\*+/g, ""), 600);
+          const s = uni.find((x) => x.heading === heading || x.name === heading.replace(/^#+\s*/, ""));
+          if (!s || fact.length < 12 || UNSAFE.test(fact)) continue;
+          // Already said, near enough: most of its words are in the section.
+          const fw = [...wordsOf(fact)], have = wordsOf(s.body);
+          if (fw.length && fw.filter((w) => have.has(w)).length / fw.length > 0.8) continue;
+          if (draft.adds.some((x) => x.text === fact)) continue;
+          draft.adds.push({ id: id(), file: "universe.md", heading: s.heading, text: fact });
+        }
+      } else if (st.kind === "items") {
+        docsJob.doing = "Looking for things the lore names that resources.md has no entry for";
+        const names = [...files["resources.md"].matchAll(/^####\s+\S+\s+(.+?)\s*\((?:Your idea|Pitch|Not decided yet|DM lore)\)/gm)].map((m) => m[1]);
+        const also = [...files["resources.md"].matchAll(/^\s*-\s+\*\*Also called:\*\*\s*(.+)$/gm)].flatMap((m) => m[1].split(",")).map((x) => x.trim());
+        const known = new Set(names.concat(also).map((x) => x.toLowerCase()));
+        const reply = await narrate([{ role: "user", content: `Below are a fantasy universe's LORE and the NAMES of every entry in resources.md, its list of things people make, use, trade, eat and fight with. List the things the LORE names (items, materials, tools, weapons and armor, food and drink, coin, papers and records) that have NO entry yet. For each, reply with this block:
+ITEM: one emoji, then the name | Category, one of: ${RES_CATS.join(", ")} | Type, a short group name
+- **Does:** what it does or is for, from the LORE
+- **Made:** how or where it's made (only if the LORE says)
+- **Limits:** what it can't do or costs (only if the LORE says)
+- **Made by:** names of people (only if the LORE says)
+Use only what the LORE says. At most 8 items. If everything already has an entry, reply exactly: NOTHING
+
+NAMES:
+${names.join("; ")}
+
+LORE:
+${canon}` }], null, { temperature: 0.2, maxTokens: 1400 });
+        for (const b of String(reply).split(/^\s*ITEM\s*:/im).slice(1)) {
+          const [first, ...rest] = b.split("\n");
+          const [nm, cat, type] = first.split("|").map((x) => oneLine(x.replace(/\*+/g, ""), 80));
+          const m = (nm || "").match(/^(\S+)\s+(.+)$/);
+          if (!m || !cat || !type) continue;
+          const icon = /\p{Extended_Pictographic}/u.test(m[1]) ? m[1] : "📦", name = (/\p{Extended_Pictographic}/u.test(m[1]) ? m[2] : nm).replace(/[#()]/g, "").trim();
+          if (!name || known.has(name.toLowerCase()) || draft.items.some((x) => x.name.toLowerCase() === name.toLowerCase())) continue;
+          const bullets = rest.map((l) => l.trim()).filter((l) => /^-\s+\*\*(Does|Made|Limits|Made by|Rules|Story|Also called):\*\*\s+\S/.test(l)).join("\n");
+          if (!bullets || UNSAFE.test(bullets + name)) continue;
+          const c = RES_CATS.find((x) => x.toLowerCase() === cat.toLowerCase()) || cat;
+          draft.items.push({ id: id(), name, icon, cat: c, type, text: bullets });
+        }
+      } else {
+        docsJob.doing = "Checking which places the lore names that no map shows";
+        const reply = await narrate([{ role: "user", content: `Below are a fantasy universe's LORE and MAPS, a note describing what each of its maps shows. List the places the LORE names that no map shows. One per line:
+MAP: the place | the map it belongs on (the region, Stoutwell, the lake or the capital) | where the LORE puts it, in a few words
+Only places, never people or items. If every place is on a map, reply exactly: NOTHING
+
+MAPS:
+${mapsNote}
+
+LORE:
+${canon}` }], null, { temperature: 0.2, maxTokens: 500 });
+        for (const m of String(reply).matchAll(/^\s*MAP\s*:\s*(.+)$/gim)) {
+          const [place, map, where] = m[1].split("|").map((x) => oneLine(x.replace(/\*+/g, ""), 160));
+          if (place && !UNSAFE.test(m[1])) draft.maps.push({ place, map: map || "", where: where || "" });
+        }
+      }
+    } catch (e) { docsJob.errors++; docsJob.lastError = e.message; }
+  }
+  return draft;
+}
+function docsStatus() {
+  if (!docsJob) return { running: false };
+  const { running, started, finished, step, of, doing, errors, lastError, draft, error } = docsJob;
+  return { running, started, finished, step, of, doing, errors, lastError, error, draft: running ? null : draft };
+}
+function docsCatchupStart() {
+  if (docsJob && docsJob.running) return docsStatus();
+  docsJob = { running: true, started: new Date().toISOString(), step: 0, of: 0, doing: "Reading the lore and the documents", errors: 0, draft: null };
+  docsCatchupRun().then((d) => { docsJob.draft = d; }).catch((e) => { docsJob.error = e.message; })
+    .finally(() => { docsJob.running = false; docsJob.finished = new Date().toISOString(); docsJob.doing = ""; });
+  return docsStatus();
+}
+// Put a new resources.md entry under its category and type, making them if need be.
+function addResource(text, it) {
+  const lines = text.replace(/\s+$/, "").split("\n");
+  const entry = ["", `#### ${it.icon} ${it.name} (Your idea)`, "", ...String(it.text).split("\n").map((l) => l.trim()).filter(Boolean)];
+  let c = lines.findIndex((l) => l.trim().toLowerCase() === "## " + it.cat.toLowerCase());
+  if (c < 0) {
+    const before = lines.findIndex((l) => /^## Peddlers' wares/.test(l));
+    const block = [`## ${it.cat}`, "", `### ${it.type}`, ...entry, ""];
+    if (before < 0) lines.push("", ...block); else lines.splice(before, 0, ...block);
+    return lines.join("\n") + "\n";
+  }
+  let cEnd = lines.findIndex((l, i) => i > c && /^## /.test(l)); if (cEnd < 0) cEnd = lines.length;
+  let t = lines.findIndex((l, i) => i > c && i < cEnd && l.trim().toLowerCase() === "### " + it.type.toLowerCase());
+  if (t < 0) { while (cEnd > c + 1 && !lines[cEnd - 1].trim()) cEnd--; lines.splice(cEnd, 0, "", `### ${it.type}`, ...entry); return lines.join("\n") + "\n"; }
+  let tEnd = lines.findIndex((l, i) => i > t && /^#{2,3} /.test(l)); if (tEnd < 0) tEnd = lines.length;
+  while (tEnd > t + 1 && !lines[tEnd - 1].trim()) tEnd--;
+  lines.splice(tEnd, 0, ...entry);
+  return lines.join("\n") + "\n";
+}
+// Add a fact as a bullet at the end of a section, before the next heading.
+function addFact(text, heading, fact) {
+  const lines = text.replace(/\s+$/, "").split("\n");
+  const at = lines.indexOf(heading);
+  if (at < 0) return null;
+  let end = lines.findIndex((l, i) => i > at && /^#{1,6}\s/.test(l)); if (end < 0) end = lines.length;
+  while (end > at + 1 && !lines[end - 1].trim()) end--;
+  lines.splice(end, 0, "- " + fact);
+  return lines.join("\n") + "\n";
+}
+async function docsCatchupApply(b) {
+  const fixes = Array.isArray(b.fixes) ? b.fixes.slice(0, 200) : [], adds = Array.isArray(b.adds) ? b.adds.slice(0, 200) : [], items = Array.isArray(b.items) ? b.items.slice(0, 50) : [];
+  const per = {};
+  const take = (f) => { if (!DOC_FILES.includes(f)) throw Object.assign(new Error("Only " + DOC_FILES.join(", ") + " can be changed this way"), { status: 400 }); return (per[f] = per[f] || []); };
+  for (const x of fixes) take(String(x.file)).push({ kind: "fix", old: String(x.old || ""), new: str(x.new, 1500) });
+  for (const x of adds) take(String(x.file || "universe.md")).push({ kind: "add", heading: String(x.heading || ""), text: oneLine(x.text, 1500) });
+  for (const x of items) take("resources.md").push({ kind: "item", icon: oneLine(x.icon, 8) || "📦", name: oneLine(x.name, 80).replace(/[#()]/g, ""), cat: oneLine(x.cat, 60).replace(/#/g, ""), type: oneLine(x.type, 60).replace(/#/g, ""), text: str(x.text, 3000) });
+  for (const list of Object.values(per)) for (const c of list) if (UNSAFE.test(JSON.stringify(c))) throw Object.assign(new Error("A change holds a link or instructions to an AI"), { status: 400 });
+  const done = [], skipped = [];
+  for (const [file, list] of Object.entries(per)) {
+    let used = 0;
+    const commit = await editOnReview(file, (text) => {
+      used = 0;
+      for (const c of list) {
+        if (c.kind === "fix") { if (c.old.length >= 8 && text.split(c.old).length === 2 && c.new) { text = text.replace(c.old, () => c.new); used++; } else skipped.push(file + ": " + c.old.slice(0, 60)); }
+        else if (c.kind === "add") { const t = c.text && addFact(text, c.heading, c.text); if (t) { text = t; used++; } else skipped.push(file + ": " + c.text.slice(0, 60)); }
+        else if (c.name && c.cat && c.type && c.text.trim()) { text = addResource(text, c); used++; }
+      }
+      return text;
+    }, `Documents catch-up: ${list.length} change${list.length > 1 ? "s" : ""} to ${file}, to match the lore`);
+    if (commit) done.push({ file, changes: used, sha: commit.sha, url: commit.html_url });
+  }
+  return { done, skipped };
+}
+
 // ── Sent in for review ──
 // Anyone can send a Codex note or a character for review, but only the
 // owner puts things on the review branch. What others send waits here, on
@@ -1062,6 +1299,15 @@ const server = http.createServer(async (req, res) => {
         await saveRest().catch(() => { });
         await restLog("deleted", r.name, { why: "Deleted by you" + (r.decided ? ". If the lore catch-up already added lines for it, take those out of lore.md too" : ""), sha: r.sha });
         console.log(new Date().toISOString(), "AI item deleted on review:", r.name, r.sha);
+        return send(res, 200, { ok: true, ...r }, origin);
+      }
+      if (url.pathname === "/admin/docs-catchup") {
+        if (req.method === "POST") { console.log(new Date().toISOString(), "documents catch-up started"); return send(res, 200, { ok: true, ...docsCatchupStart() }, origin); }
+        return send(res, 200, { ok: true, ...docsStatus() }, origin);
+      }
+      if (req.method === "POST" && url.pathname === "/admin/docs-catchup/apply") {
+        const r = await docsCatchupApply(await readJson(req));
+        console.log(new Date().toISOString(), "documents catch-up applied:", r.done.map((d) => d.file + " " + d.changes).join(", "));
         return send(res, 200, { ok: true, ...r }, origin);
       }
       if (req.method === "POST" && url.pathname === "/admin/lore-catchup") {
