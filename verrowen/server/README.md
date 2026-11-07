@@ -235,10 +235,13 @@ Every `REST_EVERY_MIN` minutes (20) it runs a round, all on its own:
    small new piece of canon from the lore, about something different each
    time (a Stoutwell villager, a custom, an everyday magic item, a Monster
    Wood creature, a place, some history, a peddler's relic, the Guard, the
-   guild hall). It's checked against the existing titles and filed as a
-   **(Pitch)** under `## From rest mode` in `working-notes.md`.
-3. **Every pitch** on `review` (the new idea included): accepted as is, or
-   rejected and taken out, the same as the Pitches card's buttons.
+   guild hall), checked against the existing titles. The AI judges it
+   **before it's filed**: one it accepts goes under `## From rest mode` in
+   `working-notes.md` as **(Your idea)**, in a single change; one it rejects
+   is never filed, and only shows in the log (with its text). One it can't
+   decide on is filed as a **(Pitch)** for you.
+3. **Every pitch** on `review`: accepted as is, or rejected and taken out,
+   the same as the Pitches card's buttons.
 4. **Lore catch-up:** the lines the narrator is missing from what's now
    decided go into `lore.md`.
 5. **Publish:** if anything changed, `review` goes live on `main` and
@@ -249,12 +252,13 @@ Every `REST_EVERY_MIN` minutes (20) it runs a round, all on its own:
 **🤖 Auto mode on**, next to the rest mode button, runs exactly the same
 rounds but **never publishes**: everything the AI approves, writes or adds to
 `lore.md` waits on the `review` branch under **Waiting for
-you**, with its reason in each change's message. What it would turn down from
+you**, with its reason in each change's message.
 **Every auto round writes a new idea**, with no daily limit
 (`REST_IDEAS_PER_DAY` only limits rest mode), and anything it approves from
 the 📨 queue is filed as a pitch, not as Your idea. **Pitches stay
-pitches**: auto mode doesn't accept
-or reject them, including its own new ideas. Each one waits in 💡 Pitches
+pitches**: auto mode doesn't accept or reject them. Its own new idea is
+judged as it's written and filed as a pitch with that view in the same
+change (`Auto mode idea: …`). Each pitch waits in 💡 Pitches
 with the AI's view beside it (*Auto mode would accept/reject this: …*), and
 you decide. What it would turn down from
 the 📨 queue isn't deleted: it stays there marked *Auto mode would turn this
@@ -265,8 +269,9 @@ waiting for you.
 How the AI decides: it gets the lore and one item at a time and must answer
 `VERDICT: APPROVE` or `VERDICT: REJECT` with a one-line reason. It approves
 only what fits the lore without contradicting it, keeps magic weak and
-everyday, suits a PG-13 game for 6 to 10 year olds, and isn't a repeat. When in
-doubt it rejects. Guard rails:
+everyday, suits a PG-13 game for 6 to 10 year olds, and isn't a repeat.
+Something new isn't turned down just because the lore doesn't mention it
+yet: new people, places and things are the point. Guard rails:
 
 - Anything with a link, a script, or instructions to an AI is turned down
   without asking the model, and lore lines like that are dropped.
