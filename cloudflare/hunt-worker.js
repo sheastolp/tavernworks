@@ -278,7 +278,7 @@ const ONBOARD_PAGE = `<!doctype html>
     <a class="btn twitch big" href="/onboard?connect=1">${TWITCH_ICON} Connect with Twitch</a>
   </div>
 
-  <footer><a href="https://tavernworks.dev/">Tavernworks</a> · <span>hunt.tavernworks.dev</span> · Brewed by Stoned Sheamus</footer>
+  <footer><a href="https://tavernworks.dev/">Tavernworks</a> · <span>hunt.tavernworks.dev</span> · Homebrewed by Stoned Sheamus</footer>
 </div>
 </body>
 </html>`;
