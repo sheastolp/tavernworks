@@ -1491,10 +1491,13 @@ const server = http.createServer(async (req, res) => {
     // Browsers on other sites are turned away; scripts without an Origin header still hit the rate limits.
     if (req.headers.origin && !origin) return send(res, 403, { error: "This site isn't allowed to use the narrator" }, null);
     if (url.pathname.startsWith("/admin/")) {
-      // Chat saves come after every turn, so they get a roomier limit of their own.
+      // Wrong tokens get the tight limit (guessing stays slow). The owner's own
+      // requests get a roomy one: the review page polls rest mode and the
+      // documents catch-up every few seconds, and lore-keeper chats save every turn.
       const lk = url.pathname === "/admin/lorekeeper";
-      if (!allowed((lk ? "lk:" : "admin:") + clientIp(req), { n: lk ? 240 : 30, ms: PER_IP.ms })) return send(res, 429, { error: "Too many tries. Wait a few minutes." }, origin);
-      if (!isOwner(req)) return send(res, 401, { error: "That's not the owner's token" }, origin);
+      const own = isOwner(req);
+      if (!allowed((own ? "owner:" : "badtoken:") + clientIp(req), { n: own ? 2000 : 30, ms: PER_IP.ms })) return send(res, 429, { error: "Too many tries. Wait a few minutes." }, origin);
+      if (!own) return send(res, 401, { error: "That's not the owner's token" }, origin);
       if (req.method === "GET" && url.pathname === "/admin/models") return send(res, 200, { model: MODEL, models: await installed() }, origin);
       if (req.method === "POST" && url.pathname === "/admin/model") {
         const want = String((await readJson(req)).model || "");
