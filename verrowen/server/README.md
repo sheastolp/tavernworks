@@ -218,6 +218,52 @@ To make sure nothing skips the review, protect `main` on GitHub
 (**Settings → Branches → Add rule**, require a pull request) and let only
 the token above bypass it, or simply commit to `review` every time.
 
+## 😴 Rest mode (owner only)
+
+The **😴 Rest mode** card at the top of the review page hands the Orrery to
+the laptop's AI while you rest: pick how long (8 hours, a day, 3 days, a
+week, or until you turn it off) and press **😴 Rest mode on**. It runs here,
+on the laptop, so it carries on with the page closed. **☀️ I'm back** turns
+it off; it also turns itself off when the time is up.
+
+Every `REST_EVERY_MIN` minutes (20) it runs a round, all on its own:
+
+1. **What was sent in** (the 📨 queue): the AI judges each item against
+   `lore.md`. Approved ones go on `review` as **(Your idea)**, rejected ones
+   are turned down.
+2. **New lore:** a few times a day (`REST_IDEAS_PER_DAY`, 4) the AI writes a
+   small new piece of canon from the lore, about something different each
+   time (a Stoutwell villager, a custom, an everyday magic item, a Monster
+   Wood creature, a place, some history, a peddler's relic, the Guard, the
+   guild hall). It's checked against the existing titles and filed as a
+   **(Pitch)** under `## From rest mode` in `working-notes.md`.
+3. **Every pitch** on `review` (the new idea included): accepted as is, or
+   rejected and taken out, the same as the Pitches card's buttons.
+4. **Lore catch-up:** the lines the narrator is missing from what's now
+   decided go into `lore.md`.
+5. **Publish:** if anything changed, `review` goes live on `main` and
+   GuildScribe is told to re-read it.
+
+How the AI decides: it gets the lore and one item at a time and must answer
+`VERDICT: APPROVE` or `VERDICT: REJECT` with a one-line reason. It approves
+only what fits the lore without contradicting it, keeps magic weak and
+everyday, suits a PG-13 game for 6 to 10 year olds, and isn't a repeat. When in
+doubt it rejects. Guard rails:
+
+- Anything with a link, a script, or instructions to an AI is turned down
+  without asking the model, and lore lines like that are dropped.
+- An answer that isn't a clear verdict leaves the item alone for you, and
+  it isn't asked about again for a day.
+- At most `REST_MAX_PER_ROUND` (8) decisions a round, and a player waiting
+  on the narrator always goes first.
+- Every decision and its reason is in the card's **What rest mode has
+  done** list (`rest-log.jsonl` in the save folder) and in the commit's
+  message on GitHub, so anything can be found and undone by hand.
+
+It uses the narrator's model (**🤖 Change AI model**). A small model judges
+roughly, so a bigger one decides better. It needs `ORRERY_GITHUB_TOKEN`, like
+publishing does.
+
 ## Reading the characters
 
 ```sh
@@ -245,6 +291,9 @@ Environment variables, set with `Environment=` in the service file:
 | `VERROWEN_SAVE_DIR` | systemd's state directory | Where stories are saved |
 | `ORRERY_GITHUB_TOKEN` | (none) | Lets the owner publish the Review Clone and file lore-keeper review items. Without it, both say so |
 | `ORRERY_REPO` | `sheastolp/grand-orrery` | The repo whose `review` branch is the Review Clone |
+| `REST_EVERY_MIN` | `20` | Minutes between rest mode's rounds (at least 5) |
+| `REST_MAX_PER_ROUND` | `8` | The most approvals and rejections in one round |
+| `REST_IDEAS_PER_DAY` | `4` | New ideas rest mode writes a day (`0` for none) |
 
 Ollama doesn't need `OLLAMA_ORIGINS` for this: the browser talks to this
 server, and this server talks to Ollama on the laptop itself.

@@ -101,6 +101,13 @@
   .lkfab{position:fixed;right:16px;bottom:16px;z-index:50;display:inline-flex;align-items:center;gap:8px;background:var(--gold);color:var(--bg);font-weight:600;font-size:15px;text-decoration:none;border-radius:999px;padding:12px 18px;box-shadow:0 6px 22px rgba(0,0,0,.5)}
   .lkfab:hover{background:var(--gold2)} .lkfab:focus-visible{outline:2px solid var(--gold2);outline-offset:3px}
   .wrap{padding-bottom:96px}
+  .rest.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+  .restlog{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto}
+  .restlog li{border-left:2px solid var(--line);padding:2px 0 2px 10px;font-size:14px;overflow-wrap:anywhere}
+  .restlog li small{color:var(--muted)}
+  .restlog li.approved,.restlog li.accepted{border-color:var(--green)}
+  .restlog li.rejected,.restlog li.error{border-color:var(--ember)}
+  .restlog li.idea,.restlog li.lore,.restlog li.published{border-color:var(--gold)}
   footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
 </style>
 </head>
@@ -117,6 +124,22 @@
     </details>
     <div class="row lkrow"><a class="btn primary" href="/orrery/#chat">✒️ Chat with the lore-keeper</a><a class="btn" href="/orrery/control/">Orrery control</a></div>
   </header>
+
+  <section class="card rest" aria-labelledby="h-rest" id="restCard">
+    <h2 id="h-rest">😴 Rest mode</h2>
+    <p class="note">While you rest, the laptop's AI runs the Orrery on its own. Every round it judges everything <b>sent in for review</b> and every <b>pitch</b> on the review branch against the lore (approved ones become <b>Your idea</b>, rejected ones are turned down or taken out), <b>comes up with new ideas</b> of its own a few times a day and judges those too, <b>catches lore.md up</b> for the narrator, and <b>publishes</b> it all to the live Orrery and GuildScribe. Anything the AI can't give a clear answer on waits here for you. Every decision and its reason is listed below and in the change's message on GitHub.</p>
+    <p class="count" id="restState">Rest mode: checking the laptop…</p>
+    <div class="row">
+      <label for="restFor" style="flex:0 0 auto">Rest for</label>
+      <select id="restFor" style="width:auto"><option value="8">8 hours</option><option value="24">a day</option><option value="72">3 days</option><option value="168">a week</option><option value="0">until I turn it off</option></select>
+      <button class="primary" type="button" id="restOn">😴 Rest mode on</button>
+      <button type="button" id="restOff" hidden>☀️ I'm back: turn it off</button>
+      <button type="button" id="restRun">Run a round now</button>
+      <span class="note" id="restSt" role="status"></span>
+    </div>
+    <details id="restLogWrap"><summary class="note">What rest mode has done</summary><ul class="restlog" id="restLog"></ul></details>
+    <p class="note">The owner's token (under Waiting for you) is needed. Something it published by mistake can be put back by hand on GitHub or with a pitch.</p>
+  </section>
 
   <section class="card" aria-labelledby="h-pitch">
     <h2 id="h-pitch">💡 Pitches</h2>
@@ -499,6 +522,60 @@ $("cuAdd").addEventListener("click", async () => {
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
   finally{ b.disabled = false; }
 });
+
+// ── Rest mode ──
+// The laptop runs the rounds itself (verrowen/server, POST /admin/rest-mode),
+// so it carries on with this page closed. This only switches it and shows
+// what it did.
+const REST_KIND = { approved: "✔ Approved", accepted: "✔ Accepted", rejected: "✕ Rejected", unsure: "… Left for you", idea: "💡 New idea", lore: "📜 Lore", published: "🌍 Published", error: "⚠ Problem", round: "Round", done: "Round done", on: "😴 On", off: "☀️ Off" };
+async function restCall(body){
+  const token = $("token").value.trim();
+  if (!token) throw new Error("Enter the owner's token under Waiting for you first.");
+  const r = await fetch(SERVER + "/admin/rest-mode", body ? { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify(body) } : { headers: { authorization: "Bearer " + token } });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
+  if (!r.ok) throw new Error(j.error || "The laptop answered " + r.status + ".");
+  try{ localStorage.setItem(KEY, token); }catch(e){}
+  return j;
+}
+function drawRest(j){
+  $("restCard").classList.toggle("on", !!j.on);
+  $("restOn").hidden = !!j.on; $("restFor").hidden = $("restFor").previousElementSibling.hidden = !!j.on; $("restOff").hidden = !j.on;
+  $("restState").innerHTML = j.on
+    ? `😴 <b>Resting</b>${j.until ? " until " + esc(when(j.until)) : " until you turn it off"}. ${j.running ? "A round is running now." : j.nextRound ? "Next round " + esc(when(j.nextRound)) + "." : ""}${j.github ? "" : ' <span class="minus">The laptop has no GitHub token, so it can\'t file or publish anything.</span>'}`
+    : `Rest mode is <b>off</b>: you decide everything.${j.lastRound ? " Its last round was " + esc(when(j.lastRound)) + "." : ""}`;
+  if (Array.isArray(j.log)) {
+    $("restLog").innerHTML = j.log.filter((l) => l.kind !== "round").map((l) => `<li class="${esc(l.kind)}"><b>${REST_KIND[l.kind] || esc(l.kind)}</b> ${esc(l.what)}${l.why ? ` <small>· ${esc(l.why)}</small>` : ""} <small>· ${esc(when(l.at))}${l.sha ? ` · <a href="https://github.com/${REPO}/commit/${esc(l.sha)}" target="_blank" rel="noopener">${esc(String(l.sha).slice(0, 7))}</a>` : ""}</small>${l.lines ? `<pre class="writeup">${esc(l.lines)}</pre>` : ""}</li>`).join("") || '<li><small>Nothing yet.</small></li>';
+    if (j.on && j.log.length) $("restLogWrap").open = true;
+  }
+}
+let restTimer = null;
+async function loadRest(quiet){
+  try{
+    const j = await restCall(); drawRest(j);
+    clearTimeout(restTimer);
+    restTimer = setTimeout(() => loadRest(true), j.running ? 8000 : 60000);
+  }catch(e){ if (!quiet) $("restState").textContent = e instanceof TypeError ? "Rest mode: couldn't reach the laptop." : "Rest mode: " + e.message; }
+}
+$("restOn").addEventListener("click", async () => {
+  const st = $("restSt"); st.textContent = "Switching it on…";
+  try{ drawRest(await restCall({ on: true, hours: Number($("restFor").value) })); st.textContent = "The first round starts in a moment."; setTimeout(() => loadRest(true), 20000); }
+  catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+});
+$("restOff").addEventListener("click", async () => {
+  const st = $("restSt"); st.textContent = "Switching it off…";
+  try{ drawRest(await restCall({ on: false })); st.textContent = "Welcome back. Everything waits for you again."; loadRest(true); }
+  catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
+});
+$("restRun").addEventListener("click", async (e) => {
+  const st = $("restSt"), b = e.currentTarget;
+  if (b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Tap again: the AI decides and publishes"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "Run a round now"; }, 5000); return; }
+  b.dataset.armed = ""; b.textContent = "Run a round now";
+  st.textContent = "Starting a round. It judges one thing at a time, so it can take a few minutes…";
+  try{ await restCall({ action: "run" }); setTimeout(() => loadRest(true), 5000); }
+  catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; }
+});
+if ($("token").value.trim()) loadRest(); else $("restState").textContent = "Rest mode: enter the owner's token under Waiting for you to see it.";
 
 // ── Pitches ──
 // Every "(Pitch)" line in the lore files on the review branch. Accepting one
