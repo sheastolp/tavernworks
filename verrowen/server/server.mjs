@@ -743,10 +743,17 @@ async function restRound(why = "scheduled") {
         if (v.verdict === "unsure") { rest.unsure["in:" + rec.id + rec.at] = Date.now(); did.unsure++; await restLog("unsure", rec.title, { why: v.why, from: rec.source }); continue; }
         budget--;
         if (v.verdict === "approve") {
-          const it = reviewItem({ ...rec, key: String(rec.key || "").split(":").slice(1).join(":"), decided: true, loreLine: "" }, { owner: true });
+          // Auto mode files it as a pitch for the owner; rest mode decides it.
+          const it = reviewItem({ ...rec, key: String(rec.key || "").split(":").slice(1).join(":"), decided: rest.mode !== "auto", loreLine: "" }, { owner: true });
           it.why = v.why;
           const r = await fileReviewItem(it);
-          did.approved++; await restLog("approved", rec.title, { why: v.why, from: rec.source, sha: r.sha });
+          did.approved++; await restLog("approved", rec.title, { why: v.why + (rest.mode === "auto" ? " (filed as a 💡 pitch for you)" : ""), from: rec.source, sha: r.sha });
+          if (rest.mode === "auto") {
+            // The AI already judged it: keep its view so it isn't asked again.
+            rest.views = rest.views || {};
+            const line = `### ${it.title} (Pitch)`;
+            rest.views[NOTES + "\n" + line] = { key: "", verdict: "approve", why: v.why, at: new Date().toISOString(), from: "queue" };
+          }
         } else if (rest.mode === "auto") {
           // Kept for the owner, with the AI's view on it.
           did.rejected++; await restLog("rejected", rec.title, { why: v.why + " (still in the 📨 queue for you to decide)", from: rec.source });
@@ -762,9 +769,11 @@ async function restRound(why = "scheduled") {
     // 2. A new idea of its own, a few times a day.
     const dayAgo = Date.now() - 24 * 3600_000;
     rest.ideas = (rest.ideas || []).filter((t) => Date.parse(t) > dayAgo);
-    if (REST_IDEAS_PER_DAY > 0 && rest.ideas.length < REST_IDEAS_PER_DAY) {
+    // Auto mode writes a new pitch every round, with no daily limit.
+    const autoIdea = rest.mode === "auto";
+    if (autoIdea || (REST_IDEAS_PER_DAY > 0 && rest.ideas.length < REST_IDEAS_PER_DAY)) {
       const last = rest.ideas.length ? Date.parse(rest.ideas[rest.ideas.length - 1]) : 0;
-      if ((rest.ideaNow || Date.now() - last >= 24 * 3600_000 / REST_IDEAS_PER_DAY) && (await gpuFree())) {
+      if ((autoIdea || rest.ideaNow || Date.now() - last >= 24 * 3600_000 / REST_IDEAS_PER_DAY) && (await gpuFree())) {
         rest.ideaNow = false;
         try {
           const idea = await makeIdea();
@@ -791,7 +800,12 @@ async function restRound(why = "scheduled") {
       const auto = rest.mode === "auto";
       const pitches = all.filter((p) => !rest.unsure[pitchKey(p)])
         // Auto mode gives its view once per pitch (again if the pitch's words change).
-        .filter((p) => !auto || !rest.views[p.file + "\n" + p.line] || rest.views[p.file + "\n" + p.line].key !== pitchKey(p));
+        .filter((p) => {
+          if (!auto) return true;
+          const v = rest.views[p.file + "\n" + p.line];
+          if (v && !v.key) { v.key = pitchKey(p); return false; }   // judged in the queue already
+          return !v || v.key !== pitchKey(p);
+        });
       for (const p of pitches) {
         if (budget <= 0) break;
         if (!(await gpuFree())) break;

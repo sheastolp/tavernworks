@@ -250,7 +250,10 @@ Every `REST_EVERY_MIN` minutes (20) it runs a round, all on its own:
 rounds but **never publishes**: everything the AI approves, writes or adds to
 `lore.md` waits on the `review` branch under **Waiting for
 you**, with its reason in each change's message. What it would turn down from
-**Pitches stay pitches**: auto mode doesn't accept
+**Every auto round writes a new idea**, with no daily limit
+(`REST_IDEAS_PER_DAY` only limits rest mode), and anything it approves from
+the 📨 queue is filed as a pitch, not as Your idea. **Pitches stay
+pitches**: auto mode doesn't accept
 or reject them, including its own new ideas. Each one waits in 💡 Pitches
 with the AI's view beside it (*Auto mode would accept/reject this: …*), and
 you decide. What it would turn down from
