@@ -49,6 +49,14 @@
   .status.hall{font-size:13px;margin-top:2px}
   .status.hall .warn{color:var(--ember)}
   .card .live{display:inline-block;font-size:11px;font-weight:600;color:var(--green);margin-left:6px;font-family:Inter,sans-serif;letter-spacing:0;vertical-align:middle}
+  .live.rest,.card .live.rest{color:var(--muted)}
+  .live.busy,.card .live.busy{color:var(--gold2)}
+  .card .doing{margin-top:6px;font-size:12.5px;color:var(--text);opacity:.85}
+  .hallnow{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:0 0 14px}
+  .hallnow .live{margin-left:8px;font-size:12px;font-weight:600;color:var(--green)}
+  .hallnow b{font-family:Cinzel,serif;color:var(--gold2);letter-spacing:.04em}
+  .hallnow ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px}
+  .hallnow li{margin:2px 0}
   main{padding:10px 0 50px}
   h2.sec{font-family:Cinzel,serif;color:var(--gold);letter-spacing:.08em;font-size:18px;margin:26px 0 12px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:12px}
@@ -788,9 +796,9 @@ function roster() {
   const createCard = `<a class="card create" href="${CREATE_URL}"><b>✨ Create a character</b><span>Play Wake in Verrowen. You wake with no memory, and everything about them, from name and race to past and magic, comes out of how you play.</span><div class="count">Sent for review when you wrap it up</div></a>`;
   return groups.map((g) => {
     const people = PEOPLE.filter((p) => p.group === g), wake = g === VERROWEN_GROUP, waiting = people.filter((p) => p.pending).length;
-    return `<h2 class="sec">${esc(g)}${wake && waiting ? `<span class="pill pitch">${waiting} pending review</span>` : ""}</h2>${wake ? `<p class="tag" style="margin:-4px 0 12px">Characters made by playing Wake in Verrowen. Nothing about them is canon until the owner accepts them on the <a href="/orrery/control/review/">review page</a>.</p>` : ""}<div class="grid">${wake ? createCard : ""}${people.map((p) => {
+    return `<h2 class="sec">${esc(g)}${wake && waiting ? `<span class="pill pitch">${waiting} pending review</span>` : ""}</h2>${g === ADV_GROUP ? hallNow() : ""}${wake ? `<p class="tag" style="margin:-4px 0 12px">Characters made by playing Wake in Verrowen. Nothing about them is canon until the owner accepts them on the <a href="/orrery/control/review/">review page</a>.</p>` : ""}<div class="grid">${wake ? createCard : ""}${people.map((p) => {
     const n = matches(patternFor(p.names)).reduce((a, d) => a + d.hits.length, 0);
-    return `<a class="card" href="#person/${p.id}"><b>${esc(p.name)}${p.live ? `<span class="live" title="Live from GuildScribe's parchments">● live</span>` : ""}</b><span>${esc(p.role)}</span><div class="count">${p.pending ? `<span class="pill pitch">${esc(p.status)}</span> ` : ""}${n} section${n === 1 ? "" : "s"} written</div></a>`;
+    return `<a class="card" href="#person/${p.id}"><b>${esc(p.name)}${p.live ? liveTag(p) : ""}</b><span>${esc(p.role)}</span>${p.doing ? `<div class="doing">${esc(p.doing.text)}${doingWhen(p.doing)}</div>` : ""}<div class="count">${p.pending ? `<span class="pill pitch">${esc(p.status)}</span> ` : ""}${n} section${n === 1 ? "" : "s"} written</div></a>`;
   }).join("")}</div>`;
   }).join("");
 }
@@ -808,7 +816,7 @@ function person(id) {
   const makes = ITEMS.filter((it) => it.by.includes(p.id));
   // A Wake in Verrowen character: their profile as it was sent, and where it stands.
   const wake = p.group === VERROWEN_GROUP ? `<div class="panel"><div class="crumb">${esc(p.byline || "From a Wake in Verrowen story")}${p.where === "review" ? ` · <a href="/orrery/?clone=review#roster">on the Review Clone</a>` : ""}${p.pending ? ` · <a href="/orrery/control/review/">review it</a>` : ""}</div><div class="md">${(p.profile || "").split("\n").filter((l) => l.trim()).map((l) => `<p style="margin:0 0 6px">${inline(l.replace(/\*\*/g, "").replace(/^\s*([A-Z][\w &'/-]{1,30}):/, "**$1:**"))}</p>`).join("")}</div></div>` : "";
-  return { html: `<div class="crumb"><a href="#roster">Roster</a> › ${esc(p.group)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(p.name)}${p.status && p.group === VERROWEN_GROUP ? `<span class="pill${p.pending ? " pitch" : ""}">${esc(p.status)}</span>` : ""}</h2><p class="tag">${esc(p.role)} · ${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}. <a href="#chat/review/${p.id}">✒️ Review ${esc(p.name)} in the chat</a></p>${wake}${
+  return { html: `<div class="crumb"><a href="#roster">Roster</a> › ${esc(p.group)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(p.name)}${p.status && p.group === VERROWEN_GROUP ? `<span class="pill${p.pending ? " pitch" : ""}">${esc(p.status)}</span>` : ""}</h2><p class="tag">${esc(p.role)} · ${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}. <a href="#chat/review/${p.id}">✒️ Review ${esc(p.name)} in the chat</a></p>${p.doing ? `<div class="hallnow"><b>Right now at GuildScribe</b>${liveTag(p)}<div style="margin-top:4px">${esc(p.doing.text)}${doingWhen(p.doing)}</div>${hall && hall.clock ? `<div class="tag" style="margin-top:4px">${esc(hall.clock.text)}</div>` : ""}</div>` : ""}${wake}${
     near.length ? `<div class="who">${near.map(([o, n]) => `<a class="pill" href="#person/${o.id}">${esc(o.name)} · ${n}</a>`).join("")}</div>` : ""
   }${makes.length ? `<div class="who"><span class="pill">Makes</span>${makes.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}${renderHits(found, re) || "<p>Nothing written yet.</p>"}`, re };
 }
@@ -1026,6 +1034,46 @@ const ago = (iso) => {
   return !iso || isNaN(s) ? "never" : s < 90 ? "just now" : s < 5400 ? Math.round(s / 60) + " min ago" : Math.round(s / 3600) + " h ago";
 };
 const advRole = (a) => `${a.race ? a.race.replace(/\b\w/g, (c) => c.toUpperCase()) + " " : ""}${a.cls} · level ${a.level}, ${a.rank}${a.companies.length ? " · " + a.companies.join(", ") : ""}`;
+// What an adventurer is doing, as GuildScribe's clocks have it (the bot's
+// hall_time.ts): fighting, hunting, a short rest while their hunting
+// cooldown runs, in the hall, a long rest, or away.
+const DOING = {
+  "fighting": ["⚔️ fighting", "busy"], "hunting": ["🏹 hunting", "busy"], "short rest": ["🩹 short rest", "rest"],
+  "in the hall": ["● in the hall", ""], "long rest": ["🛏️ resting", "rest"], "away": ["🧭 away", "rest"],
+};
+function liveTag(p) {
+  const [label, cls] = (p.doing && DOING[p.doing.kind]) || ["● live", ""];
+  return `<span class="live ${cls}" title="${esc(p.doing ? p.doing.text : "Live from GuildScribe's parchments")}">${label}</span>`;
+}
+const mins = (ms) => { const m = Math.max(1, Math.round(ms / 60000)); return m < 90 ? m + " min" : Math.round(m / 60) + " h"; };
+// " Back in 40 min." / " Since 3 h ago." — counted from now, so it ticks on its own.
+function doingWhen(d) {
+  const until = Date.parse(d.until || ""), since = Date.parse(d.since || "");
+  if (until > Date.now()) return d.kind === "hunting" ? ` Back in ${mins(until - Date.now())}.` : ` Ready to hunt again in ${mins(until - Date.now())}.`;
+  if (since && (d.kind === "long rest" || d.kind === "away")) return ` Last seen ${ago(d.since)}.`;
+  return "";
+}
+const aFoe = (n) => /^(the|a|an)\s/i.test(n) ? n : `${/^[aeiou]/i.test(n) ? "an" : "a"} ${n}`;
+const DEED = {
+  hunt: (r) => `${r.side} ${r.outcome === "win" ? "slew" : r.outcome === "retreat" ? "fled from" : "fell to"} ${aFoe(r.foe)}`,
+  autohunt: (r) => `${r.side} ${r.outcome === "win" ? "slew" : "fell to"} ${aFoe(r.foe)} on a hunting trip`,
+  partyhunt: (r) => `${r.side} ${r.outcome === "win" ? "brought down" : r.outcome === "retreat" ? "fled from" : "were beaten by"} ${aFoe(r.foe)}`,
+  raid: (r) => r.outcome === "win" ? `${r.side} felled ${aFoe(r.foe)}` : `${r.side} ${r.outcome === "retreat" ? "fell back from" : "were routed by"} ${aFoe(r.foe)}`,
+  duel: (r) => `${r.side} beat ${r.foe} in the arena`,
+  partyduel: (r) => `${r.side} beat ${r.foe} in the arena`,
+  rob: (r) => `${r.side} came out ahead against ${r.foe} in the market`,
+};
+const deedText = (r) => (DEED[r.kind] || DEED.hunt)(r) + (r.note ? ` (${r.note})` : "");
+// The hall right now: the capital's hour, who's out and who's resting, and
+// the last day's deeds. Shown above GuildScribe's adventurers on the roster.
+function hallNow() {
+  if (!hall || !hall.clock) return "";
+  const n = {};
+  for (const a of hall.adventurers) if (a.doing) n[a.doing.kind] = (n[a.doing.kind] || 0) + 1;
+  const parts = [["fighting", "fighting"], ["hunting", "out hunting"], ["short rest", "on a short rest"], ["in the hall", "in the hall"], ["long rest", "resting"]].filter(([k]) => n[k]).map(([k, w]) => `${n[k]} ${w}`);
+  const deeds = (hall.recent || []).slice(0, 6);
+  return `<div class="hallnow"><b>🏰 The hall right now</b> <span class="tag">${esc(hall.clock.text)}</span><div style="margin-top:4px">${parts.length ? esc(parts.join(" · ")) + "." : "The hall is quiet."}</div>${deeds.length ? `<ul>${deeds.map((r) => `<li>${esc(deedText(r))}, ${ago(r.at)}.</li>`).join("")}</ul>` : ""}</div>`;
+}
 function applyHall() {
   if (!hall || !Array.isArray(hall.adventurers)) return;
   for (let i = PEOPLE.length - 1; i >= 0; i--) if (PEOPLE[i].group === NEW_GROUP) PEOPLE.splice(i, 1);
@@ -1034,13 +1082,14 @@ function applyHall() {
     if (p.group !== ADV_GROUP) continue;
     const a = byViewer.get(p.id.replace(/^adv-/, "").toLowerCase());
     p.live = !!a;
+    p.doing = a ? a.doing || null : null;
     if (!a) continue;
     if (!p.canon) p.canon = { name: p.name, role: p.role };
     p.name = a.name; p.role = advRole(a);
     byViewer.delete(p.id.replace(/^adv-/, "").toLowerCase());
   }
   const at = PEOPLE.findIndex((p) => p.group === "Other worlds");
-  const fresh = [...byViewer.values()].map((a) => ({ group: NEW_GROUP, id: "adv-" + idOf(a.viewer), name: a.name, role: advRole(a), names: [reEsc(a.viewer)], live: true }));
+  const fresh = [...byViewer.values()].map((a) => ({ group: NEW_GROUP, id: "adv-" + idOf(a.viewer), name: a.name, role: advRole(a), names: [reEsc(a.viewer)], live: true, doing: a.doing || null }));
   PEOPLE.splice(at < 0 ? PEOPLE.length : at, 0, ...fresh);
 }
 function showHall(err) {
@@ -1054,7 +1103,7 @@ function showHall(err) {
   const warn = Object.entries(o.files || {}).filter(([, f]) => f && f.error).map(([name, f]) => `<span class="warn">GuildScribe can't use ${esc(name)} (${esc(f.error)}).</span>`);
   if (o.enabled === false) warn.push(`<span class="warn">GuildScribe has its Orrery reading switched off.</span>`);
   el.hidden = false;
-  el.innerHTML = `🏰 <a href="${GUILDSCRIBE}/" target="_blank" rel="noopener">GuildScribe</a> is linked live: ${hall.adventurers.length} adventurer${hall.adventurers.length === 1 ? "" : "s"} on its parchments, ${(hall.learned || []).length} learned beast${(hall.learned || []).length === 1 ? "" : "s"}, updated ${ago(hall.updatedAt)}. It last checked the Orrery's ${esc(o.branch || "main")} ${ago(o.checkedAt)}${o.commit ? ` (at ${esc(o.commit.slice(0, 7))})` : ""}. ${warn.join(" ")}`;
+  el.innerHTML = `🏰 <a href="${GUILDSCRIBE}/" target="_blank" rel="noopener">GuildScribe</a> is linked live: ${hall.adventurers.length} adventurer${hall.adventurers.length === 1 ? "" : "s"} on its parchments, ${(hall.learned || []).length} learned beast${(hall.learned || []).length === 1 ? "" : "s"}, updated ${ago(hall.updatedAt)}. ${hall.clock ? esc(hall.clock.text) + " " : ""}It last checked the Orrery's ${esc(o.branch || "main")} ${ago(o.checkedAt)}${o.commit ? ` (at ${esc(o.commit.slice(0, 7))})` : ""}. ${warn.join(" ")}`;
 }
 async function loadHall() {
   try {
@@ -1066,7 +1115,7 @@ async function loadHall() {
     applyHall();
     showHall();
     // Redraw a roster or person view so the live cards show; never the chat.
-    if (/^#(roster|person\/|find\/|beasts?\b)/.test(location.hash)) route();
+    if (/^#(roster|person\/|find\/|beasts?\b)/.test(location.hash)) redrawInPlace();
   } catch {
     showHall(true);
   }
@@ -1079,12 +1128,20 @@ function hallCanon() {
   if (changed.length) lines.push("Changed since the canon was written: " + changed.join("; ") + ".");
   const fresh = PEOPLE.filter((p) => p.group === NEW_GROUP).map((p) => `${p.name}: ${p.role}`);
   if (fresh.length) lines.push("New on the parchments, not in the canon yet: " + fresh.join("; ") + ".");
+  if (hall.clock) lines.push(`In the capital: ${hall.clock.text}`);
+  const doing = hall.adventurers.filter((a) => a.doing && a.doing.kind !== "away").map((a) => `${a.name}: ${a.doing.text}`);
+  if (doing.length) lines.push("What GuildScribe's adventurers are doing now: " + doing.join(" ") );
+  if ((hall.recent || []).length) lines.push("The hall's last day: " + hall.recent.map((r) => deedText(r) + ` (${ago(r.at)})`).join("; ") + ".");
   const comp = (hall.companies || []).filter((c) => c.members && c.members.length).map((c) => `${c.name} (${c.members.join(", ")})`);
   if (comp.length) lines.push("Companies: " + comp.join("; ") + ".");
   if ((hall.learned || []).length) lines.push("Beasts the hall has learned in its fights: " + hall.learned.map((m) => `${m.name}${m.cr ? " (CR " + m.cr + ")" : ""}`).join(", ") + ".");
   return lines.join("\n");
 }
-// Keep both halves current while the page is open and showing.
+// Keep both halves current while the page is open and showing. The roster
+// and person views redraw each minute too, so "back in 12 min" counts down
+// between reads.
+function redrawInPlace() { const y = window.scrollY; route(); window.scrollTo(0, y); }
+setInterval(() => { if (document.visibilityState === "visible" && hall && /^#(roster|person\/)/.test(location.hash)) redrawInPlace(); }, 60000);
 setInterval(() => { if (document.visibilityState === "visible") loadHall(); }, 120000);
 setInterval(async () => {
   if (document.visibilityState !== "visible") return;
