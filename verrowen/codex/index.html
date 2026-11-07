@@ -206,7 +206,6 @@
         <input class="title" id="title" placeholder="Untitled" aria-label="Note title" autocomplete="off">
         <div class="tools">
           <button class="tb" id="previewBtn" title="Switch between writing and reading (Ctrl+E)">👁 <span class="lbl">Preview</span></button>
-          <button class="tb" id="wakeBtn" title="Start a Wake in Verrowen story as this character" hidden>🕯 <span class="lbl">Wake as them</span></button>
           <details class="dd" id="dlMenu">
             <summary class="tb" title="Download">⬇ <span class="lbl">Download</span></summary>
             <div class="pop">
@@ -389,7 +388,6 @@
       l.appendChild(i); box.appendChild(l);
     }
     $("text").placeholder = c.ph;
-    $("wakeBtn").hidden = cur.cat !== "character";
   }
   function drawFlags() {
     $("status").value = cur.status;
@@ -556,24 +554,6 @@
     box.innerHTML = (outs.length ? `<div><b>LINKS TO</b>${btns(outs)}</div>` : "") + (back.length ? `<div><b>MENTIONED IN</b>${btns(back)}</div>` : "");
   }
   $("refs").addEventListener("click", (e) => { const b = e.target.closest("button[data-go]"); if (b) open(b.dataset.go); });
-
-  // ---------- Wake as this character ----------
-  // Hands the character to /verrowen/ the same way the home page's picker does.
-  $("wakeBtn").onclick = () => {
-    if (saveTimer) persist();
-    if (!plain(cur.title)) { alert("Give this character a name first."); $("title").focus(); return; }
-    let playerName = "";
-    try { playerName = (JSON.parse(localStorage.getItem("verrowen-story") || "null") || {}).playerName || ""; } catch {}
-    // The character's name is enough for the game to begin; the player's own
-    // name comes along when this browser has one.
-    const c = CAT.character;
-    const facts = c.f.map(([k, label]) => (cur.f[k] || "").trim() ? `${label}: ${plain(cur.f[k])}.` : "").filter(Boolean).join(" ");
-    const description = `${plain(cur.title) || "A character"} from the author's own codex. ${facts} ${plain(cur.body)}`.replace(/\s+/g, " ").trim().slice(0, 1200);
-    try {
-      localStorage.setItem("verrowen.setup", JSON.stringify({playerName, characterName: plain(cur.title).slice(0, 60), character: {kind: "own", label: plain(cur.title) || "your own character", description}, at: Date.now()}));
-    } catch { alert("This browser's storage is full, so the story couldn't be handed over."); return; }
-    location.href = "/verrowen/";
-  };
 
   // ---------- Downloads ----------
   const download = (blob, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };

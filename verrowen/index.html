@@ -108,6 +108,17 @@
   .status.err{color:var(--ember)}
   label.sr{position:absolute;left:-9999px}
 
+  .youngopt{display:flex;gap:10px;align-items:flex-start;margin:12px 0 4px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
+  .youngopt input{margin-top:4px;width:20px;height:20px;flex:none}
+  .youngopt span{display:flex;flex-direction:column;gap:2px}
+  .youngopt small{color:var(--muted);font-size:13.5px;line-height:1.45}
+  .younly{display:none}
+  .young .younly{display:list-item}
+  .young .turn{font-size:21px;line-height:1.65}
+  .young .turn.player{font-size:19px}
+  .young #reply{font-size:19px}
+  .speak{display:block;margin-top:8px;font:600 14px Inter,sans-serif;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--gold2);cursor:pointer}
+  .speak[aria-pressed="true"]{background:rgba(255,255,255,.08)}
   .orrerynote{margin:12px 0;padding:12px 14px;border:1px dashed var(--gold);border-radius:12px;font-size:14.5px;line-height:1.5}
   .profile{margin-top:18px;background:var(--card);border:1px solid var(--gold);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px}
   .profile h2{font-family:Cinzel,serif;color:var(--gold2);font-size:19px}
@@ -140,6 +151,7 @@
     .boxhead .who{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
     .log{padding:14px 12px;gap:14px}
     .turn{font-size:17px;line-height:1.55}
+    .young .turn{font-size:19.5px}
     .turn.player{font-size:16.5px;padding:8px 12px;max-width:92%}
     .composer{padding:10px 12px max(10px,env(safe-area-inset-bottom));gap:8px}
     .composer textarea{min-height:46px;max-height:30vh;resize:none;padding:10px 12px}
@@ -190,31 +202,19 @@
         <h2>How it works</h2>
         <ol>
           <li>Press <b>Begin</b>. The narrator sets the first scene.</li>
+          <li class="younly">Tap 🔊 to hear the story read aloud, and 🎤 to say your answer instead of typing it.</li>
           <li>Reply however you like: what you do, say, notice or think.</li>
           <li>When your character feels complete, press <b>Wrap it up</b> and choose a story or a D&amp;D character sheet.</li>
         </ol>
         <label for="playerName" class="fieldlabel">Your name <span class="note">(optional: so Sheamus knows whose character this is)</span></label>
         <input id="playerName" type="text" maxlength="60" placeholder="e.g. Sam" autocomplete="nickname">
+        <label class="youngopt"><input type="checkbox" id="youngBox"><span><b>🧒 A younger player (about 6 to 10)</b><small>A gentle, cozy adventure: short turns in simple words, a few ideas to pick from every turn, nothing gory or too scary, and a 🔊 button to hear each part read aloud.</small></span></label>
+        <p class="note" id="youngName" hidden>Just a first name or a nickname is plenty.</p>
         <div class="orrerynote" id="orreryNote" hidden><b>✨ A new character for the Grand Orrery.</b> Nothing is picked in advance: no name, no race, no backstory. Everything about them, from who they are to their past and their magic, comes out of how you play. When you wrap it up, they're sent for review and show up on the <a href="/orrery/#roster">Orrery's roster</a> as pending until the owner decides. <a href="/verrowen/">Play without sending them in</a></div>
         <fieldset class="who" id="whoBox">
-          <legend class="fieldlabel">Your character <span class="note">(optional: skip it and the narrator decides everything)</span></legend>
-          <label class="opt"><input type="radio" name="who" value="new" checked><span><b>A stranger</b><small>A new character with no memory. The narrator reveals who they are.</small>
-            <span class="more">
-              <span class="row">
-                <select id="nameRace" aria-label="Race">
-                  <option value="any">Any race, surprise me</option>
-                  <option value="human">Human</option>
-                  <option value="halfling">Halfling</option>
-                  <option value="elf">Elf</option>
-                  <option value="gnome">Gnome</option>
-                  <option value="strange">Strange (from beyond)</option>
-                </select>
-              </span>
-              <span class="note">Optionally pick a race. Nobody knows your character's name yet, not even you: the narrator reveals one that fits the world during the story.</span>
-            </span></span></label>
+          <legend class="fieldlabel">Who you play</legend>
+          <label class="opt"><input type="radio" name="who" value="new" checked><span><b>A new character</b><small>You wake with no memory. Nothing is decided yet: who you are comes out of how you play.</small></span></label>
           <span id="savedOpts"></span>
-          <label class="opt"><input type="radio" name="who" value="own"><span><b>Bring your own</b><small>Describe a character you already have. They still wake with no memory, and it comes back as you play.</small>
-            <span class="more"><textarea id="ownDesc" maxlength="1200" placeholder="A halfling cook with a burn scar, runaway from the capital, afraid of deep water…" aria-label="Describe your character"></textarea></span></span></label>
         </fieldset>
         <p class="note" id="setupNote" hidden></p>
         <p class="note">Your story is saved on Sheamus's own computer so your character can join the universe. Every new story starts somewhere different.</p>
@@ -249,7 +249,7 @@
   <section class="profile" id="profilePanel" hidden>
     <h2 id="profileHead">Your character</h2>
     <pre id="profileText"></pre>
-    <div class="row"><button class="primary" id="copyBtn">Copy profile</button><button id="continueBtn">Continue the story</button><button id="sendReviewBtn" title="Put this character forward for the Grand Orrery. The owner reviews it before it becomes part of the world.">📨 Send for review</button><button class="quiet" id="resetBtn2" title="Back to the start. This story is kept, so you can continue it later.">← Back to the start</button><span class="note" id="copyStatus"></span></div>
+    <div class="row"><button class="speak" type="button" id="speakProfile" hidden aria-pressed="false" style="margin:0">🔊 Read it to me</button><button class="primary" id="copyBtn">Copy profile</button><button id="continueBtn">Continue the story</button><button id="sendReviewBtn" title="Put this character forward for the Grand Orrery. The owner reviews it before it becomes part of the world.">📨 Send for review</button><button class="quiet" id="resetBtn2" title="Back to the start. This story is kept, so you can continue it later.">← Back to the start</button><span class="note" id="copyStatus"></span></div>
     <div class="note" id="orreryLink" hidden>They're on the <a href="/orrery/#roster">Orrery's roster</a>, pending review. Continue the story and wrap it up again to send the newer version.</div>
   </section>
 
@@ -304,13 +304,36 @@ const ORRERY_WRAP = `\n\nThis character goes to the Grand Orrery's review. Every
 // Every story is played the same way. Only at "wrap it up" does the player
 // pick what they get: a story (profile and retelling) or a D&D sheet.
 const STORY_STYLE = "The player is here for the story. Lean into mood, mystery and memorable moments, and let their choices quietly show their skills, temperament and values.";
+// A younger player (the 🧒 switch, or /verrowen/?young): a gentle story for
+// about 6 to 10. It's kept on the story (seed.young), so a story carries on
+// the same way when it's continued, whatever the switch says by then.
+const YOUNG = `\n\nYOUNG PLAYER: the player is a child, about 8 years old. These rules come first and override anything above or in the LORE.
+- Keep it gentle, cozy and fun, like a good children's adventure book. Mystery, wonder, kindness, clever ideas, animals and friends matter most.
+- Never describe blood, injuries, gore, death, killing, torture, cruelty, prisons or anything frightening for a young child. No romance, drinking, swearing, or grown-up themes. If the LORE mentions dark or grown-up things (crime, corruption, undead, war, harsh punishments), leave them out or make them mild and simple: the Kingdom is just far away and a bit unfair.
+- Danger stays small and always has a way out. Monsters are more curious, silly, grumpy or lost than evil; they can be befriended, outwitted, calmed or simply run away. Nobody gets badly hurt.
+- Use short sentences and simple words an 8-year-old can read. If a special word is needed (like mana or Elderhold), say what it means in a few words.
+- Each turn is about 60 to 110 words. End with one clear question, then offer 2 or 3 short numbered ideas of what she could do, and say she can also do anything else she likes.
+- Be warm and encouraging. Every idea she has is a good one: find a way to make it work. Understand spelling mistakes and short answers generously.
+- If she writes something unkind, unsafe or upsetting, don't scold: gently steer the story somewhere kind and fun.
+- Never ask for, use or repeat real-life personal details (her real full name, where she lives, her school, her age). If she shares one, carry on with the story without repeating it.`;
+const YOUNG_WRAP = `\n\nThe player is a child, about 8. Write all of this in simple words and short lines she can read herself, warm and proud of what her character did. Leave out anything scary or grown-up: no wounds, scars, enemies or debts; use Friends and Problems still to solve instead. If there's a retelling, keep it to about 150 words, like the end of a picture book.`;
+const SEEDS_YOUNG = {
+  place: ["a cozy hayloft above a Stoutwell barn, full of sleepy kittens","a painted caravan wagon stopped on a sunny road","the gear room of a river mill, the big wheel humming","a mossy hollow under the roots of a giant friendly tree","a ring of old standing stones covered in flowers","a little fishing boat drifting on a slow, sparkly river","a market stall full of ribbons and toys","the warm attic of a bakery that smells of fresh bread","a garden shed full of flowerpots and seed packets","a tree house high in an apple tree"],
+  time: ["on a sunny morning","on a golden afternoon","at dusk, with fireflies blinking","on a snowy morning","under a sky full of stars","after a summer rain, with a rainbow out"],
+  objects: ["a little lantern that glows when you smile","a wooden whistle shaped like a bird","a map with a big X drawn on it","a jar of glowing beetles","a toy horse with a tiny saddle","a bundle of herbs tied with red ribbon","a compass that always points at something interesting","a feather that floats instead of falling","a warm iron key","a pebble that hums a tune","a little drum","a pair of boots that are just the right size"],
+  twist: ["a curious fox is watching you","a bell is ringing in the distance","a voice is calling a name that might be yours","a small goblin is giggling behind a barrel","a cat wants you to follow it","music is playing somewhere nearby","someone nearby has lost something and is looking for it"]
+};
+const youngPref = () => store.get("verrowen-young") === "1";
+const isYoung = () => seed ? !!seed.young : youngPref();
 // A new character's name isn't known at the start: the narrator names them from the lore.
 const NO_NAME = `\n\nTRUE NAME: nobody knows the character's name yet, not the player and not the character, so you choose it. Base it on the LORE: match the race and origin the story is pointing to and the naming style of that people or place, or invent a new name in the same spirit. It must not belong to any named person in the lore. If the player's description or messages already give a name, use that instead. The character doesn't remember it: reveal it at a fitting moment within the first several turns (someone calling it, a name stitched into a collar, a letter), never in the first turn, and keep it the same once revealed.`;
 const MAX_TURNS = 40, MAX_CHARS = 2000;
 const FIRST_MAX = 23800;   // under the laptop's MAX_FIRST (24000) in server.mjs
 
-// The character the player picked: a new stranger (maybe of a chosen race),
-// one of their earlier characters waking again, or one they described.
+// Who the player is playing. New stories are a stranger with nothing decided
+// (null), an Orrery character, or an earlier character waking again. "own"
+// and a picked race are no longer asked for; they're kept here only so a
+// story begun with one before carries on the same way.
 function characterText(c){
   if (!c) return "";
   const t = (v, n) => String(v || "").slice(0, n).trim();
@@ -347,7 +370,7 @@ function buildMessages(lore, history, seed, characterName, mode){
   const clean = history.map(m => ({role: m.role, content: String(m.content).slice(0, MAX_CHARS)})).slice(-MAX_TURNS);
   const seedText = seed ? `\n\nOPENING FOR THIS STORY (randomized per player): the character wakes in ${seed.place}, ${seed.time}. Nearby objects: ${seed.objects.join("; ")}. Complication: ${seed.twist}.` : "";
   const nameText = characterName ? `\n\nThe character's true name is ${characterName.slice(0, 60)}. They don't remember it. Reveal it at a fitting moment, not in the first turn.` : NO_NAME;
-  const purposeText = `\n\nWHAT THE PLAYER WANTS: ${STORY_STYLE}`;
+  const purposeText = `\n\nWHAT THE PLAYER WANTS: ${STORY_STYLE}` + (isYoung() ? YOUNG : "");
   // The laptop keeps only the first FIRST_MAX characters of this message and
   // cuts the rest, which would drop the player's character and "Begin". So the
   // instructions always fit whole, and the Codex, then the lore, give way.
@@ -357,7 +380,9 @@ function buildMessages(lore, history, seed, characterName, mode){
   room -= codex.length;
   const fitLore = lore.length <= room ? lore : lore.slice(0, Math.max(0, lore.lastIndexOf("\n", room) > 0 ? lore.lastIndexOf("\n", room) : room)).trim();
   const out = [{role: "user", content: head + fitLore + codex + tail}, ...clean];
-  if (mode === "wrap") out.push({role: "user", content: (purpose === "dnd" ? WRAP_DND : WRAP_STORY) + (isOrreryStory() ? ORRERY_WRAP : "")});
+  if (mode === "wrap") out.push({role: "user", content: (purpose === "dnd" ? WRAP_DND : WRAP_STORY) + (isOrreryStory() ? ORRERY_WRAP : "") + (isYoung() ? YOUNG_WRAP : "")});
+  // A short reminder on every turn too, so a long story doesn't drift away from it.
+  else if (isYoung() && clean.length && clean[clean.length - 1].role === "user") out[out.length - 1] = {role: "user", content: out[out.length - 1].content + "\n\n(Narrator: remember, the player is about 8. Keep it gentle and simple, about 60 to 110 words, and end with a question and 2 or 3 numbered ideas.)"};
   if (out[out.length - 1].role !== "user") out.push({role: "user", content: "Continue."});
   return out;
 }
@@ -372,8 +397,9 @@ const SEEDS = {
 const $ = id => document.getElementById(id);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 function makeSeed(){
-  const objects = [...SEEDS.objects].sort(() => Math.random() - 0.5).slice(0, 2 + Math.floor(Math.random() * 2));
-  return {place: pick(SEEDS.place), time: pick(SEEDS.time), objects, twist: pick(SEEDS.twist)};
+  const young = youngPref(), S = young ? SEEDS_YOUNG : SEEDS;
+  const objects = [...S.objects].sort(() => Math.random() - 0.5).slice(0, 2 + Math.floor(Math.random() * 2));
+  return {place: pick(S.place), time: pick(S.time), objects, twist: pick(S.twist), ...(young ? {young: true} : {})};
 }
 
 // ── Phones ──
@@ -441,9 +467,20 @@ function render(){
     const d = document.createElement("div");
     d.className = "turn " + (m.role === "assistant" ? "narrator" : "player");
     d.textContent = m.content;
+    if (isYoung() && m.role === "assistant" && "speechSynthesis" in window){
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "speak"; b.textContent = "🔊 Read it to me"; b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", () => readAloud(m.content, b));
+      d.appendChild(b);
+    }
     log.appendChild(d);
   }
   const started = messages.length > 0;
+  document.documentElement.classList.toggle("young", isYoung());
+  $("youngBox").checked = isYoung();
+  $("youngBox").disabled = started;
+  $("youngName").hidden = !isYoung();
+  $("speakProfile").hidden = !isYoung() || !("speechSynthesis" in window);
   $("log").closest(".box").classList.toggle("playing", started);
   $("startPanel").hidden = started;
   $("composer").hidden = !started;
@@ -463,6 +500,22 @@ function render(){
   $("resendBtn").hidden = !messages.length || (!!profile && !continued);
   log.scrollTop = started ? log.scrollHeight : 0;
   fitReply();
+}
+// 🔊 Read aloud with the browser's own voice. Tapping again stops it.
+let speaking = null;
+function readAloud(text, btn){
+  const synth = window.speechSynthesis;
+  const was = speaking; synth.cancel();
+  document.querySelectorAll(".speak").forEach(b => { b.setAttribute("aria-pressed", "false"); b.textContent = "🔊 Read it to me"; });
+  speaking = null;
+  if (was === btn) return;
+  const u = new SpeechSynthesisUtterance(String(text).replace(/\*+/g, ""));
+  u.rate = 0.92; u.lang = "en";
+  const v = synth.getVoices().find(v => /^en/i.test(v.lang) && /natural|female|samantha|aria|jenny|libby|sonia/i.test(v.name)) || synth.getVoices().find(v => /^en/i.test(v.lang));
+  if (v) u.voice = v;
+  u.onend = u.onerror = () => { if (speaking === btn){ speaking = null; btn.setAttribute("aria-pressed", "false"); btn.textContent = "🔊 Read it to me"; } };
+  speaking = btn; btn.setAttribute("aria-pressed", "true"); btn.textContent = "■ Stop reading";
+  synth.speak(u);
 }
 function setStatus(t, err){ const s = $("status"); s.textContent = t || ""; s.className = "status" + (err ? " err" : ""); }
 function setBusy(b){ busy = b; ["sendBtn","wrapBtn","beginBtn","resetBtn","resetBtn2","finishCancel","continueBtn","resendBtn"].forEach(id => { $(id).disabled = b; }); $("stopBtn").hidden = !b; document.querySelectorAll("[data-finish]").forEach(el => { el.disabled = b; }); }
@@ -630,12 +683,16 @@ function drawPicker(){
   const keep = was && document.querySelector(`input[name="who"][value="${CSS.escape(was)}"]`);
   (keep || document.querySelector('input[name="who"][value="new"]')).checked = true;
   pickerChanged();
+  $("whoBox").hidden = FOR_ORRERY || !box.children.length;
 }
 function pickerChanged(){
   const v = (document.querySelector('input[name="who"]:checked') || {}).value || "new";
   $("beginBtn").textContent = v.startsWith("resume:") ? "Continue" : "Begin";
 }
 $("whoBox").addEventListener("change", pickerChanged);
+$("speakProfile").addEventListener("click", () => readAloud(profile, $("speakProfile")));
+$("youngBox").addEventListener("change", () => { store.set("verrowen-young", $("youngBox").checked ? "1" : ""); render(); });
+if (/[?&]young\b/.test(location.search)) store.set("verrowen-young", "1");
 
 $("beginBtn").addEventListener("click", () => {
   if (busy) return;
@@ -660,15 +717,9 @@ $("beginBtn").addEventListener("click", () => {
     if (!c){ setStatus("That character isn't saved in this browser any more.", true); render(); return; }
     character = {kind: "returning", label: c.name + " wakes again", profile: c.profile};
     characterName = c.name;
-  }else if (who === "own"){
-    const description = $("ownDesc").value.trim();
-    if (!description){ $("ownDesc").focus(); setStatus("Describe your character, or pick a stranger.", true); return; }
-    character = {kind: "own", label: "your own character", description};
-    characterName = "";
   }else{
-    characterName = "";
-    const v = $("nameRace").value, race = v === "strange" ? "being from beyond" : v;
-    character = race === "any" ? null : {kind: "new", label: "a stranger, secretly " + race, race};
+    // Nothing about a new character is asked for or picked in advance.
+    characterName = ""; character = null;
   }
   seed = makeSeed();
   narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); });
@@ -779,6 +830,9 @@ if (setup && Date.now() - (setup.at || 0) < 10 * 60 * 1000){
     else if (setup.playerName){ playerName = String(setup.playerName).slice(0, 60).trim() || playerName; save(); }
   }
 }else setup = null;
+// Other hand-overs (an old Codex "Wake as them") carried a ready-made
+// character. New characters start with nothing decided, so they're ignored.
+if (setup && !setup.resume) setup = null;
 if (setup && !setup.resume){
   if (messages.length){
     playerId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(16) + "-" + Math.random().toString(16).slice(2);

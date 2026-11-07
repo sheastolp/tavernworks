@@ -121,6 +121,16 @@ new token, delete `owner-token.txt` there and restart the service.
 
 Stick to models that fit the GTX 1650's 4 GB, or every turn gets slow.
 
+## Younger players
+
+The game's start screen has **🧒 A younger player (about 6 to 10)**
+(or open `/verrowen/?young`). It makes the story gentle and simple: short
+turns, a few numbered ideas each turn, nothing gory or too scary, no
+personal questions, a 🔊 button to read each turn aloud, and bigger text.
+
+It only changes what the narrator is told: every story, a younger player's
+too, runs on the narrator model picked with **🤖 Change AI model**.
+
 ## The Review Clone (owner only)
 
 Every change to the universe lands on grand-orrery's `review` branch first,
