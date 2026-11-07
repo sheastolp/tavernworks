@@ -128,7 +128,7 @@
   <section class="card rest" aria-labelledby="h-rest" id="restCard">
     <h2 id="h-rest">😴 Rest mode · 🤖 Auto mode</h2>
     <p class="note">While you rest, the laptop's AI runs the Orrery on its own. Every round it judges everything <b>sent in for review</b> and every <b>pitch</b> on the review branch against the lore (approved ones become <b>Your idea</b>, rejected ones are turned down or taken out), <b>comes up with new ideas</b> of its own a few times a day and judges those too, <b>catches lore.md up</b> for the narrator, and <b>publishes</b> it all to the live Orrery and GuildScribe. Anything the AI can't give a clear answer on waits here for you. Every decision and its reason is listed below and in the change's message on GitHub.</p>
-    <p class="note"><b>🤖 Auto mode</b> does all the same work but <b>never publishes</b>: what the AI approves, accepts, rejects or writes waits on the review branch under <b>Waiting for you</b>, and what it would turn down from the 📨 queue stays there with its reason. You check it and publish (or throw it away) as usual.</p>
+    <p class="note"><b>🤖 Auto mode</b> does all the same work but <b>never publishes</b>: what the AI approves or writes waits on the review branch under <b>Waiting for you</b>. <b>Pitches stay pitches</b>: its new ideas and every other pitch wait in 💡 Pitches with the AI's view (would accept or would reject, and why) for you to decide. What it would turn down from the 📨 queue stays there with its reason. You check it and publish (or throw it away) as usual.</p>
     <p class="count" id="restState">Rest mode: checking the laptop…</p>
     <div class="row">
       <label for="restFor" style="flex:0 0 auto">Rest for</label>
@@ -530,7 +530,7 @@ $("cuAdd").addEventListener("click", async () => {
 // The laptop runs the rounds itself (verrowen/server, POST /admin/rest-mode),
 // so it carries on with this page closed. This only switches it and shows
 // what it did.
-const REST_KIND = { review: "🔍 For your review",  approved: "✔ Approved", accepted: "✔ Accepted", rejected: "✕ Rejected", unsure: "… Left for you", idea: "💡 New idea", lore: "📜 Lore", published: "🌍 Published", error: "⚠ Problem", round: "Round", done: "Round done", on: "▶ On", off: "☀️ Off" };
+const REST_KIND = { review: "🔍 For your review", view: "💡 Left as a pitch",  approved: "✔ Approved", accepted: "✔ Accepted", rejected: "✕ Rejected", unsure: "… Left for you", idea: "💡 New idea", lore: "📜 Lore", published: "🌍 Published", error: "⚠ Problem", round: "Round", done: "Round done", on: "▶ On", off: "☀️ Off" };
 async function restCall(body){
   const token = $("token").value.trim();
   if (!token) throw new Error("Enter the owner's token under Waiting for you first.");
@@ -621,10 +621,15 @@ async function loadPitches(){
     }));
     pitches = PITCH_FILES.flatMap((f, i) => findPitches(f, texts[i]));
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach GitHub." : e.message; return; }
+  // Auto mode's view on each pitch, from the laptop (needs the owner's token).
+  let views = {};
+  try{ if ($("token").value.trim()) ((await restCall()).views || []).forEach((v) => { views[v.file + "\n" + v.line] = v; }); }catch(e){}
+  pitches.forEach((p) => { p.ai = views[p.file + "\n" + p.line]; });
   st.textContent = pitches.length ? pitches.length + " pitch" + (pitches.length === 1 ? "" : "es") + " on the review branch." : "No pitches left. Everything is decided.";
   $("pList").innerHTML = pitches.map((p, i) => `<div class="sub pitch" data-p="${i}">
     <p class="note">${esc(p.file)}${p.where ? " · " + esc(p.where) : ""}</p>
     <div class="pname">${esc(p.name)}</div>
+    ${p.ai ? `<p class="note ${p.ai.verdict === "approve" ? "" : "minus"}">🤖 Auto mode would ${p.ai.verdict === "approve" ? "accept" : "reject"} this: ${esc(p.ai.why)}</p>` : ""}
     ${p.body ? `<details><summary>Read it</summary><pre>${esc(p.body)}</pre></details>` : ""}
     <div class="row"><button class="primary" type="button" data-act="accept">✔ Accept as is</button><button class="danger" type="button" data-act="reject">✕ Reject</button><a class="btn" href="https://github.com/${REPO}/edit/review/${esc(p.file)}" target="_blank" rel="noopener" title="Line ${p.n}">Edit</a><span class="note" data-st role="status"></span></div>
   </div>`).join("");

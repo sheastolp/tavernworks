@@ -569,7 +569,9 @@ const UNSURE_MS = 24 * 3600_000;
 // nothing is published and nothing sent in is thrown away: the AI's
 // decisions wait on the review branch for the owner (Waiting for you), and
 // what it would turn down stays in the inbox with its reason.
-let rest = { on: false, mode: "rest", since: null, until: null, lastRound: null, nextRound: null, ideas: [], unsure: {}, rounds: 0 };
+// In auto mode pitches stay pitches: the AI's view on each one is kept in
+// "views" (by file and line) and shown on the review page beside it.
+let rest = { on: false, mode: "rest", since: null, until: null, lastRound: null, nextRound: null, ideas: [], unsure: {}, views: {}, rounds: 0 };
 try { rest = { ...rest, ...JSON.parse(await fs.readFile(REST_FILE(), "utf8")) }; } catch { }
 let resting = null;   // the round under way
 async function saveRest() {
@@ -597,7 +599,8 @@ async function restLogTail(n = 80) {
 }
 function restStatus() {
   return { on: rest.on, mode: rest.mode || "rest", since: rest.since, until: rest.until, lastRound: rest.lastRound, nextRound: rest.on ? rest.nextRound : null,
-    running: !!resting, rounds: rest.rounds, everyMinutes: REST_EVERY_MS / 60_000, maxPerRound: REST_MAX_PER_ROUND, ideasPerDay: REST_IDEAS_PER_DAY, model: MODEL, github: !!GH_TOKEN };
+    running: !!resting, rounds: rest.rounds,
+    views: Object.entries(rest.views || {}).map(([k, v]) => ({ file: k.split("\n")[0], line: k.split("\n").slice(1).join("\n"), verdict: v.verdict, why: v.why, at: v.at })), everyMinutes: REST_EVERY_MS / 60_000, maxPerRound: REST_MAX_PER_ROUND, ideasPerDay: REST_IDEAS_PER_DAY, model: MODEL, github: !!GH_TOKEN };
 }
 async function setRest(b) {
   if (b.on) {
@@ -607,6 +610,7 @@ async function setRest(b) {
     rest.on = true; rest.since = new Date().toISOString();
     rest.until = hours > 0 ? new Date(Date.now() + Math.min(hours, 24 * 14) * 3600_000).toISOString() : null;
     rest.nextRound = new Date(Date.now() + 15_000).toISOString();   // the first round right away
+    rest.ideaNow = true;   // and a new idea in it, if today's limit allows
     await restLog("on", rest.until ? `${name} on for ${hours >= 24 && hours % 24 === 0 ? hours / 24 + " day" + (hours > 24 ? "s" : "") : hours + " hour" + (hours === 1 ? "" : "s")}` : `${name} on until it's switched off` + (rest.mode === "auto" ? ": the AI sorts things, you publish" : ""));
   } else if (rest.on) {
     rest.on = false; rest.until = null; rest.nextRound = null;
@@ -760,7 +764,8 @@ async function restRound(why = "scheduled") {
     rest.ideas = (rest.ideas || []).filter((t) => Date.parse(t) > dayAgo);
     if (REST_IDEAS_PER_DAY > 0 && rest.ideas.length < REST_IDEAS_PER_DAY) {
       const last = rest.ideas.length ? Date.parse(rest.ideas[rest.ideas.length - 1]) : 0;
-      if (Date.now() - last >= 24 * 3600_000 / REST_IDEAS_PER_DAY && (await gpuFree())) {
+      if ((rest.ideaNow || Date.now() - last >= 24 * 3600_000 / REST_IDEAS_PER_DAY) && (await gpuFree())) {
+        rest.ideaNow = false;
         try {
           const idea = await makeIdea();
           if (idea.error) await restLog("error", idea.error, { topic: idea.topic });
@@ -778,7 +783,15 @@ async function restRound(why = "scheduled") {
     // 3. Every pitch on the review branch.
     try {
       const texts = await Promise.all(PITCH_FILES.map((f) => fileAt(f, CLONE)));
-      const pitches = PITCH_FILES.flatMap((f, i) => findPitches(f, texts[i])).filter((p) => !rest.unsure[pitchKey(p)]);
+      const all = PITCH_FILES.flatMap((f, i) => findPitches(f, texts[i]));
+      // Views on pitches that are gone (decided, edited or taken out) go too.
+      rest.views = rest.views || {};
+      const here = new Set(all.map((p) => p.file + "\n" + p.line));
+      for (const k of Object.keys(rest.views)) if (!here.has(k)) delete rest.views[k];
+      const auto = rest.mode === "auto";
+      const pitches = all.filter((p) => !rest.unsure[pitchKey(p)])
+        // Auto mode gives its view once per pitch (again if the pitch's words change).
+        .filter((p) => !auto || !rest.views[p.file + "\n" + p.line] || rest.views[p.file + "\n" + p.line].key !== pitchKey(p));
       for (const p of pitches) {
         if (budget <= 0) break;
         if (!(await gpuFree())) break;
@@ -786,6 +799,13 @@ async function restRound(why = "scheduled") {
           const v = await judge(p.name, p.body, `a pitch in ${p.file}`);
           if (v.verdict === "unsure") { rest.unsure[pitchKey(p)] = Date.now(); did.unsure++; await restLog("unsure", p.name, { why: v.why, file: p.file }); continue; }
           budget--;
+          if (auto) {
+            // Left as a pitch for the owner, with the AI's view beside it.
+            rest.views[p.file + "\n" + p.line] = { key: pitchKey(p), verdict: v.verdict, why: v.why, at: new Date().toISOString() };
+            did.pitches = (did.pitches || 0) + 1;
+            await restLog("view", p.name, { why: (v.verdict === "approve" ? "Would accept: " : "Would reject: ") + v.why + " (still a 💡 pitch for you)", file: p.file });
+            continue;
+          }
           const r = v.verdict === "approve" ? await acceptPitch({ file: p.file, line: p.line, why: v.why }) : await rejectPitch({ file: p.file, line: p.line, why: v.why });
           if (v.verdict === "approve") did.approved++; else did.rejected++;
           await restLog(v.verdict === "approve" ? "accepted" : "rejected", p.name, { why: v.why, file: p.file, sha: r.sha });
@@ -828,7 +848,7 @@ async function restRound(why = "scheduled") {
     } catch (e) { await fail("Publishing", e); }
 
     rest.rounds = (rest.rounds || 0) + 1;
-    await restLog("done", `Round done${rest.mode === "auto" ? " (auto)" : ""}: ${did.approved} approved, ${did.rejected} rejected, ${did.ideas} new idea${did.ideas === 1 ? "" : "s"}, ${did.lore} lore line${did.lore === 1 ? "" : "s"}${did.unsure ? `, ${did.unsure} left for you` : ""}${did.errors ? `, ${did.errors} error${did.errors > 1 ? "s" : ""}` : ""}`, did);
+    await restLog("done", `Round done${rest.mode === "auto" ? " (auto)" : ""}: ${did.approved} approved, ${did.rejected} rejected, ${did.ideas} new idea${did.ideas === 1 ? "" : "s"}, ${did.lore} lore line${did.lore === 1 ? "" : "s"}${did.pitches ? `, ${did.pitches} pitch${did.pitches > 1 ? "es" : ""} left for you with its view` : ""}${did.unsure ? `, ${did.unsure} left for you` : ""}${did.errors ? `, ${did.errors} error${did.errors > 1 ? "s" : ""}` : ""}`, did);
     return did;
   })().finally(async () => {
     resting = null;
