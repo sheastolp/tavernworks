@@ -350,10 +350,22 @@ function diffHtml(patch){
 }
 const KIND = { added: "new", removed: "deleted", modified: "changed", renamed: "renamed", changed: "changed" };
 
+// With the owner's token in, GitHub reads go through the laptop (its GitHub
+// token allows 5000 an hour). Without it, or if the laptop is off, the page
+// asks GitHub straight, which allows only 60 an hour per browser.
+async function viaLaptop(path){
+  const token = $("token").value.trim();
+  if (!token) return null;
+  try{
+    const r = await fetch(SERVER + path, { cache: "no-store", headers: { authorization: "Bearer " + token } });
+    return r.ok ? await r.json() : null;
+  }catch(e){ return null; }
+}
+
 async function load(){
   $("count").textContent = "Checking GitHub…";
-  let j;
-  try{
+  let j = await viaLaptop("/admin/review-compare");
+  if (!j) try{
     const r = await fetch("https://api.github.com/repos/" + REPO + "/compare/main...review", { cache: "no-store", headers: { accept: "application/vnd.github+json" } });
     j = await r.json();
     if (!r.ok) throw new Error(r.status === 403 ? "GitHub's hourly limit for this browser is used up. Try again later." : (j.message || "GitHub answered " + r.status));
@@ -1065,6 +1077,8 @@ async function loadPitches(){
   const st = $("pStatus"); st.textContent = "Reading the review branch…";
   try{
     const texts = await Promise.all(PITCH_FILES.map(async (f) => {
+      const v = await viaLaptop("/admin/review-text?file=" + encodeURIComponent(f));
+      if (v) return v.text;
       const r = await fetch("https://api.github.com/repos/" + REPO + "/contents/" + f + "?ref=review", { cache: "no-store", headers: { accept: "application/vnd.github.raw+json" } });
       if (r.status === 404) return "";
       if (!r.ok) throw new Error(r.status === 403 ? "GitHub's hourly limit for this browser is used up. Try again later." : "GitHub answered " + r.status + ".");

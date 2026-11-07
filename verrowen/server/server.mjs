@@ -1559,6 +1559,17 @@ const server = http.createServer(async (req, res) => {
         console.log(new Date().toISOString(), "added from the admin page:", r.done.map((d) => d.file).join(", "));
         return send(res, 200, { ok: true, ...r }, origin);
       }
+      // The review page reads the branch through here: the laptop's GitHub token
+      // allows 5000 reads an hour, a browser without one only 60.
+      if (url.pathname === "/admin/review-compare") {
+        const r = await gh(`/compare/${LIVE}...${CLONE}`);
+        return send(res, r.ok ? 200 : 502, r.ok ? r.j : { error: `GitHub couldn't compare the branches (${r.status})` }, origin);
+      }
+      if (url.pathname === "/admin/review-text") {
+        const f = url.searchParams.get("file") || "";
+        if (!PITCH_FILES.includes(f)) return send(res, 400, { error: "Only the pitch files are read this way" }, origin);
+        return send(res, 200, { ok: true, file: f, text: await fileAt(f, CLONE) }, origin);
+      }
       if (url.pathname === "/admin/file") {
         const f = url.searchParams.get("path") || "";
         if (!MAP_FILE.test(f) && f !== ORRERY_JSON && f !== "resources.md") return send(res, 400, { error: "Only maps, resources.md and orrery.json are read this way" }, origin);
