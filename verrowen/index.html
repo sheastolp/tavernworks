@@ -192,7 +192,7 @@
           <li>Reply however you like: what you do, say, notice or think.</li>
           <li>When your character feels complete, press <b>Wrap it up</b> and choose a story or a D&amp;D character sheet.</li>
         </ol>
-        <label for="playerName" class="fieldlabel">Your name, so Sheamus knows whose character this is</label>
+        <label for="playerName" class="fieldlabel">Your name <span class="note">(optional: so Sheamus knows whose character this is)</span></label>
         <input id="playerName" type="text" maxlength="60" placeholder="e.g. Sam" autocomplete="nickname">
         <fieldset class="who" id="whoBox">
           <legend class="fieldlabel">Your character <span class="note">(optional: skip it and the narrator decides everything)</span></legend>
@@ -627,10 +627,9 @@ $("beginBtn").addEventListener("click", () => {
     if (typed && typed !== playerName){ playerName = typed.slice(0, 60); render(); save(); }
     return;
   }
-  playerName = typed;
-  // A new character's name isn't known yet (the narrator reveals it), so the
-  // story is filed under the player's name. A returning character's will do.
-  if (!playerName && !who.startsWith("returning:")){ $("playerName").focus(); setStatus("Enter your name, then press Begin.", true); return; }
+  // The player's name is optional: without one the story is filed under the
+  // character's (once the narrator reveals it) or the browser's own id.
+  playerName = typed.slice(0, 60);
   if (who.startsWith("returning:")){
     const c = savedCharacters().find(x => x.id === who.slice(10));
     if (!c){ setStatus("That character isn't saved in this browser any more.", true); render(); return; }
@@ -770,7 +769,7 @@ if (setup && !setup.resume){
 if (playerName) $("playerName").value = playerName;
 render();
 if (messages.length) showBox();
-if (setup && !setup.resume && (playerName || characterName)){ seed = makeSeed(); narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); }); }
+if (setup && !setup.resume){ seed = makeSeed(); narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); }); }
 loadLore().catch(() => {});
 </script>
 </body>
