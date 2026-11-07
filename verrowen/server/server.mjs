@@ -30,9 +30,10 @@
 //   POST /admin/lore-catchup/apply (owner's token) { head, lines }  ->  { ok, sha, url, added }   adds them
 //                        to lore.md on the review branch and remembers head as the new catch-up point
 //   GET  /admin/rest-mode (owner's token)  ->  { on, until, lastRound, nextRound, running, log }
-//   POST /admin/rest-mode (owner's token) { on, hours } | { action: "run" }  ->  { ok, on, … }   rest mode:
+//   POST /admin/rest-mode (owner's token) { on, hours, mode: "rest" | "auto" } | { action: "run" }  ->  { ok, on, … }   rest mode:
 //                        the local AI judges what's sent in and every pitch, writes new ideas, catches
-//                        lore.md up and publishes, on its own, every REST_EVERY_MIN minutes
+//                        lore.md up and publishes, on its own, every REST_EVERY_MIN minutes; mode
+//                        "auto" does the same but never publishes: it all waits on review for the owner
 //   POST /suggest    { source, title, body, about, key, name }  ->  { ok, queued }
 //                    anyone: waits in the inbox above until the owner files it (always as a pitch)
 //   POST /narrate    { messages: [{ role, content }] }  ->  { text }
@@ -281,12 +282,12 @@ const NOTES = "working-notes.md", LORE = "lore.md";
 const SOURCES = {
   "lore-keeper": { head: "## From the lore-keeper", intro: "Pitches the owner filed from lore-keeper chats on the Orrery Explorer. Nothing here is decided until it's marked **Your idea**.", from: "From a lore-keeper chat", msg: "Lore-keeper pitch" },
   codex: { head: "## From the Codex", intro: "Notes sent in from the Verrowen Codex. Ones the owner decided are marked **Your idea**; the rest are pitches.", from: "From the Verrowen Codex", msg: "Codex note" },
-  rest: { head: "## From rest mode", intro: "<!-- Ideas the laptop's AI came up with on its own while the owner rested (rest mode), then judged against the canon like every pitch. In a comment, so the lore catch-up only reads the ideas themselves. -->", from: "Made up by the AI in rest mode", msg: "Rest mode idea" },
+  rest: { head: "## From rest mode", intro: "<!-- Ideas the laptop's AI came up with on its own in rest mode or auto mode, then judged against the canon like every pitch. In a comment, so the lore catch-up only reads the ideas themselves. -->", from: "Made up by the AI in rest mode", msg: "Rest mode idea" },
   verrowen: { head: "## From Wake in Verrowen", intro: "Characters made in Wake in Verrowen and sent in for review. Nothing here is decided until it's marked **Your idea**.", from: "From a Wake in Verrowen story", msg: "Wake in Verrowen character" },
 };
 const oneLine = (v, n) => str(v, n).replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
 // Rest mode's reason for a decision, as the commit's second paragraph.
-const note = (why) => why ? "\n\nRest mode: " + oneLine(why, 300) : "";
+const note = (why) => why ? `\n\n${rest && rest.mode === "auto" ? "Auto mode" : "Rest mode"}: ` + oneLine(why, 300) : "";
 function reviewItem(b, { owner, rest = false }) {
   // "rest" is rest mode's own heading: nobody else can file under it.
   const source = SOURCES[b.source] && (b.source !== "rest" || rest) ? b.source : "lore-keeper";
@@ -564,7 +565,11 @@ const REST_LOG = () => path.join(SAVE_DIR, "rest-log.jsonl");
 const REST_LOG_KEEP = 500;
 // A pitch the model couldn't decide on isn't asked about again for a day.
 const UNSURE_MS = 24 * 3600_000;
-let rest = { on: false, since: null, until: null, lastRound: null, nextRound: null, ideas: [], unsure: {}, rounds: 0 };
+// mode "rest": the AI decides and publishes. "auto": the same rounds, but
+// nothing is published and nothing sent in is thrown away: the AI's
+// decisions wait on the review branch for the owner (Waiting for you), and
+// what it would turn down stays in the inbox with its reason.
+let rest = { on: false, mode: "rest", since: null, until: null, lastRound: null, nextRound: null, ideas: [], unsure: {}, rounds: 0 };
 try { rest = { ...rest, ...JSON.parse(await fs.readFile(REST_FILE(), "utf8")) }; } catch { }
 let resting = null;   // the round under way
 async function saveRest() {
@@ -591,19 +596,21 @@ async function restLogTail(n = 80) {
   } catch { return []; }
 }
 function restStatus() {
-  return { on: rest.on, since: rest.since, until: rest.until, lastRound: rest.lastRound, nextRound: rest.on ? rest.nextRound : null,
+  return { on: rest.on, mode: rest.mode || "rest", since: rest.since, until: rest.until, lastRound: rest.lastRound, nextRound: rest.on ? rest.nextRound : null,
     running: !!resting, rounds: rest.rounds, everyMinutes: REST_EVERY_MS / 60_000, maxPerRound: REST_MAX_PER_ROUND, ideasPerDay: REST_IDEAS_PER_DAY, model: MODEL, github: !!GH_TOKEN };
 }
 async function setRest(b) {
   if (b.on) {
     const hours = Number(b.hours || 0);
+    rest.mode = b.mode === "auto" ? "auto" : "rest";
+    const name = rest.mode === "auto" ? "Auto mode" : "Rest mode";
     rest.on = true; rest.since = new Date().toISOString();
     rest.until = hours > 0 ? new Date(Date.now() + Math.min(hours, 24 * 14) * 3600_000).toISOString() : null;
     rest.nextRound = new Date(Date.now() + 15_000).toISOString();   // the first round right away
-    await restLog("on", rest.until ? `Rest mode on for ${hours >= 24 && hours % 24 === 0 ? hours / 24 + " day" + (hours > 24 ? "s" : "") : hours + " hour" + (hours === 1 ? "" : "s")}` : "Rest mode on until it's switched off");
+    await restLog("on", rest.until ? `${name} on for ${hours >= 24 && hours % 24 === 0 ? hours / 24 + " day" + (hours > 24 ? "s" : "") : hours + " hour" + (hours === 1 ? "" : "s")}` : `${name} on until it's switched off` + (rest.mode === "auto" ? ": the AI sorts things, you publish" : ""));
   } else if (rest.on) {
     rest.on = false; rest.until = null; rest.nextRound = null;
-    await restLog("off", "Rest mode off: the owner decides again");
+    await restLog("off", `${rest.mode === "auto" ? "Auto" : "Rest"} mode off: the owner decides again`);
   }
   await saveRest();
   return restStatus();
@@ -724,6 +731,7 @@ async function restRound(why = "scheduled") {
     for (const rec of await inboxList()) {
       if (budget <= 0) break;
       if (rest.unsure["in:" + rec.id + rec.at]) continue;
+      if (rec.ai) continue;   // auto mode already gave its view; it waits for the owner
       if (!(await gpuFree())) break;
       try {
         const v = await judge(rec.title, rec.body, `sent in from ${rec.source}${rec.name ? " by " + rec.name : ""}`);
@@ -735,6 +743,11 @@ async function restRound(why = "scheduled") {
           it.why = v.why;
           const r = await fileReviewItem(it);
           did.approved++; await restLog("approved", rec.title, { why: v.why, from: rec.source, sha: r.sha });
+        } else if (rest.mode === "auto") {
+          // Kept for the owner, with the AI's view on it.
+          did.rejected++; await restLog("rejected", rec.title, { why: v.why + " (still in the 📨 queue for you to decide)", from: rec.source });
+          if (file) await fs.writeFile(file, JSON.stringify({ ...rec, ai: { verdict: "reject", why: v.why, at: new Date().toISOString() } }, null, 2));
+          continue;
         } else {
           did.rejected++; await restLog("rejected", rec.title, { why: v.why, from: rec.source });
         }
@@ -797,10 +810,16 @@ async function restRound(why = "scheduled") {
       } catch (e) { await fail("Catching the lore up", e); }
     }
 
-    // 5. Live.
+    // 5. Live (rest mode), or left on review for the owner (auto mode).
     try {
       const cmp = await gh(`/compare/${LIVE}...${CLONE}`);
-      if (cmp.ok && cmp.j.ahead_by > 0) {
+      if (cmp.ok && !cmp.j.ahead_by) rest.lastWaiting = 0;
+      if (cmp.ok && cmp.j.ahead_by > 0 && rest.mode === "auto") {
+        did.waiting = cmp.j.ahead_by;
+        if (rest.lastWaiting !== cmp.j.ahead_by) await restLog("review", `${cmp.j.ahead_by} change${cmp.j.ahead_by > 1 ? "s" : ""} waiting for your review`, { why: "Auto mode never publishes: check them under Waiting for you, then publish or throw away" });
+        rest.lastWaiting = cmp.j.ahead_by;
+      } else if (cmp.ok && cmp.j.ahead_by > 0) {
+        rest.lastWaiting = 0;
         const r = await publish();
         tellGuildScribe();
         did.published = r.sha;
@@ -809,7 +828,7 @@ async function restRound(why = "scheduled") {
     } catch (e) { await fail("Publishing", e); }
 
     rest.rounds = (rest.rounds || 0) + 1;
-    await restLog("done", `Round done: ${did.approved} approved, ${did.rejected} rejected, ${did.ideas} new idea${did.ideas === 1 ? "" : "s"}, ${did.lore} lore line${did.lore === 1 ? "" : "s"}${did.unsure ? `, ${did.unsure} left for you` : ""}${did.errors ? `, ${did.errors} error${did.errors > 1 ? "s" : ""}` : ""}`, did);
+    await restLog("done", `Round done${rest.mode === "auto" ? " (auto)" : ""}: ${did.approved} approved, ${did.rejected} rejected, ${did.ideas} new idea${did.ideas === 1 ? "" : "s"}, ${did.lore} lore line${did.lore === 1 ? "" : "s"}${did.unsure ? `, ${did.unsure} left for you` : ""}${did.errors ? `, ${did.errors} error${did.errors > 1 ? "s" : ""}` : ""}`, did);
     return did;
   })().finally(async () => {
     resting = null;
@@ -952,7 +971,7 @@ const server = http.createServer(async (req, res) => {
           restRound("asked for by the owner").catch((e) => restLog("error", "Round failed: " + e.message));
           return send(res, 200, { ok: true, started: true, ...restStatus(), running: true }, origin);
         }
-        return send(res, 200, { ok: true, ...(await setRest({ on: !!b.on, hours: b.hours })) }, origin);
+        return send(res, 200, { ok: true, ...(await setRest({ on: !!b.on, hours: b.hours, mode: b.mode })) }, origin);
       }
       if (req.method === "POST" && url.pathname === "/admin/publish") {
         const r = await publish();

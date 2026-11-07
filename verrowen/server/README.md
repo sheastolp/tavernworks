@@ -244,6 +244,17 @@ Every `REST_EVERY_MIN` minutes (20) it runs a round, all on its own:
 5. **Publish:** if anything changed, `review` goes live on `main` and
    GuildScribe is told to re-read it.
 
+### 🤖 Auto mode
+
+**🤖 Auto mode on**, next to the rest mode button, runs exactly the same
+rounds but **never publishes**: everything the AI approves, accepts, rejects,
+writes or adds to `lore.md` waits on the `review` branch under **Waiting for
+you**, with its reason in each change's message. What it would turn down from
+the 📨 queue isn't deleted: it stays there marked *Auto mode would turn this
+down: …*, for you to file or turn down. Check it all, then **✔ Publish** or
+**Throw it all away** as usual. The round's log says how many changes are
+waiting for you.
+
 How the AI decides: it gets the lore and one item at a time and must answer
 `VERDICT: APPROVE` or `VERDICT: REJECT` with a one-line reason. It approves
 only what fits the lore without contradicting it, keeps magic weak and

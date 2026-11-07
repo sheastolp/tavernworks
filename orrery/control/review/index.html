@@ -126,13 +126,15 @@
   </header>
 
   <section class="card rest" aria-labelledby="h-rest" id="restCard">
-    <h2 id="h-rest">😴 Rest mode</h2>
+    <h2 id="h-rest">😴 Rest mode · 🤖 Auto mode</h2>
     <p class="note">While you rest, the laptop's AI runs the Orrery on its own. Every round it judges everything <b>sent in for review</b> and every <b>pitch</b> on the review branch against the lore (approved ones become <b>Your idea</b>, rejected ones are turned down or taken out), <b>comes up with new ideas</b> of its own a few times a day and judges those too, <b>catches lore.md up</b> for the narrator, and <b>publishes</b> it all to the live Orrery and GuildScribe. Anything the AI can't give a clear answer on waits here for you. Every decision and its reason is listed below and in the change's message on GitHub.</p>
+    <p class="note"><b>🤖 Auto mode</b> does all the same work but <b>never publishes</b>: what the AI approves, accepts, rejects or writes waits on the review branch under <b>Waiting for you</b>, and what it would turn down from the 📨 queue stays there with its reason. You check it and publish (or throw it away) as usual.</p>
     <p class="count" id="restState">Rest mode: checking the laptop…</p>
     <div class="row">
       <label for="restFor" style="flex:0 0 auto">Rest for</label>
       <select id="restFor" style="width:auto"><option value="8">8 hours</option><option value="24">a day</option><option value="72">3 days</option><option value="168">a week</option><option value="0">until I turn it off</option></select>
-      <button class="primary" type="button" id="restOn">😴 Rest mode on</button>
+      <button class="primary" type="button" id="restOn" title="The AI decides and publishes on its own">😴 Rest mode on</button>
+      <button type="button" id="autoOn" title="The AI decides, you review and publish">🤖 Auto mode on</button>
       <button type="button" id="restOff" hidden>☀️ I'm back: turn it off</button>
       <button type="button" id="restRun">Run a round now</button>
       <span class="note" id="restSt" role="status"></span>
@@ -348,6 +350,7 @@ async function loadInbox(){
   st.textContent = inbox.length ? inbox.length + " waiting." : "Nothing is waiting.";
   $("inList").innerHTML = inbox.map((it) => `<div class="sub" data-in="${esc(it.id)}">
     <p class="note">${FROM[it.source] || esc(it.source)} · ${esc(when(it.at))}${it.name ? " · sent by " + esc(it.name) : ""}${it.about ? " · " + esc(it.about) : ""}</p>
+    ${it.ai ? `<p class="note minus">🤖 Auto mode would turn this down: ${esc(it.ai.why)}</p>` : ""}
     <label>Title</label><input data-f="title" maxlength="120" value="${esc(it.title)}">
     <label>Text (Markdown)</label><textarea data-f="body" rows="8" maxlength="12000">${esc(it.body)}</textarea>
     <div class="row"><button class="primary" type="button" data-act="file">File it for review</button><button type="button" data-act="accept">✔ Accept as your idea</button><button type="button" data-act="dismiss">Turn it down</button><span class="note" data-st role="status"></span></div>
@@ -527,7 +530,7 @@ $("cuAdd").addEventListener("click", async () => {
 // The laptop runs the rounds itself (verrowen/server, POST /admin/rest-mode),
 // so it carries on with this page closed. This only switches it and shows
 // what it did.
-const REST_KIND = { approved: "✔ Approved", accepted: "✔ Accepted", rejected: "✕ Rejected", unsure: "… Left for you", idea: "💡 New idea", lore: "📜 Lore", published: "🌍 Published", error: "⚠ Problem", round: "Round", done: "Round done", on: "😴 On", off: "☀️ Off" };
+const REST_KIND = { review: "🔍 For your review",  approved: "✔ Approved", accepted: "✔ Accepted", rejected: "✕ Rejected", unsure: "… Left for you", idea: "💡 New idea", lore: "📜 Lore", published: "🌍 Published", error: "⚠ Problem", round: "Round", done: "Round done", on: "▶ On", off: "☀️ Off" };
 async function restCall(body){
   const token = $("token").value.trim();
   if (!token) throw new Error("Enter the owner's token under Waiting for you first.");
@@ -540,9 +543,11 @@ async function restCall(body){
 }
 function drawRest(j){
   $("restCard").classList.toggle("on", !!j.on);
-  $("restOn").hidden = !!j.on; $("restFor").hidden = $("restFor").previousElementSibling.hidden = !!j.on; $("restOff").hidden = !j.on;
+  const auto = j.mode === "auto"; $("restCard").dataset.mode = j.on ? j.mode : "";
+  $("restOn").hidden = $("autoOn").hidden = !!j.on; $("restFor").hidden = $("restFor").previousElementSibling.hidden = !!j.on; $("restOff").hidden = !j.on;
+  $("restOff").textContent = auto ? "Turn auto mode off" : "☀️ I'm back: turn it off";
   $("restState").innerHTML = j.on
-    ? `😴 <b>Resting</b>${j.until ? " until " + esc(when(j.until)) : " until you turn it off"}. ${j.running ? "A round is running now." : j.nextRound ? "Next round " + esc(when(j.nextRound)) + "." : ""}${j.github ? "" : ' <span class="minus">The laptop has no GitHub token, so it can\'t file or publish anything.</span>'}`
+    ? (auto ? `🤖 <b>Auto mode</b>` : `😴 <b>Resting</b>`) + `${j.until ? " until " + esc(when(j.until)) : " until you turn it off"}: ${auto ? "the AI sorts everything onto the review branch, and you publish" : "the AI decides and publishes"}. ${j.running ? "A round is running now." : j.nextRound ? "Next round " + esc(when(j.nextRound)) + "." : ""}${j.github ? "" : ' <span class="minus">The laptop has no GitHub token, so it can\'t file or publish anything.</span>'}`
     : `Rest mode is <b>off</b>: you decide everything.${j.lastRound ? " Its last round was " + esc(when(j.lastRound)) + "." : ""}`;
   if (Array.isArray(j.log)) {
     $("restLog").innerHTML = j.log.filter((l) => l.kind !== "round").map((l) => `<li class="${esc(l.kind)}"><b>${REST_KIND[l.kind] || esc(l.kind)}</b> ${esc(l.what)}${l.why ? ` <small>· ${esc(l.why)}</small>` : ""} <small>· ${esc(when(l.at))}${l.sha ? ` · <a href="https://github.com/${REPO}/commit/${esc(l.sha)}" target="_blank" rel="noopener">${esc(String(l.sha).slice(0, 7))}</a>` : ""}</small>${l.lines ? `<pre class="writeup">${esc(l.lines)}</pre>` : ""}</li>`).join("") || '<li><small>Nothing yet.</small></li>';
@@ -557,11 +562,13 @@ async function loadRest(quiet){
     restTimer = setTimeout(() => loadRest(true), j.running ? 8000 : 60000);
   }catch(e){ if (!quiet) $("restState").textContent = e instanceof TypeError ? "Rest mode: couldn't reach the laptop." : "Rest mode: " + e.message; }
 }
-$("restOn").addEventListener("click", async () => {
+async function modeOn(mode){
   const st = $("restSt"); st.textContent = "Switching it on…";
-  try{ drawRest(await restCall({ on: true, hours: Number($("restFor").value) })); st.textContent = "The first round starts in a moment."; setTimeout(() => loadRest(true), 20000); }
+  try{ drawRest(await restCall({ on: true, mode, hours: Number($("restFor").value) })); st.textContent = "The first round starts in a moment."; setTimeout(() => loadRest(true), 20000); }
   catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
-});
+}
+$("restOn").addEventListener("click", () => modeOn("rest"));
+$("autoOn").addEventListener("click", () => modeOn("auto"));
 $("restOff").addEventListener("click", async () => {
   const st = $("restSt"); st.textContent = "Switching it off…";
   try{ drawRest(await restCall({ on: false })); st.textContent = "Welcome back. Everything waits for you again."; loadRest(true); }
@@ -569,7 +576,7 @@ $("restOff").addEventListener("click", async () => {
 });
 $("restRun").addEventListener("click", async (e) => {
   const st = $("restSt"), b = e.currentTarget;
-  if (b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Tap again: the AI decides and publishes"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "Run a round now"; }, 5000); return; }
+  if (b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = $("restCard").dataset.mode === "auto" ? "Tap again: the AI sorts it for your review" : "Tap again: the AI decides and publishes"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "Run a round now"; }, 5000); return; }
   b.dataset.armed = ""; b.textContent = "Run a round now";
   st.textContent = "Starting a round. It judges one thing at a time, so it can take a few minutes…";
   try{ await restCall({ action: "run" }); setTimeout(() => loadRest(true), 5000); }
