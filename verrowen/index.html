@@ -108,6 +108,7 @@
   .status.err{color:var(--ember)}
   label.sr{position:absolute;left:-9999px}
 
+  .orrerynote{margin:12px 0;padding:12px 14px;border:1px dashed var(--gold);border-radius:12px;font-size:14.5px;line-height:1.5}
   .profile{margin-top:18px;background:var(--card);border:1px solid var(--gold);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px}
   .profile h2{font-family:Cinzel,serif;color:var(--gold2);font-size:19px}
   .profile pre{white-space:pre-wrap;font-family:Spectral,Georgia,serif;font-size:16.5px}
@@ -194,6 +195,7 @@
         </ol>
         <label for="playerName" class="fieldlabel">Your name <span class="note">(optional: so Sheamus knows whose character this is)</span></label>
         <input id="playerName" type="text" maxlength="60" placeholder="e.g. Sam" autocomplete="nickname">
+        <div class="orrerynote" id="orreryNote" hidden><b>✨ A new character for the Grand Orrery.</b> Nothing is picked in advance: no name, no race, no backstory. Everything about them, from who they are to their past and their magic, comes out of how you play. When you wrap it up, they're sent for review and show up on the <a href="/orrery/#roster">Orrery's roster</a> as pending until the owner decides. <a href="/verrowen/">Play without sending them in</a></div>
         <fieldset class="who" id="whoBox">
           <legend class="fieldlabel">Your character <span class="note">(optional: skip it and the narrator decides everything)</span></legend>
           <label class="opt"><input type="radio" name="who" value="new" checked><span><b>A stranger</b><small>A new character with no memory. The narrator reveals who they are.</small>
@@ -248,6 +250,7 @@
     <h2 id="profileHead">Your character</h2>
     <pre id="profileText"></pre>
     <div class="row"><button class="primary" id="copyBtn">Copy profile</button><button id="continueBtn">Continue the story</button><button id="sendReviewBtn" title="Put this character forward for the Grand Orrery. The owner reviews it before it becomes part of the world.">📨 Send for review</button><button class="quiet" id="resetBtn2" title="Back to the start. This story is kept, so you can continue it later.">← Back to the start</button><span class="note" id="copyStatus"></span></div>
+    <div class="note" id="orreryLink" hidden>They're on the <a href="/orrery/#roster">Orrery's roster</a>, pending review. Continue the story and wrap it up again to send the newer version.</div>
   </section>
 
   <section class="about">
@@ -295,6 +298,9 @@ const FIT = `Fit it to THIS story. Look at where it took place, what the charact
 const WRAP = `The player says "wrap it up." Stop the story. Write their character's profile in plain text, one labeled line each, with a short answer. Always include: Name (if none was revealed, give one that fits the lore and the story), Race, Age, Appearance, Magic, Personality. Then add the lines this story calls for, picked from: Skills (what they turned out to be good at), Background so far, Key items, Who they met, Places they've been, Allies and enemies, Debts and promises, Wounds and scars, Open mysteries, or another fitting label. ${FIT} End with one sentence summing up who they are now.`;
 const WRAP_DND = `The player says "wrap it up." Stop the story. Turn their character into a Dungeons & Dragons 5th edition character sheet in plain text, with these labeled lines: Name, Species (the closest 5e species), Class (the closest 5e class to how they actually played, with a likely subclass to grow into), Level (1, or 2 for a returning character who grew this story), Background (the 5e background closest to what the story revealed), Alignment, Ability scores (assign the standard array 15, 14, 13, 12, 10, 8 to fit how they played, and give each modifier), Skill proficiencies (the skills they actually used), Equipment (their key items from the story first), Features and spells (keep Verrowen's magic weak and costly), Personality trait, Ideal, Bond, Flaw. Then a short Backstory paragraph a Dungeon Master can use, and one adventure hook drawn from what this story left open. Fill anything still unknown with a fitting choice and mark it "(suggested)". ${FIT}`;
 const WRAP_STORY = `${WRAP}\n\nAfter the profile, add a line reading "The story so far" and retell what happened as a short tale of about 250 words, in third person and past tense.`;
+// A character for the Orrery's review: the owner needs to see what play
+// settled and what the narrator had to fill in.
+const ORRERY_WRAP = `\n\nThis character goes to the Grand Orrery's review. Everything must come from what happened in play. If you have to fill in a line the story didn't settle (the name too, if it was never revealed), mark it "(suggested)".`;
 // Every story is played the same way. Only at "wrap it up" does the player
 // pick what they get: a story (profile and retelling) or a D&D sheet.
 const STORY_STYLE = "The player is here for the story. Lean into mood, mystery and memorable moments, and let their choices quietly show their skills, temperament and values.";
@@ -309,6 +315,7 @@ function characterText(c){
   if (!c) return "";
   const t = (v, n) => String(v || "").slice(0, n).trim();
   if (c.kind === "returning" && t(c.profile, 4000)) return `\n\nRETURNING CHARACTER: the player is playing a character from an earlier story. They wake again with their memory in pieces; what they learned before is still true and comes back in flashes. Their profile from that story:\n${t(c.profile, 4000)}`;
+  if (c.kind === "orrery") return `\n\nNEW CHARACTER FOR THE GRAND ORRERY: this character will be put forward to join the universe's canon. The player picked nothing in advance, so everything about them (true name, race, age, past, skills, magic, ties to people and places) must be discovered through play: hint, then let the player's choices settle it. Don't hand them a finished backstory.`;
   if (c.kind === "own" && t(c.description, 1200)) return `\n\nTHE PLAYER'S OWN CHARACTER: the player described their character as follows. Treat it as true, but the character doesn't remember it yet; let it surface through the story:\n${t(c.description, 1200)}`;
   if (c.race && c.race !== "any") return `\n\nThe character is secretly a ${t(c.race, 40)}. Let the hints point that way and let the player discover it.`;
   return "";
@@ -350,7 +357,7 @@ function buildMessages(lore, history, seed, characterName, mode){
   room -= codex.length;
   const fitLore = lore.length <= room ? lore : lore.slice(0, Math.max(0, lore.lastIndexOf("\n", room) > 0 ? lore.lastIndexOf("\n", room) : room)).trim();
   const out = [{role: "user", content: head + fitLore + codex + tail}, ...clean];
-  if (mode === "wrap") out.push({role: "user", content: purpose === "dnd" ? WRAP_DND : WRAP_STORY});
+  if (mode === "wrap") out.push({role: "user", content: (purpose === "dnd" ? WRAP_DND : WRAP_STORY) + (isOrreryStory() ? ORRERY_WRAP : "")});
   if (out[out.length - 1].role !== "user") out.push({role: "user", content: "Continue."});
   return out;
 }
@@ -402,6 +409,14 @@ let stopper = null; // AbortController while the narrator is writing
 // continued: the player went back into a wrapped-up story. The profile is
 // kept (the laptop's copy too) but hidden until they wrap it up again.
 let purpose = "story", character = null, continued = false;
+// /verrowen/?for=orrery is how the Orrery creates a new character: a stranger
+// with nothing picked in advance (no true name, race, description or earlier
+// character), so everything about them is discovered by playing. The story
+// carries character.kind "orrery", and at "wrap it up" the profile is sent for
+// review on its own, so it shows on the Orrery's roster as pending.
+const FOR_ORRERY = new URLSearchParams(location.search).get("for") === "orrery";
+const ORRERY_CHARACTER = {kind: "orrery", label: "a new character for the Grand Orrery, discovered by playing"};
+const isOrreryStory = () => !!character && character.kind === "orrery";
 let playerId = store.get("verrowen-id");
 if (!playerId){ playerId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(16) + "-" + Math.random().toString(16).slice(2); store.set("verrowen-id", playerId); }
 
@@ -434,6 +449,10 @@ function render(){
   $("composer").hidden = !started;
   $("profilePanel").hidden = !profile || continued;
   $("profileText").textContent = profile;
+  const forOrrery = isOrreryStory() || (!started && FOR_ORRERY);
+  $("orreryNote").hidden = !forOrrery || started;
+  $("whoBox").hidden = forOrrery;
+  $("orreryLink").hidden = !isOrreryStory() || !profile || continued;
   if (!started){ $("finishPanel").hidden = true; drawPicker(); }
   $("whoLine").textContent = started && playerName ? "Played by " + playerName + (profile && !continued && purpose === "dnd" ? " · D&D character" : " · Story") : "";
   $("profileHead").textContent = purpose === "dnd" ? "Your D&D character" : "Your character";
@@ -630,6 +649,12 @@ $("beginBtn").addEventListener("click", () => {
   // The player's name is optional: without one the story is filed under the
   // character's (once the narrator reveals it) or the browser's own id.
   playerName = typed.slice(0, 60);
+  if (FOR_ORRERY){
+    character = {...ORRERY_CHARACTER}; characterName = "";
+    seed = makeSeed();
+    narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); });
+    return;
+  }
   if (who.startsWith("returning:")){
     const c = savedCharacters().find(x => x.id === who.slice(10));
     if (!c){ setStatus("That character isn't saved in this browser any more.", true); render(); return; }
@@ -690,7 +715,7 @@ document.querySelectorAll("[data-finish]").forEach(b => b.addEventListener("clic
   if (busy) return;
   purpose = b.dataset.finish === "dnd" ? "dnd" : "story";
   closeFinish();
-  narrate("wrap", text => { profile = text; continued = false; render(); save(); keepCharacter(); $("profilePanel").scrollIntoView({behavior: "smooth"}); });
+  narrate("wrap", text => { profile = text; continued = false; render(); save(); keepCharacter(); $("profilePanel").scrollIntoView({behavior: "smooth"}); if (isOrreryStory()) sendForReview(); });
 }));
 
 // Back to the start screen. Nothing is lost: the story is shelved in this
@@ -718,18 +743,19 @@ $("continueBtn").addEventListener("click", () => {
 });
 // 📨 Send for review: the wrapped-up character goes to the Grand Orrery's
 // review (see /orrery-review.js). Sending the same story again updates it.
-$("sendReviewBtn").addEventListener("click", async () => {
+$("sendReviewBtn").addEventListener("click", () => sendForReview());
+async function sendForReview(){
   if (!profile || !window.OrreryReview) return;
   const b = $("sendReviewBtn"), st = $("copyStatus");
   const name = (profile.match(/^\W*Name\W*:\s*(.+)$/im) || [])[1] || characterName || "A stranger from Wake in Verrowen";
   b.disabled = true; st.textContent = "Sending for review…";
   try{
-    const r = await OrreryReview.send({source: "verrowen", key: playerId, title: name.replace(/[*_#]/g, "").trim().slice(0, 120), body: profile,
+    const r = await OrreryReview.send({source: "verrowen", key: playerId, title: name.replace(/[*_#]/g, "").replace(/\s*\(suggested\)/i, "").trim().slice(0, 120), body: profile,
       about: purpose === "dnd" ? "D&D character" : "Story", name: playerName});
     st.textContent = r.queued ? "✔ Sent. The owner reviews it before it joins the Grand Orrery." : "✔ Filed on the review branch. It waits on the Review Clone.";
-  }catch(e){ st.textContent = e.message; }
+  }catch(e){ st.textContent = (isOrreryStory() ? "Not sent for review yet: " : "") + e.message + (isOrreryStory() ? " Press 📨 Send for review to try again." : ""); }
   finally{ b.disabled = false; }
-});
+}
 $("copyBtn").addEventListener("click", async () => {
   try{ await navigator.clipboard.writeText(profile); $("copyStatus").textContent = "Copied."; }
   catch(e){ $("copyStatus").textContent = "Copy didn't work here. Select the text above and copy it by hand."; }
@@ -766,6 +792,13 @@ if (setup && !setup.resume){
   store.set("verrowen-story", "");
 }
 
+if (FOR_ORRERY && !setup && messages.length && !isOrreryStory()){
+  keepCharacter();
+  playerId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(16) + "-" + Math.random().toString(16).slice(2);
+  store.set("verrowen-id", playerId);
+  messages = []; profile = ""; seed = null; continued = false; character = null; characterName = ""; purpose = "story";
+  store.set("verrowen-story", "");
+}
 if (playerName) $("playerName").value = playerName;
 render();
 if (messages.length) showBox();

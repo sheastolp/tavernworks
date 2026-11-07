@@ -156,7 +156,14 @@ installed Orrery and Verrowen apps alike (all through `/orrery-review.js`):
 | --- | --- | --- |
 | Orrery Explorer, under a lore-keeper write-up | the write-up | `## From the lore-keeper` |
 | Verrowen Codex, the 📨 button on a note | the note, its facts and text | `## From the Codex` |
-| Wake in Verrowen, under a wrapped-up character | the profile or D&D sheet | `## From Wake in Verrowen` |
+| Wake in Verrowen, under a wrapped-up character (on its own for a story started from the Orrery's **✨ Create a character**, `/verrowen/?for=orrery`) | the profile or D&D sheet | `## From Wake in Verrowen` |
+
+The Orrery's roster shows every Wake in Verrowen character under **From Wake
+in Verrowen**, marked by where it stands: **Sent in, not filed yet** (the
+laptop's queue, on a device with the owner's token only), **Waiting on the
+Review Clone** (filed on `review`, not published), **Pitch** (published, not
+decided) or decided once accepted as **Your idea**. Pending ones stay out of
+the roster the lore-keeper treats as canon.
 
 - **With the owner's token on the device**, it's filed on `review` at once
   (`POST /admin/review-item`). A Codex note you marked **Decided** comes in as

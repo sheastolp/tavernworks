@@ -52,6 +52,7 @@
   main{padding:10px 0 50px}
   h2.sec{font-family:Cinzel,serif;color:var(--gold);letter-spacing:.08em;font-size:18px;margin:26px 0 12px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:12px}
+  .card.create{border-style:dashed;border-color:var(--gold)}
   .card{display:block;text-decoration:none;color:var(--text);background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:12px;padding:14px 16px}
   .card:hover{border-color:var(--gold)}
   .card b{display:block;font-family:Cinzel,serif;color:var(--gold2);font-size:16px}
@@ -587,6 +588,71 @@ function buildBeasts() {
   ({ places: PLACES, beasts: BEASTS } = text.bestiary ? parseBestiary(text.bestiary) : { places: [], beasts: [] });
 }
 
+// ── Characters from Wake in Verrowen, pending review ──
+// New characters are made by playing Wake in Verrowen (/verrowen/?for=orrery),
+// where everything about them comes out of play. At "wrap it up" the profile
+// is sent for review, and the roster shows it under VERROWEN_GROUP until the
+// owner decides it. They come from three places, newest stage last:
+//   - working-notes.md's "## From Wake in Verrowen" on this branch: a (Pitch)
+//     still pending, or (Your idea) once the owner accepts it
+//   - the same section on the review branch, filed but not published yet
+//     (read by the live Orrery only; the Review Clone already reads it)
+//   - the laptop's review queue, sent in by players but not filed yet (only
+//     on a device with the owner's token, since the queue is the owner's)
+const VERROWEN_GROUP = "From Wake in Verrowen";
+const CREATE_URL = "/verrowen/?for=orrery";
+let vReview = "", vInbox = [];
+function verrowenSections(src) {
+  const part = (String(src || "").replace(/\r/g, "").split(/^## From Wake in Verrowen\s*$/m)[1] || "").split(/^## /m)[0];
+  return part.split(/^### /m).slice(1).map((s) => {
+    const head = s.split("\n")[0].trim(), tag = (head.match(/\(([^)]+)\)\s*$/) || [])[1] || "Pitch";
+    const key = (s.match(/<!-- review-key: (\S+) -->/) || [])[1] || "";
+    const byline = (s.match(/^_(.+)_\s*$/m) || [])[1] || "";
+    const body = s.split("\n").slice(1).join("\n").replace(/<!--[\s\S]*?-->/g, "").replace(/^_.+_\s*$/m, "").trim();
+    return { name: head.replace(/\s*\([^)]*\)\s*$/, "").trim(), tag, key, byline, body };
+  });
+}
+// "Race: Halfling" or "**Species:** Halfling" in a wrapped-up profile.
+const profileLine = (body, labels) => {
+  for (const l of labels) { const m = body.match(new RegExp(`^\\W*${l}\\W*:\\**\\s*(.+)$`, "im")); if (m) return m[1].replace(/[*_]/g, "").replace(/\s*\((?:suggested)\)/gi, "").trim(); }
+  return "";
+};
+function verrowenPerson(s, status, where) {
+  const race = profileLine(s.body, ["Species", "Race"]), cls = profileLine(s.body, ["Class"]), age = profileLine(s.body, ["Age"]);
+  const what = [race && race.split(/[.;(]/)[0].trim().slice(0, 40), cls && cls.split(/[.;(,]/)[0].trim().slice(0, 40)].filter(Boolean).join(" ");
+  const bits = [what || "A stranger", age && age.length < 30 ? age : "", status === "Your idea" ? "from Wake in Verrowen" : ""].filter(Boolean);
+  const first = s.name.split(/\s+/)[0];
+  return { group: VERROWEN_GROUP, id: "wake-" + idOf(s.key.split(":").pop() || s.name).slice(0, 60), name: s.name, role: bits.join(" · "),
+    names: [...new Set([reEsc(s.name), first.length > 3 && !/^(the|a|an)$/i.test(first) ? reEsc(first) : ""].filter(Boolean))],
+    status, where, profile: s.body, byline: s.byline, key: s.key, pending: status !== "Your idea" };
+}
+function buildVerrowen() {
+  for (let i = PEOPLE.length - 1; i >= 0; i--) if (PEOPLE[i].group === VERROWEN_GROUP) PEOPLE.splice(i, 1);
+  const out = [], seen = new Set();
+  const add = (p) => { const k = p.key || "name:" + p.name.toLowerCase(); if (seen.has(k)) return; seen.add(k); out.push(p); };
+  // Newest stage first, so a character filed again shows how it stands now.
+  if (!CLONE) for (const s of verrowenSections(vReview)) {
+    const live = verrowenSections(text.notes).find((x) => (s.key && x.key === s.key) || x.name === s.name);
+    if (!live || live.body !== s.body || live.tag !== s.tag) add(verrowenPerson(s, s.tag === "Your idea" ? "Accepted, waiting to publish" : "Waiting on the Review Clone", "review"));
+  }
+  for (const s of verrowenSections(text.notes)) add(verrowenPerson(s, s.tag === "Your idea" ? "Your idea" : "Pitch", BRANCH));
+  for (const it of vInbox) add(verrowenPerson({ name: it.title, tag: "Pitch", key: it.key || "", byline: ["Sent in " + String(it.at || "").slice(0, 10), it.name ? "by " + it.name : "", it.about].filter(Boolean).join(" · "), body: it.body || "" }, "Sent in, not filed yet", "inbox"));
+  const at = PEOPLE.findIndex((p) => p.group === "Other worlds");
+  PEOPLE.splice(at < 0 ? PEOPLE.length : at, 0, ...out.map((p) => ({ ...p, id: PEOPLE.some((q) => q.id === p.id) ? p.id + "-2" : p.id })));
+}
+// The review branch and the owner's queue, read after the canon; the roster
+// redraws when they arrive.
+async function loadVerrowenPending() {
+  const jobs = [];
+  if (!CLONE) jobs.push(fetch(RAW_BASE + "review/working-notes.md?t=" + Date.now(), { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => "").then((t) => { vReview = t; }));
+  const tok = (() => { try { return localStorage.getItem("verrowen-owner") || ""; } catch { return ""; } })();
+  if (tok && window.OrreryReview) jobs.push(fetch(OrreryReview.SERVER + "/admin/inbox", { headers: { authorization: "Bearer " + tok }, cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : { items: [] })).then((j) => { vInbox = (j.items || []).filter((x) => x.source === "verrowen"); }).catch(() => {}));
+  await Promise.all(jobs);
+  buildVerrowen();
+  if (/^#(roster|person\/|find\/)/.test(location.hash)) route();
+}
+
 const $ = (id) => document.getElementById(id);
 const view = $("view");
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
@@ -717,10 +783,16 @@ function renderHits(found, re) {
 // ── Views ──
 function roster() {
   const groups = [...new Set(PEOPLE.map((p) => p.group))];
-  return groups.map((g) => `<h2 class="sec">${esc(g)}</h2><div class="grid">${PEOPLE.filter((p) => p.group === g).map((p) => {
+  // The Wake in Verrowen group always shows, so there's somewhere to start one.
+  if (!groups.includes(VERROWEN_GROUP)) { const at = groups.indexOf("Other worlds"); groups.splice(at < 0 ? groups.length : at, 0, VERROWEN_GROUP); }
+  const createCard = `<a class="card create" href="${CREATE_URL}"><b>✨ Create a character</b><span>Play Wake in Verrowen. You wake with no memory, and everything about them, from name and race to past and magic, comes out of how you play.</span><div class="count">Sent for review when you wrap it up</div></a>`;
+  return groups.map((g) => {
+    const people = PEOPLE.filter((p) => p.group === g), wake = g === VERROWEN_GROUP, waiting = people.filter((p) => p.pending).length;
+    return `<h2 class="sec">${esc(g)}${wake && waiting ? `<span class="pill pitch">${waiting} pending review</span>` : ""}</h2>${wake ? `<p class="tag" style="margin:-4px 0 12px">Characters made by playing Wake in Verrowen. Nothing about them is canon until the owner accepts them on the <a href="/orrery/control/review/">review page</a>.</p>` : ""}<div class="grid">${wake ? createCard : ""}${people.map((p) => {
     const n = matches(patternFor(p.names)).reduce((a, d) => a + d.hits.length, 0);
-    return `<a class="card" href="#person/${p.id}"><b>${esc(p.name)}${p.live ? `<span class="live" title="Live from GuildScribe's parchments">● live</span>` : ""}</b><span>${esc(p.role)}</span><div class="count">${n} section${n === 1 ? "" : "s"} written</div></a>`;
-  }).join("")}</div>`).join("");
+    return `<a class="card" href="#person/${p.id}"><b>${esc(p.name)}${p.live ? `<span class="live" title="Live from GuildScribe's parchments">● live</span>` : ""}</b><span>${esc(p.role)}</span><div class="count">${p.pending ? `<span class="pill pitch">${esc(p.status)}</span> ` : ""}${n} section${n === 1 ? "" : "s"} written</div></a>`;
+  }).join("")}</div>`;
+  }).join("");
 }
 function person(id) {
   const p = PEOPLE.find((x) => x.id === id);
@@ -734,7 +806,9 @@ function person(id) {
     return [o, found.reduce((a, d) => a + d.hits.filter((s) => { ore.lastIndex = 0; return ore.test(s.body); }).length, 0)];
   }).filter(([, n]) => n).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const makes = ITEMS.filter((it) => it.by.includes(p.id));
-  return { html: `<div class="crumb"><a href="#roster">Roster</a> › ${esc(p.group)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(p.name)}</h2><p class="tag">${esc(p.role)} · ${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}. <a href="#chat/review/${p.id}">✒️ Review ${esc(p.name)} in the chat</a></p>${
+  // A Wake in Verrowen character: their profile as it was sent, and where it stands.
+  const wake = p.group === VERROWEN_GROUP ? `<div class="panel"><div class="crumb">${esc(p.byline || "From a Wake in Verrowen story")}${p.where === "review" ? ` · <a href="/orrery/?clone=review#roster">on the Review Clone</a>` : ""}${p.pending ? ` · <a href="/orrery/control/review/">review it</a>` : ""}</div><div class="md">${(p.profile || "").split("\n").filter((l) => l.trim()).map((l) => `<p style="margin:0 0 6px">${inline(l.replace(/\*\*/g, "").replace(/^\s*([A-Z][\w &'/-]{1,30}):/, "**$1:**"))}</p>`).join("")}</div></div>` : "";
+  return { html: `<div class="crumb"><a href="#roster">Roster</a> › ${esc(p.group)}</div><h2 class="sec" style="margin-top:4px;font-size:26px">${esc(p.name)}${p.status && p.group === VERROWEN_GROUP ? `<span class="pill${p.pending ? " pitch" : ""}">${esc(p.status)}</span>` : ""}</h2><p class="tag">${esc(p.role)} · ${total} section${total === 1 ? "" : "s"} across ${found.length} document${found.length === 1 ? "" : "s"}. <a href="#chat/review/${p.id}">✒️ Review ${esc(p.name)} in the chat</a></p>${wake}${
     near.length ? `<div class="who">${near.map(([o, n]) => `<a class="pill" href="#person/${o.id}">${esc(o.name)} · ${n}</a>`).join("")}</div>` : ""
   }${makes.length ? `<div class="who"><span class="pill">Makes</span>${makes.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}${renderHits(found, re) || "<p>Nothing written yet.</p>"}`, re };
 }
@@ -918,6 +992,8 @@ async function load(quiet = false, head) {
   DOCS.forEach((d, k) => (text[d.id] = got[k]));
   buildItems();
   buildBeasts();
+  buildVerrowen();
+  loadVerrowenPending();
   // resources.md and bestiary.md may not be on this branch yet; the
   // built-in items cover the first, and the second is simply left out.
   const missing = DOCS.filter((d) => !text[d.id] && d.id !== "resources" && d.id !== "bestiary");
@@ -1049,7 +1125,7 @@ const WRITE_REVIEW = `The author says "sum it up." Write the review's conclusion
 const CHAT = `TASK: an open chat with the author about anything in the Grand Orrery: its characters, its regions and places, its peoples, its rules and customs, magic, how the world works, or story. Work out from what they say what they want: an answer from the canon, ideas, a review, or help building something new. Follow them when they change subject.`;
 const FOCUS = {
   general: `FOCUS: nothing specific yet. If they ask something, answer it from the canon, and say plainly when the canon doesn't say. If they want ideas, offer three short options from different parts of the world and ask which to explore.`,
-  character: `FOCUS: characters. If they're talking about someone in the ROSTER, keep to what the canon says about them (see ABOUT below); when they want a review, cover what works, what clashes with the canon (quote it), gaps such as age, magic, motives and ties to others, and two or three concrete suggestions. If it's someone new, they must not be any named person in the canon but should be tied to its people and places: build them step by step with concrete options (a name that fits their people's naming style, a role, a want, a fear, a secret, ties to named characters) and let the author choose.`,
+  character: `FOCUS: characters. If they're talking about someone in the ROSTER, keep to what the canon says about them (see ABOUT below); when they want a review, cover what works, what clashes with the canon (quote it), gaps such as age, magic, motives and ties to others, and two or three concrete suggestions. If they want to make someone NEW, don't invent the character here: new characters are made by playing Wake in Verrowen, where everything about them (name, race, past, magic) is discovered through play. Tell them to press ✨ Create a character (on the Roster, or on this chat's start screen), which opens Wake in Verrowen, and that the character lands on the Roster pending review when they wrap it up. You can still talk through gaps in the roster a new character could fill, without deciding who they are.`,
   world: (label) => `FOCUS: ${label}. Restate the idea as one plain rule and check it against the canon (quote any clash, or say it fits). Work out what follows from it: its costs, limits and edge cases, what happens when it's pushed too far, and how ordinary villagers, the Guard, artificers and the Kingdom would use or abuse it. Think like a careful game designer: every power has a price and a limit, and every rule changes daily life somewhere. If they're only asking what the canon says, just answer.`,
 };
 const WRITE_CHAT = `The author says "write it up." Write up what this chat worked out, in plain text, with these labeled lines, one per line: Name, Kind, What it is (one sentence), The details, Clashes with canon (or "None"), Open questions. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "In the world" and a paragraph of about 80 words showing it in an everyday scene.`;
@@ -1135,7 +1211,7 @@ function codexLine(n) {
 }
 
 const cleanSection = (b) => b.replace(/^#+\s.*\n?/, "").replace(/<!--[\s\S]*?-->\n?/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").trim();
-const personText = (p) => `${p.name}: ${p.role}.\n\n` + matches(patternFor(p.names)).flatMap(({ doc, hits }) => hits.map((s) => `[${doc.title} › ${s.path.join(" › ")}]\n${cleanSection(s.body)}`)).join("\n\n");
+const personText = (p) => `${p.name}: ${p.role}.\n\n` + (p.pending && p.profile ? `[Their profile from Wake in Verrowen, sent for review, not canon yet]\n${p.profile}\n\n` : "") + matches(patternFor(p.names)).flatMap(({ doc, hits }) => hits.map((s) => `[${doc.title} › ${s.path.join(" › ")}]\n${cleanSection(s.body)}`)).join("\n\n");
 const chatTopic = (c) => c.pin || c.topic || "general";
 
 // What the lore-keeper is told: rules, task, then canon in order of
@@ -1163,7 +1239,7 @@ function canonFor(c) {
   }
   const lore = (text.lore || "").replace(/^# .*\n+.*\n+/, "").trim();
   parts.push(["LORE", lore, 9000]);
-  parts.push(["ROSTER (named people already in the canon)", PEOPLE.map((p) => `${p.name} (${p.group}): ${p.role}`).join("\n"), 3600]);
+  parts.push(["ROSTER (named people already in the canon)", PEOPLE.filter((p) => !p.pending).map((p) => `${p.name} (${p.group}): ${p.role}`).join("\n"), 3600]);
   const live = hallCanon();
   if (live) parts.push(["GUILDSCRIBE RIGHT NOW (live from the guild hall bot's parchments)", live, 1200]);
   if (c.mode === "world" || (c.mode === "chat" && !["general", "character"].includes(chatTopic(c)))) {
@@ -1394,7 +1470,7 @@ function drawStart() {
   const earlier = chats.slice(0, 8);
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
   const starters = [
-    "Help me create a new character for Stoutwell.",
+    "What gaps in Stoutwell's roster could a new character fill?",
     `Review ${pick(PEOPLE.filter((p) => !/^The /.test(p.name))).name} against the canon.`,
     "How does mana work, and what does it cost?",
     "What lies beyond the Monster Wood?",
@@ -1408,7 +1484,7 @@ function drawStart() {
       <label class="sr" for="opener">Your first message</label>
       <textarea id="opener" maxlength="${MAX_SAY}" placeholder="Optional: a halfling miller who hides a fire gift from the Elderhold… or leave it blank and it suggests a few things to work on."></textarea>
       <div class="chips">${starters.map((t) => `<button class="small" type="button" data-start="${esc(t)}">${esc(t)}</button>`).join("")}</div>
-      <div class="row"><button class="primary" type="button" id="startOpen">Start the chat</button></div></div>
+      <div class="row"><button class="primary" type="button" id="startOpen">Start the chat</button><a class="btn" href="${CREATE_URL}" style="text-decoration:none" title="New characters are made by playing Wake in Verrowen. They land on the Roster pending review.">✨ Create a character</a></div></div>
     ${earlier.length ? `<details class="earlierbox" id="earlierBox"${earlierOpen() ? " open" : ""}><summary>Earlier chats<span class="pill">${earlier.length}</span></summary><div class="earlier">${earlier.map((c) => {
       const turns = c.messages.filter((m) => m.role === "user").length;
       const on = c.mode === "chat" ? topicOf(chatTopic(c)) : null;
