@@ -41,8 +41,9 @@
 //   POST /admin/docs-catchup (owner's token) {}  ->  { running, step, of, doing }   starts the documents
 //                        catch-up in the background; GET it for progress and, once done, its draft
 //                        { head, fixes, adds, items, maps }
-//   POST /admin/docs-catchup/apply (owner's token) { fixes, adds, items }  ->  { ok, done, skipped }   the
-//                        ticked changes, one commit per file on the review branch
+//   POST /admin/docs-catchup/apply (owner's token) { fixes, adds, items, message? }  ->  { ok, done, skipped }   the
+//                        ticked changes, one commit per file on the review branch (the lore-keeper's
+//                        🛠 changes in plain words use it too, with their own commit message)
 //   GET  /admin/rest-mode (owner's token)  ->  { on, until, lastRound, nextRound, running, log }
 //   POST /admin/rest-mode (owner's token) { on, hours, mode: "rest" | "auto" } | { action: "run" }  ->  { ok, on, … }   rest mode:
 //                        the local AI judges what's sent in and every pitch, writes new ideas, catches
@@ -812,6 +813,8 @@ async function docsCatchupApply(b) {
   for (const x of items) take("resources.md").push({ kind: "item", icon: oneLine(x.icon, 8) || "📦", name: oneLine(x.name, 80).replace(/[#()]/g, ""), cat: oneLine(x.cat, 60).replace(/#/g, ""), type: oneLine(x.type, 60).replace(/#/g, ""), text: str(x.text, 3000) });
   for (const list of Object.values(per)) for (const c of list) if (UNSAFE.test(JSON.stringify(c))) throw Object.assign(new Error("A change holds a link or instructions to an AI"), { status: 400 });
   const done = [], skipped = [];
+  // The lore-keeper's changes in plain words come this way too, with their own commit message.
+  const why = oneLine(b.message, 100);
   for (const [file, list] of Object.entries(per)) {
     let used = 0;
     const commit = await editOnReview(file, (text) => {
@@ -822,7 +825,7 @@ async function docsCatchupApply(b) {
         else if (c.name && c.cat && c.type && c.text.trim()) { text = addResource(text, c); used++; }
       }
       return text;
-    }, `Documents catch-up: ${list.length} change${list.length > 1 ? "s" : ""} to ${file}, to match the lore`);
+    }, why ? `${why} (${file})` : `Documents catch-up: ${list.length} change${list.length > 1 ? "s" : ""} to ${file}, to match the lore`);
     if (commit) done.push({ file, changes: used, sha: commit.sha, url: commit.html_url });
   }
   return { done, skipped };
@@ -1653,7 +1656,8 @@ const server = http.createServer(async (req, res) => {
       }
       if (url.pathname === "/admin/review-text") {
         const f = url.searchParams.get("file") || "";
-        if (!PITCH_FILES.includes(f)) return send(res, 400, { error: "Only the pitch files are read this way" }, origin);
+        // The pitch files, and the documents the lore-keeper's changes may edit.
+        if (!PITCH_FILES.includes(f) && !DOC_FILES.includes(f)) return send(res, 400, { error: "Only the lore documents are read this way" }, origin);
         return send(res, 200, { ok: true, file: f, text: await fileAt(f, CLONE) }, origin);
       }
       if (url.pathname === "/admin/file") {

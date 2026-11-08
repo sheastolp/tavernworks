@@ -116,6 +116,16 @@
   button.fold:hover::after{color:var(--gold2)}
   .card.shut > :not(h2), .sub.shut > :not(h3){display:none!important}
   .card.shut{gap:0}
+  /* 🧭 Do this next: the prescribed sequence of steps. */
+  .next{border-color:var(--gold)}
+  h2.group{font-family:Cinzel,serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:14px 0 -4px}
+  .stepno{display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:999px;background:var(--gold);color:var(--bg);font:600 13px Inter,sans-serif;letter-spacing:0;margin-right:10px}
+  ol.steps{margin:0;padding-left:24px;display:flex;flex-direction:column;gap:10px}
+  ol.steps li{padding-left:4px}
+  ol.steps li .how{display:block;font-size:14px;color:var(--muted);margin-top:2px}
+  ol.steps kbd{font:600 12.5px Inter,sans-serif;color:var(--gold2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;background:var(--bg2);white-space:nowrap}
+  ol.steps button{padding:4px 12px;font-size:13px;margin-left:6px}
+  ol.steps li.ok{list-style:none;margin-left:-20px;color:var(--green)}
   footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
 </style>
 </head>
@@ -133,58 +143,47 @@
     <div class="row lkrow"><a class="btn primary" href="/orrery/#chat">✒️ Chat with the lore-keeper</a><a class="btn" href="/orrery/control/">Orrery control</a></div>
   </header>
 
-  <section class="card rest" aria-labelledby="h-rest" id="restCard">
-    <h2 id="h-rest">😴 Rest mode · 🤖 Auto mode</h2>
-    <p class="note">While you rest, the laptop's AI runs the Orrery on its own. Every round it judges everything <b>sent in for review</b> and every <b>pitch</b> on the review branch against the lore (approved ones become <b>Your idea</b>, rejected ones are turned down or taken out), <b>comes up with new ideas</b> of its own a few times a day and judges each one before filing it (only the ones it accepts are kept, as <b>Your idea</b>; the rest are only listed below), <b>catches lore.md up</b> for the narrator, and <b>publishes</b> it all to the live Orrery and GuildScribe. Anything the AI can't give a clear answer on waits here for you. Every decision and its reason is listed below and in the change's message on GitHub.</p>
-    <p class="note"><b>🤖 Auto mode</b> does all the same work but <b>never publishes</b>: nothing gets decided for you. <b>Every round writes a new idea</b> (no daily limit) and files it as a pitch with its view, and what it approves from the 📨 queue is filed as a pitch too. <b>Pitches stay pitches</b>: they all wait in 💡 Pitches with the AI's view (would accept or would reject, and why) for you to decide. What it would turn down from the 📨 queue stays there with its reason. You check it and publish (or throw it away) as usual.</p>
-    <p class="count" id="restState">Rest mode: checking the laptop…</p>
-    <div class="row">
-      <label for="restFor" style="flex:0 0 auto">Rest for</label>
-      <select id="restFor" style="width:auto"><option value="8">8 hours</option><option value="24">a day</option><option value="72">3 days</option><option value="168">a week</option><option value="0">until I turn it off</option></select>
-      <button class="primary" type="button" id="restOn" title="The AI decides and publishes on its own">😴 Rest mode on</button>
-      <button type="button" id="autoOn" title="The AI decides, you review and publish">🤖 Auto mode on</button>
-      <button type="button" id="restOff" hidden>☀️ I'm back: turn it off</button>
-      <button type="button" id="restRun">Run a round now</button>
-      <span class="note" id="restSt" role="status"></span>
-    </div>
-    <details id="restLogWrap"><summary class="note">What rest mode has done</summary><ul class="restlog" id="restLog"></ul></details>
-    <p class="note">The owner's token (under Waiting for you) is needed. Something it published by mistake can be put back by hand on GitHub or with a pitch.</p>
+  <section class="card next" aria-labelledby="h-next" id="nextCard">
+    <h2 id="h-next">🧭 Do this next</h2>
+    <p class="note">The exact steps for what's waiting, in order: oldest first, publishing last. Each one names the buttons to press. Only what needs you is listed, and the list (and every open Orrery tab) updates the moment a step is done.</p>
+    <ol class="steps" id="nextSteps"><li class="note">Checking what's waiting…</li></ol>
+    <p class="note" id="nextQuiet" hidden></p>
   </section>
 
-  <section class="card" aria-labelledby="h-pitch">
-    <h2 id="h-pitch">💡 Pitches</h2>
+  <h2 class="group">Review, in order</h2>
+  <section class="card" aria-labelledby="h-inbox" id="inCard">
+    <h2 id="h-inbox"><span class="stepno">1</span>📨 Sent in for review</h2>
+    <p class="note">Codex notes, Wake in Verrowen characters and lore-keeper write-ups that people sent from the Orrery and Verrowen apps or pages wait here on the laptop. Filing one puts it on the review branch as a <b>Pitch</b> in <code>working-notes.md</code>, with the changes above. <b>✔ Accept as your idea</b> puts it there as <b>Your idea</b> instead. Turning it down deletes it. What you send yourself, with your token on that device, skips this and is filed straight away.</p>
+    <div class="row"><button type="button" id="inLoad">Show what's waiting</button><span class="note" id="inStatus" role="status"></span></div>
+    <div id="inList" style="display:flex;flex-direction:column;gap:10px"></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-pitch" id="pitchCard">
+    <h2 id="h-pitch"><span class="stepno">2</span>💡 Pitches</h2>
     <p class="note">Every <b>(Pitch)</b> in <code>working-notes.md</code>, <code>resources.md</code> and <code>bestiary.md</code> on the review branch. <b>✔ Accept as is</b> keeps its words exactly and only marks it <b>(Your idea)</b>. <b>✕ Reject</b> takes it out of the file (a heading pitch with its whole section). Either one is a single change on the review branch: it joins "Waiting for you" below and goes live when you publish, and Throw it all away undoes it. To change the words first, use <b>Edit</b>.</p>
     <div class="row"><button type="button" id="pLoad">Check again</button><span class="note" id="pStatus" role="status"></span></div>
     <div id="pList" style="display:flex;flex-direction:column;gap:10px"></div>
   </section>
 
-  <section class="card" aria-labelledby="h-ai">
+  <section class="card" hidden aria-labelledby="h-ai" id="aiCard">
     <h2 id="h-ai">🤖 Added by the AI</h2>
     <p class="note">Everything rest mode or auto mode put in <code>working-notes.md</code> on the review branch: its own ideas, and what it filed from the 📨 queue, whether still a <b>Pitch</b> or accepted as <b>Your idea</b>. If one turns out to be wrong, <b>🗑 Delete</b> takes its whole section out as one change on the review branch. Publish to take it off the live Orrery too.</p>
     <div class="row"><button type="button" id="aiLoad">Check again</button><span class="note" id="aiStatus" role="status"></span></div>
     <div id="aiList" style="display:flex;flex-direction:column;gap:10px"></div>
   </section>
 
-  <section class="card" aria-labelledby="h-add" id="addCard">
-    <h2 id="h-add">✨ Add to the Orrery</h2>
-    <p class="note">Say what you'd like to add, in your own words, and the laptop's local AI writes it into every file it belongs in: a line for the narrator in <code>lore.md</code>, a row in the roster, a section of the universe draft, an entry in <code>resources.md</code> or a creature in the bestiary. Check and edit every part, add or drop parts, then add it as <b>Your idea</b> or file it as a <b>pitch</b>. It goes on the review branch like everything else. You can also skip the AI and write the parts yourself.</p>
-    <label for="adKind">What is it?</label>
-    <select id="adKind"><option value="person">A person</option><option value="place">A place</option><option value="item">An item or resource</option><option value="creature">A creature</option><option value="other">Something else (a custom, a rule, some history)</option></select>
-    <label for="adAsk">Describe it</label>
-    <textarea id="adAsk" rows="4" maxlength="3000" spellcheck="true" placeholder="e.g. Stoutwell's tanner, a human woman in her forties named Maren Tull who hates the smell of her own work and trades leather for the Wellhouse's ale"></textarea>
-    <div class="row"><button class="primary" type="button" id="adGo">✨ Draft it with the local AI</button><button type="button" id="adHand">Write it myself</button><span class="note" id="adStatus" role="status"></span></div>
-    <div class="draft" id="adDraft" hidden>
-      <label for="adTitle">Name</label>
-      <input id="adTitle" maxlength="100">
-      <div id="adParts" style="display:flex;flex-direction:column;gap:12px;margin-top:10px"></div>
-      <div class="row"><span class="note">Add a part:</span><button type="button" data-add="lore">📜 Lore line</button><button type="button" data-add="section">📖 Section</button><button type="button" data-add="row">👤 Roster row</button><button type="button" data-add="resource">📦 Item</button><button type="button" data-add="creature">🐾 Creature</button></div>
-      <div class="row" id="adMapRow" hidden><button type="button" id="adMap">🗺 Place it on a map</button><span class="note" id="adMapNote"></span></div>
-      <div class="row"><button class="primary" type="button" id="adApply">✔ Add it as Your idea</button><button type="button" id="adPitch">💡 File it as a pitch instead</button><button type="button" id="adCancel">Cancel</button><span class="note" id="adApplySt" role="status"></span></div>
+  <section class="card" aria-labelledby="h-docs" id="docsCard">
+    <h2 id="h-docs"><span class="stepno">3</span>📚 Documents catch-up</h2>
+    <p class="note">The other way round from the lore catch-up: <code>lore.md</code> is the decided canon, and this brings the documents in line with it. The laptop's AI reads <code>universe.md</code>, <code>roster.md</code>, <code>resources.md</code>, <code>bestiary.md</code> and the decided parts of the working notes, and drafts <b>fixes</b> where they contradict the lore, <b>facts</b> the universe draft is missing, <b>new item and resource entries</b> for things the lore names that have none, and a list of <b>places no map shows yet</b>. It runs on the laptop in the background, so you can leave the page; players always go first, so it can take a while. Nothing changes until you tick what to keep and apply it: one change per file on the review branch, which you publish as usual.</p>
+    <div class="row"><button class="primary" type="button" id="dcGo">📚 Catch the documents up</button><span class="note" id="dcStatus" role="status"></span></div>
+    <div class="draft" id="dcDraft" hidden>
+      <div id="dcList" style="display:flex;flex-direction:column;gap:14px"></div>
+      <div class="row"><button class="primary" type="button" id="dcApply">Apply the ticked changes on review</button><button type="button" id="dcAll">Tick all</button><button type="button" id="dcNone">Untick all</button><span class="note" id="dcApplySt" role="status"></span></div>
     </div>
   </section>
 
-  <section class="card" aria-labelledby="h-catch">
-    <h2 id="h-catch">📜 Lore catch-up</h2>
+  <section class="card" aria-labelledby="h-catch" id="cuCard">
+    <h2 id="h-catch"><span class="stepno">4</span>📜 Lore catch-up</h2>
     <p class="note">Keeps <code>lore.md</code>, what the Wake in Verrowen narrator reads, in step with what you've decided. It finds every <b>(Your idea)</b> section in the notes, <code>resources.md</code> and <code>bestiary.md</code> that's new or changed since the last catch-up, and the laptop's AI drafts the lines the lore is missing. Pitches never go in. Check and edit the draft, then add it: it goes on the review branch like everything else.</p>
     <div class="row"><button class="primary" type="button" id="cuGo">📜 Catch the lore up</button><span class="note" id="cuStatus" role="status"></span></div>
     <div class="draft" id="cuDraft" hidden>
@@ -196,53 +195,8 @@
     </div>
   </section>
 
-  <section class="card" aria-labelledby="h-docs" id="docsCard">
-    <h2 id="h-docs">📚 Documents catch-up</h2>
-    <p class="note">The other way round from the lore catch-up: <code>lore.md</code> is the decided canon, and this brings the documents in line with it. The laptop's AI reads <code>universe.md</code>, <code>roster.md</code>, <code>resources.md</code>, <code>bestiary.md</code> and the decided parts of the working notes, and drafts <b>fixes</b> where they contradict the lore, <b>facts</b> the universe draft is missing, <b>new item and resource entries</b> for things the lore names that have none, and a list of <b>places no map shows yet</b>. It runs on the laptop in the background, so you can leave the page; players always go first, so it can take a while. Nothing changes until you tick what to keep and apply it: one change per file on the review branch, which you publish as usual.</p>
-    <div class="row"><button class="primary" type="button" id="dcGo">📚 Catch the documents up</button><span class="note" id="dcStatus" role="status"></span></div>
-    <div class="draft" id="dcDraft" hidden>
-      <div id="dcList" style="display:flex;flex-direction:column;gap:14px"></div>
-      <div class="row"><button class="primary" type="button" id="dcApply">Apply the ticked changes on review</button><button type="button" id="dcAll">Tick all</button><button type="button" id="dcNone">Untick all</button><span class="note" id="dcApplySt" role="status"></span></div>
-    </div>
-  </section>
-
-  <section class="card" aria-labelledby="h-maps" id="mapCard">
-    <h2 id="h-maps">🗺 Maps</h2>
-    <p class="note">Open a map, click where something goes, name it and pick a symbol, and add it. Marks you added can be taken off again. <b>Save the map on review</b> keeps the map's editable SVG and redraws its picture from it, in your browser. You can also start a new map, which the Explorer lists on its own.</p>
-    <div class="row"><label for="mpPick" style="flex:0 0 auto">Map</label><select id="mpPick" style="width:auto"></select><button type="button" id="mpOpen">Open it</button><button type="button" id="mpNewBtn">＋ New map</button><span class="note" id="mpStatus" role="status"></span></div>
-    <div class="draft" id="mpNew" hidden>
-      <label for="mpNewTitle">Title</label><input id="mpNewTitle" maxlength="80" placeholder="e.g. The road to the capital">
-      <label for="mpNewCap">What it shows (the Explorer's caption)</label><input id="mpNewCap" maxlength="300">
-      <div class="row"><button class="primary" type="button" id="mpNewGo">Start the map</button><button type="button" id="mpNewCancel">Cancel</button></div>
-    </div>
-    <div id="mpEdit" hidden>
-      <div id="mpView" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:10px;cursor:crosshair;background:#e6d09f"></div>
-      <p class="note" id="mpWhere">Click the map where the new mark goes.</p>
-      <div class="row">
-        <input id="mpLabel" maxlength="60" placeholder="Name on the map (or pick an item)" list="mpItems" style="flex:2 1 180px"><datalist id="mpItems"></datalist>
-        <input id="mpNote" maxlength="80" placeholder="Small line under it (optional)" style="flex:2 1 180px">
-        <select id="mpSym" style="width:auto"><option value="dot">● Dot</option><option value="house">🏠 Settlement</option><option value="tower">🗼 Tower</option><option value="tree">🌲 Tree</option><option value="mountain">⛰ Mountain</option><option value="cross">✕ Spot</option><option value="none">Label only</option></select>
-        <select id="mpSize" style="width:auto"><option value="1">Normal</option><option value="0.75">Small</option><option value="1.4">Large</option></select>
-        <button type="button" id="mpAdd">Add the mark</button>
-      </div>
-      <ul class="commits" id="mpMarks"></ul>
-      <div class="row"><button class="primary" type="button" id="mpSave">Save the map on review</button><span class="note" id="mpSaveSt" role="status"></span></div>
-    </div>
-  </section>
-
-  <section class="card" aria-labelledby="h-newdoc">
-    <h2 id="h-newdoc">📄 New document</h2>
-    <p class="note">Starts a new document in grand-orrery on the review branch, such as a new world, a city's notes or a campaign, and lists it in the Explorer once published. Fill it with <b>✨ Add to the Orrery</b> (pick it under Section) or edit it on GitHub.</p>
-    <label for="ndTitle">Title</label><input id="ndTitle" maxlength="100" placeholder="e.g. The Capital: Streets & Houses">
-    <label for="ndName">File name</label><input id="ndName" maxlength="50" placeholder="e.g. capital (becomes capital.md)">
-    <label for="ndSub">One line for the Explorer</label><input id="ndSub" maxlength="120">
-    <label for="ndIntro">Opening paragraph</label><textarea id="ndIntro" rows="3" maxlength="3000"></textarea>
-    <label for="ndFirst">First section's heading</label><input id="ndFirst" maxlength="100" placeholder="Notes">
-    <div class="row"><button class="primary" type="button" id="ndGo">📄 Start the document</button><span class="note" id="ndStatus" role="status"></span></div>
-  </section>
-
-  <section class="card" aria-labelledby="h-wait">
-    <h2 id="h-wait">Waiting for you</h2>
+  <section class="card" aria-labelledby="h-wait" id="waitCard">
+    <h2 id="h-wait"><span class="stepno">5</span>Waiting for you</h2>
     <p class="count" id="count">Checking GitHub…</p>
     <div class="summary" id="summary" hidden></div>
     <div class="row">
@@ -277,16 +231,8 @@
     <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Needed to show the chat, file items, publish or throw away">
   </section>
 
-  <section class="card" aria-labelledby="h-inbox">
-    <h2 id="h-inbox">📨 Sent in for review</h2>
-    <p class="note">Codex notes, Wake in Verrowen characters and lore-keeper write-ups that people sent from the Orrery and Verrowen apps or pages wait here on the laptop. Filing one puts it on the review branch as a <b>Pitch</b> in <code>working-notes.md</code>, with the changes above. <b>✔ Accept as your idea</b> puts it there as <b>Your idea</b> instead. Turning it down deletes it. What you send yourself, with your token on that device, skips this and is filed straight away.</p>
-    <div class="row"><button type="button" id="inLoad">Show what's waiting</button><span class="note" id="inStatus" role="status"></span></div>
-    <div id="inList" style="display:flex;flex-direction:column;gap:10px"></div>
-  </section>
-
-
   <section class="card" aria-labelledby="h-log" id="logCard" hidden>
-    <h2 id="h-log">The changes, newest first</h2>
+    <h2 id="h-log">The changes, oldest first</h2>
     <ul class="commits" id="commits"></ul>
   </section>
 
@@ -297,7 +243,7 @@
   </section>
 
   <section class="card" aria-labelledby="h-act" id="actCard" hidden>
-    <h2 id="h-act">Decide</h2>
+    <h2 id="h-act"><span class="stepno">6</span>Decide: publish</h2>
     <div class="row">
       <button class="primary" type="button" id="publish">✔ Publish to the live Orrery</button>
       <button class="danger" type="button" id="discard">Throw it all away</button>
@@ -306,9 +252,83 @@
     <p class="note">Publishing puts the review branch live on <code>main</code>. Throwing it away resets the review branch to what's live now. Both need the owner's token, and the laptop must be awake.</p>
   </section>
 
+  <h2 class="group">Make changes</h2>
+  <p class="note">Tools for adding to the Orrery. What they make lands in the review steps above.</p>
+  <section class="card" aria-labelledby="h-add" id="addCard">
+    <h2 id="h-add">✨ Add to the Orrery</h2>
+    <p class="note">Say what you'd like to add, in your own words, and the laptop's local AI writes it into every file it belongs in: a line for the narrator in <code>lore.md</code>, a row in the roster, a section of the universe draft, an entry in <code>resources.md</code> or a creature in the bestiary. Check and edit every part, add or drop parts, then add it as <b>Your idea</b> or file it as a <b>pitch</b>. It goes on the review branch like everything else. You can also skip the AI and write the parts yourself.</p>
+    <label for="adKind">What is it?</label>
+    <select id="adKind"><option value="person">A person</option><option value="place">A place</option><option value="item">An item or resource</option><option value="creature">A creature</option><option value="other">Something else (a custom, a rule, some history)</option></select>
+    <label for="adAsk">Describe it</label>
+    <textarea id="adAsk" rows="4" maxlength="3000" spellcheck="true" placeholder="e.g. Stoutwell's tanner, a human woman in her forties named Maren Tull who hates the smell of her own work and trades leather for the Wellhouse's ale"></textarea>
+    <div class="row"><button class="primary" type="button" id="adGo">✨ Draft it with the local AI</button><button type="button" id="adHand">Write it myself</button><span class="note" id="adStatus" role="status"></span></div>
+    <div class="draft" id="adDraft" hidden>
+      <label for="adTitle">Name</label>
+      <input id="adTitle" maxlength="100">
+      <div id="adParts" style="display:flex;flex-direction:column;gap:12px;margin-top:10px"></div>
+      <div class="row"><span class="note">Add a part:</span><button type="button" data-add="lore">📜 Lore line</button><button type="button" data-add="section">📖 Section</button><button type="button" data-add="row">👤 Roster row</button><button type="button" data-add="resource">📦 Item</button><button type="button" data-add="creature">🐾 Creature</button></div>
+      <div class="row" id="adMapRow" hidden><button type="button" id="adMap">🗺 Place it on a map</button><span class="note" id="adMapNote"></span></div>
+      <div class="row"><button class="primary" type="button" id="adApply">✔ Add it as Your idea</button><button type="button" id="adPitch">💡 File it as a pitch instead</button><button type="button" id="adCancel">Cancel</button><span class="note" id="adApplySt" role="status"></span></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-maps" id="mapCard">
+    <h2 id="h-maps">🗺 Maps</h2>
+    <p class="note">Open a map, click where something goes, name it and pick a symbol, and add it. Marks you added can be taken off again. <b>Save the map on review</b> keeps the map's editable SVG and redraws its picture from it, in your browser. You can also start a new map, which the Explorer lists on its own.</p>
+    <div class="row"><label for="mpPick" style="flex:0 0 auto">Map</label><select id="mpPick" style="width:auto"></select><button type="button" id="mpOpen">Open it</button><button type="button" id="mpNewBtn">＋ New map</button><span class="note" id="mpStatus" role="status"></span></div>
+    <div class="draft" id="mpNew" hidden>
+      <label for="mpNewTitle">Title</label><input id="mpNewTitle" maxlength="80" placeholder="e.g. The road to the capital">
+      <label for="mpNewCap">What it shows (the Explorer's caption)</label><input id="mpNewCap" maxlength="300">
+      <div class="row"><button class="primary" type="button" id="mpNewGo">Start the map</button><button type="button" id="mpNewCancel">Cancel</button></div>
+    </div>
+    <div id="mpEdit" hidden>
+      <div id="mpView" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:10px;cursor:crosshair;background:#e6d09f"></div>
+      <p class="note" id="mpWhere">Click the map where the new mark goes.</p>
+      <div class="row">
+        <input id="mpLabel" maxlength="60" placeholder="Name on the map (or pick an item)" list="mpItems" style="flex:2 1 180px"><datalist id="mpItems"></datalist>
+        <input id="mpNote" maxlength="80" placeholder="Small line under it (optional)" style="flex:2 1 180px">
+        <select id="mpSym" style="width:auto"><option value="dot">● Dot</option><option value="house">🏠 Settlement</option><option value="tower">🗼 Tower</option><option value="tree">🌲 Tree</option><option value="mountain">⛰ Mountain</option><option value="cross">✕ Spot</option><option value="none">Label only</option></select>
+        <select id="mpSize" style="width:auto"><option value="1">Normal</option><option value="0.75">Small</option><option value="1.4">Large</option></select>
+        <button type="button" id="mpAdd">Add the mark</button>
+      </div>
+      <ul class="commits" id="mpMarks"></ul>
+      <div class="row"><button class="primary" type="button" id="mpSave">Save the map on review</button><span class="note" id="mpSaveSt" role="status"></span></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-newdoc" id="ndCard">
+    <h2 id="h-newdoc">📄 New document</h2>
+    <p class="note">Starts a new document in grand-orrery on the review branch, such as a new world, a city's notes or a campaign, and lists it in the Explorer once published. Fill it with <b>✨ Add to the Orrery</b> (pick it under Section) or edit it on GitHub.</p>
+    <label for="ndTitle">Title</label><input id="ndTitle" maxlength="100" placeholder="e.g. The Capital: Streets & Houses">
+    <label for="ndName">File name</label><input id="ndName" maxlength="50" placeholder="e.g. capital (becomes capital.md)">
+    <label for="ndSub">One line for the Explorer</label><input id="ndSub" maxlength="120">
+    <label for="ndIntro">Opening paragraph</label><textarea id="ndIntro" rows="3" maxlength="3000"></textarea>
+    <label for="ndFirst">First section's heading</label><input id="ndFirst" maxlength="100" placeholder="Notes">
+    <div class="row"><button class="primary" type="button" id="ndGo">📄 Start the document</button><span class="note" id="ndStatus" role="status"></span></div>
+  </section>
+
+  <section class="card rest" aria-labelledby="h-rest" id="restCard">
+    <h2 id="h-rest">😴 Rest mode · 🤖 Auto mode</h2>
+    <p class="note">While you rest, the laptop's AI runs the Orrery on its own. Every round it judges everything <b>sent in for review</b> and every <b>pitch</b> on the review branch against the lore (approved ones become <b>Your idea</b>, rejected ones are turned down or taken out), <b>comes up with new ideas</b> of its own a few times a day and judges each one before filing it (only the ones it accepts are kept, as <b>Your idea</b>; the rest are only listed below), <b>catches lore.md up</b> for the narrator, and <b>publishes</b> it all to the live Orrery and GuildScribe. Anything the AI can't give a clear answer on waits here for you. Every decision and its reason is listed below and in the change's message on GitHub.</p>
+    <p class="note"><b>🤖 Auto mode</b> does all the same work but <b>never publishes</b>: nothing gets decided for you. <b>Every round writes a new idea</b> (no daily limit) and files it as a pitch with its view, and what it approves from the 📨 queue is filed as a pitch too. <b>Pitches stay pitches</b>: they all wait in 💡 Pitches with the AI's view (would accept or would reject, and why) for you to decide. What it would turn down from the 📨 queue stays there with its reason. You check it and publish (or throw it away) as usual.</p>
+    <p class="count" id="restState">Rest mode: checking the laptop…</p>
+    <div class="row">
+      <label for="restFor" style="flex:0 0 auto">Rest for</label>
+      <select id="restFor" style="width:auto"><option value="8">8 hours</option><option value="24">a day</option><option value="72">3 days</option><option value="168">a week</option><option value="0">until I turn it off</option></select>
+      <button class="primary" type="button" id="restOn" title="The AI decides and publishes on its own">😴 Rest mode on</button>
+      <button type="button" id="autoOn" title="The AI decides, you review and publish">🤖 Auto mode on</button>
+      <button type="button" id="restOff" hidden>☀️ I'm back: turn it off</button>
+      <button type="button" id="restRun">Run a round now</button>
+      <span class="note" id="restSt" role="status"></span>
+    </div>
+    <details id="restLogWrap"><summary class="note">What rest mode has done</summary><ul class="restlog" id="restLog"></ul></details>
+    <p class="note">The owner's token (under Waiting for you) is needed. Something it published by mistake can be put back by hand on GitHub or with a pitch.</p>
+  </section>
+
   <footer><a href="/orrery/control/">Orrery control</a> · <a href="/orrery/">Live Orrery</a> · <a href="/">Tavernworks</a></footer>
 </div>
 <a class="lkfab" href="/orrery/#chat" title="Chat with the lore-keeper">✒️ Lore-keeper</a>
+<script src="/orrery-live.js"></script>
 <script>
 const SERVER = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
 const REPO = "sheastolp/grand-orrery";
@@ -332,12 +352,80 @@ function makeFold(box, head, open){
 }
 document.querySelectorAll("section.card").forEach((c) => { const h = c.querySelector(":scope > h2"); if (h) makeFold(c, h, false); });
 { const lk = $("h-lk"); makeFold(lk.closest(".sub"), lk, true); }
+setFold($("nextCard"), true);
 // Opens whatever card (and the chat) holds el, so the page can point at it.
 function reveal(el){
   const s = el.closest(".sub.shut"); if (s) setFold(s, true);
   const c = el.closest(".card"); if (c) setFold(c, true);
   return el;
 }
+
+// ── 🧭 Do this next ──
+// The page works out the exact steps for what's waiting, oldest first and
+// publishing last, naming the buttons to press in order. Only steps that
+// need the owner show (an empty queue, no pitches, nothing waiting are left
+// out), and the list is redrawn the moment anything is done here, when the
+// review branch moves, or when another Orrery tab (the lore-keeper's
+// changes) pings. The other tabs, the live Orrery and the Review Clone, are
+// pinged after every write here, so they redraw too.
+const RV = { ahead: null, behind: 0, inbox: null, pitches: false, accepted: 0, caught: false };
+const kb = (t) => `<kbd>${esc(t)}</kbd>`;
+function drawNext(){
+  const steps = [], token = !!$("token").value.trim();
+  const step = (title, how, go) => steps.push(`<li><b>${title}</b>${go ? ` <button type="button" data-go="${go}">Go there</button>` : ""}<span class="how">${how}</span></li>`);
+  if (!token) step("Enter the owner's token", `Type it in ${kb("Owner's token")} under Waiting for you. Everything else needs it.`, "token");
+  if (RV.inbox === false) step("Wake the laptop", "It couldn't be reached, so what was sent in can't be shown. Then press " + kb("Show what's waiting") + ".", "inLoad");
+  inbox.forEach((it) => step(`📨 Sent in: ${esc(it.title || "Untitled")}`, `Read it, edit the title or text if you like, then press ${kb("File it for review")} (a pitch) or ${kb("✔ Accept as your idea")}, or ${kb("Turn it down")} and tap it again.${it.ai ? " Auto mode would turn it down: " + esc(it.ai.why) : ""}`, "in:" + it.id));
+  const open = pitches.filter((p) => !p.done);
+  open.slice(0, 15).forEach((p) => step(`💡 Pitch: ${esc(p.name)}`, `${esc(p.file)}${p.ai ? " · auto mode would " + (p.ai.verdict === "approve" ? "accept" : "reject") + " it" : ""}. Press ${kb("✔ Accept as is")} to make it canon, or ${kb("✕ Reject")} and tap it again to take it out. To change its words first, press ${kb("Edit")}.`, "p:" + pitches.indexOf(p)));
+  if (open.length > 15) steps.push(`<li class="note">…and ${open.length - 15} more pitches under 💡 Pitches.</li>`);
+  if (!$("adDraft").hidden) step("✨ Finish what you're adding", `Check every part, then press ${kb("✔ Add it as Your idea")} or ${kb("💡 File it as a pitch instead")}.`, "adApply");
+  if (!$("dcDraft").hidden && !$("dcApply").hidden) step("📚 Apply the documents catch-up", `Untick anything wrong, edit the new words if you like, then press ${kb("Apply the ticked changes on review")}.`, "dcApply");
+  if (!$("cuDraft").hidden) step("📜 Add the lore catch-up", `Check the lines against the sections they came from, then press ${kb("Add to lore.md for review")}.`, "cuAdd");
+  else if (RV.accepted && !RV.caught) step("📜 Catch the lore up", `You made ${RV.accepted} thing${RV.accepted > 1 ? "s" : ""} canon, so the narrator's lore needs the lines. Press ${kb("📜 Catch the lore up")}, check the draft, then press ${kb("Add to lore.md for review")}.`, "cuGo");
+  if (RV.ahead){
+    step("🔍 Look it over in the Review Clone", `Press ${kb("🔍 Open the Review Clone")} and browse it as it will look live. The changes are listed below, oldest first.`, "waitCard");
+    step("✔ Publish", `Press ${kb("✔ Publish to the live Orrery")}, then tap it again within 5 seconds. The live Orrery, GuildScribe and the narrator update at once. (${kb("Throw it all away")}, tapped twice, drops everything instead.)`, "publish");
+  } else if (RV.behind) step("Line the clone up with live", `Live has changes that went around the review. Press ${kb("Throw it all away")} and tap it again.`, "discard");
+  $("nextSteps").innerHTML = steps.length ? steps.join("")
+    : `<li class="ok">${RV.ahead === null ? "Checking what's waiting…" : "✔ Nothing needs you. The live Orrery is up to date."}</li>`;
+  // What needs no input stays out of the way, one tap from being shown.
+  const quiet = aiItems.length;
+  $("nextQuiet").hidden = !quiet;
+  if (quiet) $("nextQuiet").innerHTML = `${quiet} thing${quiet > 1 ? "s" : ""} the AI added need${quiet > 1 ? "" : "s"} nothing from you (its pitches are in the steps above). <button type="button" id="showQuiet">${$("aiCard").hidden ? "Show them" : "Hide them"}</button>`;
+}
+$("nextCard").addEventListener("click", (e) => {
+  if (e.target.id === "showQuiet"){ $("aiCard").hidden = !$("aiCard").hidden; if (!$("aiCard").hidden) setFold($("aiCard"), true); drawNext(); return; }
+  const b = e.target.closest("button[data-go]"); if (!b) return;
+  const g = b.dataset.go;
+  const el = g.startsWith("in:") ? $("inList").querySelector(`[data-in="${CSS.escape(g.slice(3))}"]`)
+    : g.startsWith("p:") ? $("pList").querySelector(`[data-p="${g.slice(2)}"]`) : $(g);
+  if (!el) return;
+  reveal(el).scrollIntoView({ behavior: "smooth", block: "center" });
+  const f = el.matches("input,textarea,button") ? el : el.querySelector("textarea,input,button.primary");
+  if (f) setTimeout(() => f.focus({ preventScroll: true }), 350);
+});
+// Drafts opening or closing change the steps.
+// (Only real changes outside this card count, so redrawing it can't loop.)
+new MutationObserver((recs) => {
+  if (recs.some((r) => !$("nextCard").contains(r.target) && (r.oldValue === null) !== !r.target.hasAttribute("hidden"))) drawNext();
+}).observe(document.querySelector(".wrap"), { subtree: true, attributes: true, attributeFilter: ["hidden"], attributeOldValue: true });
+// After a write here: re-read, and tell every other open Orrery tab.
+function changed(){ load(); if (window.OrreryLive) OrreryLive.ping("review", "review page"); }
+// Live: the review and main branches are checked every 20 seconds while the
+// page shows (unchanged ones cost nothing), and at once on a ping.
+const liveHeads = {};
+let liveSoon = 0;
+async function liveCheck(){
+  if (!window.OrreryLive || document.visibilityState !== "visible") return;
+  const [r, m] = await Promise.all([OrreryLive.head("review"), OrreryLive.head("main")]);
+  const moved = (r && liveHeads.review && r !== liveHeads.review) || (m && liveHeads.main && m !== liveHeads.main);
+  if (r) liveHeads.review = r; if (m) liveHeads.main = m;
+  if (moved){ load(); loadPitches(); }
+}
+setInterval(liveCheck, 20000); liveCheck();
+document.addEventListener("visibilitychange", liveCheck);
+if (window.OrreryLive) OrreryLive.on(() => { clearTimeout(liveSoon); liveSoon = setTimeout(liveCheck, 1200); });
 
 function when(iso){
   try{ return new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }catch(e){ return iso; }
@@ -372,6 +460,7 @@ async function load(){
   }catch(e){ $("count").innerHTML = '<span class="minus">' + esc(e.message || "Couldn't reach GitHub.") + "</span>"; return; }
 
   const ahead = j.ahead_by || 0, behind = j.behind_by || 0;
+  RV.ahead = ahead; RV.behind = behind; drawNext();
   if (window.tavernPWA) tavernPWA.badge(ahead);   // the number on the Orrery app icon
   $("logCard").hidden = $("filesCard").hidden = $("actCard").hidden = !ahead;
   if (!ahead){
@@ -389,7 +478,8 @@ async function load(){
   $("count").innerHTML = `<b>${ahead}</b> change${ahead > 1 ? "s" : ""} waiting, touching <b>${files.length}</b> file${files.length === 1 ? "" : "s"}.` +
     (behind ? ` <span class="note">Live also has ${behind} change${behind > 1 ? "s" : ""} the clone doesn't; publishing merges the two.</span>` : "");
 
-  $("commits").innerHTML = (j.commits || []).slice().reverse().map((c) => {
+  // Oldest first, the order they were made in, so the newest is at the bottom.
+  $("commits").innerHTML = (j.commits || []).map((c) => {
     const msg = c.commit.message.split("\n");
     return `<li><b>${esc(msg[0])}</b> <small>· ${esc(when(c.commit.author.date))} · <a href="${esc(c.html_url)}" target="_blank" rel="noopener">${esc(c.sha.slice(0, 7))}</a></small>${msg.slice(1).join("\n").trim() ? `<br><small>${esc(msg.slice(1).join(" ").trim())}</small>` : ""}</li>`;
   }).join("");
@@ -430,7 +520,7 @@ function confirmTwice(btn, label, then){
 function act(path, doing, done){
   const st = $("actStatus"); st.className = "status"; st.textContent = doing;
   ["publish", "discard"].forEach((id) => $(id).disabled = true);
-  owner(path).then((j) => { st.textContent = done(j); setTimeout(load, 1500); })
+  owner(path).then((j) => { st.textContent = done(j); RV.accepted = 0; RV.caught = false; setTimeout(() => { changed(); if (window.OrreryLive) OrreryLive.ping("main", path); }, 1500); })
     .catch((e) => { st.className = "status err"; st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; })
     .finally(() => ["publish", "discard"].forEach((id) => $(id).disabled = false));
 }
@@ -457,8 +547,9 @@ async function inboxCall(method, body){
 }
 async function loadInbox(){
   const st = $("inStatus"); st.textContent = "Asking the laptop…";
-  try{ inbox = (await inboxCall("GET")).items || []; }
-  catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; return; }
+  try{ inbox = ((await inboxCall("GET")).items || []).slice().sort((a, b) => String(a.at || "").localeCompare(String(b.at || ""))); RV.inbox = true; }
+  catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; RV.inbox = false; $("inCard").hidden = false; drawNext(); return; }
+  $("inCard").hidden = !inbox.length; drawNext();
   st.textContent = inbox.length ? inbox.length + " waiting." : "Nothing is waiting.";
   $("inList").innerHTML = inbox.map((it) => `<div class="sub" data-in="${esc(it.id)}">
     <p class="note">${FROM[it.source] || esc(it.source)} · ${esc(when(it.at))}${it.name ? " · sent by " + esc(it.name) : ""}${it.about ? " · " + esc(it.about) : ""}</p>
@@ -478,11 +569,14 @@ $("inList").addEventListener("click", async (e) => {
   try{
     await inboxCall("POST", { id, action: b.dataset.act, title: box.querySelector('[data-f="title"]').value, body: box.querySelector('[data-f="body"]').value });
     box.remove(); inbox = inbox.filter((x) => x.id !== id);
+    if (b.dataset.act === "accept") RV.accepted++;
     $("inStatus").textContent = inbox.length ? inbox.length + " waiting." : "Nothing is waiting.";
-    if (b.dataset.act !== "dismiss") setTimeout(load, 1500);
+    $("inCard").hidden = !inbox.length; drawNext();
+    if (b.dataset.act !== "dismiss") setTimeout(changed, 1500);
   }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; box.querySelectorAll("button").forEach((x) => x.disabled = false); }
 });
-if ($("token").value.trim()) loadInbox();
+if ($("token").value.trim()) loadInbox(); else $("inCard").hidden = true;
+$("token").addEventListener("change", () => { drawNext(); if ($("token").value.trim()) loadInbox(); });
 load();
 
 // ── The owner's latest lore-keeper chat ──
@@ -590,7 +684,7 @@ async function fileDraft(decided){
     try{ localStorage.setItem(KEY, token); }catch(e){}
     lkChat.filed = { at: new Date().toISOString(), title, sha: j.sha };
     $("rvDraft").hidden = true; drawFiled();
-    setTimeout(load, 1500);
+    setTimeout(changed, 1500);
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
   finally{ $("rvFile").disabled = $("rvAccept").disabled = false; }
 }
@@ -632,8 +726,9 @@ $("cuAdd").addEventListener("click", async () => {
   try{
     const j = await cuCall("/admin/lore-catchup/apply", { head: cu.head, lines: $("cuLines").value });
     $("cuDraft").hidden = true;
+    RV.caught = true;
     $("cuStatus").innerHTML = j.added ? `✔ Added ${j.added} line${j.added > 1 ? "s" : ""} to lore.md (<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>). Publish to give them to the narrator.` : "✔ Marked as caught up.";
-    setTimeout(load, 1500);
+    setTimeout(changed, 1500);
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
   finally{ b.disabled = false; }
 });
@@ -702,7 +797,7 @@ $("dcApply").addEventListener("click", async () => {
     const j = await cuCall("/admin/docs-catchup/apply", picked);
     $("dcDraft").hidden = true; dc = null;
     $("dcStatus").innerHTML = `✔ On the review branch: ${j.done.map((d) => `${esc(d.file)} (${d.changes}, <a href="${esc(d.url || "#")}" target="_blank" rel="noopener">${esc(String(d.sha || "").slice(0, 7))}</a>)`).join(", ") || "nothing changed"}.${j.skipped.length ? ` ${j.skipped.length} couldn't be applied because the text had changed: ${esc(j.skipped.join("; "))}.` : ""} Publish under Waiting for you to put it live.`;
-    setTimeout(load, 1500);
+    setTimeout(changed, 1500);
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
   finally{ b.disabled = false; }
 });
@@ -799,7 +894,7 @@ async function adApply(asPitch){
     $("adDraft").hidden = true; adOpts = null;
     $("adStatus").innerHTML = `✔ ${asPitch ? "Filed as a pitch" : "Added as Your idea"} on the review branch: ${j.done.map((d) => `${esc(d.file)} (<a href="${esc(d.url || "#")}" target="_blank" rel="noopener">${esc(String(d.sha || "").slice(0, 7))}</a>)`).join(", ")}.${j.skipped.length ? " Not added: " + esc(j.skipped.join("; ")) + "." : ""} Publish under Waiting for you to put it live.`;
     $("adAsk").value = "";
-    setTimeout(load, 1500);
+    setTimeout(changed, 1500);
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
   finally{ $("adApply").disabled = $("adPitch").disabled = false; }
 }
@@ -945,7 +1040,7 @@ $("mpSave").addEventListener("click", async () => {
     const j = await cuCall("/admin/map/save", { file: mp.file, svg: svgText, png, isNew: !!mp.isNew, title: mp.title, caption: mp.caption, what: mp.isNew ? "a new map" : (marks.length ? "marks: " + marks.join(", ") : "marks taken off") });
     mp.isNew = false;
     st.innerHTML = `✔ Saved on the review branch (<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>). Publish to put it live.`;
-    setTimeout(load, 1500);
+    setTimeout(changed, 1500);
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
   finally{ b.disabled = false; }
 });
@@ -983,7 +1078,7 @@ $("ndGo").addEventListener("click", async () => {
     const j = await cuCall("/admin/new-document", { name: $("ndName").value, title: $("ndTitle").value, sub: $("ndSub").value, intro: $("ndIntro").value, first: $("ndFirst").value });
     st.innerHTML = `✔ ${esc(j.file)} is on the review branch (<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>). Add to it with ✨ Add to the Orrery, then publish.`;
     adOpts = null; ["ndTitle", "ndName", "ndSub", "ndIntro", "ndFirst"].forEach((id) => { $(id).value = ""; }); delete $("ndName").dataset.touched;
-    setTimeout(load, 1500);
+    setTimeout(changed, 1500);
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
   finally{ b.disabled = false; }
 });
@@ -1092,6 +1187,7 @@ async function loadPitches(){
   try{ if ($("token").value.trim()) ((await restCall()).views || []).forEach((v) => { views[v.file + "\n" + v.line] = v; }); }catch(e){}
   pitches.forEach((p) => { p.ai = views[p.file + "\n" + p.line]; });
   st.textContent = pitches.length ? pitches.length + " pitch" + (pitches.length === 1 ? "" : "es") + " on the review branch." : "No pitches left. Everything is decided.";
+  RV.pitches = true; $("pitchCard").hidden = !pitches.length; drawNext();
   $("pList").innerHTML = pitches.map((p, i) => `<div class="sub pitch" data-p="${i}">
     <p class="note">${esc(p.file)}${p.where ? " · " + esc(p.where) : ""}</p>
     <div class="pname">${esc(p.name)}</div>
@@ -1138,7 +1234,7 @@ async function deleteAi(line, b, box, st){
     try{ localStorage.setItem(KEY, token); }catch(err){}
     box.classList.add("done"); btns.forEach((x) => x.remove());
     st.innerHTML = `🗑 Deleted (<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>). Publish to take it off the live Orrery.${j.decided ? " If the lore catch-up already added lines for it, take those out of lore.md too." : ""}`;
-    setTimeout(() => { loadPitches(); load(); }, 1500);
+    setTimeout(() => { loadPitches(); changed(); }, 1500);
   }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; btns.forEach((x) => x.disabled = false); b.dataset.armed = ""; b.textContent = "🗑 Delete"; }
 }
 $("aiLoad").addEventListener("click", loadPitches);
@@ -1165,8 +1261,10 @@ $("pList").addEventListener("click", async (e) => {
     box.classList.add("done"); btns.forEach((x) => x.remove());
     const link = `<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>`;
     st.innerHTML = reject ? `✕ Rejected and taken out (${link}). Publish to make it final.` : `✔ Accepted as Your idea (${link}). Publish to put it live.`;
+    p.done = true; if (!reject) RV.accepted++;
+    drawNext(); setTimeout(() => { box.hidden = true; $("pitchCard").hidden = !pitches.some((x) => !x.done); }, 4000);
     // Later pitches in the same file still match by their own line, so the rest stay valid.
-    setTimeout(load, 1500);
+    setTimeout(changed, 1500);
   }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; btns.forEach((x) => x.disabled = false); if (reject) b.textContent = "✕ Reject"; }
 });
 </script>

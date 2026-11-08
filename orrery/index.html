@@ -245,6 +245,12 @@
   .writeup button.closew{border-color:var(--line);color:var(--muted);padding:4px 10px;font-size:15px;line-height:1}
   .linkbtn{background:none;border:0;padding:0;color:var(--gold2);font:inherit;text-decoration:underline;cursor:pointer}
   .writeup button.primary{background:var(--gold);color:var(--bg);font-weight:800}
+  /* 🛠 A change asked for in plain words: the lore-keeper's verdict and the exact edits. */
+  .change .edit{border:1px solid var(--line);border-radius:10px;padding:8px 12px;font:13.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+  .change .edit .f{color:var(--muted);font-family:Inter,sans-serif;font-size:12.5px}
+  .change .edit .d{color:#f0b39a} .change .edit .a{color:#b8dca6}
+  .change .verdict.ok{color:var(--green)} .change .verdict.no{color:var(--ember)}
+  .change ul{margin:0;padding-left:20px}
   .sr{position:absolute;left:-9999px}
   @media (max-width:560px){.chathead .about{display:none}.chathead .topic select{max-width:170px}}
   .chatbox{height:min(76dvh,740px)}
@@ -424,6 +430,7 @@
 <script src="/orrery/review-summary.js"></script>
 <script src="/orrery-review.js"></script>
 <script src="/orrery-db.js"></script>
+<script src="/orrery-live.js"></script>
 <script src="/pwa.js" data-sw="/orrery/sw.js" data-scope="/orrery/" data-badge="review"></script>
 <script src="/voice-input.js"></script>
 <script src="/ai-model-note.js"></script>
@@ -1451,8 +1458,10 @@ function route() {
 
 // The branch's newest commit, or "" when GitHub's API is out of reach (it
 // allows 60 calls an hour per address).
-const branchHead = () => fetch("https://api.github.com/repos/sheastolp/grand-orrery/commits/" + BRANCH, { cache: "no-store", headers: { accept: "application/vnd.github.sha" } })
-  .then((r) => (r.ok ? r.text() : "")).then((t) => (/^[0-9a-f]{40}$/.test(t.trim()) ? t.trim() : "")).catch(() => "");
+// It goes through /orrery-live.js, which sends GitHub the last ETag back, so
+// an unchanged branch costs nothing against that limit.
+const branchHead = () => (window.OrreryLive ? OrreryLive.head(BRANCH) : fetch("https://api.github.com/repos/sheastolp/grand-orrery/commits/" + BRANCH, { cache: "no-store", headers: { accept: "application/vnd.github.sha" } })
+  .then((r) => (r.ok ? r.text() : "")).then((t) => (/^[0-9a-f]{40}$/.test(t.trim()) ? t.trim() : "")).catch(() => ""));
 let canonSha = "";
 // quiet: a background re-read (the canon moved on GitHub). It doesn't show
 // "Loading", and leaves an open chat alone so nothing typed is lost.
@@ -1502,7 +1511,8 @@ async function load(quiet = false, head) {
   const onChat = location.hash.startsWith("#chat");
   // A background re-read redraws the Scroll in place, so the reader keeps their place.
   if (quiet && onScroll()) refreshScroll();
-  else if (!quiet || !onChat) route();
+  else if (quiet && !onChat) redrawInPlace();
+  else if (!quiet) route();
 }
 
 // ── The live link with GuildScribe (the Twitch bot's guild hall) ──
@@ -1633,11 +1643,43 @@ function hallCanon() {
 function redrawInPlace() { const y = window.scrollY; route(); window.scrollTo(0, y); }
 setInterval(() => { if (document.visibilityState === "visible" && hall && /^#(roster|person\/)/.test(location.hash)) redrawInPlace(); }, 60000);
 setInterval(() => { if (document.visibilityState === "visible") loadHall(); }, 120000);
-setInterval(async () => {
-  if (document.visibilityState !== "visible") return;
-  const head = await branchHead();
-  if (head && canonSha && head !== canonSha) load(true, head).then(applyHall);
-}, 300000);
+// ── Live: every tab (Items, Resources, the Roster, the Scroll…) follows the
+// Orrery on its own. The branch is checked every 30 seconds while the page
+// shows (an unchanged branch costs nothing; see /orrery-live.js): a new
+// commit re-reads the documents, and a new database build (it lands a
+// minute or two after the commit) redraws what comes from the database.
+// Whatever writes to the Orrery from this browser (the lore-keeper's
+// changes, the review page's accept, file and publish) pings every open
+// tab, which checks at once and then every 8 seconds for a few minutes,
+// so the change shows as soon as GitHub has it.
+let liveBusy = false, liveFast = 0, liveTimer = 0;
+function redrawFromDb() {
+  buildPeople(); buildItems(); buildBeasts(); buildVerrowen();
+  if (location.hash.startsWith("#chat")) return;   // never redraw over a chat in progress
+  if (onScroll()) refreshScroll(); else redrawInPlace();
+}
+async function liveCheck() {
+  if (liveBusy || document.visibilityState !== "visible" || !Object.keys(text).length) return;
+  liveBusy = true;
+  try {
+    const head = await branchHead();
+    if (head && head !== canonSha) { await load(true, head); applyHall(); }
+    let moved = false;
+    for (const o of [orrery, orreryReview]) if (o && await o.refresh()) moved = true;
+    if (moved) redrawFromDb();
+  } catch (e) { console.error("orrery live", e); } finally { liveBusy = false; }
+}
+function liveLoop() {
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(async () => { await liveCheck(); liveLoop(); }, Date.now() < liveFast ? 8000 : 30000);
+}
+liveLoop();
+if (window.OrreryLive) OrreryLive.on((m) => {
+  if (m.branch !== BRANCH && !(m.branch === "review" && !CLONE)) return;
+  liveFast = Date.now() + 4 * 60000;
+  liveCheck().then(liveLoop);
+});
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") liveCheck(); });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && Date.now() - hallAt > 120000) loadHall(); });
 
 // ── The chat: the local AI helps create and review characters, and work
@@ -1891,6 +1933,7 @@ function drawChat() {
         <button class="mic" type="button" id="micSay" title="Speak your message" aria-label="Voice typing" hidden>🎤</button>
         <button class="quiet" type="button" id="resendSay" title="Ask the lore-keeper to answer the last message again. Handy right after the laptop wakes up." aria-label="Resend">↻<span class="lbl"> Resend</span></button>
         <button type="button" id="writeBtn">${c ? writeLabel(c) : ""}</button>
+        <button class="quiet" type="button" id="changeSay" title="Say a change in plain words (rename someone, fix a detail, add a fact). The lore-keeper checks it against the canon, and only a change that fits can be applied, on the review branch." aria-label="Make it a change">🛠<span class="lbl"> Make it a change</span></button>
         <button class="quiet" type="button" id="saveReview" title="Save this chat as it stands for the owner's review, on the Review Clone page. It replaces the last one saved." aria-label="Save for review">📥<span class="lbl"> Save for review</span></button>
         <button class="quiet" type="button" id="copyChat" title="Copy the whole chat as text" aria-label="Copy the chat">📋<span class="lbl"> Copy chat</span></button>
         <button class="quiet" type="button" id="backChat" title="Back to the start. This chat is kept, so you can pick it up later." aria-label="Back to the start">←<span class="lbl"> Back</span></button>
@@ -1908,6 +1951,7 @@ function drawChat() {
     <pre id="writeText"></pre>
     <div class="row"><button class="primary" type="button" id="copyWrite">Copy</button><button type="button" id="codexWrite" hidden>🗂 Add to the Codex</button><button type="button" id="reviewWrite" title="Send this write-up to the Grand Orrery's review. It waits on the Review Clone until the owner publishes it.">📨 Send for review</button><button type="button" id="closeWrite2">Close</button><span class="chatnote" id="writeNote"></span></div>
   </section>
+  <section class="writeup change" id="changeBox" aria-live="polite" hidden></section>
   <p class="chatnote" id="reopenWrite" hidden><button type="button" class="linkbtn" id="showWrite">📄 Show the write-up again</button></p>
   <p class="chatnote" style="margin-top:14px">The lore-keeper is a small AI model on the same laptop as <a href="/local-ai/">Local AI</a> and the <a href="/verrowen/">Wake in Verrowen</a> narrator. It reads the documents above${codexNotes().length ? " and your decided <a href=\"/verrowen/codex/\">Codex</a> notes" : ""} as canon. Chats are kept in this browser only. If the laptop is asleep, it can't answer.</p>`;
   document.querySelector(".chatbox").classList.toggle("playing", !!c);
@@ -1936,6 +1980,8 @@ function drawChat() {
     if (location.hash === "#chat") showChatBox();
     $("say").onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendSay(); } };
     $("writeBtn").onclick = writeUp;
+    $("changeSay").onclick = () => askChange(c);
+    drawChange(c);
     if ($("topicPick")) $("topicPick").onchange = () => { const v = $("topicPick").value; c.pin = v === "auto" ? "" : v; if (!c.pin) c.topic = detectTopic(c); keepChats(); drawChat(); };
     $("resendSay").onclick = resendSay;
     $("stopSay").onclick = () => { if (chatStopper) chatStopper.abort(); };
@@ -2011,7 +2057,7 @@ function topicOptions(c) {
   return `<option value="auto"${c.pin ? "" : " selected"}>${auto.icon} ${esc(auto.label)} (worked out)</option>` + TOPICS.map((t) => `<option value="${t.id}"${c.pin === t.id ? " selected" : ""}>${t.icon} ${esc(t.label)}</option>`).join("");
 }
 function chatStatus(t, err) { const s = $("chatstatus"); if (s) { s.textContent = t || ""; s.className = "chatstatus" + (err ? " err" : ""); } }
-function setChatBusy(b) { chatBusy = b; ["sendSay", "writeBtn", "backChat", "resendSay", "startOpen", "topicPick"].forEach((id) => { if ($(id)) $(id).disabled = b; }); if ($("stopSay")) $("stopSay").hidden = !b; }
+function setChatBusy(b) { chatBusy = b; ["sendSay", "writeBtn", "changeSay", "backChat", "resendSay", "startOpen", "topicPick"].forEach((id) => { if ($(id)) $(id).disabled = b; }); if ($("stopSay")) $("stopSay").hidden = !b; }
 
 function drawStart() {
   const earlier = chats.slice(0, 8);
@@ -2027,7 +2073,7 @@ function drawStart() {
   ];
   $("chatlog").innerHTML = `<div class="chatstart">
     <h3>What's on your mind?</h3>
-    <p class="note">The lore-keeper knows the Grand Orrery's lore, roster, places and items. Ask it anything, pitch an idea, or ask for a review. It works out from what you say whether you're on a character, a region, a rule of the world, magic or something else, and reads up on that part of the canon. Change the subject whenever you like.</p>
+    <p class="note">The lore-keeper knows the Grand Orrery's lore, roster, places and items. Ask it anything, pitch an idea, or ask for a review. To change the canon, just say so (“rename Tansy Ninefingers to Tansy Sevenfingers”) or press 🛠 Make it a change: it checks the change against the canon, and only one that fits can be applied, on the review branch. It works out from what you say whether you're on a character, a region, a rule of the world, magic or something else, and reads up on that part of the canon. Change the subject whenever you like.</p>
     <div class="opt">
       <label class="sr" for="opener">Your first message</label>
       <textarea id="opener" maxlength="${MAX_SAY}" placeholder="Optional: a halfling miller who hides a fire gift from the Elderhold… or leave it blank and it suggests a few things to work on."></textarea>
@@ -2162,6 +2208,8 @@ function sendSay() {
   if (chatVoice) chatVoice.stop();
   const t = $("say").value.trim();
   if (!t) return chatStatus("Write something first.", true);
+  // "Rename Tansy to…", "make Doric sixty", "add that…": a change, not a question.
+  if (looksLikeChange(t)) return askChange(c);
   c.messages.push({ role: "user", content: t.slice(0, MAX_SAY) }); $("say").value = ""; fitSay();
   if (c.mode === "chat") {
     const was = c.topic; c.topic = detectTopic(c);
@@ -2213,6 +2261,229 @@ async function ask(c, mode, onDone, after) {
       : offline ? "The lore-keeper couldn't be reached. The laptop may be asleep; try again later."
       : "The lore-keeper couldn't answer: " + e.message + ". Press ↻ Resend to try again.", !stopped);
   } finally { chatStopper = null; live.remove(); setChatBusy(false); }
+}
+
+// ── 🛠 Changes in plain words ──
+// The owner says what to change ("rename Tansy Ninefingers to Tansy
+// Sevenfingers", "Doric is sixty, not fifty"). Only the parts of the
+// documents it touches are sent, as they stand on the review branch, with
+// the narrator's lore lines that share its words, and the lore-keeper
+// answers with one small JSON object: does it fit the canon, and the exact
+// edits. The page then checks every edit itself (the file may be changed
+// here, the old words are there exactly once and were in what was sent, no
+// DM lore, no links, nothing still named the old way), shows them, and
+// only a change that fits and passes can be applied. It goes on the review
+// branch through the laptop's documents catch-up (one commit per file), so
+// it waits on the Review Clone like everything else, and every open
+// Orrery tab redraws as soon as GitHub has it.
+// lore.md is only changed by the lore catch-up, and midkemia.md (DM lore)
+// only from the DM, so neither is offered.
+const CHANGE_FILES = ["roster.md", "universe.md", "working-notes.md", "resources.md", "bestiary.md"];
+const CHANGE_BUDGET = 7000, CHANGE_LORE = 12;
+// Kept short on purpose: a change sends only what it touches, not the whole canon.
+const CHANGE_KEEPER = `You are the Orrery's lore-keeper, checking an edit to the Grand Orrery, a medieval fantasy universe. LORE and SOURCE are canon. Setting rules: magic is weak, everyday and costs mana; objects hold magic but don't make it; Verrowen is a whole world and Stoutwell one small village in it.`;
+const CHANGE_VERB = /^\s*(?:please\s+|can you\s+|could you\s+|let'?s\s+|i want to\s+)?(?:change|rename|set|replace|update|fix|correct|remove|delete|drop|move|make|add|give|swap)\b/i;
+const CHANGE_TASK = `TASK: the author wants to CHANGE the canon. REQUEST is what they asked for. SOURCE is the exact current text of the parts of the documents it touches; each part starts with "### FILE: <file>". Check the change against the LORE and the rest of SOURCE, then reply with ONE JSON object and nothing else:
+{"verdict":"fits"|"clashes"|"unclear","why":"one or two plain sentences","clash":"the exact canon words it clashes with, or \"\"","edits":[{"file":"<file>","old":"text copied exactly from SOURCE, a whole line where you can, at least 8 characters","new":"the same text with the change made"}],"adds":[{"file":"<file>","heading":"a heading line copied exactly from SOURCE","text":"one new fact, one line"}]}
+Rules: copy "old" character for character from SOURCE. Change only what the request needs, but change every place in SOURCE that must follow for the canon to stay consistent (a rename changes every mention). Keep each line's Markdown, tags and format. Never touch a (DM lore) part, never add a link. "fits" only when nothing in the canon says otherwise. If it clashes or is unclear, leave edits and adds empty and say why in "why".`;
+// A change, not a question: an editing verb, and it names something the Orrery has.
+function looksLikeChange(t) {
+  if (!CHANGE_VERB.test(t)) return false;
+  return [...PEOPLE, ...ITEMS, ...BEASTS, ...PLACES].some((x) => x.names && x.names.length && hits(patternFor(x.names), t));
+}
+// The review branch's documents, read through the laptop (owner's token),
+// or GitHub's API when the laptop can't; kept a minute, dropped on apply.
+let reviewDocs = null;
+async function readReviewDocs() {
+  if (reviewDocs && Date.now() - reviewDocs.at < 60000) return reviewDocs.files;
+  const token = ownerToken(), files = {};
+  await Promise.all(CHANGE_FILES.map(async (f) => {
+    try {
+      const r = await fetch(AI + "/admin/review-text?file=" + encodeURIComponent(f), { cache: "no-store", headers: { authorization: "Bearer " + token } });
+      if (r.ok) { const j = await r.json(); if (typeof j.text === "string") return (files[f] = j.text); }
+    } catch {}
+    const r = await fetch("https://api.github.com/repos/sheastolp/grand-orrery/contents/" + f + "?ref=review", { cache: "no-store", headers: { accept: "application/vnd.github.raw+json" } });
+    files[f] = r.ok ? await r.text() : null;
+  }));
+  // A file that couldn't be read is checked as empty, flagged, and not kept.
+  const failed = CHANGE_FILES.filter((f) => files[f] === null);
+  for (const f of failed) files[f] = "";
+  Object.defineProperty(files, "failed", { value: failed });
+  if (!failed.length) reviewDocs = { at: Date.now(), files };
+  return files;
+}
+// Sections of every changeable document (any heading level), with whether they're DM lore.
+function changeSections(files) {
+  const out = [];
+  for (const f of CHANGE_FILES) {
+    const lines = String(files[f] || "").replace(/\r/g, "").split("\n");
+    let cur = { file: f, head: "", start: 0, lines: [] };
+    const push = () => { if (cur.lines.join("").trim()) out.push({ ...cur, body: cur.lines.join("\n") }); };
+    lines.forEach((l) => {
+      if (/^#{1,4}\s/.test(l)) { push(); cur = { file: f, head: l, lines: [l] }; }
+      else cur.lines.push(l);
+    });
+    push();
+  }
+  out.forEach((x) => { x.dm = /\(DM lore\)/i.test(x.head); });
+  return out;
+}
+// What's sent: the sections that name what the request names, then those
+// sharing the most of its words, within the budget. Never DM lore.
+function changeContext(req, files) {
+  const named = [...PEOPLE, ...ITEMS, ...BEASTS, ...PLACES].filter((x) => x.names && x.names.length && hits(patternFor(x.names), req));
+  const words = [...new Set((req.toLowerCase().match(/[a-z][a-z'-]{3,}/g) || []).filter((w) => !STOP.has(w)))];
+  const scored = changeSections(files).filter((x) => !x.dm).map((x) => {
+    const low = x.body.toLowerCase();
+    const n = named.reduce((a, it) => a + 5 * hits(patternFor(it.names), x.body), 0) + words.filter((w) => low.includes(w)).length;
+    return { ...x, n };
+  }).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+  const picked = []; let used = 0;
+  for (const x of scored) {
+    const body = x.body.length > 3000 ? x.body.slice(0, 3000) : x.body;
+    if (used + body.length > CHANGE_BUDGET) continue;
+    picked.push({ file: x.file, head: x.head, body }); used += body.length;
+  }
+  const lore = String(text.lore || "").split("\n").filter((l) => /^[A-Z][A-Z &]+:/.test(l))
+    .map((l) => [l, named.reduce((a, it) => a + 5 * hits(patternFor(it.names), l), 0) + words.filter((w) => l.toLowerCase().includes(w)).length])
+    .filter(([, n]) => n).sort((a, b) => b[1] - a[1]).slice(0, CHANGE_LORE).map(([l]) => l);
+  return { picked, lore, named };
+}
+function parseChange(t) {
+  const m = String(t || "").replace(/```(?:json)?/g, "").match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try { return JSON.parse(m[0]); } catch { return null; }
+}
+// The page's own checks on what the lore-keeper proposed.
+function checkChange(j, files, ctx) {
+  const problems = [], warnings = [], fixes = [], adds = [];
+  const sent = ctx.picked.map((x) => x.body);
+  for (const e of Array.isArray(j.edits) ? j.edits.slice(0, 30) : []) {
+    const file = String(e.file || ""), old = String(e.old || ""), nu = String(e.new || "");
+    if (!CHANGE_FILES.includes(file)) { problems.push(`It wanted to change ${file || "a file it didn't name"}, which can't be changed here.`); continue; }
+    if (old === nu) continue;
+    if (old.length < 8) { problems.push(`An edit to ${file} is too short to find safely: "${old}".`); continue; }
+    const n = String(files[file] || "").split(old).length - 1;
+    if (n !== 1) { problems.push(n ? `"${old.slice(0, 60)}" is in ${file} ${n} times, so it isn't clear which to change.` : `"${old.slice(0, 60)}" isn't in ${file} as written.`); continue; }
+    if (!sent.some((b) => b.includes(old))) { problems.push(`It tried to change a part of ${file} it wasn't shown.`); continue; }
+    if (!nu.trim()) { problems.push(`An edit would blank out "${old.slice(0, 60)}"; take lines out by hand on GitHub.`); continue; }
+    if (/https?:|<\s*script|\]\(/i.test(nu)) { problems.push("An edit adds a link, which changes made here never do."); continue; }
+    fixes.push({ file, old, new: nu });
+  }
+  for (const a of Array.isArray(j.adds) ? j.adds.slice(0, 10) : []) {
+    const file = String(a.file || ""), want = String(a.heading || "").trim(), line = String(a.text || "").replace(/\s+/g, " ").replace(/^[-*]\s+/, "").trim();
+    if (!line) continue;
+    if (!CHANGE_FILES.includes(file)) { problems.push(`It wanted to add to ${file || "a file it didn't name"}, which can't be changed here.`); continue; }
+    // The heading line exactly as the file has it, which is how the laptop finds it.
+    const heading = want && /^#/.test(want) ? String(files[file] || "").replace(/\r/g, "").split("\n").find((l) => l.trim() === want) : "";
+    if (!heading) { problems.push(`It wanted to add under "${want}" in ${file}, which isn't a heading there.`); continue; }
+    if (/\(DM lore\)/i.test(heading)) { problems.push("DM lore is only changed from the DM."); continue; }
+    if (/https?:|\]\(/i.test(line)) { problems.push("A new line adds a link, which changes made here never do."); continue; }
+    adds.push({ file, heading, text: line });
+  }
+  // A name taken out somewhere but still used elsewhere would leave the canon split.
+  const count = (t, w) => t.split(w).length - 1;
+  for (const it of ctx.named) {
+    const name = String(it.name || "");
+    if (name.length < 3 || !fixes.some((f) => count(f.old, name) > count(f.new, name))) continue;
+    const left = CHANGE_FILES.flatMap((f) => {
+      let t = String(files[f] || "");
+      for (const x of fixes) if (x.file === f) t = t.replace(x.old, () => x.new);
+      const n = count(t, name);
+      return n ? [`${f} (${n})`] : [];
+    });
+    if (left.length) warnings.push(`${it.name} is still named the old way in ${left.join(", ")}. Applying this would leave the canon disagreeing with itself.`);
+  }
+  return { problems, warnings, fixes, adds };
+}
+async function askChange(c) {
+  if (!c || chatBusy) return;
+  const typed = $("say").value.trim();
+  const req = (typed || [...c.messages].reverse().find((m) => m.role === "user")?.content || "").slice(0, MAX_SAY);
+  if (!req) return chatStatus("Write the change you want first, e.g. “Rename Tansy Ninefingers to Tansy Sevenfingers.”", true);
+  if (!ownerToken()) return chatStatus("Changes need the owner's token on this browser: set it on Orrery control.", true);
+  if (chatVoice) chatVoice.stop();
+  if (typed) { c.messages.push({ role: "user", content: req }); $("say").value = ""; fitSay(); }
+  c.change = { req, state: "checking", at: Date.now() };
+  c.at = Date.now(); keepChats(); drawLog(); drawChange(c);
+  setChatBusy(true); chatStatus("");
+  try {
+    const files = await readReviewDocs();
+    const ctx = changeContext(req, files);
+    if (!ctx.picked.length) throw new Error("nothing in the documents matches it. Name the person, place or thing as the Orrery spells it");
+    const prompt = `${CHANGE_KEEPER}\n\n${CHANGE_TASK}\n\nLORE:\n${ctx.lore.join("\n") || "(no lore line names it)"}\n\nSOURCE:\n${ctx.picked.map((x) => "### FILE: " + x.file + "\n" + x.body).join("\n\n")}\n\nREQUEST: ${req}\n\nReply with the JSON object only.`;
+    chatStopper = new AbortController();
+    const r = await fetch(AI + "/narrate", { method: "POST", headers: { "content-type": "application/json" }, signal: chatStopper.signal, body: JSON.stringify({ messages: [{ role: "user", content: prompt }] }) });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.text) throw new Error(data.error || "the laptop answered " + r.status);
+    aiUp = true; setAi(true);
+    const j = parseChange(data.text);
+    if (!j) throw new Error("its answer wasn't the JSON it was asked for. Press 🛠 again to retry");
+    const chk = checkChange(j, files, ctx);
+    if (files.failed && files.failed.length) chk.warnings.push(`${files.failed.join(", ")} couldn't be read from the review branch just now, so the change wasn't checked against ${files.failed.length > 1 ? "them" : "it"}.`);
+    const fits = j.verdict === "fits";
+    Object.assign(c.change, { state: "checked", verdict: fits ? "fits" : j.verdict === "clashes" ? "clashes" : "unclear", why: String(j.why || "").slice(0, 600), clash: String(j.clash || "").slice(0, 400), ...chk });
+    const n = chk.fixes.length + chk.adds.length;
+    c.messages.push({ role: "assistant", content: fits && !chk.problems.length && n
+      ? `That change fits the canon. ${c.change.why} I've laid out the ${n} edit${n > 1 ? "s" : ""} below: press ✔ Apply on review to make ${n > 1 ? "them" : "it"}.`
+      : fits && !n ? `It fits, but there's nothing to change: ${c.change.why || "the documents already say that."}`
+      : !fits ? `I can't make that change: it ${c.change.verdict === "clashes" ? "clashes with the canon" : "isn't clear enough to make"}. ${c.change.why}${c.change.clash ? ` The canon says: “${c.change.clash}”` : ""}`
+      : `It fits the canon, but the edits I drafted didn't pass the checks, so nothing can be applied yet. Try saying it more exactly.` });
+  } catch (e) {
+    const stopped = e.name === "AbortError", offline = !stopped && e instanceof TypeError;
+    if (offline) { aiUp = false; setAi(false); }
+    c.change = { ...c.change, state: "error", error: stopped ? "Stopped." : offline ? "The lore-keeper couldn't be reached. The laptop may be asleep." : "Couldn't check it: " + e.message + "." };
+  } finally { chatStopper = null; setChatBusy(false); }
+  c.at = Date.now(); keepChats();
+  if (openChat() === c && $("chatlog")) { drawLog(); drawChange(c); }
+}
+function drawChange(c) {
+  const box = $("changeBox"); if (!box) return;
+  const ch = c && c.change;
+  if (!ch || ch.state === "dismissed") { box.hidden = true; box.innerHTML = ""; return; }
+  box.hidden = false;
+  const close = `<button type="button" class="closew" id="changeClose" title="Close" aria-label="Close">✕</button>`;
+  const head = `<div class="writetop"><h3>🛠 Change: ${esc(ch.req.length > 90 ? ch.req.slice(0, 90) + "…" : ch.req)}</h3>${close}</div>`;
+  let body = "";
+  if (ch.state === "checking") body = `<p class="chatnote">Reading what it touches on the review branch and checking it against the canon…</p>`;
+  else if (ch.state === "error") body = `<p class="verdict no">${esc(ch.error)}</p><div class="row"><button type="button" id="changeRetry">🛠 Try again</button></div>`;
+  else {
+    const can = ch.verdict === "fits" && !ch.problems.length && (ch.fixes.length + ch.adds.length) > 0;
+    body = `<p class="verdict ${ch.verdict === "fits" ? "ok" : "no"}">${ch.verdict === "fits" ? "✔ Fits the canon." : ch.verdict === "clashes" ? "✕ Clashes with the canon." : "? Not clear enough to make."} ${esc(ch.why)}</p>`
+      + (ch.clash ? `<p class="chatnote">The canon says: “${esc(ch.clash)}”</p>` : "")
+      + (ch.problems.length ? `<p class="verdict no">Not applied, because:</p><ul>${ch.problems.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : "")
+      + (ch.warnings.length ? `<ul>${ch.warnings.map((p) => `<li class="verdict no">⚠ ${esc(p)}</li>`).join("")}</ul>` : "")
+      + ch.fixes.map((f) => `<div class="edit"><div class="f">${esc(f.file)}</div><div class="d">− ${esc(f.old)}</div><div class="a">+ ${esc(f.new)}</div></div>`).join("")
+      + ch.adds.map((a) => `<div class="edit"><div class="f">${esc(a.file)} › ${esc(a.heading.replace(/^#+\s*/, ""))}</div><div class="a">+ ${esc(a.text)}</div></div>`).join("")
+      + (ch.state === "applied" ? `<p class="verdict ok">✔ On the review branch${ch.done ? ": " + ch.done.map((d) => `${esc(d.file)} (<a href="${esc(d.url || "#")}" target="_blank" rel="noopener">${esc(String(d.sha || "").slice(0, 7))}</a>)`).join(", ") : ""}.${ch.skipped && ch.skipped.length ? ` Skipped, because the text had changed: ${esc(ch.skipped.join("; "))}.` : ""} The <a href="/orrery/?clone=review">Review Clone</a> shows it as soon as GitHub has it; publish it on the <a href="/orrery/control/review/">review page</a>.</p>`
+        : can ? `<div class="row"><button class="primary" type="button" id="changeApply">✔ Apply on review</button><button type="button" id="changeRetry">🛠 Check again</button>${ch.warnings.length ? `<span class="chatnote">Press twice to apply despite the warning.</span>` : ""}<span class="chatnote" id="changeSt" role="status"></span></div>`
+        : `<div class="row"><button type="button" id="changeRetry">🛠 Check again</button><span class="chatnote">Or say it differently in the box and press 🛠.</span></div>`);
+  }
+  box.innerHTML = head + body;
+  $("changeClose").onclick = () => { ch.state = "dismissed"; keepChats(); drawChange(c); };
+  if ($("changeRetry")) $("changeRetry").onclick = () => { $("say").value = $("say").value.trim() || ch.req; askChange(c); };
+  if ($("changeApply")) $("changeApply").onclick = (e) => applyChange(c, e.currentTarget);
+}
+async function applyChange(c, b) {
+  const ch = c.change;
+  if (!ch || chatBusy) return;
+  if (ch.warnings.length && b.dataset.armed !== "1") { b.dataset.armed = "1"; b.textContent = "Tap again to apply anyway"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "✔ Apply on review"; }, 5000); return; }
+  const st = $("changeSt"); b.disabled = true; if (st) st.textContent = "Putting it on the review branch…";
+  try {
+    const r = await fetch(AI + "/admin/docs-catchup/apply", { method: "POST", headers: { authorization: "Bearer " + ownerToken(), "content-type": "application/json" },
+      body: JSON.stringify({ fixes: ch.fixes, adds: ch.adds, items: [], message: "Lore-keeper change: " + ch.req.replace(/\s+/g, " ").slice(0, 80) }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(r.status === 404 && !j.error ? "The laptop's server needs updating first (see verrowen/server/README.md)." : j.error || "The laptop answered " + r.status + ".");
+    Object.assign(ch, { state: "applied", done: j.done || [], skipped: j.skipped || [] });
+    reviewDocs = null;
+    c.messages.push({ role: "assistant", content: `Done: it's on the review branch${ch.skipped.length ? `, except ${ch.skipped.length} edit${ch.skipped.length > 1 ? "s" : ""} whose text had changed` : ""}. It goes live when you publish it on the review page.` });
+    c.at = Date.now(); keepChats(); drawLog(); drawChange(c);
+    if (window.OrreryLive) OrreryLive.ping("review", "lore-keeper change");
+    if (window.OrreryReview) try { localStorage.removeItem("orrery-review-checked"); } catch {}
+  } catch (e) {
+    b.disabled = false;
+    if (st) st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message;
+  }
 }
 
 // A written-up character goes into the Codex as a pitch (not yet sent to the
