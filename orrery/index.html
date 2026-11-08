@@ -289,10 +289,6 @@
     .composer{padding:10px 12px max(10px,env(safe-area-inset-bottom))}
     .composer textarea{min-height:46px;max-height:30vh;resize:none}
     .chatstatus{padding:0 12px 6px}
-    .composer .row{flex-wrap:nowrap;gap:6px}
-    .composer .row button{padding:10px 11px;min-height:44px;white-space:nowrap}
-    .composer .row #sendSay{flex:1 1 auto}
-    .composer .row .lbl{display:none}
     .chatbox select,.chatbox textarea,.ownerrow input{font-size:16px}
     .chathead .topic select{font-size:16px;padding:4px 6px;max-width:min(190px,50vw)}
     .chatstart .chips button{padding:8px 10px;font-size:13.5px}
@@ -302,22 +298,40 @@
     .writeup{padding:14px}
     .writeup pre{font-size:16px}
   }
-  /* The chat fills the visible screen on every device, so the Send row is
-     always on screen, and its controls stay on one row that never wraps:
-     Send first, then the rest; on narrow screens they show as icons, and if
-     they still don't fit the row swipes sideways. */
+  /* The chat fills the visible screen on every device, so the message bar is
+     always on screen. The bar is one row: ← Back on the left, the message
+     box, then 🎤 and Send on the right. Resend, write-up, save and copy sit
+     in a row above it; on phones they fold away behind ⋯ in the header. */
   .chatbox{position:relative}
   .chatbox.playing{height:calc(var(--app-h,100dvh) - 16px);min-height:320px;max-height:none;scroll-margin-top:8px}
   .chatlog{position:relative;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
   .chatlog::-webkit-scrollbar{width:8px} .chatlog::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
-  .composer .row{flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-x}
-  .composer .row::-webkit-scrollbar{display:none}
-  .composer .row > *{flex:0 0 auto;white-space:nowrap}
-  .composer .row #sendSay,.composer .row #stopSay{order:-1}
-  @media (max-width:900px){.composer .row .lbl{display:none}}
-  @media (max-width:600px){.composer .row > *{flex:1 0 auto}.composer .row button{padding:10px 8px;min-width:40px}.composer .row #sendSay{flex:2 0 auto;padding:10px 12px}}
-  @media (max-width:430px){.composer .row{gap:4px}.composer .row button{padding:10px 6px;min-width:36px}.composer .row #sendSay{padding:10px 8px}}
-  @media (max-width:340px){.composer .row{gap:3px}.composer .row button{padding:9px 4px;min-width:32px}.composer .row #sendSay{padding:9px 6px;letter-spacing:0}}
+  .chathead > span:first-child{margin-right:auto}
+  .chatbox button.morebtn{display:none;font-family:Inter,sans-serif;letter-spacing:0;font-size:20px;line-height:1;padding:4px 10px;min-width:40px;min-height:36px;border-color:var(--line);color:var(--muted)}
+  .chatbox button.morebtn.on{border-color:var(--gold);color:var(--gold2)}
+  .composer .extras{gap:6px}
+  .composer .extras button{padding:7px 12px}
+  .saybar{display:flex;align-items:flex-end;gap:8px}
+  .saybar textarea{flex:1 1 auto;min-width:0;width:auto}
+  .saybar button{flex:0 0 auto;min-height:44px;white-space:nowrap}
+  .saybar button.back{font-family:Inter,sans-serif;letter-spacing:0;font-size:18px;padding:8px 12px}
+  .saybar #sendSay .ico{display:none}
+  .saybar #stopSay:not([hidden]) ~ #sendSay{display:none}
+  @media (max-width:600px){
+    .chatbox button.morebtn{display:inline-block;flex:0 0 auto}
+    .chathead{gap:8px}
+    .chathead .topic{flex:0 1 auto;min-width:0}
+    .chathead .topic select{max-width:100%;min-width:0}
+    .composer{gap:6px}
+    .composer .extras{display:none;flex-wrap:wrap}
+    .composer .extras.open{display:flex}
+    .composer .extras button{flex:1 1 auto;min-height:44px}
+    .saybar{gap:6px}
+    .saybar button{min-width:44px;padding:8px 10px}
+    .saybar #sendSay{font-family:Inter,sans-serif;letter-spacing:0;font-size:18px;padding:8px 14px}
+    .saybar #sendSay .ico{display:inline}
+    .saybar #sendSay .txt,.saybar #stopSay .txt{display:none}
+  }
   /* Back to the newest message after scrolling up through the chat. */
   .chatbox button.tolatest{position:absolute;left:50%;transform:translateX(-50%);z-index:3;font-family:Inter,sans-serif;letter-spacing:0;font-size:13.5px;padding:8px 16px;border-radius:999px;background:var(--card);border-color:var(--gold);box-shadow:0 4px 16px rgba(0,0,0,.45)}
   @media (pointer:coarse){
@@ -1919,24 +1933,26 @@ function drawChat() {
   const c = openChat();
   view.innerHTML = `<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="ai" id="aiPill">Checking the local AI…</span><span class="chatnote" id="aiModel">Runs on our own laptop</span><span class="chatnote" id="aiKind" hidden></span></div>
   <section class="chatbox" aria-label="Chat with the lore-keeper">
-    <div class="chathead"><span>THE LORE-KEEPER</span>${c && c.mode === "chat" ? `<span class="topic"><label for="topicPick">On</label><select id="topicPick" title="What the lore-keeper thinks this chat is about. It works this out as you talk; pick one to pin it.">${topicOptions(c)}</select></span>` : `<span class="about">${c ? esc(chatTitle(c)) : "Characters, regions, rules and more"}</span>`}</div>
+    <div class="chathead"><span>THE LORE-KEEPER</span>${c && c.mode === "chat" ? `<span class="topic"><label for="topicPick">On</label><select id="topicPick" title="What the lore-keeper thinks this chat is about. It works this out as you talk; pick one to pin it.">${topicOptions(c)}</select></span>` : `<span class="about">${c ? esc(chatTitle(c)) : "Characters, regions, rules and more"}</span>`}${c ? `<button type="button" class="morebtn" id="moreChat" aria-expanded="false" aria-controls="chatMore" title="More: resend, write it up, save, copy" aria-label="More actions">⋯</button>` : ""}</div>
     <div class="chatlog" id="chatlog" aria-live="polite"></div>
     <button type="button" class="tolatest" id="toLatest" hidden>↓ Latest</button>
     <div class="chatstatus" id="chatstatus" role="status" aria-live="polite"></div>
     <div class="chatnote" id="reviewSave" style="padding:0 16px" hidden></div>
     <div class="composer" id="composer" ${c ? "" : "hidden"}>
       <label class="sr" for="say">Your message</label>
-      <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "chat" ? "Ask, pitch an idea, or change the subject…" : c && c.mode === "review" ? "Ask about the review, or say what to change…" : c && c.mode === "world" ? "Push on it: what if…, what does it cost…, how would the Kingdom use it…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
-      <div class="row">
-        <button class="primary" type="button" id="sendSay">Send</button>
-        <button class="stopbtn" type="button" id="stopSay" title="Stop waiting for this reply" hidden>■ Stop</button>
-        <button class="mic" type="button" id="micSay" title="Speak your message" aria-label="Voice typing" hidden>🎤</button>
-        <button class="quiet" type="button" id="resendSay" title="Ask the lore-keeper to answer the last message again. Handy right after the laptop wakes up." aria-label="Resend">↻<span class="lbl"> Resend</span></button>
+      <div class="row extras" id="chatMore">
+        <button class="quiet" type="button" id="resendSay" title="Ask the lore-keeper to answer the last message again. Handy right after the laptop wakes up.">↻<span class="lbl"> Resend</span></button>
         <button type="button" id="writeBtn">${c ? writeLabel(c) : ""}</button>
-        <button class="quiet" type="button" id="changeSay" title="Say a change in plain words (rename someone, fix a detail, add a fact). The lore-keeper checks it against the canon, and only a change that fits can be applied, on the review branch." aria-label="Make it a change">🛠<span class="lbl"> Make it a change</span></button>
-        <button class="quiet" type="button" id="saveReview" title="Save this chat as it stands for the owner's review, on the Review Clone page. It replaces the last one saved." aria-label="Save for review">📥<span class="lbl"> Save for review</span></button>
-        <button class="quiet" type="button" id="copyChat" title="Copy the whole chat as text" aria-label="Copy the chat">📋<span class="lbl"> Copy chat</span></button>
-        <button class="quiet" type="button" id="backChat" title="Back to the start. This chat is kept, so you can pick it up later." aria-label="Back to the start">←<span class="lbl"> Back</span></button>
+        <button class="quiet" type="button" id="changeSay" title="Say a change in plain words (rename someone, fix a detail, add a fact). The lore-keeper checks it against the canon, and only a change that fits can be applied, on the review branch.">🛠<span class="lbl"> Make it a change</span></button>
+        <button class="quiet" type="button" id="saveReview" title="Save this chat as it stands for the owner's review, on the Review Clone page. It replaces the last one saved.">📥<span class="lbl"> Save for review</span></button>
+        <button class="quiet" type="button" id="copyChat" title="Copy the whole chat as text">📋<span class="lbl"> Copy chat</span></button>
+      </div>
+      <div class="saybar">
+        <button class="quiet back" type="button" id="backChat" title="Back to the start. This chat is kept, so you can pick it up later." aria-label="Back to the start">←</button>
+        <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "chat" ? "Ask, pitch an idea, or change the subject…" : c && c.mode === "review" ? "Ask about the review, or say what to change…" : c && c.mode === "world" ? "Push on it: what if…, what does it cost…, how would the Kingdom use it…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
+        <button class="mic" type="button" id="micSay" title="Speak your message" aria-label="Voice typing" hidden>🎤</button>
+        <button class="stopbtn" type="button" id="stopSay" title="Stop waiting for this reply" aria-label="Stop" hidden>■<span class="txt"> Stop</span></button>
+        <button class="primary" type="button" id="sendSay" aria-label="Send"><span class="ico">➤</span><span class="txt">Send</span></button>
       </div>
     </div>
     <div class="ownerrow" id="ownerRow" style="padding:0 16px 12px" hidden>
@@ -1957,6 +1973,7 @@ function drawChat() {
   document.querySelector(".chatbox").classList.toggle("playing", !!c);
   document.body.classList.add("chatting");
   if (c && touch.matches) $("say").placeholder = $("say").placeholder.replace(/\s*\(Ctrl\+Enter sends\)$/, "");
+  if (c && phone.matches) $("say").placeholder = "Message the lore-keeper…";
   setAi(aiUp);
   if (aiUp === null || aiUp === false) checkAi(); else { const m = $("aiModel"); if (m && aiModel) m.textContent = "Runs " + aiModel + " on our own laptop"; showAiKind(); }
   if (!c) drawStart(); else drawLog();
@@ -1988,6 +2005,11 @@ function drawChat() {
     $("backChat").onclick = () => { if (chatBusy) return; chatId = ""; keepChats(); drawChat(); };
     $("saveReview").onclick = () => saveNow(c, $("saveReview"));
     $("copyChat").onclick = () => copyChat(c, $("copyChat"));
+    // Phones: the extra actions fold away behind ⋯ in the header.
+    const more = $("chatMore"), moreBtn = $("moreChat");
+    const setMore = (on) => { more.classList.toggle("open", on); moreBtn.setAttribute("aria-expanded", on); moreBtn.classList.toggle("on", on); };
+    moreBtn.onclick = () => setMore(!more.classList.contains("open"));
+    more.addEventListener("click", (e) => { if (e.target.closest("button")) setTimeout(() => setMore(false), 900); });
     if (window.VoiceInput) chatVoice = VoiceInput.attach($("micSay"), $("say"), { onStatus(t, err) { if (t || $("chatstatus").textContent.startsWith("Listening")) chatStatus(t, err); } });
     $("copyWrite").onclick = async () => { try { await navigator.clipboard.writeText(c.writeup); $("writeNote").textContent = "Copied."; } catch { $("writeNote").textContent = "Copy didn't work here. Select the text and copy it by hand."; } };
     $("codexWrite").onclick = () => addToCodex(c);
