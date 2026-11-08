@@ -77,13 +77,55 @@
   .pill.on{background:var(--gold);color:var(--bg)}
   .pill.pitch{background:rgba(224,120,60,.18);color:var(--ember);margin-left:0}
   h2.sec .pill{font-size:11px}
-  details.cat>summary{list-style:none;cursor:pointer}
+  /* Rolled scrolls: every fold in the Explorer. Shut, it's a wooden rod with
+     a parchment label; open, the parchment unrolls down to a second rod. */
+  .wood{background:linear-gradient(180deg,#2d190a,#7a4a20 22%,#c48a4c 42%,#9a6430 58%,#5a3414 80%,#2d190a)}
+  details.cat{margin:16px 6px}
+  details.cat>summary{position:relative;list-style:none;cursor:pointer;display:flex;justify-content:center;align-items:center;min-height:34px;padding:2px 14px}
   details.cat>summary::-webkit-details-marker{display:none}
-  details.cat>summary h2.sec::before{content:"▸";display:inline-block;width:1em;transition:transform .15s}
-  details.cat[open]>summary h2.sec::before{transform:rotate(90deg)}
-  details.cat>summary:hover h2.sec{color:var(--gold2)}
-  details.cat>summary h2.sec{margin:16px 0 10px}
-  details.cat>.grid{margin-bottom:8px}
+  details.cat>summary::before,.rodend::before{content:"";position:absolute;left:0;right:0;top:50%;height:18px;transform:translateY(-50%);border-radius:9px;background:linear-gradient(180deg,#2d190a,#7a4a20 22%,#c48a4c 42%,#9a6430 58%,#5a3414 80%,#2d190a);box-shadow:0 5px 10px rgba(0,0,0,.5)}
+  .knob{position:absolute;top:50%;width:16px;height:28px;transform:translateY(-50%);border-radius:45%;background:radial-gradient(circle at 38% 32%,#f5c873,#b07a2e 50%,#4a2a10 92%);box-shadow:0 2px 6px rgba(0,0,0,.5);z-index:1}
+  .knob.l{left:-9px}.knob.r{right:-9px}
+  .band{position:relative;z-index:1;display:inline-flex;align-items:center;gap:6px;max-width:calc(100% - 30px);padding:5px 16px;border-radius:4px;background:#e9d6ae;color:#2b1d10;font-family:Cinzel,serif;font-weight:700;font-size:15px;letter-spacing:.06em;box-shadow:inset 0 0 8px rgba(110,68,26,.45),0 3px 8px rgba(0,0,0,.4);text-align:center}
+  .band .pill{background:rgba(94,60,28,.16);color:#5e4429}
+  .band::after{content:"⌄";font-family:Inter,sans-serif;font-weight:400;color:#8a2b12;margin-left:2px;transition:transform .3s}
+  details.cat[open]>summary .band::after{transform:rotate(180deg)}
+  details.cat>summary:hover .band{background:#f3e5c4}
+  details.cat>summary:focus-visible .band{outline:2px solid var(--gold2);outline-offset:2px}
+  .sheetwrap{display:grid;grid-template-rows:1fr;margin:-9px 8px -9px}
+  details.cat[open]>.sheetwrap{animation:unroll .55s cubic-bezier(.3,.7,.3,1)}
+  details.cat.rolling>.sheetwrap{animation:rollup .38s ease-in forwards}
+  @keyframes unroll{from{grid-template-rows:0fr}to{grid-template-rows:1fr}}
+  @keyframes rollup{from{grid-template-rows:1fr}to{grid-template-rows:0fr}}
+  .sheet{min-height:0;overflow:hidden}
+  /* The parchment: the page's colors turn to ink inside it, so cards, panels
+     and pills on it follow along. */
+  .sheet>.inner,.parchvars{--text:#2b1d10;--muted:#5e4429;--gold:#8a2b12;--gold2:#8a2b12;--card:#f4e8cb;--bg2:#e6d2a6;--line:rgba(94,60,28,.32);--green:#3f5a24}
+  .sheet>.inner{color:var(--text);padding:24px clamp(12px,3vw,24px) 22px;background:radial-gradient(ellipse 60% 40% at 18% 12%,rgba(255,250,235,.55),transparent 70%),radial-gradient(ellipse 50% 45% at 85% 88%,rgba(128,78,26,.2),transparent 70%),linear-gradient(90deg,rgba(110,68,26,.3),transparent 4%,transparent 96%,rgba(110,68,26,.3)),#e9d6ae;box-shadow:inset 0 14px 16px -10px rgba(60,30,8,.6),inset 0 -14px 16px -10px rgba(60,30,8,.6)}
+  .sheet>.inner a{color:var(--gold2)}
+  .sheet>.inner .card{box-shadow:0 1px 3px rgba(60,30,8,.2)}
+  .sheet>.inner .tag{color:var(--muted)}
+  .sheet>.inner .pill{background:rgba(94,60,28,.12)}
+  .sheet>.inner mark{background:#f5c873;color:#2b1d10}
+  .sheet>.inner>.grid:last-child,.sheet>.inner>.panel:last-child{margin-bottom:0}
+  .rodend{position:relative;height:34px}
+  details.cat details.cat{margin:12px 4px}
+  details.cat.doc .band{font-size:14px}
+  @media (prefers-reduced-motion:reduce){details.cat[open]>.sheetwrap,details.cat.rolling>.sheetwrap,.bigscroll[open]>.sheetwrap{animation:none}}
+  /* The Scroll tab: one big scroll that starts rolled up. */
+  details.bigscroll>summary{list-style:none;cursor:pointer;display:flex;justify-content:center;align-items:center}
+  details.bigscroll>summary::-webkit-details-marker{display:none}
+  details.bigscroll>summary .band{font-size:clamp(14px,3.6vw,18px);padding:8px 22px;margin-top:-6px}
+  details.bigscroll:not([open])>summary .band{margin:0}
+  details.bigscroll>summary .band::after{content:"⌄"}
+  details.bigscroll[open]>summary .band::after{transform:rotate(180deg)}
+  .bigscroll>summary.rod{height:auto!important;min-height:28px;padding:0}
+  .bigscroll>summary.rod .band{position:relative;top:0}
+  .bigscroll[open]>.sheetwrap{animation:unroll .8s cubic-bezier(.3,.7,.3,1)}
+  .bigscroll.rolling>.sheetwrap{animation:rollup .5s ease-in forwards}
+  .bigscroll>.sheetwrap{margin:0}
+  .bigscroll:not([open])+.rolledhint{display:block}
+  .rolledhint{display:none;text-align:center;color:var(--muted);font-size:13.5px;margin-top:12px}
   .panel.rift{border-color:rgba(160,120,255,.45);background:linear-gradient(180deg,rgba(120,80,220,.14),var(--bg2))}
   .riftname{font-family:Cinzel,serif;color:var(--gold2);font-size:18px;letter-spacing:.06em}
   .riftlinks{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
@@ -1015,11 +1057,23 @@ document.addEventListener("toggle", (e) => {
   if (d instanceof HTMLDetailsElement && d.dataset.cat) d.open ? openCats.add(d.dataset.cat) : openCats.delete(d.dataset.cat);
 }, true);
 const folded = (key) => `data-cat="${esc(key)}"${openCats.has(key) ? " open" : ""}`;
-const fold = (key, head, body) => `<details class="cat" ${folded(key)}><summary><h2 class="sec">${head}</h2></summary>${body}</details>`;
+// A rolled scroll: a rod with a parchment label; open, the sheet unrolls.
+const rolled = (key, head, body, cls = "") => `<details class="cat${cls ? " " + cls : ""}" ${folded(key)}><summary><i class="knob l"></i><span class="band" role="heading" aria-level="2">${head}</span><i class="knob r"></i></summary><div class="sheetwrap"><div class="sheet"><div class="inner">${body}</div></div></div><div class="rodend"><i class="knob l"></i><i class="knob r"></i></div></details>`;
+const fold = (key, head, body) => rolled(key, head, body);
+// Rolling up plays backwards before the scroll shuts.
+document.addEventListener("click", (e) => {
+  const sum = e.target.closest && e.target.closest("details.cat>summary, details.bigscroll>summary");
+  if (!sum) return;
+  const d = sum.parentElement;
+  if (!d.open || d.classList.contains("rolling")) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  e.preventDefault();
+  d.classList.add("rolling");
+  d.querySelector(":scope>.sheetwrap").addEventListener("animationend", () => { d.classList.remove("rolling"); d.open = false; }, { once: true });
+});
 function renderHits(found, re) {
-  const html = found.map(({ doc, hits }) => `<details class="doc" ${folded("hits:" + location.hash + ":" + doc.id)}><summary>${esc(doc.title)}<span class="pill">${hits.length} section${hits.length === 1 ? "" : "s"}</span></summary>${
-    hits.map((s) => `<div class="panel"><div class="crumb"><a href="#doc/${doc.id}${s.sentence ? "" : "/" + slug(s.heading)}">${s.path.map(esc).join(" › ")}</a></div><div class="md">${s.sentence ? `<p>${inline(s.body)}</p>` : md(s.body)}</div></div>`).join("")
-  }</details>`).join("");
+  const html = found.map(({ doc, hits }) => rolled("hits:" + location.hash + ":" + doc.id, `${esc(doc.title)}<span class="pill">${hits.length} section${hits.length === 1 ? "" : "s"}</span>`,
+    hits.map((s) => `<div class="panel"><div class="crumb"><a href="#doc/${doc.id}${s.sentence ? "" : "/" + slug(s.heading)}">${s.path.map(esc).join(" › ")}</a></div><div class="md">${s.sentence ? `<p>${inline(s.body)}</p>` : md(s.body)}</div></div>`).join(""), "doc")).join("");
   return html;
 }
 
@@ -1072,10 +1126,11 @@ function resources(catId, typeId) {
   if (!fromFile) return `<p class="tag">Resources come from <code>resources.md</code> in the grand-orrery repo, and it isn't on the <b>${esc(BRANCH)}</b> branch yet${CLONE ? "" : " (it may be waiting on the <a href=\"/orrery/?clone=review#resources\">Review Clone</a>)"}. Until then, here are Murrow's items.</p><div class="grid">${ITEMS.map((it) => itemCard(it, false)).join("")}</div>`;
   const c = CATS.find((x) => x.id === catId);
   if (!c) {
-    return `<p class="tag" style="margin:4px 0 14px">Everything people make, use, trade, eat and fight with, by category and then type. Read live from <a href="#doc/resources">resources.md</a>.</p><div class="grid">${CATS.map((c) => {
+    return `<p class="tag" style="margin:4px 0 14px">Everything people make, use, trade, eat and fight with, by category and then type. Read live from <a href="#doc/resources">resources.md</a>.</p>${CATS.map((c) => {
       const n = c.types.reduce((a, t) => a + t.items.length, 0);
-      return `<a class="card" href="#resources/${c.id}"><b>${esc(c.name)}</b><span>${c.types.map((t) => esc(t.name)).join(" · ")}</span><div class="count">${c.types.length} type${c.types.length === 1 ? "" : "s"} · ${n} entr${n === 1 ? "y" : "ies"}</div></a>`;
-    }).join("")}</div>`;
+      return fold("resov:" + c.id, `${esc(c.name)}<span class="pill">${n}</span>`, `${c.intro ? `<div class="md tag" style="max-width:none;margin-top:0">${md(c.intro)}</div>` : ""}<p class="tag" style="margin:4px 0 0"><a href="#resources/${c.id}">Open ${esc(c.name)} on its own page →</a></p>${
+        c.types.map((t) => fold("resov:" + c.id + "/" + t.id, `${esc(t.name)}<span class="pill">${t.items.length}</span>`, `<div class="grid">${t.items.map((it) => itemCard(it, false)).join("")}</div>`)).join("")}`);
+    }).join("")}`;
   }
   const t = c.types.find((x) => x.id === typeId);
   if (!t) {
@@ -1197,7 +1252,7 @@ function doc(id) {
   }<div class="panel md">${md(text[d.id] || "")}</div>`;
 }
 function maps() {
-  return `<div class="maps">${MAPS.map((m) => { const on = itemsOnMap(m); return `<figure><img src="${RAW + m.file}" alt="${esc(m.title)} map" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'Not uploaded yet: save it into grand-orrery/${m.file}'}))"><figcaption><b>${esc(m.title)}.</b> ${esc(m.caption)}${on.length ? `<div class="who" style="margin-top:6px"><span class="pill" style="margin-left:0">📍 Items on it</span>${on.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}</figcaption></figure>`; }).join("")}</div><div class="panel md">${md(text.maps || "")}</div>`;
+  return `${MAPS.map((m) => { const on = itemsOnMap(m); return fold("map:" + m.file, `🗺 ${esc(m.title)}`, `<figure style="margin:0"><img src="${RAW + m.file}" alt="${esc(m.title)} map" loading="lazy" style="width:100%;border-radius:8px;display:block" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'Not uploaded yet: save it into grand-orrery/${m.file}'}))"><figcaption style="margin-top:8px">${esc(m.caption)}${on.length ? `<div class="who" style="margin-top:6px"><span class="pill" style="margin-left:0">📍 Items on it</span>${on.map((it) => `<a class="pill" href="#item/${it.id}">${it.icon} ${esc(it.name)}</a>`).join("")}</div>` : ""}</figcaption></figure>`); }).join("")}${text.maps ? fold("map:notes", "📜 Map notes", `<div class="md">${md(text.maps)}</div>`) : ""}`;
 }
 
 // ── The Scroll: the whole Orrery as one ledger ──
@@ -1339,7 +1394,8 @@ function scroll() {
   const pend = recs.filter((r) => r.pending).length;
   const today = new Date().toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
   const chapters = LEDGER.map((ch, k) => [ch, k, n(ch.kind)]).filter(([, , c]) => c);
-  return `<div class="scroll"><div class="rod" aria-hidden="true"></div><article class="parch" aria-label="The Scroll of the Grand Orrery">
+  const total = recs.length;
+  return `<div class="scroll"><details class="bigscroll" id="bigScroll"${bigOpen ? " open" : ""}><summary class="rod"><span class="band" role="heading" aria-level="2">The Scroll of All Things<span class="pill">${total.toLocaleString()}</span></span></summary><div class="sheetwrap"><div class="sheet"><article class="parch" aria-label="The Scroll of the Grand Orrery">
     <div class="crest">THE GRAND ORRERY · ${esc(world.name.toUpperCase())}</div>
     <h2 class="title">The Scroll of All Things</h2>
     <div class="orn" aria-hidden="true">❦ ✦ ❦</div>
@@ -1356,7 +1412,7 @@ function scroll() {
     <ol class="contents">${chapters.map(([ch, k, c]) => `<li><span class="num">${ROMAN[k]}.</span><a href="#scroll/${ch.kind}">${esc(ch.title)}</a><span class="dots"></span><small>${c.toLocaleString()}</small></li>`).join("")}</ol>
     <div id="ledgerBody">${ledgerBody()}</div>
     <p class="colophon">Here ends the scroll. It rewrites itself whenever the canon changes in the <a href="https://github.com/sheastolp/grand-orrery" target="_blank" rel="noopener">grand-orrery</a> repo.</p>
-  </article><div class="rod" aria-hidden="true"></div></div>`;
+  </article></div></div><div class="rod" aria-hidden="true"></div></details><p class="rolledhint">Tap the scroll to unroll it: every soul, thing, beast, place, map and writing in the Orrery.</p></div>`;
 }
 // Redraw only the entries, keeping the search box and the reader's place.
 function drawLedger() { const b = $("ledgerBody"); if (b) b.innerHTML = ledgerBody(); }
@@ -1364,6 +1420,9 @@ function onScroll() { return !location.hash || /^#scroll(\/|$)/.test(location.ha
 // Background updates (the canon moved, GuildScribe's feed, pending characters)
 // redraw it only when the ledger really changed, and keep open entries open.
 let ledgerDrawn = null;
+// The big scroll starts rolled up; once unrolled it stays so for the visit.
+let bigOpen = false;
+document.addEventListener("toggle", (e) => { if (e.target.id === "bigScroll") bigOpen = e.target.open; }, true);
 function refreshScroll() {
   if (!onScroll() || !$("ledgerBody")) return;
   if (ledgerRecords() === ledgerDrawn) return;
@@ -1427,6 +1486,7 @@ function route() {
   document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === (tab === "person" ? "roster" : tab === "item" ? (fromFile ? "resources" : "items") : tab === "doc" ? "docs" : tab === "beast" ? "beasts" : tab)));
   let out, re = null;
   if (tab === "scroll") {
+    if (arg) bigOpen = true;
     view.innerHTML = scroll(); wireScroll();
     const ch = arg && document.getElementById("ch-" + arg);
     if (ch) ch.scrollIntoView(); else window.scrollTo(0, 0);
