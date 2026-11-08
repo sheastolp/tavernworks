@@ -75,7 +75,8 @@
   .opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.22);cursor:pointer}
   .opt:hover{border-color:var(--gold)}
   .opt:has(input:checked){border-color:var(--gold);background:rgba(224,168,74,.08)}
-  .opt input[type=radio]{margin-top:6px;accent-color:var(--gold)}
+  .opt input[type=radio],.opt input[type=checkbox]{margin-top:6px;accent-color:var(--gold)}
+  .opt.grown{margin-top:10px}
   .opt > span{flex:1;min-width:0}
   .opt .del{flex-shrink:0;align-self:center;background:none;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12.5px;padding:3px 9px;cursor:pointer}
   .opt .del:hover{border-color:var(--ember);color:#ff9b7a}
@@ -208,6 +209,7 @@
           <label class="opt"><input type="radio" name="who" value="new" checked><span><b>Someone new</b><small>You don't remember who you are. Find out by playing!</small></span></label>
           <span id="savedOpts"></span>
         </fieldset>
+        <label class="opt grown"><input type="checkbox" id="grownUp"><span><b>Grown-up story (18+)</b><small>For adults only. No PG-13 limit, and the storyteller writes for a grown-up reader instead of a 6 to 10 year old. Picked when you press Begin, and kept for that whole story.</small></span></label>
         <p class="note" id="setupNote" hidden></p>
         <p class="note">Your story is saved on Sheamus's computer. Every new story starts in a different place.</p>
         <p class="note" id="modelNote" hidden></p>
@@ -313,6 +315,14 @@ const YOUNG = `\n\nYOUNG READER, PG-13 STORY: write for a reader about 6 to 10 y
 - Be warm and encouraging. Every idea they have is a good one: find a way to make it work. Understand spelling mistakes and short answers generously.
 - If they write something beyond PG-13, don't scold: steer the story somewhere that fits.
 - Never ask for, use or repeat real-life personal details (their real full name, where they live, their school, their age). If they share one, carry on with the story without repeating it.`;
+// Grown-up mode (the 18+ box on the start screen): no PG-13 cap and no
+// child-reader wording. Picked at Begin and kept in the story's seed.
+const GROWN = `\n\nGROWN-UP STORY: the player is an adult. These rules come first and override anything above or in the LORE.
+- There is no PG-13 limit. Write it like a mature, dark fantasy novel: violence, blood and gore, horror, cruelty, strong language, drinking and drugs, and mature themes can all appear, as intense as the story calls for. The LORE's darkest parts can be shown in full.
+- Danger is real and choices have consequences, including injury, loss and death.
+- Write in rich, natural prose for an adult reader. Each turn is about 100 to 200 words.
+- End each turn with a question about what the character does next. You may offer 2 or 3 short numbered ideas of things to do, and the player can always do anything else. The ideas are always actions, never choices about who the character is.`;
+const GROWN_WRAP = `\n\nThe player is an adult. Write this for a grown-up reader with no PG-13 limit. If there's a retelling, keep it to about 250 words.`;
 const YOUNG_WRAP = `\n\nThe player is a child, about 6 to 10. Write all of this in simple words and short lines they can read themselves, warm and proud of what their character did. Keep it PG-13: wounds, scars, enemies and debts can be listed, without gory detail. If there's a retelling, keep it to about 150 words.`;
 // A new character's name isn't known at the start: the narrator names them from the lore.
 const NO_NAME = `\n\nTRUE NAME: nobody knows the character's name yet, not the player and not the character, so you choose it. Base it on the LORE: match the race and origin the story is pointing to and the naming style of that people or place, or invent a new name in the same spirit. It must not belong to any named person in the lore. Never take a name from the player: if they guess one, the story shows whether it's right. The character doesn't remember it: reveal it at a fitting moment within the first several turns (someone calling it, a name stitched into a collar, a letter), never in the first turn, and keep it the same once revealed.`;
@@ -359,7 +369,8 @@ function buildMessages(lore, history, seed, characterName, mode){
   const clean = history.map(m => ({role: m.role, content: String(m.content).slice(0, MAX_CHARS)})).slice(-MAX_TURNS);
   const seedText = seed ? `\n\nOPENING FOR THIS STORY (randomized per player): the character wakes in ${seed.place}, ${seed.time}. Nearby objects: ${seed.objects.join("; ")}. Complication: ${seed.twist}.${seed.sex && !(character && character.kind === "returning") ? ` The character is secretly ${seed.sex === "male" ? "a boy or man (he/him)" : "a girl or woman (she/her)"}: keep it the same, and let it come out through clues (how people address them, their reflection, their clothes), not by asking.` : ""}` : "";
   const nameText = characterName ? `\n\nThe character's true name is ${characterName.slice(0, 60)}. They don't remember it. Reveal it at a fitting moment, not in the first turn.` : NO_NAME;
-  const purposeText = `\n\nWHAT THE PLAYER WANTS: ${STORY_STYLE}${YOUNG}`;
+  const young = !(seed && seed.young === false);
+  const purposeText = `\n\nWHAT THE PLAYER WANTS: ${STORY_STYLE}${young ? YOUNG : GROWN}`;
   // The laptop keeps only the first FIRST_MAX characters of this message and
   // cuts the rest, which would drop the player's character and "Begin". So the
   // instructions always fit whole, and the Codex, then the lore, give way.
@@ -369,9 +380,11 @@ function buildMessages(lore, history, seed, characterName, mode){
   room -= codex.length;
   const fitLore = lore.length <= room ? lore : lore.slice(0, Math.max(0, lore.lastIndexOf("\n", room) > 0 ? lore.lastIndexOf("\n", room) : room)).trim();
   const out = [{role: "user", content: head + fitLore + codex + tail}, ...clean];
-  if (mode === "wrap") out.push({role: "user", content: (purpose === "dnd" ? WRAP_DND : WRAP_STORY) + (isOrreryStory() ? ORRERY_WRAP : "") + YOUNG_WRAP});
+  if (mode === "wrap") out.push({role: "user", content: (purpose === "dnd" ? WRAP_DND : WRAP_STORY) + (isOrreryStory() ? ORRERY_WRAP : "") + (young ? YOUNG_WRAP : GROWN_WRAP)});
   // A short reminder on every turn too, so a long story doesn't drift away from it.
-  else if (clean.length && clean[clean.length - 1].role === "user") out[out.length - 1] = {role: "user", content: out[out.length - 1].content + "\n\n(Narrator: remember, the reader is about 6 to 10: simple words, about 60 to 110 words, PG-13 at most, and end with a question and 2 or 3 numbered ideas of things to do. Don't ask who the character is: show it with clues.)"};
+  else if (clean.length && clean[clean.length - 1].role === "user") out[out.length - 1] = {role: "user", content: out[out.length - 1].content + (young
+    ? "\n\n(Narrator: remember, the reader is about 6 to 10: simple words, about 60 to 110 words, PG-13 at most, and end with a question and 2 or 3 numbered ideas of things to do. Don't ask who the character is: show it with clues.)"
+    : "\n\n(Narrator: remember, this is a grown-up story with no PG-13 limit: about 100 to 200 words, end with a question about what they do next. Don't ask who the character is: show it with clues.)")};
   if (out[out.length - 1].role !== "user") out.push({role: "user", content: "Continue."});
   return out;
 }
@@ -387,10 +400,10 @@ const SEEDS = {
 };
 const $ = id => document.getElementById(id);
 const pick = a => a[Math.floor(Math.random() * a.length)];
-function makeSeed(){
+function makeSeed(young = true){
   const S = SEEDS;
   const objects = [...S.objects].sort(() => Math.random() - 0.5).slice(0, 2 + Math.floor(Math.random() * 2));
-  return {place: pick(S.place), time: pick(S.time), objects, twist: pick(S.twist), sex: pick(["male", "female"]), young: true};
+  return {place: pick(S.place), time: pick(S.time), objects, twist: pick(S.twist), sex: pick(["male", "female"]), young: !!young};
 }
 
 // ── Phones ──
@@ -452,6 +465,8 @@ function loadLore(){
 
 // ── Drawing ──
 function render(){
+  // Bigger text for young readers; normal size in a grown-up story.
+  document.documentElement.classList.toggle("young", !(seed && seed.young === false));
   const log = $("log");
   log.querySelectorAll(".turn").forEach(el => el.remove());
   for (const m of messages){
@@ -693,7 +708,7 @@ $("beginBtn").addEventListener("click", () => {
   playerName = typed.slice(0, 60);
   if (FOR_ORRERY){
     character = {...ORRERY_CHARACTER}; characterName = "";
-    seed = makeSeed();
+    seed = makeSeed(!$("grownUp").checked);
     narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); });
     return;
   }
@@ -706,7 +721,7 @@ $("beginBtn").addEventListener("click", () => {
     // Nothing about a new character is asked for or picked in advance.
     characterName = ""; character = null;
   }
-  seed = makeSeed();
+  seed = makeSeed(!$("grownUp").checked);
   narrate("turn", text => { messages.push({role: "assistant", content: text}); render(); save(); });
 });
 function sendReply(){
