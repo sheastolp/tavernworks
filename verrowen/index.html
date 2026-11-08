@@ -269,6 +269,7 @@
 </div>
 
 <script src="/orrery-review.js"></script>
+<script src="/orrery-db.js"></script>
 <script src="/pwa.js" data-sw="/verrowen/sw.js" data-scope="/verrowen/"></script>
 <script src="/voice-input.js"></script>
 <script src="/ai-model-note.js"></script>
@@ -277,7 +278,6 @@
 // the universe repo and sends each turn to the narrator gate on the laptop
 // (verrowen/server/server.mjs), which passes it to Ollama.
 const NARRATOR = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
-const LORE_URL = "https://raw.githubusercontent.com/sheastolp/grand-orrery/main/lore.md";
 
 // ── Narrator rules (kept in step with the Val Town version's prompt.ts) ──
 const RULES = `You are the narrator of a character-creation roleplay set in the universe described in the LORE below. The player doesn't know who their character is, and finding out is the game.
@@ -450,15 +450,16 @@ const isOrreryStory = () => !!character && character.kind === "orrery";
 let playerId = store.get("verrowen-id");
 if (!playerId){ playerId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(16) + "-" + Math.random().toString(16).slice(2); store.set("verrowen-id", playerId); }
 
-// ── Lore: from the universe repo, with this browser's last copy as a fallback ──
-// Fetched again once it's 10 minutes old, so an app left open all day still
-// picks up lore published to main since it opened.
+// ── Lore: from the Orrery's database, with this browser's last copy as a fallback ──
+// The narrator's lore is the database's lore lines (compiled from lore.md),
+// read through /orrery-db.js like every other Tavernworks app. Checked again
+// once it's 10 minutes old, so an app left open all day still picks up lore
+// published to main since it opened.
 let lorePromise = null, loreAt = 0;
 function loadLore(){
   if (lorePromise && Date.now() - loreAt > 10 * 60 * 1000) lorePromise = null;
-  if (!lorePromise) loreAt = Date.now(), lorePromise = fetch(LORE_URL, {cache: "no-cache"})
-    .then(r => { if (!r.ok) throw new Error("lore " + r.status); return r.text(); })
-    .then(md => { const t = md.replace(/^# .*\n+.*\n+/, "").trim(); store.set("verrowen-lore", t); return t; })
+  if (!lorePromise) loreAt = Date.now(), lorePromise = OrreryDB.fresh("main")
+    .then(o => { const t = o.loreText().trim(); if (!t) throw new Error("no lore yet"); store.set("verrowen-lore", t); return t; })
     .catch(e => { lorePromise = null; const old = store.get("verrowen-lore"); if (old) return old; throw new Error("couldn't load the world's lore"); });
   return lorePromise;
 }

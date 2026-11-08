@@ -423,19 +423,20 @@
 </div>
 <script src="/orrery/review-summary.js"></script>
 <script src="/orrery-review.js"></script>
+<script src="/orrery-db.js"></script>
 <script src="/pwa.js" data-sw="/orrery/sw.js" data-scope="/orrery/" data-badge="review"></script>
 <script src="/voice-input.js"></script>
 <script src="/ai-model-note.js"></script>
 <script>
-// The Orrery: reads the grand-orrery repo's Markdown straight from
-// GitHub (like Wake in Verrowen reads lore.md), so it's always current.
+// The Orrery: reads the Grand Orrery's database (people, items, beasts,
+// places) with the shared client, and its documents and maps straight from
+// GitHub for the Documents tab and the "everything written about" pages.
 // Views (in the URL hash): #scroll (the default, and what the app opens to:
 // everything below as one ledger), #scroll/<chapter>, #chat, #roster, #person/<id>, #items, #item/<id>,
 // #resources, #resources/<category>, #resources/<category>/<type>, #maps,
 // #beasts, #beasts/<place>, #beast/<id> (from bestiary.md),
-// #docs, #doc/<id>, #find/<text>. Items and resources come from the repo's
-// resources.md (## category, ### type, #### entry), so new ones show up on
-// their own. A person's page gathers every section of every document that
+// #docs, #doc/<id>, #find/<text>. Items and resources come from the
+// database, compiled from resources.md, so new ones show up on their own. A person's page gathers every section of every document that
 // mentions them, the way a search would, so new notes show up on their own.
 // /orrery/?clone=review is the Review Clone: the same Explorer, read from
 // grand-orrery's review branch, where changes wait until the owner puts
@@ -580,101 +581,76 @@ function broadLabel(l){
   if (l._broad == null) { const n = ITEMS.filter((it) => { l.re.lastIndex = 0; return l.re.test(itemText(it)); }).length; l._broad = n > Math.max(4, ITEMS.length * 0.08); }
   return l._broad;
 }
-// The roster. `names` are case-sensitive patterns matched as whole words.
-const PEOPLE = [
-  { group: "Stoutwell", id: "tobin", name: "Tobin Ashby", role: "Halfling, 33 · blacksmith's apprentice", names: ["Tobin"] },
-  { group: "Stoutwell", id: "doric", name: "Doric", role: "Halfling, 67 · master blacksmith", names: ["Doric"] },
-  { group: "Stoutwell", id: "osric", name: "Osric", role: "Halfling, 142 · Leader of the Elderhold", names: ["Osric"] },
-  { group: "Stoutwell", id: "hesketh", name: "Hesketh Reeve", role: "Human, 48 · Captain of the Guard", names: ["Hesketh"] },
-  { group: "Stoutwell", id: "murrow", name: "Murrow", role: "Artificer, 550+ · keeper of Monstradius", names: ["Murrow"] },
-  { group: "Stoutwell", id: "burn", name: "Burn", role: "Human, 45 · the Wellhouse's regular, roasts from his bar stool", names: ["Burn"] },
-  { group: "Stoutwell", id: "wellhouse", name: "The Wellhouse family", role: "Elves · owners of the village tavern", names: ["Wellhouse"] },
-  { group: "The Elderhold", id: "wendeline", name: "Wendeline Brackenford", role: "Halfling, 149 · the eldest, keeper of customs", names: ["Wendeline"] },
-  { group: "The Elderhold", id: "fenwick", name: "Fenwick Larkspur", role: "Halfling, 145 · ex-Guard, leans to survival", names: ["Fenwick(?! Loose-Coin)"] },
-  { group: "The Elderhold", id: "bertram", name: "Bertram Quillby", role: "Halfling, 138 · ledgers and tithe counts", names: ["Bertram", "Quillby"] },
-  { group: "The Elderhold", id: "ysolde", name: "Ysolde Ambergate", role: "Halfling, 133 · harvest stores and rationing", names: ["Ysolde"] },
-  { group: "The Elderhold", id: "clementine", name: "Clementine Rook", role: "Halfling, 131 · the newest Elder, deals with Murrow", names: ["Clementine"] },
-  { group: "The Kingdom", id: "glumtom", name: "Glumtom", role: "Rock gnome · the Kingdom's artificer", names: ["Glumtom"] },
-  { group: "The Kingdom", id: "scribe", name: "The Scribe", role: "Human, old · GuildScribe's senior guildscribe, in the capital", names: ["[Tt]he Scribe"] },
-  { group: "The Kingdom", id: "clerk", name: "The Wandering Clerk", role: "A guildscribe who broke from the hall · walks the Kingdom's roads", names: ["Wandering Clerk", "the Clerk"] },
-  { group: "The Kingdom", id: "peddlers", name: "The peddlers", role: "GuildScribe's market-stall traders, as a group", names: ["peddlers?", "Peddlers?"] },
-  { group: "The Kingdom", id: "taxrep", name: "The tax representative", role: "Collects the Kingdom's tax from Stoutwell", names: ["tax representative"] },
-  { group: "The capital peddlers", id: "bregga", name: "Bregga Stumpteeth", role: "Human · gap-toothed market hawker", names: ["Bregga"] },
-  { group: "The capital peddlers", id: "hesk", name: "Widow Hesk", role: "Human · sells on sympathy", names: ["Widow Hesk"] },
-  { group: "The capital peddlers", id: "loosecoin", name: "Fenwick Loose-Coin", role: "Halfling · always a copper short", names: ["Loose-Coin"] },
-  { group: "The capital peddlers", id: "marda", name: "Marda the Reformed Cutpurse", role: "Human · a pickpocket gone straight", names: ["Marda"] },
-  { group: "The capital peddlers", id: "grithnall", name: "Grithnall the Threadbare", role: "Human · patched from hat to boots", names: ["Grithnall"] },
-  { group: "The capital peddlers", id: "ossop", name: "Ossop the Unlucky", role: "Human · everything at his stall goes wrong", names: ["Ossop"] },
-  { group: "The capital peddlers", id: "beren", name: "Beren Halfcoat", role: "Halfling · the square's most honest haggler", names: ["Beren"] },
-  { group: "The capital peddlers", id: "ivy", name: "Ivy Scraptongue", role: "Human · insults and workshop scrap", names: ["Scraptongue"] },
-  { group: "The capital peddlers", id: "doras", name: "Doras Milkbeard", role: "Human · \"remedies\" that are mostly tea", names: ["Doras"] },
-  { group: "The capital peddlers", id: "ruel", name: "Ruel Tinkpocket", role: "Halfling · tinker with pockets of parts", names: ["Ruel"] },
-  { group: "The capital peddlers", id: "podge", name: "Podge Ashborn", role: "Halfling · sooty pots and lanterns", names: ["Podge"] },
-  { group: "The capital peddlers", id: "uther", name: "Uther Nine-Debts", role: "Human · owes nine debts to nine people", names: ["Uther"] },
-  { group: "The road peddlers", id: "wobble", name: "Wobble", role: "Halfling · a cart with one bad wheel", names: ["Wobble"] },
-  { group: "The road peddlers", id: "yorik", name: "Pruneface Yorik", role: "Human · the road's hardest bargainer", names: ["Yorik"] },
-  { group: "The road peddlers", id: "tansy", name: "Tansy Ninefingers", role: "Human · turns up the most real relics", names: ["Tansy"] },
-  { group: "The road peddlers", id: "corrin", name: "Old Corrin", role: "Human · the oldest on the road", names: ["Corrin"] },
-  { group: "The road peddlers", id: "tam", name: "Tam Pockets", role: "Human · more pocket than coat", names: ["Tam Pockets"] },
-  { group: "The road peddlers", id: "squint", name: "Squint", role: "Halfling · nearsighted, never cheated", names: ["Squint"] },
-  { group: "The road peddlers", id: "nan", name: "Nan Gullyfoot", role: "Halfling · knits, and feeds the hungry", names: ["Gullyfoot"] },
-  { group: "The road peddlers", id: "kettle", name: "Kettle", role: "Human · always has a kettle on", names: ["Kettle"] },
-  { group: "The road peddlers", id: "sella", name: "Sella Windrags", role: "Human · cloth flapping from her pack", names: ["Sella"] },
-  { group: "GuildScribe's adventurers", id: "adv-e_paco", name: "nobody", role: "Mountain Dwarf barbarian · level 12, Veteran · No Trolls Here, Touching", names: ["e_paco"] },
-  { group: "GuildScribe's adventurers", id: "adv-enya_celosia", name: "Momma_Enya", role: "Dragonborn warlock · level 12, Veteran · No Trolls Here, Touching", names: ["enya_celosia"] },
-  { group: "GuildScribe's adventurers", id: "adv-felivor", name: "Fel", role: "Drow Elf fighter · level 12, Veteran · Dweebs", names: ["felivor"] },
-  { group: "GuildScribe's adventurers", id: "adv-fridaynytes", name: "MuzzledKitty", role: "Tiefling wizard · level 12, Veteran · Science Club", names: ["fridaynytes"] },
-  { group: "GuildScribe's adventurers", id: "adv-majornarsilion", name: "Stabitha", role: "Human rogue · level 12, Veteran", names: ["majornarsilion"] },
-  { group: "GuildScribe's adventurers", id: "adv-sunaysaurus", name: "Sun", role: "High Elf monk · level 12, Veteran · Science Club", names: ["sunaysaurus"] },
-  { group: "GuildScribe's adventurers", id: "adv-yesevil95", name: "nogood59", role: "Forest Gnome cleric · level 12, Veteran", names: ["yesevil95"] },
-  { group: "GuildScribe's adventurers", id: "adv-strawberrystellas", name: "Blackass", role: "Dragonborn druid · level 11, Veteran · Science Club", names: ["strawberrystellas"] },
-  { group: "GuildScribe's adventurers", id: "adv-xannyxia", name: "Xan", role: "Tiefling druid · level 11, Veteran · Nuthaus", names: ["xannyxia"] },
-  { group: "GuildScribe's adventurers", id: "adv-rinkaneko", name: "Briarpike", role: "Forest Gnome druid · level 8, Seasoned · Nuthaus", names: ["rinkaneko"] },
-  { group: "GuildScribe's adventurers", id: "adv-stonedsheamus", name: "Shadowflame", role: "Half-Orc rogue · level 8, Seasoned · Dev", names: ["stonedsheamus"] },
-  { group: "GuildScribe's adventurers", id: "adv-trixiedahmer", name: "Mistkettle", role: "Dragonborn bard · level 8, Seasoned", names: ["trixiedahmer"] },
-  { group: "GuildScribe's adventurers", id: "adv-dnicholson1021", name: "Grimknot", role: "Stout Halfling fighter · level 7, Seasoned", names: ["dnicholson1021"] },
-  { group: "GuildScribe's adventurers", id: "adv-jeredth", name: "jeredth", role: "Lightfoot Halfling ranger · level 6, Seasoned · Touching", names: ["jeredth"] },
-  { group: "GuildScribe's adventurers", id: "adv-a_ducky_on_quack", name: "Quack", role: "Stout Halfling fighter · level 5, Journeyman", names: ["a_ducky_on_quack"] },
-  { group: "GuildScribe's adventurers", id: "adv-married_with_consoles", name: "Ryos", role: "Tiefling rogue · level 3, Journeyman", names: ["married_with_consoles"] },
-  { group: "GuildScribe's adventurers", id: "adv-smokeeeg", name: "smokeeeg", role: "Lightfoot Halfling rogue · level 3, Journeyman", names: ["smokeeeg"] },
-  { group: "GuildScribe's adventurers", id: "adv-theghrym", name: "Moonkettle", role: "Dragonborn fighter · level 3, Journeyman", names: ["theghrym"] },
-  { group: "GuildScribe's adventurers", id: "adv-blickysnicky", name: "blickysnicky", role: "Lightfoot Halfling monk · level 2, Novice", names: ["blickysnicky"] },
-  { group: "GuildScribe's adventurers", id: "adv-sirenwolfx", name: "Cinderfoot", role: "Dragonborn ranger · level 2, Novice", names: ["sirenwolfx"] },
-  { group: "GuildScribe's adventurers", id: "adv-antispinth1s", name: "antispinth1s", role: "Dragonborn sorcerer · level 1, Novice", names: ["antispinth1s"] },
-  { group: "GuildScribe's adventurers", id: "adv-chaoticwaterdragon", name: "chaoticwaterdragon", role: "Lightfoot Halfling monk · level 1, Novice", names: ["chaoticwaterdragon"] },
-  { group: "GuildScribe's adventurers", id: "adv-conan9287", name: "Conanski", role: "Lightfoot Halfling bard · level 1, Novice", names: ["conan9287"] },
-  { group: "GuildScribe's adventurers", id: "adv-humanoidrope", name: "Ironmantle", role: "Blue Dragonborn ranger · level 1, Novice", names: ["humanoidrope"] },
-  { group: "GuildScribe's adventurers", id: "adv-itsrybread", name: "itsrybread", role: "Half-Orc bard · level 1, Novice", names: ["itsrybread"] },
-  { group: "GuildScribe's adventurers", id: "adv-kacearrito", name: "Bramthistle", role: "Rock Gnome wizard · level 1, Novice", names: ["kacearrito"] },
-  { group: "GuildScribe's adventurers", id: "adv-lyghtable", name: "Mistcrest", role: "Half-Orc rogue · level 1, Novice", names: ["lyghtable"] },
-  { group: "GuildScribe's adventurers", id: "adv-morathisshadowweaver", name: "morathisshadowweaver", role: "Half-Orc warlock · level 1, Novice", names: ["morathisshadowweaver"] },
-  { group: "GuildScribe's adventurers", id: "adv-ninasmash", name: "Hawkthistle", role: "Half-Orc wizard · level 1, Novice", names: ["ninasmash"] },
-  { group: "GuildScribe's adventurers", id: "adv-pahtoonyah_", name: "Thunderwing", role: "Forest Gnome warlock · level 1, Novice", names: ["pahtoonyah_"] },
-  { group: "GuildScribe's adventurers", id: "adv-sirleafytheslightlyinsane", name: "Bramblehelm", role: "Tiefling paladin · level 1, Novice", names: ["sirleafytheslightlyinsane"] },
-  { group: "GuildScribe's adventurers", id: "adv-undercovermario", name: "undercovermario", role: "Tiefling ranger · level 1, Novice", names: ["undercovermario"] },
-  { group: "GuildScribe's adventurers", id: "adv-x3zero", name: "x3zero", role: "Tiefling cleric · level 1, Novice", names: ["x3zero"] },
-  { group: "Other worlds", id: "arandur", name: "Arandur", role: "Elf ranger and pickpocket, pulled between worlds", names: ["Arandur"] },
-  { group: "Other worlds", id: "silwen", name: "Silwen", role: "Arandur's hunter mother", names: ["Silwen"] },
-  { group: "Other worlds", id: "faelan", name: "Faelan", role: "Arandur's distant father", names: ["Faelan"] },
-  { group: "Midkemia", id: "belenos", name: "Belenos", role: "Half-elf, 26 · warlock of Lugh, from Aetherwyn", names: ["Belenos"] },
-  { group: "Midkemia", id: "ulfgar", name: "Ulfgar Luttenheim", role: "Dwarf barbarian · wild magic", names: ["Ulfgar"] },
-  { group: "Midkemia", id: "orla", name: "Órla", role: "Elf cleric · the party's healer", names: ["Órla", "Orla"] },
-  { group: "Midkemia", id: "theron", name: "Theron", role: "Holy symbol, high Arcana", names: ["Theron"] },
-  { group: "Midkemia", id: "kaelreth", name: "Kaelreth Graveborn", role: "Necromancer · rides Gravehoof", names: ["Kaelreth", "Gravehoof"] },
-  { group: "Midkemia", id: "sebastian", name: "Sebastian", role: "Full bard · persuasion spells", names: ["Sebastian"] },
-  { group: "Midkemia", id: "styx", name: "Styx", role: "Goblin", names: ["Styx"] },
-  { group: "Midkemia", id: "king", name: "King Pedgar", role: "Dannonirn's new king, from Kegamosa · sent the party after the queen", names: ["Pedgar", "King of Dannonirn"] },
-  { group: "Midkemia", id: "queen", name: "Queen Taileflaith", role: "Dannonirn's missing ruler, bound to its magic · the party's quest", names: ["Taileflaith", "Queen Tali", "Queen of Dannonirn", "the queen"] },
-  { group: "Midkemia", id: "ringmaster", name: "The Ringmaster", role: "Runs the carnival · a warlock pact with the fey", names: ["Ringmaster"] },
-  { group: "Midkemia", id: "lugh", name: "Lugh", role: "Trickster and weather god · Belenos's patron, friend of the sky pirates", names: ["Lugh"] },
-  { group: "Midkemia", id: "morrigan", name: "Morrigan", role: "Goddess of Magic and Death", names: ["Morrigan"] },
-  { group: "Midkemia", id: "mourgause", name: "Mourgause", role: "Morrigan's sister · the witch of the world", names: ["Mourgause"] },
-  { group: "Midkemia", id: "morgana", name: "Morgana", role: "Morrigan's neutral sister", names: ["Morgana"] },
-];
+// ── The Orrery database ──
+// People, items, beasts and places come from the Grand Orrery's database
+// (grand-orrery's tools/build.mjs compiles every document into one record
+// per thing, published to its data branch), read with the same client every
+// Tavernworks app uses (/orrery-db.js). The documents are still read for the Documents tab,
+// the maps and the "every section that mentions them" pages.
+let orrery = null, orreryReview = null;
+async function readDb() {
+  try {
+    orrery = await OrreryDB.fresh(BRANCH);
+    // The live Orrery also shows Wake in Verrowen characters waiting on review.
+    if (!CLONE && !orreryReview) orreryReview = await OrreryDB.get("review");
+  } catch (e) { console.error("orrery database", e); }
+  return !!(orrery && orrery.list().length);
+}
+// A record's status, as the documents' tags say it.
+const STATUS_LABEL = { decided: "Your idea", pitch: "Pitch", open: "Not decided yet", "dm-lore": "DM lore", draft: "Rough draft" };
+const statusLabel = (s) => STATUS_LABEL[s] || "";
+// A field key from the database ("in_guildscribe") as a label ("In GuildScribe").
+const FIELD_LABEL = { in_guildscribe: "In GuildScribe" };
+const fieldLabel = (k) => FIELD_LABEL[k] || (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, " ");
+const fieldText = (v) => (Array.isArray(v) ? v.join("; ") : String(v ?? ""));
+// What isn't a "- **Field:** value" bullet (or a list under one) is the body.
+const bodyOf = (e) => String(e.body || "").split("\n").filter((l) => !/^\s*[-*]\s+\*\*[^*:]+:\*\*/.test(l) && !/^\s{2,}[-*]\s/.test(l) && !/^_(From |Made up by ).*_\s*$/.test(l)).join("\n").trim();
 
-// Murrow's enchanted items, used only until resources.md is on the branch
-// (or if it can't be read). `names` match like the roster's; `by` links the
-// people who make them. The live list is ITEMS, built from resources.md.
+// The roster: every person in the database, grouped the way the roster reads.
+// `names` are case-sensitive patterns matched as whole words, used to find
+// what each document says about them.
+let PEOPLE = [];
+const GROUP_ORDER = ["Stoutwell", "The Elderhold", "The Kingdom", "The capital peddlers", "The road peddlers", "GuildScribe's adventurers", "From Wake in Verrowen", "New at GuildScribe (not in the canon yet)", "Other worlds", "Midkemia", "Roles still to fill"];
+const NAME_SKIP = new Set(["The", "Old", "Widow", "King", "Queen", "Reformed", "Cutpurse", "Unlucky", "Threadbare", "Wandering", "Family"]);
+function groupOf(p) {
+  if (p.kind === "adventurer") return "GuildScribe's adventurers";
+  if (p.group) return p.group;
+  if (p.world === "midkemia") return "Midkemia";
+  if (p.world && p.world !== "verrowen") return "Other worlds";
+  const [where, part] = String(p.section || "").split(":").map((s) => s.trim());
+  if (where === "Stoutwell") return /elderhold/i.test(part || "") ? "The Elderhold" : "Stoutwell";
+  if (where === "The Kingdom") return "The Kingdom";
+  return p.section || "Others";
+}
+function roleOf(p) {
+  if (p.kind === "adventurer") return [[p.race, String(p.class || "").toLowerCase()].filter(Boolean).join(" "), [p.level != null && "level " + p.level, p.rank].filter(Boolean).join(", "), (p.companies || []).join(", ")].filter(Boolean).join(" · ");
+  const who = [p.race && p.race !== "Unknown" ? p.race : "", p.age != null ? String(p.age) : ""].filter(Boolean).join(", ");
+  return [who, p.role || p.line || ""].filter(Boolean).join(" · ");
+}
+function buildPeople() {
+  const all = orrery ? orrery.list("person").filter((p) => p.kind !== "wake-character") : [];
+  // A word of a name finds them on its own ("Larkspur") when no one else's name has it.
+  const words = (n) => n.split(/\s+/).filter((w) => /^[A-ZÀ-Ý]/.test(w) && w.length > 3 && !NAME_SKIP.has(w));
+  const count = new Map();
+  for (const p of all) for (const w of new Set(words(p.name))) count.set(w, (count.get(w) || 0) + 1);
+  const full = (n) => (/^The /.test(n) ? "[Tt]he " + reEsc(n.slice(4)) : reEsc(n));
+  const people = all.map((p) => ({
+    group: groupOf(p), id: p.kind === "adventurer" && p.played_by ? "adv-" + String(p.played_by).toLowerCase() : p.id, dbId: p.id,
+    name: p.name, role: roleOf(p), status: statusLabel(p.status),
+    names: p.kind === "adventurer" && p.played_by ? [reEsc(p.played_by)] : [...new Set([full(p.name), ...words(p.name).filter((w) => count.get(w) === 1).map(reEsc)])],
+  }));
+  // The roles nobody fills yet, so what's written about them can still be found.
+  for (const r of orrery ? orrery.list("role") : []) {
+    const short = r.name.replace(/\s*\([^)]*\)/g, "").replace(/^(The |A )/, "").replace(/^(Kingdom's|Stoutwell's) /, "").trim();
+    people.push({ group: "Roles still to fill", id: r.id, dbId: r.id, name: r.name, role: "Nobody named yet", status: statusLabel(r.status), names: [reEsc(short)] });
+  }
+  const rank = (g) => { const i = GROUP_ORDER.indexOf(g); return i < 0 ? GROUP_ORDER.length - 1 : i; };
+  PEOPLE = people.map((p, i) => [p, i]).sort((a, b) => rank(a[0].group) - rank(b[0].group) || a[1] - b[1]).map(([p]) => p);
+}
+
+// Murrow's enchanted items, used only until the database can be read.
+// `names` match like the roster's; `by` links the people who make them.
+// The live list is ITEMS, built from the database.
 const BUILTIN_ITEMS = [
   { id: "hearthstone", icon: "🔥", name: "Hearthstone", names: ["Hearthstones?"], by: ["murrow"],
     does: "Keeps a stove warm through the night without new wood.",
@@ -705,11 +681,11 @@ const BUILTIN_ITEMS = [
 const BUILTIN = BUILTIN_ITEMS.map((it) => ({ ...it, cat: "Enchanted items", type: "Murrow's shop", status: "Your idea", extra: [], body: "" }));
 let ITEMS = BUILTIN, CATS = [], fromFile = false;
 
-// ── resources.md → ITEMS ──
-// ## Category / ### Type / #### <icon> Name (tag), then "- **Field:** value"
-// bullets. Anything else under an entry is kept as its body.
-const FIELD = { "where": "where", "does": "does", "made": "made", "limits": "limits", "rules": "rules", "story": "story", "note": "sub", "made by": "by", "also called": "also", "icon": "icon" };
-const idOf = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+// ── Items and resources: the database's items ──
+// Each item comes from resources.md (## category, ### type, #### entry) by
+// way of the database, with its "- **Field:** value" bullets as fields.
+const FIELD = { "where": "where", "does": "does", "made": "made", "limits": "limits", "rules": "rules", "story": "story", "note": "sub", "made_by": "by", "also_called": "also", "icon": "icon" };
+const idOf = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // "Rift compass" -> "[Rr]ift compass(?:e?s)?": either case first letter, plural ok.
 const nameRe = (n) => { const e = reEsc(n.trim()); return (/^[a-z]/i.test(e) ? `[${e[0].toUpperCase()}${e[0].toLowerCase()}]` + e.slice(1) : e) + "(?:e?s)?"; };
@@ -719,40 +695,20 @@ function personIds(list) {
     return p ? p.id : null;
   }).filter(Boolean);
 }
-function parseResources(src) {
-  const out = [], seen = new Set();
-  let cat = "", type = "", it = null;
-  const finish = () => { if (it) { it.body = it.body.trim(); out.push(it); } it = null; };
-  for (const raw of src.replace(/\r/g, "").replace(/<!--[\s\S]*?-->/g, "").split("\n")) {
-    let m;
-    if ((m = raw.match(/^##\s+(.+?)\s*$/)) && !raw.startsWith("###")) { finish(); cat = m[1]; type = ""; continue; }
-    if ((m = raw.match(/^###\s+(.+?)\s*$/)) && !raw.startsWith("####")) { finish(); type = m[1]; continue; }
-    if ((m = raw.match(/^####\s+(.+?)\s*$/))) {
-      finish();
-      if (!cat) continue;
-      let h = m[1], status = "";
-      const t = h.match(/\s*\(([^)]+)\)\s*$/);
-      if (t) { status = t[1]; h = h.slice(0, t.index).trim(); }
-      const e = h.match(/^(\p{Extended_Pictographic}[\u{FE0F}\u{200D}\p{Extended_Pictographic}]*)\s*/u);
-      const icon = e ? e[1] : "📦", name = e ? h.slice(e[0].length).trim() : h;
-      let id = idOf(name) || "item"; while (seen.has(id)) id += "-2"; seen.add(id);
-      it = { id, icon, name, cat, type: type || "Other", status, by: [], also: "", extra: [], body: "" };
-      continue;
-    }
-    if (!it) continue;
-    if ((m = raw.match(/^\s*[-*]\s+\*\*([^*:]+):\*\*\s*(.*)$/))) {
-      const key = FIELD[m[1].trim().toLowerCase()];
-      if (key === "by") it.by = personIds(m[2]);
-      else if (key) it[key] = m[2].trim();
-      else it.extra.push([m[1].trim(), m[2].trim()]);
-    } else it.body += raw + "\n";
+function itemFromDb(e) {
+  const it = { id: e.id, icon: e.icon || "📦", name: e.name, cat: e.category || "Other", type: e.kind || "Other", status: statusLabel(e.status), by: [], also: "", extra: [], body: bodyOf(e) };
+  for (const [k, v] of Object.entries(e.fields || {})) {
+    const key = FIELD[k], val = fieldText(v);
+    if (key === "by") it.by = personIds(val);
+    else if (key) it[key] = val;
+    else it.extra.push([fieldLabel(k), val]);
   }
-  finish();
-  return out.map((x) => ({ ...x, names: [x.name, ...x.also.split(",")].map((n) => n.trim()).filter(Boolean).map(nameRe), does: x.does || "" }));
+  it.names = [it.name, ...it.also.split(",")].map((n) => n.trim()).filter(Boolean).map(nameRe);
+  it.does = it.does || "";
+  return it;
 }
 function buildItems() {
-  const src = text.resources || "";
-  const got = src ? parseResources(src) : [];
+  const got = orrery ? orrery.list("item").map(itemFromDb) : [];
   fromFile = got.length > 0;
   ITEMS = fromFile ? got : BUILTIN;
   CATS = [];
@@ -763,20 +719,18 @@ function buildItems() {
     if (!t) c.types.push(t = { name: it.type, id: idOf(it.type), items: [] });
     t.items.push(it);
   }
-  // Each category's opening paragraph, shown on its page.
-  for (const s of src.split(/^## /m).slice(1)) {
+  // Each category's opening paragraph, shown on its page, from the document itself.
+  for (const s of (text.resources || "").split(/^## /m).slice(1)) {
     const name = s.split("\n")[0].trim(), c = CATS.find((x) => x.name === name);
     if (c) c.intro = s.split("\n").slice(1).join("\n").split(/^###/m)[0].replace(/<!--[\s\S]*?-->/g, "").trim();
   }
 }
 const isPitch = (it) => /pitch|not decided/i.test(it.status || "");
 
-// ── bestiary.md → PLACES and BEASTS ──
-// ## Place (tag) with **Where/For/Levels/Lines** bullets, then
-// #### <icon> Name (tag) for each creature found there, with **Stats**,
-// **In GuildScribe**, **Does**, **Limits**, **Story** (see bestiary.md's top).
+// ── Beasts and places: the database's places and creatures ──
+// From bestiary.md: each ## is a place fights happen (**Where/For/Levels/Lines**),
+// each #### a creature found there (**Stats**, **In GuildScribe**, **Does** …).
 let PLACES = [], BEASTS = [];
-const BFIELD = { "where": "where", "for": "for", "levels": "levels", "stats": "stats", "in guildscribe": "gs", "does": "does", "limits": "limits", "story": "story", "also called": "also" };
 // A beast's names: its own (no leading "The", singular too), the first
 // word of a two-word name ("Thornback"), and the bots' monsters that count as it.
 function beastNames(b) {
@@ -785,40 +739,23 @@ function beastNames(b) {
   const w = base.split(/\s+/); if (w.length === 2 && w[0].length > 4) list.push(w[0]);
   return [...new Set(list.map((n) => n.trim()).filter(Boolean))].map(nameRe);
 }
-function parseBestiary(src) {
-  const places = [], beasts = [], seen = new Set();
-  let place = null, cur = null, lines = false;
-  const uid = (n) => { let id = idOf(n) || "beast"; while (seen.has(id)) id += "-2"; seen.add(id); return id; };
-  const head = (h) => { const t = h.match(/\s*\(([^)]+)\)\s*$/); return t ? [h.slice(0, t.index).trim(), t[1]] : [h, ""]; };
-  for (const raw of src.replace(/\r/g, "").replace(/<!--[\s\S]*?-->/g, "").split("\n")) {
-    let m;
-    if ((m = raw.match(/^##\s+(.+?)\s*$/)) && !raw.startsWith("###")) {
-      const [name, status] = head(m[1]);
-      place = cur = { id: uid(name), name, status, heading: m[1], where: "", for: "", levels: "", also: "", lines: [], extra: [], beasts: [] };
-      places.push(place); lines = false; continue;
-    }
-    if (raw.startsWith("###") && !raw.startsWith("####")) { cur = null; continue; }
-    if ((m = raw.match(/^####\s+(.+?)\s*$/))) {
-      if (!place) { cur = null; continue; }
-      const [h, status] = head(m[1]);
-      const e = h.match(/^(\p{Extended_Pictographic}[\u{FE0F}\u{200D}\p{Extended_Pictographic}]*)\s*/u);
-      const name = e ? h.slice(e[0].length).trim() : h;
-      cur = { id: uid(name), icon: e ? e[1] : "🐾", name, status, heading: m[1], place: place.id, stats: "", gs: "", does: "", limits: "", story: "", also: "", extra: [] };
-      beasts.push(cur); place.beasts.push(cur); lines = false; continue;
-    }
-    if (!cur) continue;
-    if ((m = raw.match(/^[-*]\s+\*\*([^*:]+):\*\*\s*(.*)$/))) {
-      const label = m[1].trim().toLowerCase(), key = BFIELD[label];
-      lines = label === "lines" && cur === place;
-      if (key) cur[key] = m[2].trim(); else if (!lines) cur.extra.push([m[1].trim(), m[2].trim()]);
-    } else if (lines && (m = raw.match(/^\s+[-*]\s+(.+)$/))) place.lines.push(m[1].trim());
-  }
-  for (const p of places) p.names = [p.name.replace(/^the\s+/i, ""), ...p.also.split(",")].map((n) => n.trim()).filter(Boolean).map(nameRe);
-  for (const b of beasts) b.names = beastNames(b);
-  return { places, beasts };
-}
+const headingOf = (e, icon) => [icon, e.name].filter(Boolean).join(" ") + (statusLabel(e.status) ? ` (${statusLabel(e.status)})` : "");
+const extrasOf = (f, skip) => Object.entries(f || {}).filter(([k]) => !skip.includes(k)).map(([k, v]) => [fieldLabel(k), fieldText(v)]);
 function buildBeasts() {
-  ({ places: PLACES, beasts: BEASTS } = text.bestiary ? parseBestiary(text.bestiary) : { places: [], beasts: [] });
+  PLACES = []; BEASTS = [];
+  const byDbId = new Map();
+  for (const e of orrery ? orrery.list("place") : []) {
+    const f = e.fields || {};
+    const p = { id: e.id.replace(/^place-/, ""), name: e.name, status: statusLabel(e.status), heading: headingOf(e), where: fieldText(f.where), for: fieldText(f.for), levels: fieldText(f.levels), also: fieldText(f.also_called), lines: e.lines || [], extra: extrasOf(f, ["where", "for", "levels", "lines", "also_called"]), beasts: [] };
+    p.names = [p.name.replace(/^the\s+/i, ""), ...p.also.split(",")].map((n) => n.trim()).filter(Boolean).map(nameRe);
+    byDbId.set(e.id, p); PLACES.push(p);
+  }
+  for (const e of orrery ? orrery.list("creature") : []) {
+    const f = e.fields || {}, pl = byDbId.get(e.place);
+    const b = { id: e.id, icon: e.icon || "🐾", name: e.name, status: statusLabel(e.status), heading: headingOf(e, e.icon), place: pl ? pl.id : "", stats: fieldText(f.stats), gs: fieldText(f.in_guildscribe), does: fieldText(f.does), limits: fieldText(f.limits), story: fieldText(f.story), also: fieldText(f.also_called), extra: extrasOf(f, ["stats", "in_guildscribe", "does", "limits", "story", "also_called"]) };
+    b.names = beastNames(b);
+    BEASTS.push(b); if (pl) pl.beasts.push(b);
+  }
 }
 
 // ── Characters from Wake in Verrowen, pending review ──
@@ -834,17 +771,15 @@ function buildBeasts() {
 //     on a device with the owner's token, since the queue is the owner's)
 const VERROWEN_GROUP = "From Wake in Verrowen";
 const CREATE_URL = "/verrowen/?for=orrery";
-let vReview = "", vInbox = [];
-function verrowenSections(src) {
-  const part = (String(src || "").replace(/\r/g, "").split(/^## From Wake in Verrowen\s*$/m)[1] || "").split(/^## /m)[0];
-  return part.split(/^### /m).slice(1).map((s) => {
-    const head = s.split("\n")[0].trim(), tag = (head.match(/\(([^)]+)\)\s*$/) || [])[1] || "Pitch";
-    const key = (s.match(/<!-- review-key: (\S+) -->/) || [])[1] || "";
-    const byline = (s.match(/^_(.+)_\s*$/m) || [])[1] || "";
-    const body = s.split("\n").slice(1).join("\n").replace(/<!--[\s\S]*?-->/g, "").replace(/^_.+_\s*$/m, "").trim();
-    return { name: head.replace(/\s*\([^)]*\)\s*$/, "").trim(), tag, key, byline, body };
-  });
+let vInbox = [];
+// A Wake in Verrowen character in the database, with the story note it was filed as.
+function wakeSection(e, db) {
+  const note = (e.notes || []).map((id) => db.get(id)).find(Boolean) || {};
+  const raw = String(note.body || "");
+  const byline = (raw.match(/^_(.+)_\s*$/m) || [])[1] || "";
+  return { name: e.name, tag: statusLabel(e.status) || "Pitch", key: e.review_key || "", byline, body: raw.replace(/^_.+_\s*$/m, "").trim() };
 }
+const wakeOf = (db) => (db ? db.list("person", { kind: "wake-character" }).map((e) => wakeSection(e, db)) : []);
 // "Race: Halfling" or "**Species:** Halfling" in a wrapped-up profile.
 const profileLine = (body, labels) => {
   for (const l of labels) { const m = body.match(new RegExp(`^\\W*${l}\\W*:\\**\\s*(.+)$`, "im")); if (m) return m[1].replace(/[*_]/g, "").replace(/\s*\((?:suggested|not found out yet)\)/gi, "").trim(); }
@@ -864,20 +799,21 @@ function buildVerrowen() {
   const out = [], seen = new Set();
   const add = (p) => { const k = p.key || "name:" + p.name.toLowerCase(); if (seen.has(k)) return; seen.add(k); out.push(p); };
   // Newest stage first, so a character filed again shows how it stands now.
-  if (!CLONE) for (const s of verrowenSections(vReview)) {
-    const live = verrowenSections(text.notes).find((x) => (s.key && x.key === s.key) || x.name === s.name);
-    if (!live || live.body !== s.body || live.tag !== s.tag) add(verrowenPerson(s, s.tag === "Your idea" ? "Accepted, waiting to publish" : "Waiting on the Review Clone", "review"));
+  const live = wakeOf(orrery);
+  if (!CLONE) for (const s of wakeOf(orreryReview)) {
+    const now = live.find((x) => (s.key && x.key === s.key) || x.name === s.name);
+    if (!now || now.body !== s.body || now.tag !== s.tag) add(verrowenPerson(s, s.tag === "Your idea" ? "Accepted, waiting to publish" : "Waiting on the Review Clone", "review"));
   }
-  for (const s of verrowenSections(text.notes)) add(verrowenPerson(s, s.tag === "Your idea" ? "Your idea" : "Pitch", BRANCH));
+  for (const s of live) add(verrowenPerson(s, s.tag === "Your idea" ? "Your idea" : "Pitch", BRANCH));
   for (const it of vInbox) add(verrowenPerson({ name: it.title, tag: "Pitch", key: it.key || "", byline: ["Sent in " + String(it.at || "").slice(0, 10), it.name ? "by " + it.name : "", it.about].filter(Boolean).join(" · "), body: it.body || "" }, "Sent in, not filed yet", "inbox"));
   const at = PEOPLE.findIndex((p) => p.group === "Other worlds");
   PEOPLE.splice(at < 0 ? PEOPLE.length : at, 0, ...out.map((p) => ({ ...p, id: PEOPLE.some((q) => q.id === p.id) ? p.id + "-2" : p.id })));
 }
-// The review branch and the owner's queue, read after the canon; the roster
-// redraws when they arrive.
+// The review branch's database and the owner's queue, read after the canon;
+// the roster redraws when they arrive.
 async function loadVerrowenPending() {
   const jobs = [];
-  if (!CLONE) jobs.push(fetch(RAW_BASE + "review/working-notes.md?t=" + Date.now(), { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => "").then((t) => { vReview = t; }));
+  if (orreryReview) jobs.push(orreryReview.refresh());
   const tok = (() => { try { return localStorage.getItem("verrowen-owner") || ""; } catch { return ""; } })();
   if (tok && window.OrreryReview) jobs.push(fetch(OrreryReview.SERVER + "/admin/inbox", { headers: { authorization: "Bearer " + tok }, cache: "no-store" })
     .then((r) => (r.ok ? r.json() : { items: [] })).then((j) => { vInbox = (j.items || []).filter((x) => x.source === "verrowen"); }).catch(() => {}));
@@ -1092,8 +1028,10 @@ function roster() {
   }).join("");
 }
 function person(id) {
-  const p = PEOPLE.find((x) => x.id === id);
-  if (!p) return `<p>No one by that id. <a href="#roster">Back to the roster</a>.</p>`;
+  // Links from before the database used short ids (#person/tobin): any one of
+  // a person's own name words still finds them.
+  const p = PEOPLE.find((x) => x.id === id || x.dbId === id) || PEOPLE.find((x) => x.name.split(/\s+/).some((w) => idOf(w) === id));
+  if (!p) return { html: `<p>No one by that id. <a href="#roster">Back to the roster</a>.</p>` };
   const re = patternFor(p.names);
   const found = matches(re);
   const total = found.reduce((a, d) => a + d.hits.length, 0);
@@ -1117,7 +1055,7 @@ function itemCard(it, showWhere) {
 }
 function items() {
   const lead = fromFile
-    ? `Every item and resource in the Orrery, read live from <a href="#doc/resources">resources.md</a>. Browse them by category and type on the <a href="#resources">Resources</a> tab.`
+    ? `Every item and resource in the Orrery, from its database (compiled from <a href="#doc/resources">resources.md</a>). Browse them by category and type on the <a href="#resources">Resources</a> tab.`
     : `Made or sold in Murrow's shop, Monstradius. Each item shows how the rules of magic work.`;
   return `<p class="tag" style="margin:4px 0 14px">${lead}</p>${CATS.map((c) => fold("items:" + c.id, `${esc(c.name)}<span class="pill">${c.types.reduce((a, t) => a + t.items.length, 0)}</span>`, `<div class="grid">${c.types.flatMap((t) => t.items).map((it) => itemCard(it, false)).join("")}</div>`)).join("")}`;
 }
@@ -1126,7 +1064,7 @@ function resources(catId, typeId) {
   if (!fromFile) return `<p class="tag">Resources come from <code>resources.md</code> in the grand-orrery repo, and it isn't on the <b>${esc(BRANCH)}</b> branch yet${CLONE ? "" : " (it may be waiting on the <a href=\"/orrery/?clone=review#resources\">Review Clone</a>)"}. Until then, here are Murrow's items.</p><div class="grid">${ITEMS.map((it) => itemCard(it, false)).join("")}</div>`;
   const c = CATS.find((x) => x.id === catId);
   if (!c) {
-    return `<p class="tag" style="margin:4px 0 14px">Everything people make, use, trade, eat and fight with, by category and then type. Read live from <a href="#doc/resources">resources.md</a>.</p>${CATS.map((c) => {
+    return `<p class="tag" style="margin:4px 0 14px">Everything people make, use, trade, eat and fight with, by category and then type. From the Orrery's database, compiled from <a href="#doc/resources">resources.md</a>.</p>${CATS.map((c) => {
       const n = c.types.reduce((a, t) => a + t.items.length, 0);
       return fold("resov:" + c.id, `${esc(c.name)}<span class="pill">${n}</span>`, `${c.intro ? `<div class="md tag" style="max-width:none;margin-top:0">${md(c.intro)}</div>` : ""}<p class="tag" style="margin:4px 0 0"><a href="#resources/${c.id}">Open ${esc(c.name)} on its own page →</a></p>${
         c.types.map((t) => fold("resov:" + c.id + "/" + t.id, `${esc(t.name)}<span class="pill">${t.items.length}</span>`, `<div class="grid">${t.items.map((it) => itemCard(it, false)).join("")}</div>`)).join("")}`);
@@ -1217,7 +1155,7 @@ function beasts(placeId) {
   if (!PLACES.length) return { html: `<p class="tag">Beasts come from <code>bestiary.md</code> in the grand-orrery repo, and it isn't on the <b>${esc(BRANCH)}</b> branch yet${CLONE ? "" : " (it may be waiting on the <a href=\"/orrery/?clone=review#beasts\">Review Clone</a>)"}.</p>${learnedBeasts()}`, re: null };
   const pl = PLACES.find((p) => p.id === placeId);
   if (!pl) {
-    return { html: `<p class="tag" style="margin:4px 0 14px">Where GuildScribe's adventurers hunt, duel and get robbed, and what lives there. Read live from <a href="#doc/bestiary">bestiary.md</a>, which the GuildScribe bots fight with.</p>${fold("beasts:places", `Places<span class="pill">${PLACES.length}</span>`, `<div class="grid">${PLACES.map((p) => `<a class="card" href="#beasts/${p.id}"><b>${esc(p.name)}</b><span>${esc(p.where)}</span><div class="count">${isPitch(p) ? '<span class="pill pitch">' + esc(p.status) + "</span> " : ""}${[p.for, p.levels && "levels " + p.levels].filter(Boolean).map(esc).join(" · ")}${p.beasts.length ? ` · ${p.beasts.length} beast${p.beasts.length === 1 ? "" : "s"}` : ""}</div></a>`).join("")}</div>`)}${
+    return { html: `<p class="tag" style="margin:4px 0 14px">Where GuildScribe's adventurers hunt, duel and get robbed, and what lives there. From the Orrery's database, compiled from <a href="#doc/bestiary">bestiary.md</a>; the GuildScribe bots fight with the same records.</p>${fold("beasts:places", `Places<span class="pill">${PLACES.length}</span>`, `<div class="grid">${PLACES.map((p) => `<a class="card" href="#beasts/${p.id}"><b>${esc(p.name)}</b><span>${esc(p.where)}</span><div class="count">${isPitch(p) ? '<span class="pill pitch">' + esc(p.status) + "</span> " : ""}${[p.for, p.levels && "levels " + p.levels].filter(Boolean).map(esc).join(" · ")}${p.beasts.length ? ` · ${p.beasts.length} beast${p.beasts.length === 1 ? "" : "s"}` : ""}</div></a>`).join("")}</div>`)}${
       PLACES.filter((p) => p.beasts.length).map((p) => fold("beasts:" + p.id, `${esc(p.name)}<span class="pill">${p.beasts.length}</span>`, `<div class="grid">${p.beasts.map(beastCard).join("")}</div>`)).join("")}${learnedBeasts()}`, re: null };
   }
   const re = patternFor(pl.names), found = matches(re), total = found.reduce((a, d) => a + d.hits.length, 0);
@@ -1541,6 +1479,8 @@ async function load(quiet = false, head) {
     if (h) d.title = h.replace(/[*_`]/g, "").trim();
   });
   await readMapLabels(bust);
+  const dbOk = await readDb();
+  buildPeople();
   buildItems();
   buildRifts();
   buildBeasts();
@@ -1549,7 +1489,10 @@ async function load(quiet = false, head) {
   // resources.md and bestiary.md may not be on this branch yet; the
   // built-in items cover the first, and the second is simply left out.
   const missing = DOCS.filter((d) => !text[d.id] && d.id !== "resources" && d.id !== "bestiary" && d.id !== "rifts");
-  if (missing.length === DOCS.length) {
+  if (!dbOk) {
+    $("status").className = "status err";
+    $("status").textContent = "Couldn't read the Orrery's database, so the roster, items and beasts are empty. Try Reload in a moment.";
+  } else if (missing.length === DOCS.length) {
     $("status").className = "status err";
     $("status").textContent = "Couldn't reach GitHub to read the orrery. Try Reload in a moment.";
   } else {

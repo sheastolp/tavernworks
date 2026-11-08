@@ -535,7 +535,7 @@ async function loreCatchupDraft() {
   }
   const ask = `You keep lore.md, the short, decided canon the narrator of a roleplay game reads. Below are the current LORE and the DECIDED CHANGES made to the universe's notes since it was last caught up.
 
-Write ONLY what LORE is missing: facts in the changes that LORE doesn't already state, or states differently (then write the corrected fact). One line per topic, each starting with an UPPERCASE label like LORE's (WORLD:, BEYOND:, KINGDOM:, MAGIC:, ITEMS:, RESOURCES:, PEOPLE:, STOUTWELL:, LIFE:, OTHER WORLDS:) or a short new label. Put a fact under the label for where it actually is: only things in Stoutwell go under STOUTWELL:, and a place elsewhere in Verrowen can get its own label. Plain, compact sentences. No markdown, no bullets, no commentary. Never add ideas that are still open, or anything not in the changes. If LORE already has everything, reply exactly: NOTHING NEW
+Write ONLY what LORE is missing: facts in the changes that LORE doesn't already state, or states differently (then write the corrected fact). Never restate, reword or summarize anything LORE already says: each line holds only the new sentences, and they're added to the end of LORE's line with the same label. One line per topic, each starting with an UPPERCASE label like LORE's (WORLD:, BEYOND:, KINGDOM:, MAGIC:, ITEMS:, RESOURCES:, PEOPLE:, STOUTWELL:, LIFE:, OTHER WORLDS:) or a short new label. Put a fact under the label for where it actually is: only things in Stoutwell go under STOUTWELL:, and a place elsewhere in Verrowen can get its own label. Plain, compact sentences. No markdown, no bullets, no commentary. Never add ideas that are still open, or anything not in the changes. If LORE already has everything, reply exactly: NOTHING NEW
 
 LORE:
 ${lore.replace(/^# .*\n+.*\n+/, "").trim()}
@@ -546,6 +546,38 @@ ${text.trim()}`;
   const lines = /^\s*NOTHING NEW\s*$/i.test(reply) ? "" : reply.replace(/\*+/g, "").split("\n").map((l) => l.replace(/^\s*[-•]\s*/, "").trim())
     .filter((l) => /^[A-Z][A-Z0-9 '&/-]{1,40}:\s+\S/.test(l)).join("\n");
   return { base, head, sections: used, cut, lines };
+}
+// lore.md keeps one line per label. A catch-up line for a label that's
+// already there adds only the sentences it doesn't already say (a reworded
+// sentence counts as said), at the end of that label's line; a new label
+// gets its own line. Lines the AI ran together ("RACES: … MAGIC: …") are
+// split at each label first. Before this, every catch-up appended whole
+// repeat lines and lore.md grew to 60 lines for 18 topics.
+const LORE_LABEL = /^([A-Z][A-Z0-9 '&/-]{1,40}?)(\s*\([^)]*\))?:\s+/;
+const loreNorm = (s) => String(s).replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim();
+const loreWords = (s) => new Set(loreNorm(s).toLowerCase().replace(/[^a-z0-9' ]/g, " ").split(" ").filter((w) => w.length > 2));
+const loreSentences = (s) => (loreNorm(s).match(/[^.!?]+(?:[.!?]+["')]?|$)/g) || []).map((x) => x.trim()).filter(Boolean);
+function sameSentence(a, b) {
+  const A = loreWords(a), B = loreWords(b);
+  let n = 0;
+  for (const w of A) if (B.has(w)) n++;
+  return n / Math.max(1, Math.min(A.size, B.size)) >= 0.6;
+}
+export function mergeLoreLines(text, add) {
+  const lines = String(text).replace(/\s+$/, "").split("\n");
+  const labelOf = (l) => { const m = l.match(LORE_LABEL); return m ? m[1].trim() : null; };
+  const labels = [...new Set([...lines, ...add].map(labelOf).filter((k) => k && k !== "SECRET"))];
+  const split = labels.length ? new RegExp("\\s+(?=(?:" + labels.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?:\\s*\\([^)]*\\))?:\\s)", "g") : null;
+  for (const l of add.flatMap((x) => (split ? x.split(split) : [x]))) {
+    const label = labelOf(l);
+    if (!label) continue;
+    const at = lines.findIndex((x) => labelOf(x) === label);
+    if (at < 0) { lines.push(l.trim()); continue; }
+    const said = loreSentences(lines[at].replace(LORE_LABEL, ""));
+    const fresh = loreSentences(l.replace(LORE_LABEL, "")).filter((s) => !said.some((x) => sameSentence(x, s)));
+    if (fresh.length) lines[at] = lines[at].replace(/\s+$/, "") + " " + fresh.join(" ");
+  }
+  return lines.join("\n");
 }
 async function loreCatchupApply(b) {
   const head = String(b.head || "");
@@ -559,7 +591,7 @@ async function loreCatchupApply(b) {
     let at = lines.findIndex((l) => CAUGHT_UP.test(l));
     if (at < 0) { at = lines.findIndex((l, i) => i > 0 && l.trim()); if (at < 0) at = lines.push("") - 1; lines[at] = (lines[at] + " " + mark).trim(); }
     else lines[at] = lines[at].replace(CAUGHT_UP, mark);
-    return lines.concat(add).join("\n") + "\n";
+    return mergeLoreLines(lines.join("\n"), add) + "\n";
   }, add.length ? `Lore catch-up: ${add.length} line${add.length > 1 ? "s" : ""} for the narrator` : "Lore catch-up: nothing new");
   return { sha: commit ? commit.sha : "", url: commit ? commit.html_url : "", added: add.length };
 }

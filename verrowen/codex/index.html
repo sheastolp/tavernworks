@@ -254,7 +254,6 @@
 // and sends them with the lore, so keep codexLines() in step with its copy.
 (() => {
   const KEY = "verrowen-codex", UI_KEY = "verrowen-codex.ui";
-  const LORE_URL = "https://raw.githubusercontent.com/sheastolp/grand-orrery/main/lore.md";
   const NARRATOR_BUDGET = 6000, NOTE_BUDGET = 700;
   const CATS = [
     {id: "character", icon: "🧑", name: "Characters", one: "Character", f: [["race", "Race", "Halfling"], ["sex", "Sex", "F"], ["age", "Age", "33"], ["role", "Role", "Blacksmith's apprentice"], ["home", "Lives in", "Stoutwell, the SE slums"], ["secret", "Secret", "What few people know", 1]],
@@ -617,14 +616,15 @@
     alert(`Imported ${added} new ${added === 1 ? "note" : "notes"}${updated ? ` and updated ${updated}` : ""}.`);
   });
 
-  // ---------- Fill in from lore.md ----------
+  // ---------- Fill in from lore.md (by way of the database) ----------
   // Each "KEY: text" line of the narrator's lore becomes a note, and the
   // PEOPLE line becomes one character each. Notes already here are skipped.
   const LORE_CATS = {UNIVERSE: "place", WORLD: "place", TONE: "rule", MAGIC: "magic", ARTIFICERS: "magic", STOUTWELL: "place", LIFE: "rule", "DEFENSE AND LAW": "rule", LEADERSHIP: "people", BEYOND: "place"};
   const LORE_TITLES = {UNIVERSE: "The Grand Orrery", WORLD: "Verrowen", TONE: "Tone of the world", MAGIC: "How magic works", ARTIFICERS: "Artificers", STOUTWELL: "Stoutwell", LIFE: "Life in Stoutwell", "DEFENSE AND LAW": "Defense and law", LEADERSHIP: "The Hearthcircle and the Elderhold", BEYOND: "Beyond Stoutwell"};
   async function fillFromLore() {
     let md;
-    try { const r = await fetch(LORE_URL, {cache: "no-cache"}); if (!r.ok) throw 0; md = await r.text(); }
+    // The narrator's lore lines, from the Orrery's database (compiled from lore.md).
+    try { md = (await OrreryDB.fresh("main")).loreText(); if (!md) throw 0; }
     catch { md = localStorage.getItem("verrowen-lore"); if (!md) { alert("Couldn't reach the world's lore. Check your connection and try again."); return; } }
     const made = [];
     const add = (n) => { if (byTitle(n.title)) return; const c = clean({...n, id: uid(), status: "decided", narrator: false, source: "lore.md"}); notes.push(c); made.push(c); };
@@ -669,6 +669,7 @@
 })();
 </script>
 <script src="/orrery-review.js"></script>
+<script src="/orrery-db.js"></script>
 <script src="/pwa.js" data-sw="/verrowen/sw.js" data-scope="/verrowen/"></script>
 </body>
 </html>

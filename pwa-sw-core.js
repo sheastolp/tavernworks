@@ -8,7 +8,7 @@
 // cached: they pass straight through.
 const CACHE = self.PWA_CACHE;
 const SHELL = self.PWA_SHELL || [];
-const CACHEABLE_HOSTS = ["raw.githubusercontent.com", "fonts.googleapis.com", "fonts.gstatic.com"];
+const CACHEABLE_HOSTS = ["raw.githubusercontent.com", "cdn.jsdelivr.net", "fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting()));
