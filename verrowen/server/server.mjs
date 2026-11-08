@@ -743,9 +743,9 @@ function docsCatchupStart() {
   return docsStatus();
 }
 // Put a new resources.md entry under its category and type, making them if need be.
-function addResource(text, it) {
+function addResource(text, it, status = "Your idea") {
   const lines = text.replace(/\s+$/, "").split("\n");
-  const entry = ["", `#### ${it.icon} ${it.name} (Your idea)`, "", ...String(it.text).split("\n").map((l) => l.trim()).filter(Boolean)];
+  const entry = ["", `#### ${it.icon} ${it.name} (${status})`, "", ...String(it.text).split("\n").map((l) => l.trim()).filter(Boolean)];
   let c = lines.findIndex((l) => l.trim().toLowerCase() === "## " + it.cat.toLowerCase());
   if (c < 0) {
     const before = lines.findIndex((l) => /^## Peddlers' wares/.test(l));
@@ -1205,16 +1205,16 @@ function findPitches(file, text) {
 }
 const pitchKey = (p) => crypto.createHash("sha1").update(p.file + "\n" + p.line + "\n" + p.body).digest("hex").slice(0, 16);
 // A section just filed in working-notes.md, as the pitch step will find it.
-function filedPitch(section) {
-  const p = section && findPitches(NOTES, section)[0];
+function filedPitch(section, file = NOTES) {
+  const p = section && findPitches(file, section)[0];
   return p ? { line: p.line, key: pitchKey(p) } : null;
 }
 // Auto mode's view on a pitch it filed itself, so it isn't judged again.
-function keepView(section, verdict, why, from) {
-  const k = filedPitch(section);
+function keepView(section, verdict, why, from, file = NOTES) {
+  const k = filedPitch(section, file);
   if (!k) return;
   rest.views = rest.views || {};
-  rest.views[NOTES + "\n" + k.line] = { key: k.key, verdict, why, at: new Date().toISOString(), ...(from ? { from } : {}) };
+  rest.views[file + "\n" + k.line] = { key: k.key, verdict, why, at: new Date().toISOString(), ...(from ? { from } : {}) };
 }
 
 // Every AI prompt that invents or files lore carries this, so new canon
@@ -1237,30 +1237,62 @@ const IDEA_TOPICS = [
   "something GuildScribe's guild hall in the capital keeps, does or is known for",
   "a person, custom or piece of history in Stoutwell (name, race, age, trade, one want and one fear, ties to named people)",
 ];
+// Topics whose ideas are things people make, use or trade. They're filed in
+// resources.md, where the Orrery's Items and Resources tabs read them;
+// everything else goes to working-notes.md.
+const isItemTopic = (t) => /magic item or tool|peddlers' relics/.test(t);
+const sameName = (s) => String(s || "").toLowerCase().replace(/[’‘]/g, "'").replace(/^the\s+/, "").replace(/[^a-z0-9]+/g, "");
+const HEAD_NAME = /^#{2,4}\s+(?:\p{Extended_Pictographic}[\u{FE0F}\u{200D}\p{Extended_Pictographic}]*\s*)?(.+?)\s*(?:\((?:Your idea|Pitch|Not decided yet|DM lore)[^)]*\))?\s*$/gmu;
 async function makeIdea() {
-  const [lore, notes] = await Promise.all([restCanon(), fileAt(NOTES, CLONE)]);
-  const titles = [...notes.matchAll(/^#{2,4}\s+(.+?)\s*(?:\((?:Your idea|Pitch|Not decided yet|DM lore)[^)]*\))?\s*$/gm)].map((m) => m[1]).join("; ").slice(0, 3000);
+  const [lore, notes, res, beasts] = await Promise.all([restCanon(), fileAt(NOTES, CLONE), fileAt("resources.md", CLONE), fileAt("bestiary.md", CLONE)]);
+  const heads = (t) => [...String(t || "").matchAll(HEAD_NAME)].map((m) => m[1]);
+  // Every name already used. New sections land at the end of each file, so
+  // the list runs newest first and a long one loses its oldest names, not its newest.
+  const known = [...new Set([...heads(notes), ...heads(res), ...heads(beasts)].reverse())];
+  const titles = known.join("; ").slice(0, 4000);
   const topic = IDEA_TOPICS[rest.rounds % IDEA_TOPICS.length];
-  const ask = `You help build the Grand Orrery, a medieval fantasy universe. Using only the LORE below, invent ONE new, small piece of canon about: ${topic}.
-${WORLD_FOCUS}
-It must fit everything in LORE and contradict nothing. Magic is weak, everyday and costs the user. Keep it PG-13 and suitable for children aged 6 to 10. Don't repeat anything that already exists. These titles already exist: ${titles}
-Reply with a TITLE line and then the idea, and nothing else:
-TITLE: a short name
-- the idea in one or two plain sentences
-A single line is fine. If you want more, add lines that start with any of these labels that fit, and leave out the rest:
-- **What it is:** …
+  const item = isItemTopic(topic);
+  const cats = [...String(res || "").matchAll(/^##\s+(?!#)(.+?)\s*$/gm)].map((m) => m[1].trim());
+  const labels = item ? `- **Does:** what it does, in one sentence
+- **Made:** what it's made of and how
+- **Made by:** who makes or sells it, by the names LORE uses
+- **Where:** where it's made, sold or found
+- **Limits:** …
+- **Story:** how it connects to named people or places in LORE` : `- **What it is:** …
 - **Who:** …
 - **Where:** …
 - **How it works:** …
 - **Limits:** …
-- **Ties:** how it connects to named people or places in LORE
+- **Ties:** how it connects to named people or places in LORE`;
+  const itemLines = item ? `ICON: one emoji for it
+CATEGORY: one of ${cats.join(", ") || "Enchanted items"}
+TYPE: a short kind of thing within that category, like "Charms and curios" or "Lenses"
+` : "";
+  const ask = `You help build the Grand Orrery, a medieval fantasy universe. Using only the LORE below, invent ONE new, small piece of canon about: ${topic}.
+${WORLD_FOCUS}
+It must fit everything in LORE and contradict nothing. Magic is weak, everyday and costs the user. Keep it PG-13 and suitable for children aged 6 to 10. Don't repeat anything that already exists, and give it a name that isn't taken. These names are taken: ${titles}
+Reply with a TITLE line${item ? ", ICON, CATEGORY and TYPE lines" : ""} and then the idea, and nothing else:
+TITLE: a short name
+${itemLines}- the idea in one or two plain sentences
+A single line is fine. If you want more, add lines that start with any of these labels that fit, and leave out the rest:
+${labels}
 
 LORE:
 ${lore}`;
   const reply = await narrate([{ role: "user", content: ask }], null, { temperature: 0.8, maxTokens: 450 });
-  const title = oneLine((reply.match(/TITLE\s*:\s*\**\s*(.+)/i) || [])[1] || "", 80).replace(/[*#_]/g, "").trim();
+  const title = oneLine((reply.match(/TITLE\s*:\s*\**\s*(.+)/i) || [])[1] || "", 80).replace(/[*#_()]/g, "").trim();
+  if (title && known.some((k) => sameName(k) === sameName(title))) return { error: `The AI came up with "${title}" again, which already exists`, topic };
+  const pick = (re) => oneLine((reply.match(re) || [])[1] || "", 60).replace(/[*#_]/g, "").trim();
+  let where = null;
+  if (item) {
+    const e = pick(/ICON\s*:\s*(.+)/i).match(/\p{Extended_Pictographic}[\u{FE0F}\u{200D}\p{Extended_Pictographic}]*/u);
+    const relic = /peddlers' relics/.test(topic);
+    const c = pick(/CATEGORY\s*:\s*(.+)/i);
+    const cat = cats.find((x) => x.toLowerCase() === c.toLowerCase()) || (relic ? "Peddlers' wares" : "Enchanted items");
+    where = { icon: e ? e[0] : "📦", cat, type: pick(/TYPE\s*:\s*(.+)/i).replace(/[()]/g, "") || (relic ? "Relics" : "Other") };
+  }
   // Any or all of the labels may be left out; a one-line idea is kept too.
-  const after = reply.replace(/^[\s\S]*?TITLE\s*:[^\n]*\n?/i, "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const after = reply.replace(/^[\s\S]*?TITLE\s*:[^\n]*\n?/i, "").split("\n").map((l) => l.trim()).filter((l) => l && !/^(ICON|CATEGORY|TYPE)\s*:/i.test(l.replace(/^[-*\s]+/, "").replace(/\*/g, "")));
   const bullets = after.filter((l) => /^[-*]\s+\S/.test(l));
   const lines = (bullets.length ? bullets : after.slice(0, 6)).map((l) => "- " + l.replace(/^[-*]\s+/, "")
     .replace(/^\*\*Label:\*\*\s*/i, ""))   // a literal "Label:" copied from the prompt
@@ -1268,7 +1300,20 @@ ${lore}`;
   const body = lines.join("\n");
   if (!title || body.replace(/[-*\s]/g, "").length < 10) return { error: "The AI's idea came out empty", topic };
   if (UNSAFE.test(title + body)) return { error: "The AI's idea held a link or instructions", topic };
-  return { title, body, topic };
+  return { title, body, topic, item: where };
+}
+// An item idea, filed as its own entry in resources.md on the review branch,
+// so the Orrery's Items tab shows it (as a 💡 pitch until it's accepted).
+async function fileResourceIdea(it, where) {
+  const day = new Date().toISOString().slice(0, 10);
+  const byline = [(it.from || SOURCES.rest.from) + ", " + day, it.about].filter(Boolean).join(" · ");
+  const name = it.title.replace(/[#()]/g, "").trim();
+  const text = [`<!-- review-key: ${it.key} -->`, AI_MARK, `_${byline}._`, "", it.body].join("\n");
+  const status = it.decided ? "Your idea" : "Pitch";
+  const commit = await editOnReview("resources.md", (t) => addResource(t, { ...where, name, text }, status),
+    `${it.msg || SOURCES.rest.msg}: ${name}${note(it.why)}`);
+  const section = [`#### ${where.icon} ${name} (${status})`, "", ...text.split("\n").map((l) => l.trim()).filter(Boolean)].join("\n");
+  return { sha: commit ? commit.sha : "", url: commit ? commit.html_url : "", section, file: "resources.md" };
 }
 
 /** One rest-mode round. Returns what it did. */
@@ -1343,9 +1388,10 @@ async function restRound(why = "scheduled") {
               it.from = `Made up by the AI in ${name} mode`; it.msg = `${auto ? "Auto" : "Rest"} mode idea`;
               const view = v.verdict === "unsure" ? "left for you: " + v.why : (keep ? "accepted: " : v.verdict === "approve" ? "would accept: " : "would reject: ") + v.why;
               it.why = `a new idea about ${about}, ${view}`; it.byAI = true;
-              const r = await fileReviewItem(it);
-              if (auto && v.verdict !== "unsure") keepView(r.section, v.verdict, v.why);
-              if (v.verdict === "unsure") { const k = filedPitch(r.section); if (k) rest.unsure[k.key] = Date.now(); did.unsure++; }
+              const r = idea.item ? await fileResourceIdea(it, idea.item) : await fileReviewItem(it);
+              const file = r.file || NOTES;
+              if (auto && v.verdict !== "unsure") keepView(r.section, v.verdict, v.why, undefined, file);
+              if (v.verdict === "unsure") { const k = filedPitch(r.section, file); if (k) rest.unsure[k.key] = Date.now(); did.unsure++; }
               if (keep) did.approved++;
               did.ideas++;
               await restLog("idea", idea.title, { why: `New idea about ${about}: ${keep ? "accepted as Your idea" : "filed as a 💡 pitch for you"} (${view})`, sha: r.sha });
