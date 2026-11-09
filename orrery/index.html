@@ -441,29 +441,22 @@
 </head>
 <body>
 <div class="wrap">
-  <nav class="top"><a class="back" href="/">← Tavernworks</a> <span data-install="btn" hidden></span></nav>
+  <nav class="top"><span data-install="btn" hidden></span></nav>
   <header>
     <div class="sign">THE GRAND ORRERY</div>
     <h1>The Orrery</h1>
-    <p class="tag">Explore the Grand Orrery: its people, items, beasts, maps and documents, read live from the <a href="https://github.com/sheastolp/grand-orrery">grand-orrery</a> repo. Or wake up in it: play <a href="/verrowen/">Wake in Verrowen</a> and make a character by role-playing.</p>
-    <p class="worldpick"><label for="worldPick">WORLD</label><select id="worldPick"></select><small id="worldNote"></small></p>
+    <p class="tag">Unroll the Scroll of All Things to explore the Grand Orrery, talk it through with the lore-keeper, or wake up in it: play Wake in Verrowen and make a character by role-playing.</p>
+    <p class="worldpick" hidden><label for="worldPick">WORLD</label><select id="worldPick"></select><small id="worldNote"></small></p>
     <div class="tabs">
       <a href="#scroll" data-tab="scroll">📜 Scroll</a>
-      <a href="#chat" data-tab="chat" id="chatTab" hidden title="Owner only: the lore-keeper">🔒 Lore-keeper</a>
-      <a href="#roster" data-tab="roster">Roster</a>
-      <a href="#items" data-tab="items">Items</a>
-      <a href="#beasts" data-tab="beasts">Beasts</a>
-      <a href="#resources" data-tab="resources">Resources</a>
-      <a href="#maps" data-tab="maps">Maps</a>
-      <a href="#docs" data-tab="docs">Documents</a>
+      <a href="#chat" data-tab="chat" id="chatTab" title="The lore-keeper chat">✒️ Lore-keeper</a>
       <a href="/verrowen/" id="playLink" title="Make a character by role-playing in this world: Wake in Verrowen">🕯️ Wake in Verrowen</a>
-      <form class="find" id="find"><input type="search" id="q" placeholder="Find anyone or anything…" aria-label="Search the orrery"><button type="submit">Find</button></form>
     </div>
     <p class="status" id="status">Loading the orrery…</p>
     <p class="status hall" id="hallStatus" hidden></p>
   </header>
   <main id="view"></main>
-  <footer><a href="/">Tavernworks</a> · <button class="btn" type="button" id="reload">Reload from GitHub</button><br><a href="/orrery/control/" title="For the owner: approve changes and work with the lore-keeper">🔒 Owner</a></footer>
+  <footer><a href="/orrery/control/" title="For the owner: approve changes and work with the lore-keeper">🔒 Owner</a></footer>
 </div>
 <script src="/orrery/review-summary.js"></script>
 <script src="/orrery-review.js"></script>
@@ -492,14 +485,12 @@ const CLONE = new URLSearchParams(location.search).get("clone") === "review";
 // the private side: they only show on a browser holding the owner's token,
 // set from /orrery/control/, where changes are approved or turned down.
 const OWNER = (() => { try { return !!localStorage.getItem("verrowen-owner"); } catch { return false; } })();
-if (OWNER) document.getElementById("chatTab").hidden = false;
 const BRANCH = CLONE ? "review" : "main";
 // RAW is pinned to the branch's newest commit on every load (see load()):
 // raw.githubusercontent.com caches a branch name for minutes, but a commit
 // id is always exactly that version, so a fresh publish shows up straight away.
 const RAW_BASE = "https://raw.githubusercontent.com/sheastolp/grand-orrery/";
 let RAW = RAW_BASE + BRANCH + "/";
-const BLOB = "https://github.com/sheastolp/grand-orrery/blob/" + BRANCH + "/";
 if (CLONE) {
   document.title = "Review Clone · " + document.title;
   const m = document.createElement("meta"); m.name = "robots"; m.content = "noindex, nofollow"; document.head.appendChild(m);
@@ -523,7 +514,6 @@ let world = WORLDS.find((w) => w.id === localStorage.getItem("orrery-world")) ||
 function showWorld() {
   $("worldPick").innerHTML = WORLDS.map((w) => `<option value="${w.id}"${w === world ? " selected" : ""}>${esc(w.name)}</option>`).join("");
   $("worldNote").textContent = world.note;
-  $("playLink").hidden = !world.play;
   if (world.play) { $("playLink").href = world.play; $("playLink").textContent = "🕯️ " + world.game; $("playLink").title = "Make a character by role-playing in " + world.name + ": " + world.game; }
 }
 // ── The catalog: which documents, maps and worlds there are ──
@@ -904,8 +894,8 @@ function inline(s) {
   out = out.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_, alt, src) => `<img alt="${alt}" src="${/^https?:/.test(src) ? src : RAW + src}" loading="lazy">`);
   out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, href) => {
     const local = DOCS.find((d) => d.file === href);
-    const url = local ? `#doc/${local.id}` : /^https?:/.test(href) ? href : BLOB + href;
-    return `<a href="${url}"${local ? "" : ' target="_blank" rel="noopener"'}>${t}</a>`;
+    // Only links within the Orrery stay links: the Explorer links nowhere outside it.
+    return local ? `<a href="#doc/${local.id}">${t}</a>` : t;
   });
   out = out.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, "$1<i>$2</i>").replace(/(^|\W)_([^_\n]+)_(?!\w)/g, "$1<i>$2</i>");
   return out;
@@ -1044,7 +1034,8 @@ function buildRifts() {
   RIFTS = out;
 }
 const isRow = (l) => /^\s*\|.*\|\s*$/.test(l);
-const riftLinks = (r) => r.links.map((l) => `<a class="riftlink" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("");
+// The Explorer links nowhere outside the Orrery, so a rift's outside links aren't shown.
+const riftLinks = () => "";
 function riftPanel(list) {
   return list.map((r) => `<div class="panel rift"><div class="crumb">🌀 Through the rift · <a href="#doc/rifts">all the worlds</a></div><b class="riftname">${esc(r.name)}</b>${r.what ? `<div class="md tag" style="margin:4px 0 0">${inline(r.what)}</div>` : ""}<div class="riftlinks">${r.links.length ? riftLinks(r) : `<span class="tag">No links yet: add them to <a href="#doc/rifts">rifts.md</a>.</span>`}</div></div>`).join("");
 }
@@ -1254,7 +1245,7 @@ function doc(id) {
   const d = DOCS.find((x) => x.id === id);
   if (!d) return `<p>No such document. <a href="#docs">All documents</a>.</p>`;
   const heads = sections(d).filter((s) => s.level === 2 || s.level === 3);
-  return `<div class="crumb"><a href="#docs">Documents</a> › ${esc(d.file)} · <a href="${BLOB}${d.file}" target="_blank" rel="noopener">on GitHub</a></div>${riftPanel(RIFTS.filter((r) => r.doc === d.file))}${
+  return `<div class="crumb"><a href="#docs">Documents</a> › ${esc(d.file)}</div>${riftPanel(RIFTS.filter((r) => r.doc === d.file))}${
     heads.length > 3 ? `<div class="panel"><ul class="toc">${heads.map((s) => `<li style="margin-left:${(s.level - 2) * 14}px"><a href="#doc/${d.id}/${slug(s.heading)}">${inline(s.heading)}</a></li>`).join("")}</ul></div>` : ""
   }<div class="panel md">${md(text[d.id] || "")}</div>`;
 }
@@ -1374,7 +1365,7 @@ function ledgerEntry(r) {
   const toc = r.toc && r.toc.length ? `<ol class="refs">${r.toc.map((s) => `<li style="margin-left:${(s.level - 2) * 14}px"><a href="${s.href}">${inline(s.heading)}</a></li>`).join("")}</ol>` : "";
   const seen = r.seen.length ? `<div style="margin-top:8px;font:12px Inter,sans-serif;color:var(--ink2)">WRITTEN OF IN</div><ul class="refs">${r.seen.map((s) => `<li><a href="${s.href}">${esc(s.path)}</a></li>`).join("")}${r.refs > r.seen.length ? `<li><a href="${r.href}">and ${r.refs - r.seen.length} more…</a></li>` : ""}</ul>` : "";
   const img = r.img ? `<a href="#maps"><img src="${r.img}" alt="${esc(r.name)}" loading="lazy" onerror="this.remove()"></a>` : "";
-  const acts = [`<a href="${r.href}">${r.outside ? "Open in the Codex" : "Open in the Explorer"} →</a>`, r.ask ? `<a href="${r.ask}">✒️ Talk it through with the lore-keeper</a>` : "", r.file ? `<a href="${BLOB}${r.file}" target="_blank" rel="noopener">On GitHub</a>` : ""].filter(Boolean).join("");
+  const acts = [`<a href="${r.href}">${r.outside ? "Open in the Codex" : "Open in the Explorer"} →</a>`, r.ask ? `<a href="${r.ask}">✒️ Talk it through with the lore-keeper</a>` : ""].filter(Boolean).join("");
   return `<li class="entry"><details data-id="${esc(r.kind + ":" + r.id)}"><summary><span class="ic" aria-hidden="true">${r.icon}</span><span class="nm">${esc(r.name)}</span><span class="dots"></span><span class="meta">${meta}</span>${r.line ? `<span class="ln">${inline(r.line.length > 200 ? r.line.slice(0, 199) + "…" : r.line)}</span>` : ""}</summary><div class="rec">${img}${facts}${toc}${seen}<div class="acts">${acts}</div></div></details></li>`;
 }
 function ledgerBody() {
@@ -1418,7 +1409,7 @@ function scroll() {
     </div>
     <ol class="contents">${chapters.map(([ch, k, c]) => `<li><span class="num">${ROMAN[k]}.</span><a href="#scroll/${ch.kind}">${esc(ch.title)}</a><span class="dots"></span><small>${c.toLocaleString()}</small></li>`).join("")}</ol>
     <div id="ledgerBody">${ledgerBody()}</div>
-    <p class="colophon">Here ends the scroll. It rewrites itself whenever the canon changes in the <a href="https://github.com/sheastolp/grand-orrery" target="_blank" rel="noopener">grand-orrery</a> repo.</p>
+    <p class="colophon">Here ends the scroll. It rewrites itself whenever the canon changes.</p>
   </article></div></div><div class="rod" aria-hidden="true"></div></details><p class="rolledhint">Tap the scroll to unroll it: every soul, thing, beast, place, map and writing in the Orrery.</p></div>`;
 }
 // Redraw only the entries, keeping the search box and the reader's place.
@@ -1565,10 +1556,10 @@ async function load(quiet = false, head) {
   const missing = DOCS.filter((d) => !text[d.id] && d.id !== "resources" && d.id !== "bestiary" && d.id !== "rifts");
   if (!dbOk) {
     $("status").className = "status err";
-    $("status").textContent = "Couldn't read the Orrery's database, so the roster, items and beasts are empty. Try Reload in a moment.";
+    $("status").textContent = "Couldn't read the Orrery's database, so the roster, items and beasts are empty. Reload the page in a moment.";
   } else if (missing.length === DOCS.length) {
     $("status").className = "status err";
-    $("status").textContent = "Couldn't reach GitHub to read the orrery. Try Reload in a moment.";
+    $("status").textContent = "Couldn't read the orrery. Reload the page in a moment.";
   } else {
     $("status").hidden = !missing.length;
     $("status").textContent = missing.length ? `Couldn't load ${missing.map((d) => d.file).join(", ")}.` : "";
@@ -1667,7 +1658,7 @@ function showHall(err) {
   const warn = Object.entries(o.files || {}).filter(([, f]) => f && f.error).map(([name, f]) => `<span class="warn">GuildScribe can't use ${esc(name)} (${esc(f.error)}).</span>`);
   if (o.enabled === false) warn.push(`<span class="warn">GuildScribe has its Orrery reading switched off.</span>`);
   el.hidden = false;
-  el.innerHTML = `🏰 <a href="${GUILDSCRIBE}/" target="_blank" rel="noopener">GuildScribe</a> is linked live: ${hall.adventurers.length} adventurer${hall.adventurers.length === 1 ? "" : "s"} on its parchments, ${(hall.learned || []).length} learned beast${(hall.learned || []).length === 1 ? "" : "s"}, updated ${ago(hall.updatedAt)}. ${hall.clock ? esc(hall.clock.text) + " " : ""}It last checked the Orrery's ${esc(o.branch || "main")} ${ago(o.checkedAt)}${o.commit ? ` (at ${esc(o.commit.slice(0, 7))})` : ""}. ${warn.join(" ")}`;
+  el.innerHTML = `🏰 GuildScribe is linked live: ${hall.adventurers.length} adventurer${hall.adventurers.length === 1 ? "" : "s"} on its parchments, ${(hall.learned || []).length} learned beast${(hall.learned || []).length === 1 ? "" : "s"}, updated ${ago(hall.updatedAt)}. ${hall.clock ? esc(hall.clock.text) + " " : ""}It last checked the Orrery's ${esc(o.branch || "main")} ${ago(o.checkedAt)}${o.commit ? ` (at ${esc(o.commit.slice(0, 7))})` : ""}. ${warn.join(" ")}`;
 }
 async function loadHall() {
   try {
@@ -2426,7 +2417,7 @@ async function ask(c, mode, onDone, after) {
   live.className = "say keeper writing"; live.textContent = mode === "write" ? "The lore-keeper is writing it up…" : "The lore-keeper is thinking…";
   const log = $("chatlog"); if (log && openChat() === c) { log.insertBefore(live, $("chatExtras")); if (chatStick) log.scrollTop = log.scrollHeight; }
   try {
-    if (!text.lore && !Object.values(text).some(Boolean)) throw new Error("the orrery's documents haven't loaded; press Reload from GitHub");
+    if (!text.lore && !Object.values(text).some(Boolean)) throw new Error("the orrery's documents haven't loaded; reload the page");
     chatStopper = new AbortController();
     const reply = await narrateKept(chatMessages(c, mode), chatStopper.signal, (t) => { live.textContent = t; const l = $("chatlog"); if (l && chatStick) l.scrollTop = l.scrollHeight; });
     onDone(reply.trim()); c.at = Date.now(); keepChats(); saveForReview(c);
@@ -2631,7 +2622,7 @@ function drawChange(c) {
       + (ch.warnings.length ? `<ul>${ch.warnings.map((p) => `<li class="verdict no">⚠ ${esc(p)}</li>`).join("")}</ul>` : "")
       + ch.fixes.map((f) => `<div class="edit"><div class="f">${esc(f.file)}</div><div class="d">− ${esc(f.old)}</div><div class="a">+ ${esc(f.new)}</div></div>`).join("")
       + ch.adds.map((a) => `<div class="edit"><div class="f">${esc(a.file)} › ${esc(a.heading.replace(/^#+\s*/, ""))}</div><div class="a">+ ${esc(a.text)}</div></div>`).join("")
-      + (ch.state === "applied" ? `<p class="verdict ok">✔ On the review branch${ch.done ? ": " + ch.done.map((d) => `${esc(d.file)} (<a href="${esc(d.url || "#")}" target="_blank" rel="noopener">${esc(String(d.sha || "").slice(0, 7))}</a>)`).join(", ") : ""}.${ch.skipped && ch.skipped.length ? ` Skipped, because the text had changed: ${esc(ch.skipped.join("; "))}.` : ""} The <a href="/orrery/?clone=review">Review Clone</a> shows it as soon as GitHub has it; publish it on the <a href="/orrery/control/review/">review page</a>.</p>`
+      + (ch.state === "applied" ? `<p class="verdict ok">✔ On the review branch${ch.done ? ": " + ch.done.map((d) => `${esc(d.file)} (${esc(String(d.sha || "").slice(0, 7))})`).join(", ") : ""}.${ch.skipped && ch.skipped.length ? ` Skipped, because the text had changed: ${esc(ch.skipped.join("; "))}.` : ""} The <a href="/orrery/?clone=review">Review Clone</a> shows it as soon as GitHub has it; publish it on the <a href="/orrery/control/review/">review page</a>.</p>`
         : can ? `<div class="row"><button class="primary" type="button" id="changeApply">✔ Apply on review</button><button type="button" id="changeRetry">🛠 Check again</button>${ch.warnings.length ? `<span class="chatnote">Press twice to apply despite the warning.</span>` : ""}<span class="chatnote" id="changeSt" role="status"></span></div>`
         : `<div class="row"><button type="button" id="changeRetry">🛠 Check again</button><span class="chatnote">Or say it differently in the box and press 🛠.</span></div>`);
   }
@@ -2691,16 +2682,6 @@ function addToCodex(c) {
   $("writeNote").innerHTML = `${had ? "Updated" : "Added"} ${esc(title)} in the <a href="/verrowen/codex/">Codex</a> as a pitch.`;
 }
 
-$("find").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const q = $("q").value.trim();
-  if (q) location.hash = "find/" + encodeURIComponent(q);
-});
-// Reload re-reads the canon here and asks GuildScribe to re-read it too.
-$("reload").addEventListener("click", () => {
-  load();
-  fetch(GUILDSCRIBE + "/api/orrery/refresh", { method: "POST" }).catch(() => {}).finally(() => setTimeout(loadHall, 1500));
-});
 showWorld();
 $("worldPick").addEventListener("change", (e) => {
   world = WORLDS.find((w) => w.id === e.target.value) || WORLDS[0];
