@@ -491,8 +491,9 @@ if (CLONE) {
     .catch(() => {});
 }
 // The worlds of the Grand Orrery. The picker in the header chooses one: the
-// lore-keeper works in it, and Role play opens its game. Add a world here
-// once the canon names it.
+// lore-keeper works in it, and Role play opens its game. The list comes from
+// the Orrery's database (every decided world); this one is only the fallback
+// until it's read. A world's game is known here, since it lives on this site.
 const WORLDS = [
   { id: "verrowen", name: "Verrowen", note: "Stoutwell, the Monster Wood and the Kingdom", play: "/verrowen/", game: "Wake in Verrowen" },
 ];
@@ -502,6 +503,46 @@ function showWorld() {
   $("worldNote").textContent = world.note;
   $("playLink").hidden = !world.play;
   if (world.play) { $("playLink").href = world.play; $("playLink").textContent = "🕯️ " + world.game; $("playLink").title = "Make a character by role-playing in " + world.name + ": " + world.game; }
+}
+// ── The catalog: which documents, maps and worlds there are ──
+// The Orrery's database lists every document (each *.md in grand-orrery),
+// every map (each maps/*.png, captioned from maps/README.md) and every world,
+// so the Explorer shows what the Orrery has: a new document, map or world
+// shows up here on its own, with no change to this page. DOCS, MAPS and
+// WORLDS below are only the fallback until the database is read.
+// The Explorer's own short ids for the documents it links to by name.
+const DOC_ID = { "universe.md": "universe", "working-notes.md": "notes", "lore.md": "lore", "roster.md": "roster", "resources.md": "resources", "bestiary.md": "bestiary", "midkemia.md": "midkemia", "rifts.md": "rifts", "README.md": "readme", "maps/README.md": "maps" };
+// The games that live on this site, by world.
+const WORLD_GAME = { verrowen: { note: "Stoutwell, the Monster Wood and the Kingdom", play: "/verrowen/", game: "Wake in Verrowen" } };
+let catalogKey = "";
+// Rebuilds DOCS, MAPS and WORLDS from the database. True if anything changed.
+function syncCatalog(){
+  if (!orrery) return false;
+  const byOrder = (a, b) => (a.order || 0) - (b.order || 0);
+  const docs = orrery.list("document").sort(byOrder), maps = orrery.list("map").sort(byOrder);
+  const worlds = orrery.list("world").filter((w) => w.status === "decided");
+  const key = JSON.stringify([docs.map((d) => [d.file, d.name, d.sub]), maps.map((m) => [m.file, m.name, m.caption]), worlds.map((w) => [w.id, w.name])]);
+  if (key === catalogKey) return false;
+  catalogKey = key;
+  if (docs.length) {
+    const used = new Set();
+    DOCS.splice(0, DOCS.length, ...docs.filter((d) => /^(maps\/)?[^/]+\.md$/i.test(d.file)).map((d) => {
+      let id = DOC_ID[d.file] || idOf(d.file.replace(/\.md$/i, "")) || "doc";
+      while (used.has(id)) id += "-2";
+      used.add(id);
+      return { id, file: d.file, title: d.name, sub: d.sub || d.file };
+    }));
+  }
+  if (maps.length) MAPS.splice(0, MAPS.length, ...maps.filter((m) => /^maps\/[^/]+\.png$/i.test(m.file)).map((m) => ({ file: m.file, title: m.name, caption: m.caption || "" })));
+  if (worlds.length) {
+    WORLDS.splice(0, WORLDS.length, ...worlds.map((w) => {
+      const people = orrery.list("person").filter((p) => p.world === w.id).length;
+      return { id: w.id, name: w.name, note: people ? people + " people in the roster" : "", ...(WORLD_GAME[w.id] || {}) };
+    }));
+    world = WORLDS.find((w) => w.id === world.id) || WORLDS.find((w) => w.id === localStorage.getItem("orrery-world")) || WORLDS[0];
+    showWorld();
+  }
+  return true;
 }
 const DOCS = [
   { id: "universe", file: "universe.md", title: "Stoutwell & Beyond", sub: "The universe draft · decided" },
@@ -1491,6 +1532,9 @@ async function load(quiet = false, head) {
   canonSha = sha;
   RAW = RAW_BASE + (sha || BRANCH) + "/";
   const bust = sha ? "" : "?t=" + Date.now();
+  // The database first: it says which documents, maps and worlds there are.
+  const dbOk = await readDb();
+  syncCatalog();
   // Documents and maps added on the admin page are listed in orrery.json.
   try{ addExtras(await fetch(RAW + "orrery.json" + bust, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))); }catch(e){}
   await findDocs(sha);
@@ -1502,7 +1546,6 @@ async function load(quiet = false, head) {
     if (h) d.title = h.replace(/[*_`]/g, "").trim();
   });
   await readMapLabels(bust);
-  const dbOk = await readDb();
   buildPeople();
   buildItems();
   buildRifts();
@@ -1668,6 +1711,8 @@ setInterval(() => { if (document.visibilityState === "visible") loadHall(); }, 1
 // so the change shows as soon as GitHub has it.
 let liveBusy = false, liveFast = 0, liveTimer = 0;
 function redrawFromDb() {
+  // A new document, map or world: read the documents again too.
+  if (syncCatalog()) { load(true, canonSha); return; }
   buildPeople(); buildItems(); buildBeasts(); buildVerrowen();
   if (location.hash.startsWith("#chat")) return;   // never redraw over a chat in progress
   if (onScroll()) refreshScroll(); else redrawInPlace();

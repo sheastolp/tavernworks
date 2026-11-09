@@ -274,66 +274,36 @@ review**: one commit per file on `review` (`POST /admin/docs-catchup/apply`),
 published like everything else. A fix whose words have changed since the
 draft is skipped and named.
 
-## 😴 Rest mode (owner only)
+## 🤖 Auto mode (owner only)
 
-The **😴 Rest mode** card at the top of the review page hands the Orrery to
-the laptop's AI while you rest: pick how long (8 hours, a day, 3 days, a
-week, or until you turn it off) and press **😴 Rest mode on**. It runs here,
-on the laptop, so it carries on with the page closed. **☀️ I'm back** turns
-it off; it also turns itself off when the time is up.
+The **🤖 Auto mode** bar at the top of the review page hands the busywork to
+the laptop's AI. It runs here, on the laptop, so it carries on with the page
+closed, until you turn it off. **It never publishes**: everything it does waits
+on `review` for you to approve, view and publish.
 
-Every `REST_EVERY_MIN` minutes (20) it runs a round, all on its own:
+Every `REST_EVERY_MIN` minutes (20) it runs a round:
 
 1. **What was sent in** (the 📨 queue): the AI judges each item against
-   `lore.md`. Approved ones go on `review` as **(Your idea)**, rejected ones
-   are turned down.
-2. **New lore:** a few times a day (`REST_IDEAS_PER_DAY`, 4) the AI writes a
-   small new piece of canon from the lore, about something different each
-   time (a Stoutwell villager, a custom, an everyday magic item, a Monster
-   Wood creature, a place, some history, a peddler's relic, the Guard, the
-   guild hall), checked against the existing titles. It can be a single line
-   or use any of the labels (What it is, Who, Where, How it works, Limits,
-   Ties) that fit: a short idea is kept so you can build on it. The AI judges it
-   **before it's filed**: one it accepts goes under `## From rest mode` in
-   `working-notes.md` as **(Your idea)**, in a single change; one it rejects
-   is never filed, and only shows in the log (with its text). One it can't
-   decide on is filed as a **(Pitch)** for you.
-3. **Every pitch** on `review`: accepted as is, or rejected and taken out,
-   the same as the Pitches card's buttons.
+   `lore.md`. One it would approve is filed on `review` as a **(Pitch)** with
+   its view; one it would turn down stays in the queue, marked with its reason.
+2. **A new idea:** every round it writes a small new piece of canon from the
+   lore, about something different each time, judges it, and files it as a
+   **(Pitch)** with that view under `## From rest mode` in `working-notes.md`
+   (the heading keeps its old name so older entries stay put).
+3. **Every pitch** on `review` gets its view (would approve / would reject,
+   and why), once, and again if the pitch's words change. Pitches stay
+   pitches: you decide.
 4. **Lore catch-up:** the lines the narrator is missing from what's now
-   decided go into `lore.md`.
-5. **Publish:** if anything changed, `review` goes live on `main` and
-   GuildScribe is told to re-read it.
+   decided go into `lore.md` on `review`.
 
-### 🤖 Auto mode
+On the review page, step **1 ✔ Approve** lists everything waiting with the
+AI's view beside it; **Approve all the AI recommends** and **Reject all the
+AI turns down** do them in one go. Step **2 👁 View** shows what will change
+and opens the Review Clone; step **3 🚀 Publish** puts it live.
 
-**🤖 Auto mode on**, next to the rest mode button, runs exactly the same
-rounds but **never publishes**: everything the AI approves, writes or adds to
-`lore.md` waits on the `review` branch under **Waiting for
-you**, with its reason in each change's message.
-**Every auto round writes a new idea**, with no daily limit
-(`REST_IDEAS_PER_DAY` only limits rest mode), and anything it approves from
-the 📨 queue is filed as a pitch, not as Your idea. **Pitches stay
-pitches**: auto mode doesn't accept or reject them. Its own new idea is
-judged as it's written and filed as a pitch with that view in the same
-change (`Auto mode idea: …`). Each pitch waits in 💡 Pitches
-with the AI's view beside it (*Auto mode would accept/reject this: …*), and
-you decide. What it would turn down from
-the 📨 queue isn't deleted: it stays there marked *Auto mode would turn this
-down: …*, for you to file or turn down. Check it all, then **✔ Publish** or
-**Throw it all away** as usual. The round's log says how many changes are
-waiting for you.
-
-### 🗑 Deleting what the AI added
-
-Everything rest mode or auto mode files (its own ideas, and what it filed
-from the 📨 queue) is marked `<!-- added by the AI -->` in its section. The
-review page's **🤖 Added by the AI** card lists all of it on `review`, pitch
-or Your idea, and **🗑 Delete** (also on those pitches in 💡 Pitches) takes
-the whole section out as one commit (`POST /admin/delete-ai { line }`). Only
-sections the AI added can be deleted this way. Publish to take it off the
-live Orrery; if the lore catch-up already added lines for a decided one,
-take those out of `lore.md` by hand.
+(The old 😴 rest mode, which decided and published on its own, is gone. A
+saved rest mode comes back as auto mode, and `POST /admin/rest-mode` ignores
+`mode`.)
 
 How the AI decides: it gets the lore and one item at a time and must answer
 `VERDICT: APPROVE` or `VERDICT: REJECT` with a one-line reason. It approves
@@ -348,8 +318,8 @@ yet: new people, places and things are the point. Guard rails:
   it isn't asked about again for a day.
 - At most `REST_MAX_PER_ROUND` (8) decisions a round, and a player waiting
   on the narrator always goes first.
-- Every decision and its reason is in the card's **What rest mode has
-  done** list (`rest-log.jsonl` in the save folder) and in the commit's
+- Every decision and its reason is in **More tools › What auto mode has
+  done** (`rest-log.jsonl` in the save folder) and in the commit's
   message on GitHub, so anything can be found and undone by hand.
 
 It uses the narrator's model (**🤖 Change AI model**). A small model judges
@@ -383,9 +353,8 @@ Environment variables, set with `Environment=` in the service file:
 | `VERROWEN_SAVE_DIR` | systemd's state directory | Where stories are saved |
 | `ORRERY_GITHUB_TOKEN` | (none) | Lets the owner publish the Review Clone and file lore-keeper review items. Without it, both say so |
 | `ORRERY_REPO` | `sheastolp/grand-orrery` | The repo whose `review` branch is the Review Clone |
-| `REST_EVERY_MIN` | `20` | Minutes between rest mode's rounds (at least 5) |
+| `REST_EVERY_MIN` | `20` | Minutes between auto mode's rounds (at least 5) |
 | `REST_MAX_PER_ROUND` | `8` | The most approvals and rejections in one round |
-| `REST_IDEAS_PER_DAY` | `4` | New ideas rest mode writes a day (`0` for none) |
 
 Ollama doesn't need `OLLAMA_ORIGINS` for this: the browser talks to this
 server, and this server talks to Ollama on the laptop itself.

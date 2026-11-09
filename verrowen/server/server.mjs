@@ -45,10 +45,11 @@
 //                        ticked changes, one commit per file on the review branch (the lore-keeper's
 //                        🛠 changes in plain words use it too, with their own commit message)
 //   GET  /admin/rest-mode (owner's token)  ->  { on, until, lastRound, nextRound, running, log }
-//   POST /admin/rest-mode (owner's token) { on, hours, mode: "rest" | "auto" } | { action: "run" }  ->  { ok, on, … }   rest mode:
-//                        the local AI judges what's sent in and every pitch, writes new ideas, catches
-//                        lore.md up and publishes, on its own, every REST_EVERY_MIN minutes; mode
-//                        "auto" does the same but never publishes: it all waits on review for the owner
+//   POST /admin/rest-mode (owner's token) { on, hours } | { action: "run" }  ->  { ok, on, … }   auto mode:
+//                        every REST_EVERY_MIN minutes the local AI judges what's sent in and every pitch
+//                        (its view is kept beside each), writes a new idea, and catches lore.md up, all
+//                        on the review branch. It never publishes: the owner approves and publishes.
+//                        (The old "rest" mode, which published on its own, is gone.)
 //   POST /admin/delete-ai (owner's token) { line }  ->  { ok, sha, url, name }   takes out a section the AI added
 //   POST /suggest    { source, title, body, about, key, name }  ->  { ok, queued }
 //                    anyone: waits in the inbox above until the owner files it (always as a pitch)
@@ -1127,8 +1128,11 @@ const UNSURE_MS = 24 * 3600_000;
 // what it would turn down stays in the inbox with its reason.
 // In auto mode pitches stay pitches: the AI's view on each one is kept in
 // "views" (by file and line) and shown on the review page beside it.
-let rest = { on: false, mode: "rest", since: null, until: null, lastRound: null, nextRound: null, ideas: [], unsure: {}, views: {}, rounds: 0 };
+let rest = { on: false, mode: "auto", since: null, until: null, lastRound: null, nextRound: null, ideas: [], unsure: {}, views: {}, rounds: 0 };
 try { rest = { ...rest, ...JSON.parse(await fs.readFile(REST_FILE(), "utf8")) }; } catch { }
+// Only auto mode is left: the AI never publishes on its own. A saved
+// "rest" mode from before comes back as auto.
+rest.mode = "auto";
 let resting = null;   // the round under way
 async function saveRest() {
   await fs.mkdir(SAVE_DIR, { recursive: true });
@@ -1161,7 +1165,7 @@ function restStatus() {
 async function setRest(b) {
   if (b.on) {
     const hours = Number(b.hours || 0);
-    rest.mode = b.mode === "auto" ? "auto" : "rest";
+    rest.mode = "auto";   // rest mode (publishing on its own) is gone
     const name = rest.mode === "auto" ? "Auto mode" : "Rest mode";
     rest.on = true; rest.since = new Date().toISOString();
     rest.until = hours > 0 ? new Date(Date.now() + Math.min(hours, 24 * 14) * 3600_000).toISOString() : null;

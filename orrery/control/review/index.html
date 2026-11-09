@@ -127,6 +127,26 @@
   ol.steps button{padding:4px 12px;font-size:13px;margin-left:6px}
   ol.steps li.ok{list-style:none;margin-left:-20px;color:var(--green)}
   footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+  /* The three steps: approve, view, publish. */
+  .step h2 .stepno{margin-right:10px}
+  .pill{display:inline-block;font:600 12px Inter,sans-serif;letter-spacing:0;border-radius:999px;padding:2px 10px;margin-left:8px;border:1px solid var(--line);color:var(--muted);text-transform:none}
+  .pill.go{border-color:var(--gold);color:var(--gold2)} .pill.ok{border-color:var(--green);color:var(--green)}
+  .step.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+  .items{display:flex;flex-direction:column;gap:10px}
+  .item{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--bg2);display:flex;flex-direction:column;gap:6px}
+  .item .pname{font-weight:600;color:var(--text);overflow-wrap:anywhere}
+  .item .from{font-size:13px;color:var(--muted)}
+  .item pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:14px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0 0;max-height:320px;overflow:auto}
+  .item details summary{cursor:pointer;color:var(--gold2);font-size:14px}
+  .item.done{opacity:.7}
+  .ai{font-size:14px;margin:0;padding:6px 10px;border-radius:8px;background:rgba(127,176,105,.10);color:var(--addInk)}
+  .ai.no{background:rgba(201,87,43,.12);color:var(--delInk)}
+  .auto{flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 16px}
+  .auto.on{border-color:var(--green)}
+  .auto .count{font-size:15px;flex:1 1 260px;margin:0}
+  .more > summary{cursor:pointer;font-family:Cinzel,serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);padding:6px 0}
+  .more[open] > summary{margin-bottom:14px}
+  .more > .card + .card{margin-top:18px}
 </style>
 </head>
 <body>
@@ -134,133 +154,112 @@
   <a class="back" href="/orrery/control/">← Orrery control</a>
   <header>
     <span class="sign">OWNER ONLY</span>
-    <h1>Review Clone</h1>
-    <p class="tag">Every change to the Grand Orrery waits here first, on grand-orrery's <code>review</code> branch. Nothing reaches the live Orrery, the lore-keeper or the Wake in Verrowen narrator until you publish it.</p>
-    <details class="what"><summary>What is the review?</summary>
-      <p>The review is <b>everything waiting to go live, taken together</b>: your edits, lore-keeper write-ups, Codex notes and Wake in Verrowen characters, each one filed on the <code>review</code> branch as you send or accept it. The <b>Review Clone</b> is the whole Orrery Explorer read from that branch, so you can browse it exactly as it will look.</p>
-      <p><b>✔ Publish</b> puts all of it live at once: the Explorer, the lore-keeper and the narrator read it from then on. <b>Throw it all away</b> drops all of it and lines the clone back up with what's live. To keep some and drop the rest, edit the files on the review branch first. A <b>(Pitch)</b> stays an idea even once published; only <b>(Your idea)</b> is canon.</p>
-    </details>
-    <div class="row lkrow"><a class="btn primary" href="/orrery/#chat">✒️ Chat with the lore-keeper</a><a class="btn" href="/orrery/control/">Orrery control</a></div>
+    <h1>Review</h1>
+    <p class="tag">Every change to the Grand Orrery waits here before it goes live. Three steps: <b>approve</b> what you want, <b>view</b> the result, <b>publish</b>.</p>
   </header>
 
-  <section class="card next" aria-labelledby="h-next" id="nextCard">
-    <h2 id="h-next">🧭 Do this next</h2>
-    <p class="note">The exact steps for what's waiting, in order: oldest first, publishing last. Each one names the buttons to press. Only what needs you is listed, and the list (and every open Orrery tab) updates the moment a step is done.</p>
-    <ol class="steps" id="nextSteps"><li class="note">Checking what's waiting…</li></ol>
-    <p class="note" id="nextQuiet" hidden></p>
+  <section class="card" id="tokenCard" hidden>
+    <label for="token">Owner's token (needed once on this device)</label>
+    <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste the owner's token">
   </section>
 
-  <h2 class="group">Review, in order</h2>
-  <section class="card" aria-labelledby="h-inbox" id="inCard">
-    <h2 id="h-inbox"><span class="stepno">1</span>📨 Sent in for review</h2>
-    <p class="note">Codex notes, Wake in Verrowen characters and lore-keeper write-ups that people sent from the Orrery and Verrowen apps or pages wait here on the laptop. Filing one puts it on the review branch as a <b>Pitch</b> in <code>working-notes.md</code>, with the changes above. <b>✔ Accept as your idea</b> puts it there as <b>Your idea</b> instead. Turning it down deletes it. What you send yourself, with your token on that device, skips this and is filed straight away.</p>
-    <div class="row"><button type="button" id="inLoad">Show what's waiting</button><span class="note" id="inStatus" role="status"></span></div>
-    <div id="inList" style="display:flex;flex-direction:column;gap:10px"></div>
+  <section class="card auto" id="restCard" aria-label="Auto mode">
+    <p class="count" id="restState">🤖 Auto mode: checking the laptop…</p>
+    <button type="button" id="autoOn">🤖 Turn auto mode on</button>
+    <button type="button" id="restOff" hidden>Turn it off</button>
+    <button type="button" id="restRun">Run a round now</button>
+    <span class="note" id="restSt" role="status"></span>
+    <p class="note" style="flex-basis:100%">Auto mode writes new ideas, judges everything sent in, catches the narrator's lore up, and puts it all here with its view. It never publishes: you decide.</p>
   </section>
 
-  <section class="card" aria-labelledby="h-pitch" id="pitchCard">
-    <h2 id="h-pitch"><span class="stepno">2</span>💡 Pitches</h2>
-    <p class="note">Every <b>(Pitch)</b> in <code>working-notes.md</code>, <code>resources.md</code> and <code>bestiary.md</code> on the review branch. <b>✔ Accept as is</b> keeps its words exactly and only marks it <b>(Your idea)</b>. <b>✕ Reject</b> takes it out of the file (a heading pitch with its whole section). Either one is a single change on the review branch: it joins "Waiting for you" below and goes live when you publish, and Throw it all away undoes it. To change the words first, use <b>Edit</b>.</p>
-    <div class="row"><button type="button" id="pLoad">Check again</button><span class="note" id="pStatus" role="status"></span></div>
-    <div id="pList" style="display:flex;flex-direction:column;gap:10px"></div>
-  </section>
-
-  <section class="card" hidden aria-labelledby="h-ai" id="aiCard">
-    <h2 id="h-ai">🤖 Added by the AI</h2>
-    <p class="note">Everything rest mode or auto mode put in <code>working-notes.md</code> on the review branch: its own ideas, and what it filed from the 📨 queue, whether still a <b>Pitch</b> or accepted as <b>Your idea</b>. If one turns out to be wrong, <b>🗑 Delete</b> takes its whole section out as one change on the review branch. Publish to take it off the live Orrery too.</p>
-    <div class="row"><button type="button" id="aiLoad">Check again</button><span class="note" id="aiStatus" role="status"></span></div>
-    <div id="aiList" style="display:flex;flex-direction:column;gap:10px"></div>
-  </section>
-
-  <section class="card" aria-labelledby="h-docs" id="docsCard">
-    <h2 id="h-docs"><span class="stepno">3</span>📚 Documents catch-up</h2>
-    <p class="note">The other way round from the lore catch-up: <code>lore.md</code> is the decided canon, and this brings the documents in line with it. The laptop's AI reads <code>universe.md</code>, <code>roster.md</code>, <code>resources.md</code>, <code>bestiary.md</code> and the decided parts of the working notes, and drafts <b>fixes</b> where they contradict the lore, <b>facts</b> the universe draft is missing, <b>new item and resource entries</b> for things the lore names that have none, and a list of <b>places no map shows yet</b>. It runs on the laptop in the background, so you can leave the page; players always go first, so it can take a while. Nothing changes until you tick what to keep and apply it: one change per file on the review branch, which you publish as usual.</p>
-    <div class="row"><button class="primary" type="button" id="dcGo">📚 Catch the documents up</button><span class="note" id="dcStatus" role="status"></span></div>
-    <div class="draft" id="dcDraft" hidden>
-      <div id="dcList" style="display:flex;flex-direction:column;gap:14px"></div>
-      <div class="row"><button class="primary" type="button" id="dcApply">Apply the ticked changes on review</button><button type="button" id="dcAll">Tick all</button><button type="button" id="dcNone">Untick all</button><span class="note" id="dcApplySt" role="status"></span></div>
+  <section class="card step" id="approveCard" aria-labelledby="h-approve">
+    <h2 id="h-approve"><span class="stepno">1</span>✔ Approve <span class="pill" id="approvePill">…</span></h2>
+    <p class="note">Everything waiting for a yes or no, with what auto mode thinks of it. <b>Approve</b> makes it canon (Your idea); <b>Reject</b> takes it out. Nothing goes live until you publish.</p>
+    <div class="row" id="bulkRow" hidden>
+      <button class="primary" type="button" id="bulkYes">✔ Approve all the AI recommends</button>
+      <button class="danger" type="button" id="bulkNo">✕ Reject all the AI turns down</button>
+      <span class="note" id="bulkSt" role="status"></span>
     </div>
+    <p class="note" id="pStatus" role="status">Reading what's waiting…</p>
+    <p class="note" id="inStatus" role="status"></p>
+    <div class="items" id="inList"></div>
+    <div class="items" id="pList"></div>
   </section>
 
-  <section class="card" aria-labelledby="h-catch" id="cuCard">
-    <h2 id="h-catch"><span class="stepno">4</span>📜 Lore catch-up</h2>
-    <p class="note">Keeps <code>lore.md</code>, what the Wake in Verrowen narrator reads, in step with what you've decided. It finds every <b>(Your idea)</b> section in the notes, <code>resources.md</code> and <code>bestiary.md</code> that's new or changed since the last catch-up, and the laptop's AI drafts the lines the lore is missing. Pitches never go in. Check and edit the draft, then add it: it goes on the review branch like everything else.</p>
-    <div class="row"><button class="primary" type="button" id="cuGo">📜 Catch the lore up</button><span class="note" id="cuStatus" role="status"></span></div>
-    <div class="draft" id="cuDraft" hidden>
-      <details id="cuFromWrap"><summary class="note" id="cuFromSum"></summary><ul class="commits" id="cuFrom"></ul></details>
-      <label for="cuLines">New lines for lore.md, one per line (edit freely)</label>
-      <textarea id="cuLines" rows="10" maxlength="12000" spellcheck="true"></textarea>
-      <p class="note">If a line corrects something the lore already says, also fix the old line with <a href="https://github.com/sheastolp/grand-orrery/edit/review/lore.md" target="_blank" rel="noopener">Edit lore.md</a>.</p>
-      <div class="row"><button class="primary" type="button" id="cuAdd">Add to lore.md for review</button><button type="button" id="cuCancel">Cancel</button><span class="note" id="cuAddSt" role="status"></span></div>
-    </div>
-  </section>
-
-  <section class="card" aria-labelledby="h-wait" id="waitCard">
-    <h2 id="h-wait"><span class="stepno">5</span>Waiting for you</h2>
+  <section class="card step" id="waitCard" aria-labelledby="h-view">
+    <h2 id="h-view"><span class="stepno">2</span>👁 View <span class="pill" id="viewPill">…</span></h2>
     <p class="count" id="count">Checking GitHub…</p>
     <div class="summary" id="summary" hidden></div>
+    <p class="note" id="loreNudge" hidden></p>
     <div class="row">
-      <a class="btn" href="/orrery/?clone=review" target="_blank" rel="noopener">🔍 Open the Review Clone</a>
-      <a class="btn" id="ghLink" href="https://github.com/sheastolp/grand-orrery/compare/main...review" target="_blank" rel="noopener">See it on GitHub</a>
+      <a class="btn primary" id="cloneLink" href="/orrery/?clone=review" target="_blank" rel="noopener">🔍 Open the Review Clone</a>
       <button type="button" id="refresh">Check again</button>
     </div>
-    <p class="note">The Review Clone is the whole Orrery Explorer as it will look once you publish, read from the review branch.</p>
-    <div class="sub" role="group" aria-labelledby="h-lk">
-      <h3 id="h-lk">Latest lore-keeper chat</h3>
-      <p class="note">Your most recent chat with the lore-keeper saves here on its own after every message, replacing the one before. It doesn't change the Orrery until you write it into the universe.</p>
-      <div class="row"><button type="button" id="lkLoad">Show it</button><span class="note" id="lkStatus" role="status"></span></div>
+    <p class="note">The Review Clone is the whole Orrery Explorer exactly as it will look once you publish.</p>
+    <details id="logCard" hidden><summary class="note">Every change, oldest first</summary><ul class="commits" id="commits"></ul></details>
+    <details id="filesCard" hidden><summary class="note">File by file (what was added and removed)</summary>
+      <div id="files" style="display:flex;flex-direction:column;gap:10px;margin-top:8px"></div>
+      <p class="note"><a id="ghLink" href="https://github.com/sheastolp/grand-orrery/compare/main...review" target="_blank" rel="noopener">See it on GitHub</a></p>
+    </details>
+  </section>
+
+  <section class="card step" id="actCard" aria-labelledby="h-act">
+    <h2 id="h-act"><span class="stepno">3</span>🚀 Publish <span class="pill" id="pubPill">…</span></h2>
+    <div class="row">
+      <button class="primary" type="button" id="publish">✔ Publish to the live Orrery</button>
+      <button class="danger" type="button" id="discard">Throw it all away</button>
+    </div>
+    <p class="status" id="actStatus" role="status"></p>
+    <p class="note">Publishing puts it all live at once: the Explorer, Wake in Verrowen, GuildScribe and the other bots follow on their own. Throwing it away drops everything waiting. Both take two taps.</p>
+  </section>
+
+  <details class="more" id="moreTools">
+    <summary>More tools</summary>
+
+  <section class="card" aria-labelledby="h-lk2" id="lkCard">
+    <h2 id="h-lk2">✒️ Latest lore-keeper chat</h2>
+    <div class="sub" role="group" aria-labelledby="h-lk" style="border:0;margin:0;padding:0">
+      <h3 id="h-lk" hidden>Latest lore-keeper chat</h3>
+      <p class="note">Your most recent chat with the lore-keeper. Turn it into something to approve.</p>
+      <div class="row"><button type="button" id="lkLoad">Show it</button><a class="btn" href="/orrery/#chat">✒️ Open the lore-keeper</a><span class="note" id="lkStatus" role="status"></span></div>
       <div id="lk" hidden>
         <p class="note" id="lkMeta"></p>
         <div class="chat" id="lkLog"></div>
         <details id="lkWriteWrap" hidden><summary class="note">The write-up</summary><pre class="writeup" id="lkWrite"></pre></details>
-        <div class="row"><button type="button" id="lkCopy">Copy the whole chat</button><button type="button" id="rvOpen">📝 Turn into a review item</button><a class="btn" href="/orrery/#chat">✒️ Carry on in the lore-keeper</a></div>
+        <div class="row"><button type="button" id="lkCopy">Copy the whole chat</button><button type="button" id="rvOpen">📝 Turn into a review item</button></div>
         <p class="note" id="rvFiled" hidden></p>
         <div class="draft" id="rvDraft" hidden>
-          <p class="note">This becomes a <b>Pitch</b> section at the end of <code>working-notes.md</code> on the review branch, under "From the lore-keeper", or a <b>Your idea</b> section if you accept it. It waits here with the other changes until you publish or throw it away. Edit it as you like first.</p>
           <label for="rvFrom">Start from</label>
           <select id="rvFrom"></select>
           <label for="rvTitle">Title</label>
           <input id="rvTitle" maxlength="120" spellcheck="true">
           <label for="rvBody">Text (Markdown)</label>
           <textarea id="rvBody" rows="12" maxlength="12000" spellcheck="true"></textarea>
-          <div class="row"><button class="primary" type="button" id="rvFile">File it for review</button><button type="button" id="rvAccept" title="File it as Your idea instead of a Pitch">✔ Accept as your idea</button><button type="button" id="rvCancel">Cancel</button><span class="note" id="rvStatus" role="status"></span></div>
+          <div class="row"><button class="primary" type="button" id="rvFile">File it to approve</button><button type="button" id="rvAccept" title="Approve it straight away">✔ Approve it now</button><button type="button" id="rvCancel">Cancel</button><span class="note" id="rvStatus" role="status"></span></div>
         </div>
       </div>
     </div>
-    <label for="token">Owner's token</label>
-    <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Needed to show the chat, file items, publish or throw away">
   </section>
 
-  <section class="card" aria-labelledby="h-log" id="logCard" hidden>
-    <h2 id="h-log">The changes, oldest first</h2>
-    <ul class="commits" id="commits"></ul>
-  </section>
-
-  <section class="card" aria-labelledby="h-files" id="filesCard" hidden>
-    <h2 id="h-files">File by file</h2>
-    <p class="note">Green lines are added, red lines are removed. Open a file to read its changes.</p>
-    <div id="files" style="display:flex;flex-direction:column;gap:10px"></div>
-  </section>
-
-  <section class="card" aria-labelledby="h-act" id="actCard" hidden>
-    <h2 id="h-act"><span class="stepno">6</span>Decide: publish</h2>
-    <div class="row">
-      <button class="primary" type="button" id="publish">✔ Publish to the live Orrery</button>
-      <button class="danger" type="button" id="discard">Throw it all away</button>
+  <section class="card" aria-labelledby="h-catch" id="cuCard">
+    <h2 id="h-catch">📜 Lore catch-up</h2>
+    <p class="note">Adds lines to <code>lore.md</code> (what the narrator and the bots' AI read) for everything you've approved since the last catch-up. Auto mode does this on its own every round.</p>
+    <div class="row"><button class="primary" type="button" id="cuGo">📜 Catch the lore up</button><span class="note" id="cuStatus" role="status"></span></div>
+    <div class="draft" id="cuDraft" hidden>
+      <details id="cuFromWrap"><summary class="note" id="cuFromSum"></summary><ul class="commits" id="cuFrom"></ul></details>
+      <label for="cuLines">New lines for lore.md, one per line (edit freely)</label>
+      <textarea id="cuLines" rows="10" maxlength="12000" spellcheck="true"></textarea>
+      <div class="row"><button class="primary" type="button" id="cuAdd">Add to lore.md for review</button><button type="button" id="cuCancel">Cancel</button><span class="note" id="cuAddSt" role="status"></span></div>
     </div>
-    <p class="status" id="actStatus" role="status"></p>
-    <p class="note">Publishing puts the review branch live on <code>main</code>. Throwing it away resets the review branch to what's live now. Both need the owner's token, and the laptop must be awake.</p>
   </section>
 
-  <h2 class="group">Make changes</h2>
-  <p class="note">Tools for adding to the Orrery. What they make lands in the review steps above.</p>
   <section class="card" aria-labelledby="h-add" id="addCard">
     <h2 id="h-add">✨ Add to the Orrery</h2>
-    <p class="note">Say what you'd like to add, in your own words, and the laptop's local AI writes it into every file it belongs in: a line for the narrator in <code>lore.md</code>, a row in the roster, a section of the universe draft, an entry in <code>resources.md</code> or a creature in the bestiary. Check and edit every part, add or drop parts, then add it as <b>Your idea</b> or file it as a <b>pitch</b>. It goes on the review branch like everything else. You can also skip the AI and write the parts yourself.</p>
+    <p class="note">Say what you'd like to add and the laptop's AI writes it into every file it belongs in. Check it, then add it.</p>
     <label for="adKind">What is it?</label>
     <select id="adKind"><option value="person">A person</option><option value="place">A place</option><option value="item">An item or resource</option><option value="creature">A creature</option><option value="other">Something else (a custom, a rule, some history)</option></select>
     <label for="adAsk">Describe it</label>
-    <textarea id="adAsk" rows="4" maxlength="3000" spellcheck="true" placeholder="e.g. Stoutwell's tanner, a human woman in her forties named Maren Tull who hates the smell of her own work and trades leather for the Wellhouse's ale"></textarea>
+    <textarea id="adAsk" rows="4" maxlength="3000" spellcheck="true" placeholder="e.g. Stoutwell's tanner, a human woman in her forties named Maren Tull who trades leather for the Wellhouse's ale"></textarea>
     <div class="row"><button class="primary" type="button" id="adGo">✨ Draft it with the local AI</button><button type="button" id="adHand">Write it myself</button><span class="note" id="adStatus" role="status"></span></div>
     <div class="draft" id="adDraft" hidden>
       <label for="adTitle">Name</label>
@@ -268,13 +267,23 @@
       <div id="adParts" style="display:flex;flex-direction:column;gap:12px;margin-top:10px"></div>
       <div class="row"><span class="note">Add a part:</span><button type="button" data-add="lore">📜 Lore line</button><button type="button" data-add="section">📖 Section</button><button type="button" data-add="row">👤 Roster row</button><button type="button" data-add="resource">📦 Item</button><button type="button" data-add="creature">🐾 Creature</button></div>
       <div class="row" id="adMapRow" hidden><button type="button" id="adMap">🗺 Place it on a map</button><span class="note" id="adMapNote"></span></div>
-      <div class="row"><button class="primary" type="button" id="adApply">✔ Add it as Your idea</button><button type="button" id="adPitch">💡 File it as a pitch instead</button><button type="button" id="adCancel">Cancel</button><span class="note" id="adApplySt" role="status"></span></div>
+      <div class="row"><button class="primary" type="button" id="adApply">✔ Add it, approved</button><button type="button" id="adPitch">File it to approve later</button><button type="button" id="adCancel">Cancel</button><span class="note" id="adApplySt" role="status"></span></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-docs" id="docsCard">
+    <h2 id="h-docs">📚 Documents catch-up</h2>
+    <p class="note">The laptop's AI checks the documents against <code>lore.md</code> and drafts fixes and missing entries. Tick what to keep and apply it.</p>
+    <div class="row"><button class="primary" type="button" id="dcGo">📚 Catch the documents up</button><span class="note" id="dcStatus" role="status"></span></div>
+    <div class="draft" id="dcDraft" hidden>
+      <div id="dcList" style="display:flex;flex-direction:column;gap:14px"></div>
+      <div class="row"><button class="primary" type="button" id="dcApply">Apply the ticked changes on review</button><button type="button" id="dcAll">Tick all</button><button type="button" id="dcNone">Untick all</button><span class="note" id="dcApplySt" role="status"></span></div>
     </div>
   </section>
 
   <section class="card" aria-labelledby="h-maps" id="mapCard">
     <h2 id="h-maps">🗺 Maps</h2>
-    <p class="note">Open a map, click where something goes, name it and pick a symbol, and add it. Marks you added can be taken off again. <b>Save the map on review</b> keeps the map's editable SVG and redraws its picture from it, in your browser. You can also start a new map, which the Explorer lists on its own.</p>
+    <p class="note">Open a map, click where something goes, name it and add it. <b>Save the map on review</b> keeps it with the other changes.</p>
     <div class="row"><label for="mpPick" style="flex:0 0 auto">Map</label><select id="mpPick" style="width:auto"></select><button type="button" id="mpOpen">Open it</button><button type="button" id="mpNewBtn">＋ New map</button><span class="note" id="mpStatus" role="status"></span></div>
     <div class="draft" id="mpNew" hidden>
       <label for="mpNewTitle">Title</label><input id="mpNewTitle" maxlength="80" placeholder="e.g. The road to the capital">
@@ -298,7 +307,7 @@
 
   <section class="card" aria-labelledby="h-newdoc" id="ndCard">
     <h2 id="h-newdoc">📄 New document</h2>
-    <p class="note">Starts a new document in grand-orrery on the review branch, such as a new world, a city's notes or a campaign, and lists it in the Explorer once published. Fill it with <b>✨ Add to the Orrery</b> (pick it under Section) or edit it on GitHub.</p>
+    <p class="note">Starts a new document in the Orrery (a new world, a city's notes, a campaign). The Explorer lists it on its own once published.</p>
     <label for="ndTitle">Title</label><input id="ndTitle" maxlength="100" placeholder="e.g. The Capital: Streets & Houses">
     <label for="ndName">File name</label><input id="ndName" maxlength="50" placeholder="e.g. capital (becomes capital.md)">
     <label for="ndSub">One line for the Explorer</label><input id="ndSub" maxlength="120">
@@ -307,23 +316,12 @@
     <div class="row"><button class="primary" type="button" id="ndGo">📄 Start the document</button><span class="note" id="ndStatus" role="status"></span></div>
   </section>
 
-  <section class="card rest" aria-labelledby="h-rest" id="restCard">
-    <h2 id="h-rest">😴 Rest mode · 🤖 Auto mode</h2>
-    <p class="note">While you rest, the laptop's AI runs the Orrery on its own. Every round it judges everything <b>sent in for review</b> and every <b>pitch</b> on the review branch against the lore (approved ones become <b>Your idea</b>, rejected ones are turned down or taken out), <b>comes up with new ideas</b> of its own a few times a day and judges each one before filing it (only the ones it accepts are kept, as <b>Your idea</b>; the rest are only listed below), <b>catches lore.md up</b> for the narrator, and <b>publishes</b> it all to the live Orrery and GuildScribe. Anything the AI can't give a clear answer on waits here for you. Every decision and its reason is listed below and in the change's message on GitHub.</p>
-    <p class="note"><b>🤖 Auto mode</b> does all the same work but <b>never publishes</b>: nothing gets decided for you. <b>Every round writes a new idea</b> (no daily limit) and files it as a pitch with its view, and what it approves from the 📨 queue is filed as a pitch too. <b>Pitches stay pitches</b>: they all wait in 💡 Pitches with the AI's view (would accept or would reject, and why) for you to decide. What it would turn down from the 📨 queue stays there with its reason. You check it and publish (or throw it away) as usual.</p>
-    <p class="count" id="restState">Rest mode: checking the laptop…</p>
-    <div class="row">
-      <label for="restFor" style="flex:0 0 auto">Rest for</label>
-      <select id="restFor" style="width:auto"><option value="8">8 hours</option><option value="24">a day</option><option value="72">3 days</option><option value="168">a week</option><option value="0">until I turn it off</option></select>
-      <button class="primary" type="button" id="restOn" title="The AI decides and publishes on its own">😴 Rest mode on</button>
-      <button type="button" id="autoOn" title="The AI decides, you review and publish">🤖 Auto mode on</button>
-      <button type="button" id="restOff" hidden>☀️ I'm back: turn it off</button>
-      <button type="button" id="restRun">Run a round now</button>
-      <span class="note" id="restSt" role="status"></span>
-    </div>
-    <details id="restLogWrap"><summary class="note">What rest mode has done</summary><ul class="restlog" id="restLog"></ul></details>
-    <p class="note">The owner's token (under Waiting for you) is needed. Something it published by mistake can be put back by hand on GitHub or with a pitch.</p>
+  <section class="card" aria-labelledby="h-log2" id="restLogCard">
+    <h2 id="h-log2">🤖 What auto mode has done</h2>
+    <ul class="restlog" id="restLog"><li><small>Nothing yet.</small></li></ul>
   </section>
+  <p class="note" style="margin-top:14px"><button type="button" id="tokenEdit">Change the owner's token</button></p>
+  </details>
 
   <footer><a href="/orrery/control/">Orrery control</a> · <a href="/orrery/">Live Orrery</a> · <a href="/">Tavernworks</a></footer>
 </div>
@@ -336,8 +334,11 @@ const KEY = "verrowen-owner";
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 try{ $("token").value = localStorage.getItem(KEY) || ""; }catch(e){}
+// The token is asked for once; after that it stays out of the way.
+$("tokenCard").hidden = !!$("token").value.trim();
+$("tokenEdit").addEventListener("click", () => { $("tokenCard").hidden = false; $("token").focus(); window.scrollTo(0, 0); });
 
-// ── Folding: every card starts shut and opens on its heading; the lore-keeper chat minimizes on its own ──
+// The tools under "More tools" fold on their headings.
 function setFold(box, open){
   box.classList.toggle("shut", !open);
   const b = box.querySelector(":scope > h2 > button.fold, :scope > h3 > button.fold");
@@ -350,66 +351,44 @@ function makeFold(box, head, open){
   b.addEventListener("click", () => setFold(box, box.classList.contains("shut")));
   setFold(box, open);
 }
-document.querySelectorAll("section.card").forEach((c) => { const h = c.querySelector(":scope > h2"); if (h) makeFold(c, h, false); });
-{ const lk = $("h-lk"); makeFold(lk.closest(".sub"), lk, true); }
-setFold($("nextCard"), true);
-// Opens whatever card (and the chat) holds el, so the page can point at it.
+document.querySelectorAll("#moreTools > section.card").forEach((c) => { const h = c.querySelector(":scope > h2"); if (h) makeFold(c, h, false); });
+// Opens whatever holds el, so the page can point at it.
 function reveal(el){
-  const s = el.closest(".sub.shut"); if (s) setFold(s, true);
-  const c = el.closest(".card"); if (c) setFold(c, true);
+  const m = el.closest("details.more"); if (m) m.open = true;
+  const c = el.closest(".card.shut"); if (c) setFold(c, true);
+  if (el === $("token")) $("tokenCard").hidden = false;
   return el;
 }
 
-// ── 🧭 Do this next ──
-// The page works out the exact steps for what's waiting, oldest first and
-// publishing last, naming the buttons to press in order. Only steps that
-// need the owner show (an empty queue, no pitches, nothing waiting are left
-// out), and the list is redrawn the moment anything is done here, when the
-// review branch moves, or when another Orrery tab (the lore-keeper's
-// changes) pings. The other tabs, the live Orrery and the Review Clone, are
-// pinged after every write here, so they redraw too.
+// ── The three steps ──
+// Each step's pill says what it needs; the step that needs you next is lit.
 const RV = { ahead: null, behind: 0, inbox: null, pitches: false, accepted: 0, caught: false };
-const kb = (t) => `<kbd>${esc(t)}</kbd>`;
 function drawNext(){
-  const steps = [], token = !!$("token").value.trim();
-  const step = (title, how, go) => steps.push(`<li><b>${title}</b>${go ? ` <button type="button" data-go="${go}">Go there</button>` : ""}<span class="how">${how}</span></li>`);
-  if (!token) step("Enter the owner's token", `Type it in ${kb("Owner's token")} under Waiting for you. Everything else needs it.`, "token");
-  if (RV.inbox === false) step("Wake the laptop", "It couldn't be reached, so what was sent in can't be shown. Then press " + kb("Show what's waiting") + ".", "inLoad");
-  inbox.forEach((it) => step(`📨 Sent in: ${esc(it.title || "Untitled")}`, `Read it, edit the title or text if you like, then press ${kb("File it for review")} (a pitch) or ${kb("✔ Accept as your idea")}, or ${kb("Turn it down")} and tap it again.${it.ai ? " Auto mode would turn it down: " + esc(it.ai.why) : ""}`, "in:" + it.id));
-  const open = pitches.filter((p) => !p.done);
-  open.slice(0, 15).forEach((p) => step(`💡 Pitch: ${esc(p.name)}`, `${esc(p.file)}${p.ai ? " · auto mode would " + (p.ai.verdict === "approve" ? "accept" : "reject") + " it" : ""}. Press ${kb("✔ Accept as is")} to make it canon, or ${kb("✕ Reject")} and tap it again to take it out. To change its words first, press ${kb("Edit")}.`, "p:" + pitches.indexOf(p)));
-  if (open.length > 15) steps.push(`<li class="note">…and ${open.length - 15} more pitches under 💡 Pitches.</li>`);
-  if (!$("adDraft").hidden) step("✨ Finish what you're adding", `Check every part, then press ${kb("✔ Add it as Your idea")} or ${kb("💡 File it as a pitch instead")}.`, "adApply");
-  if (!$("dcDraft").hidden && !$("dcApply").hidden) step("📚 Apply the documents catch-up", `Untick anything wrong, edit the new words if you like, then press ${kb("Apply the ticked changes on review")}.`, "dcApply");
-  if (!$("cuDraft").hidden) step("📜 Add the lore catch-up", `Check the lines against the sections they came from, then press ${kb("Add to lore.md for review")}.`, "cuAdd");
-  else if (RV.accepted && !RV.caught) step("📜 Catch the lore up", `You made ${RV.accepted} thing${RV.accepted > 1 ? "s" : ""} canon, so the narrator's lore needs the lines. Press ${kb("📜 Catch the lore up")}, check the draft, then press ${kb("Add to lore.md for review")}.`, "cuGo");
-  if (RV.ahead){
-    step("🔍 Look it over in the Review Clone", `Press ${kb("🔍 Open the Review Clone")} and browse it as it will look live. The changes are listed below, oldest first.`, "waitCard");
-    step("✔ Publish", `Press ${kb("✔ Publish to the live Orrery")}, then tap it again within 5 seconds. The live Orrery, GuildScribe and the narrator update at once. (${kb("Throw it all away")}, tapped twice, drops everything instead.)`, "publish");
-  } else if (RV.behind) step("Line the clone up with live", `Live has changes that went around the review. Press ${kb("Throw it all away")} and tap it again.`, "discard");
-  $("nextSteps").innerHTML = steps.length ? steps.join("")
-    : `<li class="ok">${RV.ahead === null ? "Checking what's waiting…" : "✔ Nothing needs you. The live Orrery is up to date."}</li>`;
-  // What needs no input stays out of the way, one tap from being shown.
-  const quiet = aiItems.length;
-  $("nextQuiet").hidden = !quiet;
-  if (quiet) $("nextQuiet").innerHTML = `${quiet} thing${quiet > 1 ? "s" : ""} the AI added need${quiet > 1 ? "" : "s"} nothing from you (its pitches are in the steps above). <button type="button" id="showQuiet">${$("aiCard").hidden ? "Show them" : "Hide them"}</button>`;
+  const open = pitches.filter((p) => !p.done).length + inbox.length;
+  const loaded = RV.pitches;
+  const pill = (id, text, cls) => { $(id).textContent = text; $(id).className = "pill " + (cls || ""); };
+  pill("approvePill", !loaded ? "…" : open ? open + " to decide" : "✔ all decided", open ? "go" : "ok");
+  pill("viewPill", RV.ahead === null ? "…" : RV.ahead ? RV.ahead + " change" + (RV.ahead > 1 ? "s" : "") + " waiting" : "nothing new", RV.ahead ? "go" : "ok");
+  pill("pubPill", RV.ahead ? "ready" : RV.behind ? "line up" : "✔ live is current", RV.ahead || RV.behind ? "go" : "ok");
+  const now = open ? "approveCard" : RV.ahead ? "actCard" : "";
+  ["approveCard", "waitCard", "actCard"].forEach((id) => $(id).classList.toggle("active", id === now));
+  $("publish").hidden = !RV.ahead;
+  $("discard").hidden = !RV.ahead && !RV.behind;
+  // Approvals since the last catch-up need lore lines before the narrator knows them.
+  $("loreNudge").hidden = !(RV.accepted && !RV.caught);
+  if (!$("loreNudge").hidden) $("loreNudge").innerHTML = `You approved ${RV.accepted} thing${RV.accepted > 1 ? "s" : ""}. Auto mode adds the narrator's lore lines next round, or <button type="button" id="loreNow">📜 Catch the lore up now</button>`;
+  // The bulk buttons only show when the AI has a view on something.
+  const yes = pitches.filter((p) => !p.done && p.ai && p.ai.verdict === "approve").length;
+  const no = pitches.filter((p) => !p.done && p.ai && p.ai.verdict === "reject").length + inbox.filter((it) => it.ai).length;
+  $("bulkRow").hidden = !(yes || no);
+  $("bulkYes").hidden = !yes; $("bulkNo").hidden = !no;
+  $("bulkYes").textContent = `✔ Approve all ${yes} the AI recommends`;
+  $("bulkNo").textContent = `✕ Reject all ${no} the AI turns down`;
 }
-$("nextCard").addEventListener("click", (e) => {
-  if (e.target.id === "showQuiet"){ $("aiCard").hidden = !$("aiCard").hidden; if (!$("aiCard").hidden) setFold($("aiCard"), true); drawNext(); return; }
-  const b = e.target.closest("button[data-go]"); if (!b) return;
-  const g = b.dataset.go;
-  const el = g.startsWith("in:") ? $("inList").querySelector(`[data-in="${CSS.escape(g.slice(3))}"]`)
-    : g.startsWith("p:") ? $("pList").querySelector(`[data-p="${g.slice(2)}"]`) : $(g);
-  if (!el) return;
-  reveal(el).scrollIntoView({ behavior: "smooth", block: "center" });
-  const f = el.matches("input,textarea,button") ? el : el.querySelector("textarea,input,button.primary");
-  if (f) setTimeout(() => f.focus({ preventScroll: true }), 350);
+$("waitCard").addEventListener("click", (e) => {
+  if (e.target.id !== "loreNow") return;
+  const c = reveal($("cuGo")); c.scrollIntoView({ behavior: "smooth", block: "center" }); c.click();
 });
-// Drafts opening or closing change the steps.
-// (Only real changes outside this card count, so redrawing it can't loop.)
-new MutationObserver((recs) => {
-  if (recs.some((r) => !$("nextCard").contains(r.target) && (r.oldValue === null) !== !r.target.hasAttribute("hidden"))) drawNext();
-}).observe(document.querySelector(".wrap"), { subtree: true, attributes: true, attributeFilter: ["hidden"], attributeOldValue: true });
 // After a write here: re-read, and tell every other open Orrery tab.
 function changed(){ load(); if (window.OrreryLive) OrreryLive.ping("review", "review page"); }
 // Live: the review and main branches are checked every 20 seconds while the
@@ -450,6 +429,7 @@ async function viaLaptop(path){
   }catch(e){ return null; }
 }
 
+// ── Step 2: view ──
 async function load(){
   $("count").textContent = "Checking GitHub…";
   let j = await viaLaptop("/admin/review-compare");
@@ -462,21 +442,20 @@ async function load(){
   const ahead = j.ahead_by || 0, behind = j.behind_by || 0;
   RV.ahead = ahead; RV.behind = behind; drawNext();
   if (window.tavernPWA) tavernPWA.badge(ahead);   // the number on the Orrery app icon
-  $("logCard").hidden = $("filesCard").hidden = $("actCard").hidden = !ahead;
+  $("logCard").hidden = $("filesCard").hidden = !ahead;
+  $("cloneLink").hidden = !ahead;
   if (!ahead){
     $("summary").hidden = true;
-    $("count").innerHTML = "Nothing is waiting. The Review Clone matches the live Orrery." + (behind ? ' <span class="note">(Live has ' + behind + " newer change" + (behind > 1 ? "s" : "") + " that went around the review. Press Throw it all away to line the clone up with it.)</span>" : "");
-    if (behind) $("actCard").hidden = false, $("publish").hidden = true;
+    $("count").innerHTML = "Nothing is waiting. The live Orrery is up to date." + (behind ? ' <span class="note">(Live has ' + behind + " change" + (behind > 1 ? "s" : "") + " that went around the review. Press Throw it all away to line review up with it.)</span>" : "");
     return;
   }
-  $("publish").hidden = false;
   const files = j.files || [];
   // The plain-words summary: what a reader of the Orrery would notice.
   $("summary").hidden = false; $("summary").innerHTML = '<p class="note">Reading the changes…</p>';
   if (window.ReviewSummary) ReviewSummary.build(j).then((s) => { $("summary").innerHTML = s.html || ""; $("summary").hidden = !s.html; })
     .catch(() => { $("summary").innerHTML = '<p class="note">Couldn\'t read the changes for a summary. The list below still shows them.</p>'; });
-  $("count").innerHTML = `<b>${ahead}</b> change${ahead > 1 ? "s" : ""} waiting, touching <b>${files.length}</b> file${files.length === 1 ? "" : "s"}.` +
-    (behind ? ` <span class="note">Live also has ${behind} change${behind > 1 ? "s" : ""} the clone doesn't; publishing merges the two.</span>` : "");
+  $("count").innerHTML = `<b>${ahead}</b> change${ahead > 1 ? "s" : ""} waiting to go live, in <b>${files.length}</b> file${files.length === 1 ? "" : "s"}.` +
+    (behind ? ` <span class="note">Live also has ${behind} change${behind > 1 ? "s" : ""} review doesn't; publishing merges the two.</span>` : "");
 
   // Oldest first, the order they were made in, so the newest is at the bottom.
   $("commits").innerHTML = (j.commits || []).map((c) => {
@@ -500,6 +479,7 @@ async function load(){
   }).join("");
 }
 
+// ── Step 3: publish ──
 async function owner(path){
   const token = $("token").value.trim();
   if (!token) throw new Error("Enter the owner's token first.");
@@ -520,64 +500,16 @@ function confirmTwice(btn, label, then){
 function act(path, doing, done){
   const st = $("actStatus"); st.className = "status"; st.textContent = doing;
   ["publish", "discard"].forEach((id) => $(id).disabled = true);
-  owner(path).then((j) => { st.textContent = done(j); RV.accepted = 0; RV.caught = false; setTimeout(() => { changed(); if (window.OrreryLive) OrreryLive.ping("main", path); }, 1500); })
+  owner(path).then((j) => { st.textContent = done(j); RV.accepted = 0; RV.caught = false; setTimeout(() => { changed(); loadPitches(); if (window.OrreryLive) OrreryLive.ping("main", path); }, 1500); })
     .catch((e) => { st.className = "status err"; st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; })
     .finally(() => ["publish", "discard"].forEach((id) => $(id).disabled = false));
 }
 $("publish").addEventListener("click", (e) => confirmTwice(e.currentTarget, "Tap again to publish", () =>
-  act("/admin/publish", "Publishing…", (j) => "✔ Live. The Orrery, the lore-keeper and the narrator now read " + j.sha.slice(0, 7) + ".")));
+  act("/admin/publish", "Publishing…", (j) => "✔ Live. Everything that reads the Orrery now has " + j.sha.slice(0, 7) + ".")));
 $("discard").addEventListener("click", (e) => confirmTwice(e.currentTarget, "Tap again to throw it all away", () =>
-  act("/admin/discard", "Throwing it away…", () => "✔ Thrown away. The Review Clone matches the live Orrery again.")));
-$("refresh").addEventListener("click", load);
-
-// ── Sent in for review ──
-// What others sent with /orrery-review.js waits on the laptop until it's
-// filed here (onto the review branch, as a pitch) or turned down.
-const FROM = { "lore-keeper": "🪶 Lore-keeper", codex: "📜 Codex", verrowen: "🕯 Wake in Verrowen" };
-let inbox = [];
-async function inboxCall(method, body){
-  const token = $("token").value.trim();
-  if (!token) throw new Error("Enter the owner's token first.");
-  const r = await fetch(SERVER + "/admin/inbox", Object.assign({ method, headers: Object.assign({ authorization: "Bearer " + token }, body ? { "content-type": "application/json" } : {}) }, body ? { body: JSON.stringify(body) } : {}));
-  const j = await r.json().catch(() => ({}));
-  if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
-  if (!r.ok) throw new Error(j.error || "The laptop answered " + r.status + ".");
-  try{ localStorage.setItem(KEY, token); }catch(e){}
-  return j;
-}
-async function loadInbox(){
-  const st = $("inStatus"); st.textContent = "Asking the laptop…";
-  try{ inbox = ((await inboxCall("GET")).items || []).slice().sort((a, b) => String(a.at || "").localeCompare(String(b.at || ""))); RV.inbox = true; }
-  catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; RV.inbox = false; $("inCard").hidden = false; drawNext(); return; }
-  $("inCard").hidden = !inbox.length; drawNext();
-  st.textContent = inbox.length ? inbox.length + " waiting." : "Nothing is waiting.";
-  $("inList").innerHTML = inbox.map((it) => `<div class="sub" data-in="${esc(it.id)}">
-    <p class="note">${FROM[it.source] || esc(it.source)} · ${esc(when(it.at))}${it.name ? " · sent by " + esc(it.name) : ""}${it.about ? " · " + esc(it.about) : ""}</p>
-    ${it.ai ? `<p class="note minus">🤖 Auto mode would turn this down: ${esc(it.ai.why)}</p>` : ""}
-    <label>Title</label><input data-f="title" maxlength="120" value="${esc(it.title)}">
-    <label>Text (Markdown)</label><textarea data-f="body" rows="8" maxlength="12000">${esc(it.body)}</textarea>
-    <div class="row"><button class="primary" type="button" data-act="file">File it for review</button><button type="button" data-act="accept">✔ Accept as your idea</button><button type="button" data-act="dismiss">Turn it down</button><span class="note" data-st role="status"></span></div>
-  </div>`).join("");
-}
-$("inLoad").addEventListener("click", loadInbox);
-$("inList").addEventListener("click", async (e) => {
-  const b = e.target.closest("button[data-act]"); if (!b) return;
-  const box = b.closest("[data-in]"), st = box.querySelector("[data-st]"), id = box.dataset.in;
-  if (b.dataset.act === "dismiss" && b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Tap again to turn it down"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "Turn it down"; }, 5000); return; }
-  box.querySelectorAll("button").forEach((x) => x.disabled = true);
-  st.textContent = b.dataset.act === "file" ? "Filing it on the review branch…" : b.dataset.act === "accept" ? "Filing it on the review branch as Your idea…" : "Turning it down…";
-  try{
-    await inboxCall("POST", { id, action: b.dataset.act, title: box.querySelector('[data-f="title"]').value, body: box.querySelector('[data-f="body"]').value });
-    box.remove(); inbox = inbox.filter((x) => x.id !== id);
-    if (b.dataset.act === "accept") RV.accepted++;
-    $("inStatus").textContent = inbox.length ? inbox.length + " waiting." : "Nothing is waiting.";
-    $("inCard").hidden = !inbox.length; drawNext();
-    if (b.dataset.act !== "dismiss") setTimeout(changed, 1500);
-  }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; box.querySelectorAll("button").forEach((x) => x.disabled = false); }
-});
-if ($("token").value.trim()) loadInbox(); else $("inCard").hidden = true;
-$("token").addEventListener("change", () => { drawNext(); if ($("token").value.trim()) loadInbox(); });
-load();
+  act("/admin/discard", "Throwing it away…", () => "✔ Thrown away. Review matches the live Orrery again.")));
+$("refresh").addEventListener("click", () => { load(); loadPitches(); });
+$("token").addEventListener("change", () => { if ($("token").value.trim()){ try{ localStorage.setItem(KEY, $("token").value.trim()); }catch(e){} loadInbox(); loadRest(); loadPitches(); loadLk(); } drawNext(); });
 
 // ── The owner's latest lore-keeper chat ──
 let lkChat = null;
@@ -586,7 +518,7 @@ const DONE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const MODE = { chat: "Open chat", create: "Creating a character", review: "Reviewing", world: "Worldbuilding and mechanics" };
 async function loadLk(){
   const st = $("lkStatus"), token = $("token").value.trim();
-  if (!token){ st.textContent = "Enter the owner's token below first."; return; }
+  if (!token){ st.textContent = "Enter the owner's token first."; return; }
   st.textContent = "Asking the laptop…";
   try{
     const r = await fetch(SERVER + "/admin/lorekeeper", { headers: { authorization: "Bearer " + token } });
@@ -673,7 +605,7 @@ $("rvAccept").addEventListener("click", () => fileDraft(true));
 async function fileDraft(decided){
   const st = $("rvStatus"), token = $("token").value.trim();
   const title = $("rvTitle").value.trim(), body = $("rvBody").value.trim();
-  if (!token){ st.textContent = "Enter the owner's token below first."; reveal($("token")).focus(); return; }
+  if (!token){ st.textContent = "Enter the owner's token first."; reveal($("token")).focus(); return; }
   if (!title || !body){ st.textContent = "It needs a title and some text."; return; }
   const about = [lkChat.title, MODE[lkChat.mode] || lkChat.mode].filter(Boolean).join(" · ");
   $("rvFile").disabled = $("rvAccept").disabled = true; st.textContent = decided ? "Filing it on the review branch as Your idea…" : "Filing it on the review branch…";
@@ -695,7 +627,7 @@ async function fileDraft(decided){
 let cu = null;
 async function cuCall(path, body){
   const token = $("token").value.trim();
-  if (!token) throw new Error("Enter the owner's token in Waiting for you first.");
+  if (!token) throw new Error("Enter the owner's token first.");
   const r = await fetch(SERVER + path, { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify(body || {}) });
   const j = await r.json().catch(() => ({}));
   if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
@@ -726,7 +658,7 @@ $("cuAdd").addEventListener("click", async () => {
   try{
     const j = await cuCall("/admin/lore-catchup/apply", { head: cu.head, lines: $("cuLines").value });
     $("cuDraft").hidden = true;
-    RV.caught = true;
+    RV.caught = true; drawNext();
     $("cuStatus").innerHTML = j.added ? `✔ Added ${j.added} line${j.added > 1 ? "s" : ""} to lore.md (<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>). Publish to give them to the narrator.` : "✔ Marked as caught up.";
     setTimeout(changed, 1500);
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
@@ -739,7 +671,7 @@ $("cuAdd").addEventListener("click", async () => {
 let dc = null, dcTimer = null;
 async function dcGet(){
   const token = $("token").value.trim();
-  if (!token) throw new Error("Enter the owner's token under Waiting for you first.");
+  if (!token) throw new Error("Enter the owner's token first.");
   const r = await fetch(SERVER + "/admin/docs-catchup", { headers: { authorization: "Bearer " + token } });
   const j = await r.json().catch(() => ({}));
   if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
@@ -796,7 +728,7 @@ $("dcApply").addEventListener("click", async () => {
   try{
     const j = await cuCall("/admin/docs-catchup/apply", picked);
     $("dcDraft").hidden = true; dc = null;
-    $("dcStatus").innerHTML = `✔ On the review branch: ${j.done.map((d) => `${esc(d.file)} (${d.changes}, <a href="${esc(d.url || "#")}" target="_blank" rel="noopener">${esc(String(d.sha || "").slice(0, 7))}</a>)`).join(", ") || "nothing changed"}.${j.skipped.length ? ` ${j.skipped.length} couldn't be applied because the text had changed: ${esc(j.skipped.join("; "))}.` : ""} Publish under Waiting for you to put it live.`;
+    $("dcStatus").innerHTML = `✔ On the review branch: ${j.done.map((d) => `${esc(d.file)} (${d.changes}, <a href="${esc(d.url || "#")}" target="_blank" rel="noopener">${esc(String(d.sha || "").slice(0, 7))}</a>)`).join(", ") || "nothing changed"}.${j.skipped.length ? ` ${j.skipped.length} couldn't be applied because the text had changed: ${esc(j.skipped.join("; "))}.` : ""} Publish (step 3) to put it live.`;
     setTimeout(changed, 1500);
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
   finally{ b.disabled = false; }
@@ -810,7 +742,7 @@ let adOpts = null, adMapHint = null;
 async function adGetOpts(){
   if (adOpts) return adOpts;
   const token = $("token").value.trim();
-  if (!token) throw new Error("Enter the owner's token in Waiting for you first.");
+  if (!token) throw new Error("Enter the owner's token first.");
   const r = await fetch(SERVER + "/admin/expand/options", { headers: { authorization: "Bearer " + token } });
   const j = await r.json().catch(() => ({}));
   if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
@@ -892,7 +824,7 @@ async function adApply(asPitch){
   try{
     const j = await cuCall("/admin/expand/apply", { title: $("adTitle").value, changes, asPitch });
     $("adDraft").hidden = true; adOpts = null;
-    $("adStatus").innerHTML = `✔ ${asPitch ? "Filed as a pitch" : "Added as Your idea"} on the review branch: ${j.done.map((d) => `${esc(d.file)} (<a href="${esc(d.url || "#")}" target="_blank" rel="noopener">${esc(String(d.sha || "").slice(0, 7))}</a>)`).join(", ")}.${j.skipped.length ? " Not added: " + esc(j.skipped.join("; ")) + "." : ""} Publish under Waiting for you to put it live.`;
+    $("adStatus").innerHTML = `✔ ${asPitch ? "Filed as a pitch" : "Added as Your idea"} on the review branch: ${j.done.map((d) => `${esc(d.file)} (<a href="${esc(d.url || "#")}" target="_blank" rel="noopener">${esc(String(d.sha || "").slice(0, 7))}</a>)`).join(", ")}.${j.skipped.length ? " Not added: " + esc(j.skipped.join("; ")) + "." : ""} Publish (step 3) to put it live.`;
     $("adAsk").value = "";
     setTimeout(changed, 1500);
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
@@ -909,7 +841,7 @@ const MAP_LIST = [["maps/region.svg", "The region"], ["maps/stoutwell.svg", "Sto
 let mp = null;   // { file, svg (element), isNew, title, caption, at: {x,y} }
 async function mpFile(path){
   const token = $("token").value.trim();
-  if (!token) throw new Error("Enter the owner's token in Waiting for you first.");
+  if (!token) throw new Error("Enter the owner's token first.");
   const r = await fetch(SERVER + "/admin/file?path=" + encodeURIComponent(path), { headers: { authorization: "Bearer " + token } });
   const j = await r.json().catch(() => ({}));
   if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
@@ -1083,14 +1015,14 @@ $("ndGo").addEventListener("click", async () => {
   finally{ b.disabled = false; }
 });
 
-// ── Rest mode ──
+// ── Auto mode ──
 // The laptop runs the rounds itself (verrowen/server, POST /admin/rest-mode),
-// so it carries on with this page closed. This only switches it and shows
-// what it did.
-const REST_KIND = { review: "🔍 For your review", view: "💡 Left as a pitch",  approved: "✔ Approved", accepted: "✔ Accepted", rejected: "✕ Rejected", unsure: "… Left for you", idea: "💡 New idea", deleted: "🗑 Deleted", lore: "📜 Lore", published: "🌍 Published", error: "⚠ Problem", round: "Round", done: "Round done", on: "▶ On", off: "☀️ Off" };
+// so it carries on with this page closed. It never publishes: everything it
+// does waits in step 1 with its view. This only switches it and shows what it did.
+const REST_KIND = { review: "🔍 For your review", view: "💡 Its view", approved: "✔ Filed to approve", accepted: "✔ Accepted", rejected: "✕ Would turn down", unsure: "… Left for you", idea: "💡 New idea", deleted: "🗑 Deleted", lore: "📜 Lore", published: "🌍 Published", error: "⚠ Problem", round: "Round", done: "Round done", on: "▶ On", off: "Off" };
 async function restCall(body){
   const token = $("token").value.trim();
-  if (!token) throw new Error("Enter the owner's token under Waiting for you first.");
+  if (!token) throw new Error("Enter the owner's token first.");
   const r = await fetch(SERVER + "/admin/rest-mode", body ? { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify(body) } : { headers: { authorization: "Bearer " + token } });
   const j = await r.json().catch(() => ({}));
   if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
@@ -1100,50 +1032,102 @@ async function restCall(body){
 }
 function drawRest(j){
   $("restCard").classList.toggle("on", !!j.on);
-  const auto = j.mode === "auto"; $("restCard").dataset.mode = j.on ? j.mode : "";
-  $("restOn").hidden = $("autoOn").hidden = !!j.on; $("restFor").hidden = $("restFor").previousElementSibling.hidden = !!j.on; $("restOff").hidden = !j.on;
-  $("restOff").textContent = auto ? "Turn auto mode off" : "☀️ I'm back: turn it off";
+  $("autoOn").hidden = !!j.on; $("restOff").hidden = !j.on;
   $("restState").innerHTML = j.on
-    ? (auto ? `🤖 <b>Auto mode</b>` : `😴 <b>Resting</b>`) + `${j.until ? " until " + esc(when(j.until)) : " until you turn it off"}: ${auto ? "the AI sorts everything onto the review branch, and you publish" : "the AI decides and publishes"}. ${j.running ? "A round is running now." : j.nextRound ? "Next round " + esc(when(j.nextRound)) + "." : ""}${j.github ? "" : ' <span class="minus">The laptop has no GitHub token, so it can\'t file or publish anything.</span>'}`
-    : `Rest mode is <b>off</b>: you decide everything.${j.lastRound ? " Its last round was " + esc(when(j.lastRound)) + "." : ""}`;
+    ? `🤖 <b>Auto mode is on.</b> ${j.running ? "A round is running now." : j.nextRound ? "Next round " + esc(when(j.nextRound)) + "." : ""}${j.github ? "" : ' <span class="minus">The laptop has no GitHub token, so it can\'t file anything.</span>'}`
+    : `🤖 Auto mode is <b>off</b>.${j.lastRound ? " Its last round was " + esc(when(j.lastRound)) + "." : ""}`;
   if (Array.isArray(j.log)) {
     $("restLog").innerHTML = j.log.filter((l) => l.kind !== "round").map((l) => `<li class="${esc(l.kind)}"><b>${REST_KIND[l.kind] || esc(l.kind)}</b> ${esc(l.what)}${l.why ? ` <small>· ${esc(l.why)}</small>` : ""} <small>· ${esc(when(l.at))}${l.sha ? ` · <a href="https://github.com/${REPO}/commit/${esc(l.sha)}" target="_blank" rel="noopener">${esc(String(l.sha).slice(0, 7))}</a>` : ""}</small>${l.lines ? `<pre class="writeup">${esc(l.lines)}</pre>` : ""}</li>`).join("") || '<li><small>Nothing yet.</small></li>';
-    if (j.on && j.log.length) $("restLogWrap").open = true;
   }
 }
-let restTimer = null;
+let restTimer = null, restWasRunning = false;
 async function loadRest(quiet){
   try{
     const j = await restCall(); drawRest(j);
+    // A round just finished: what it filed shows in step 1.
+    if (restWasRunning && !j.running){ loadInbox(); loadPitches(); load(); }
+    restWasRunning = !!j.running;
     clearTimeout(restTimer);
     restTimer = setTimeout(() => loadRest(true), j.running ? 8000 : 60000);
-  }catch(e){ if (!quiet) $("restState").textContent = e instanceof TypeError ? "Rest mode: couldn't reach the laptop." : "Rest mode: " + e.message; }
+  }catch(e){ if (!quiet) $("restState").textContent = e instanceof TypeError ? "🤖 Auto mode: couldn't reach the laptop." : "🤖 Auto mode: " + e.message; }
 }
-async function modeOn(mode){
+$("autoOn").addEventListener("click", async () => {
   const st = $("restSt"); st.textContent = "Switching it on…";
-  try{ drawRest(await restCall({ on: true, mode, hours: Number($("restFor").value) })); st.textContent = "The first round starts in a moment."; setTimeout(() => loadRest(true), 20000); }
+  try{ drawRest(await restCall({ on: true, mode: "auto", hours: 0 })); st.textContent = "The first round starts in a moment."; setTimeout(() => loadRest(true), 20000); }
   catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
-}
-$("restOn").addEventListener("click", () => modeOn("rest"));
-$("autoOn").addEventListener("click", () => modeOn("auto"));
+});
 $("restOff").addEventListener("click", async () => {
   const st = $("restSt"); st.textContent = "Switching it off…";
-  try{ drawRest(await restCall({ on: false })); st.textContent = "Welcome back. Everything waits for you again."; loadRest(true); }
+  try{ drawRest(await restCall({ on: false })); st.textContent = ""; loadRest(true); }
   catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
 });
-$("restRun").addEventListener("click", async (e) => {
-  const st = $("restSt"), b = e.currentTarget;
-  if (b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = $("restCard").dataset.mode === "auto" ? "Tap again: the AI sorts it for your review" : "Tap again: the AI decides and publishes"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "Run a round now"; }, 5000); return; }
-  b.dataset.armed = ""; b.textContent = "Run a round now";
-  st.textContent = "Starting a round. It judges one thing at a time, so it can take a few minutes…";
-  try{ await restCall({ action: "run" }); setTimeout(() => loadRest(true), 5000); }
+$("restRun").addEventListener("click", async () => {
+  const st = $("restSt");
+  st.textContent = "Starting a round. It can take a few minutes…";
+  try{ await restCall({ action: "run" }); restWasRunning = true; setTimeout(() => loadRest(true), 5000); }
   catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; }
 });
-if ($("token").value.trim()) loadRest(); else $("restState").textContent = "Rest mode: enter the owner's token under Waiting for you to see it.";
+if ($("token").value.trim()) loadRest(); else $("restState").textContent = "🤖 Auto mode: enter the owner's token to see it.";
 
-// ── Pitches ──
-// Every "(Pitch)" line in the lore files on the review branch. Accepting one
-// as is asks the laptop to swap that one "(Pitch)" for "(Your idea)".
+// ── Step 1: approve ──
+// Two kinds of thing wait for a yes or no:
+//   - 📨 sent in: Codex notes, Wake in Verrowen characters and lore-keeper
+//     write-ups waiting on the laptop. Approve files it as Your idea on review;
+//     Reject deletes it.
+//   - 💡 pitches: every "(Pitch)" in the lore files on the review branch,
+//     including what auto mode wrote. Approve marks it Your idea; Reject takes
+//     it out of the file.
+const FROM = { "lore-keeper": "🪶 Lore-keeper", codex: "📜 Codex", verrowen: "🕯 Wake in Verrowen" };
+let inbox = [];
+async function inboxCall(method, body){
+  const token = $("token").value.trim();
+  if (!token) throw new Error("Enter the owner's token first.");
+  const r = await fetch(SERVER + "/admin/inbox", Object.assign({ method, headers: Object.assign({ authorization: "Bearer " + token }, body ? { "content-type": "application/json" } : {}) }, body ? { body: JSON.stringify(body) } : {}));
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 && !j.error) throw new Error("The laptop's server needs updating first (see the server README).");
+  if (!r.ok) throw new Error(j.error || "The laptop answered " + r.status + ".");
+  try{ localStorage.setItem(KEY, token); }catch(e){}
+  return j;
+}
+const aiView = (ai) => ai ? `<p class="ai ${ai.verdict === "approve" ? "" : "no"}">🤖 ${ai.verdict === "approve" ? "AI says approve" : "AI says reject"}: ${esc(ai.why)}</p>` : "";
+async function loadInbox(){
+  const st = $("inStatus");
+  if (!$("token").value.trim()) return;
+  try{ inbox = ((await inboxCall("GET")).items || []).slice().sort((a, b) => String(a.at || "").localeCompare(String(b.at || ""))); RV.inbox = true; st.textContent = ""; }
+  catch(e){ st.textContent = "📨 What people sent in can't be shown: " + (e instanceof TypeError ? "the laptop is asleep or offline." : e.message); RV.inbox = false; inbox = []; drawNext(); return; }
+  drawNext();
+  $("inList").innerHTML = inbox.map((it) => `<div class="item" data-in="${esc(it.id)}">
+    <div class="pname">📨 ${esc(it.title || "Untitled")}</div>
+    <div class="from">${FROM[it.source] || esc(it.source)} · ${esc(when(it.at))}${it.name ? " · sent by " + esc(it.name) : ""}${it.about ? " · " + esc(it.about) : ""}</div>
+    ${aiView(it.ai ? { verdict: "reject", why: it.ai.why } : null)}
+    <details><summary>Read it (or edit it first)</summary>
+      <label>Title</label><input data-f="title" maxlength="120" value="${esc(it.title)}">
+      <label>Text (Markdown)</label><textarea data-f="body" rows="8" maxlength="12000">${esc(it.body)}</textarea>
+    </details>
+    <div class="row"><button class="primary" type="button" data-act="accept">✔ Approve</button><button class="danger" type="button" data-act="dismiss">✕ Reject</button><span class="note" data-st role="status"></span></div>
+  </div>`).join("");
+}
+async function decideInbox(box, action){
+  const st = box.querySelector("[data-st]"), id = box.dataset.in;
+  box.querySelectorAll("button").forEach((x) => x.disabled = true);
+  st.textContent = action === "accept" ? "Approving…" : "Rejecting…";
+  try{
+    await inboxCall("POST", { id, action, title: box.querySelector('[data-f="title"]').value, body: box.querySelector('[data-f="body"]').value });
+    inbox = inbox.filter((x) => x.id !== id);
+    box.classList.add("done"); box.querySelectorAll("button").forEach((x) => x.remove());
+    st.textContent = action === "accept" ? "✔ Approved." : "✕ Rejected.";
+    if (action === "accept") RV.accepted++;
+    setTimeout(() => box.remove(), 2500);
+    drawNext();
+    return true;
+  }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; box.querySelectorAll("button").forEach((x) => x.disabled = false); return false; }
+}
+$("inList").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  if (b.dataset.act === "dismiss" && b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Tap again to reject"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "✕ Reject"; }, 5000); return; }
+  if (await decideInbox(b.closest("[data-in]"), b.dataset.act) && b.dataset.act === "accept") setTimeout(changed, 1500);
+});
+
 const PITCH_FILES = ["working-notes.md", "resources.md", "bestiary.md"];
 let pitches = [];
 function findPitches(file, text){
@@ -1168,8 +1152,9 @@ function findPitches(file, text){
   });
   return out;
 }
+const FILE_LABEL = { "working-notes.md": "Notes", "resources.md": "Items & resources", "bestiary.md": "Bestiary" };
 async function loadPitches(){
-  const st = $("pStatus"); st.textContent = "Reading the review branch…";
+  const st = $("pStatus");
   try{
     const texts = await Promise.all(PITCH_FILES.map(async (f) => {
       const v = await viaLaptop("/admin/review-text?file=" + encodeURIComponent(f));
@@ -1180,93 +1165,65 @@ async function loadPitches(){
       return r.text();
     }));
     pitches = PITCH_FILES.flatMap((f, i) => findPitches(f, texts[i]));
-    drawAi(texts[0]);
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach GitHub." : e.message; return; }
   // Auto mode's view on each pitch, from the laptop (needs the owner's token).
   let views = {};
   try{ if ($("token").value.trim()) ((await restCall()).views || []).forEach((v) => { views[v.file + "\n" + v.line] = v; }); }catch(e){}
   pitches.forEach((p) => { p.ai = views[p.file + "\n" + p.line]; });
-  st.textContent = pitches.length ? pitches.length + " pitch" + (pitches.length === 1 ? "" : "es") + " on the review branch." : "No pitches left. Everything is decided.";
-  RV.pitches = true; $("pitchCard").hidden = !pitches.length; drawNext();
-  $("pList").innerHTML = pitches.map((p, i) => `<div class="sub pitch" data-p="${i}">
-    <p class="note">${esc(p.file)}${p.where ? " · " + esc(p.where) : ""}</p>
-    <div class="pname">${esc(p.name)}</div>
-    ${p.byAI ? `<p class="note">🤖 Added by the AI</p>` : ""}
-    ${p.ai ? `<p class="note ${p.ai.verdict === "approve" ? "" : "minus"}">🤖 Auto mode would ${p.ai.verdict === "approve" ? "accept" : "reject"} this: ${esc(p.ai.why)}</p>` : ""}
+  st.textContent = pitches.length ? "" : "Nothing to decide. 🎉";
+  st.hidden = !!pitches.length;
+  RV.pitches = true; drawNext();
+  $("pList").innerHTML = pitches.map((p, i) => `<div class="item" data-p="${i}">
+    <div class="pname">💡 ${esc(p.name)}</div>
+    <div class="from">${p.byAI ? "🤖 Written by auto mode · " : ""}${esc(FILE_LABEL[p.file] || p.file)}${p.where ? " · " + esc(p.where) : ""}</div>
+    ${aiView(p.ai)}
     ${p.body ? `<details><summary>Read it</summary><pre>${esc(p.body)}</pre></details>` : ""}
-    <div class="row"><button class="primary" type="button" data-act="accept">✔ Accept as is</button><button class="danger" type="button" data-act="reject">✕ Reject</button>${p.byAI ? `<button class="danger" type="button" data-act="delete" title="Take out what the AI added">🗑 Delete</button>` : ""}<a class="btn" href="https://github.com/${REPO}/edit/review/${esc(p.file)}" target="_blank" rel="noopener" title="Line ${p.n}">Edit</a><span class="note" data-st role="status"></span></div>
+    <div class="row"><button class="primary" type="button" data-act="accept">✔ Approve</button><button class="danger" type="button" data-act="reject">✕ Reject</button><a class="btn" href="https://github.com/${REPO}/edit/review/${esc(p.file)}" target="_blank" rel="noopener" title="Change its words first (line ${p.n})">Edit</a><span class="note" data-st role="status"></span></div>
   </div>`).join("");
 }
-$("pLoad").addEventListener("click", loadPitches);
-
-// ── Added by the AI ──
-// Every ### section in working-notes.md that rest mode or auto mode filed
-// (under "From rest mode", or marked "added by the AI"), pitch or Your idea.
-let aiItems = [];
-function drawAi(text){
-  const lines = String(text || "").replace(/\r/g, "").split("\n");
-  aiItems = [];
-  lines.forEach((l, i) => {
-    const h = l.match(/^###\s+(.*)$/); if (!h) return;
-    let end = i + 1; while (end < lines.length && !/^#{1,3}\s/.test(lines[end])) end++;
-    const sec = lines.slice(i + 1, end).join("\n");
-    if (!/<!-- (review-key: rest:|added by the AI -->)/.test(sec)) return;
-    const tag = (h[1].match(/\((Your idea|Pitch)\)\s*$/) || [])[1] || "";
-    aiItems.push({ line: l, name: h[1].replace(/\s*\((Your idea|Pitch)\)\s*$/, "").trim(), tag, body: sec.replace(/<!--[\s\S]*?-->/g, "").trim() });
-  });
-  $("aiStatus").textContent = aiItems.length ? aiItems.length + " thing" + (aiItems.length === 1 ? "" : "s") + " the AI added, on the review branch." : "Nothing the AI added is on the review branch.";
-  $("aiList").innerHTML = aiItems.map((a, i) => `<div class="sub pitch" data-a="${i}">
-    <div class="pname">${esc(a.name)} <small class="note">${a.tag === "Your idea" ? "✔ Your idea" : "💡 Pitch"}</small></div>
-    ${a.body ? `<details><summary>Read it</summary><pre>${esc(a.body)}</pre></details>` : ""}
-    <div class="row"><button class="danger" type="button" data-act="delete">🗑 Delete</button><a class="btn" href="https://github.com/${REPO}/edit/review/working-notes.md" target="_blank" rel="noopener">Edit</a><span class="note" data-st role="status"></span></div>
-  </div>`).join("");
-}
-async function deleteAi(line, b, box, st){
-  const token = $("token").value.trim();
-  if (!token){ st.textContent = "Enter the owner's token in Waiting for you first."; reveal($("token")).focus(); return; }
-  if (b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Tap again to delete"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "🗑 Delete"; }, 5000); return; }
+async function decidePitch(box, reject){
+  const st = box.querySelector("[data-st]"), p = pitches[+box.dataset.p], token = $("token").value.trim();
+  if (!token){ st.textContent = "Enter the owner's token first."; reveal($("token")).focus(); return false; }
   const btns = box.querySelectorAll("button"); btns.forEach((x) => x.disabled = true);
-  st.textContent = "Taking it out on the review branch…";
-  try{
-    const r = await fetch(SERVER + "/admin/delete-ai", { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ line }) });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(r.status === 404 && !j.error ? "The laptop's server needs updating first (see the server README)." : j.error || "The laptop answered " + r.status + ".");
-    try{ localStorage.setItem(KEY, token); }catch(err){}
-    box.classList.add("done"); btns.forEach((x) => x.remove());
-    st.innerHTML = `🗑 Deleted (<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>). Publish to take it off the live Orrery.${j.decided ? " If the lore catch-up already added lines for it, take those out of lore.md too." : ""}`;
-    setTimeout(() => { loadPitches(); changed(); }, 1500);
-  }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; btns.forEach((x) => x.disabled = false); b.dataset.armed = ""; b.textContent = "🗑 Delete"; }
-}
-$("aiLoad").addEventListener("click", loadPitches);
-$("aiList").addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-act=delete]"); if (!b) return;
-  const box = b.closest("[data-a]");
-  deleteAi(aiItems[+box.dataset.a].line, b, box, box.querySelector("[data-st]"));
-});
-loadPitches();   // the pitches sit at the top, so they show straight away
-$("pList").addEventListener("click", async (e) => {
-  const b = e.target.closest("button[data-act]"); if (!b) return;
-  const box = b.closest("[data-p]"), st = box.querySelector("[data-st]"), p = pitches[+box.dataset.p];
-  if (b.dataset.act === "delete") return deleteAi(p.line, b, box, st);
-  const token = $("token").value.trim(), reject = b.dataset.act === "reject";
-  if (!token){ st.textContent = "Enter the owner's token in Waiting for you first."; reveal($("token")).focus(); return; }
-  if (reject && b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Tap again to reject"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "✕ Reject"; }, 5000); return; }
-  const btns = box.querySelectorAll("button"); btns.forEach((x) => x.disabled = true);
-  st.textContent = reject ? "Taking it out on the review branch…" : "Marking it Your idea on the review branch…";
+  st.textContent = reject ? "Rejecting…" : "Approving…";
   try{
     const r = await fetch(SERVER + (reject ? "/admin/reject-pitch" : "/admin/accept-pitch"), { method: "POST", headers: { authorization: "Bearer " + token, "content-type": "application/json" }, body: JSON.stringify({ file: p.file, line: p.line }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(r.status === 404 && !j.error ? "The laptop's server needs updating first (see the server README)." : j.error || "The laptop answered " + r.status + ".");
     try{ localStorage.setItem(KEY, token); }catch(err){}
     box.classList.add("done"); btns.forEach((x) => x.remove());
-    const link = `<a href="${esc(j.url || "#")}" target="_blank" rel="noopener">${esc(String(j.sha || "").slice(0, 7))}</a>`;
-    st.innerHTML = reject ? `✕ Rejected and taken out (${link}). Publish to make it final.` : `✔ Accepted as Your idea (${link}). Publish to put it live.`;
+    st.textContent = reject ? "✕ Rejected." : "✔ Approved.";
     p.done = true; if (!reject) RV.accepted++;
-    drawNext(); setTimeout(() => { box.hidden = true; $("pitchCard").hidden = !pitches.some((x) => !x.done); }, 4000);
-    // Later pitches in the same file still match by their own line, so the rest stay valid.
-    setTimeout(changed, 1500);
-  }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; btns.forEach((x) => x.disabled = false); if (reject) b.textContent = "✕ Reject"; }
+    drawNext(); setTimeout(() => { box.hidden = true; }, 2500);
+    return true;
+  }catch(err){ st.textContent = err instanceof TypeError ? "Couldn't reach the laptop." : err.message; btns.forEach((x) => x.disabled = false); return false; }
+}
+loadPitches();
+$("pList").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const reject = b.dataset.act === "reject";
+  if (reject && b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Tap again to reject"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "✕ Reject"; }, 5000); return; }
+  // Later pitches in the same file still match by their own line, so the rest stay valid.
+  if (await decidePitch(b.closest("[data-p]"), reject)) setTimeout(changed, 1500);
 });
+// Approve or reject everything the AI has a clear view on, one at a time.
+async function bulk(btn, yes){
+  const st = $("bulkSt");
+  const jobs = yes
+    ? pitches.map((p, i) => [p, i]).filter(([p]) => !p.done && p.ai && p.ai.verdict === "approve").map(([, i]) => () => decidePitch($("pList").querySelector(`[data-p="${i}"]`), false))
+    : [...pitches.map((p, i) => [p, i]).filter(([p]) => !p.done && p.ai && p.ai.verdict === "reject").map(([, i]) => () => decidePitch($("pList").querySelector(`[data-p="${i}"]`), true)),
+       ...inbox.filter((it) => it.ai).map((it) => () => decideInbox($("inList").querySelector(`[data-in="${CSS.escape(it.id)}"]`), "dismiss"))];
+  $("bulkYes").disabled = $("bulkNo").disabled = true;
+  let ok = 0;
+  for (const [k, job] of jobs.entries()){ st.textContent = `${k + 1} of ${jobs.length}…`; if (await job()) ok++; }
+  st.textContent = `${yes ? "✔ Approved" : "✕ Rejected"} ${ok} of ${jobs.length}.`;
+  $("bulkYes").disabled = $("bulkNo").disabled = false;
+  drawNext(); setTimeout(changed, 1500);
+}
+$("bulkYes").addEventListener("click", (e) => confirmTwice(e.currentTarget, "Tap again to approve them all", () => bulk(e.currentTarget, true)));
+$("bulkNo").addEventListener("click", (e) => confirmTwice(e.currentTarget, "Tap again to reject them all", () => bulk(e.currentTarget, false)));
+loadInbox();
+load();
 </script>
 <script src="/orrery/review-summary.js"></script>
 <script src="/pwa.js" data-sw="/orrery/sw.js" data-scope="/orrery/" data-badge="manual"></script>
