@@ -13,13 +13,16 @@
 //
 // The client never throws: before its first good read, lookups return nothing.
 (function () {
-  const CLIENT = "https://cdn.jsdelivr.net/gh/sheastolp/grand-orrery@d36189e0b485d1db062b57d3182b5d6f3091654a/client/orrery.js";
+  const CLIENT = "https://cdn.jsdelivr.net/gh/sheastolp/grand-orrery@d91122f2f80a0f98644f9c473142be268c9a9530/client/orrery.js";
   const open = {};
   // One client per branch, shared by everything on the page.
   function get(branch = "main") {
     if (!open[branch]) {
       open[branch] = import(CLIENT)
-        .then(({ Orrery }) => { const o = new Orrery({ branch, refreshMinutes: 0 }); return o.ready().then(() => o); })
+        // The browser keeps the Orrery's last good read, so a page opened
+        // while GitHub is out of reach still shows the Orrery (never a
+        // hand-written copy of it).
+        .then(({ Orrery, storageCache }) => { const o = new Orrery({ branch, refreshMinutes: 0, cache: storageCache("orrery-db-" + branch) }); return o.ready().then(() => o); })
         .catch((e) => { delete open[branch]; throw e; });
     }
     return open[branch];

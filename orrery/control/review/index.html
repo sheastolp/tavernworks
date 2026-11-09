@@ -259,7 +259,7 @@
     <label for="adKind">What is it?</label>
     <select id="adKind"><option value="person">A person</option><option value="place">A place</option><option value="item">An item or resource</option><option value="creature">A creature</option><option value="other">Something else (a custom, a rule, some history)</option></select>
     <label for="adAsk">Describe it</label>
-    <textarea id="adAsk" rows="4" maxlength="3000" spellcheck="true" placeholder="e.g. Stoutwell's tanner, a human woman in her forties named Maren Tull who trades leather for the Wellhouse's ale"></textarea>
+    <textarea id="adAsk" rows="4" maxlength="3000" spellcheck="true" placeholder="e.g. a village tanner, a human woman in her forties who trades leather for the tavern's ale"></textarea>
     <div class="row"><button class="primary" type="button" id="adGo">✨ Draft it with the local AI</button><button type="button" id="adHand">Write it myself</button><span class="note" id="adStatus" role="status"></span></div>
     <div class="draft" id="adDraft" hidden>
       <label for="adTitle">Name</label>
@@ -327,6 +327,7 @@
 </div>
 <a class="lkfab" href="/orrery/#chat" title="Chat with the lore-keeper">✒️ Lore-keeper</a>
 <script src="/orrery-live.js"></script>
+<script src="/orrery-db.js"></script>
 <script>
 const SERVER = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
 const REPO = "sheastolp/grand-orrery";
@@ -837,7 +838,12 @@ $("adMap").addEventListener("click", () => mpOpenFor(adMapHint ? adMapHint.map :
 // ── Maps ──
 // The map's SVG is read from review through the laptop, marks are added in
 // a <g id="orrery-added"> group, and the PNG is drawn from the SVG right here.
-const MAP_LIST = [["maps/region.svg", "The region"], ["maps/stoutwell.svg", "Stoutwell"], ["maps/lake.svg", "The lake"], ["maps/capital.svg", "The Kingdom's capital"]];
+// The maps come from the Orrery's database (on review, so a new one shows here first).
+const MAP_LIST = [];
+if (window.OrreryDB) OrreryDB.get("review").then((o) => {
+  MAP_LIST.splice(0, MAP_LIST.length, ...o.list("map").sort((a, b) => (a.order || 0) - (b.order || 0)).map((m) => [m.svg || m.file.replace(/\.png$/, ".svg"), m.name]));
+  mpFillPick([]);
+}).catch(() => {});
 let mp = null;   // { file, svg (element), isNew, title, caption, at: {x,y} }
 async function mpFile(path){
   const token = $("token").value.trim();

@@ -133,6 +133,7 @@
   .faq details[open] summary::after{content:"−"}
   .faq details p{color:var(--muted);font-size:14.5px;margin-top:8px}
 
+  [data-orrery-cast][hidden]{display:none}
   .chat{display:flex;flex-direction:column;gap:10px;font-size:14.5px}
   .chat div{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:10px;padding:10px 14px;color:var(--muted);overflow-wrap:anywhere}
   .chat .u{color:#9b7bd8;font-weight:600}
@@ -167,9 +168,9 @@
   <p class="boardnote">Click any sound to hear it. Every sound is played live by your browser, so there are no files to download or host.</p>
 
   <div class="divider">ON STREAM</div>
-  <div class="scroll chat">
-    <div><span class="u">TobinAshby:</span> !sound nat20</div>
-    <div><span class="b">GuildScribeBot:</span> 🔊 nat20 TobinAshby rolled a NATURAL 20! The bards are already writing the song.</div>
+  <div class="scroll chat" data-orrery-cast hidden>
+    <div><span class="u"><span data-person="tobin-ashby" data-handle></span>:</span> !sound nat20</div>
+    <div><span class="b">GuildScribeBot:</span> 🔊 nat20 <span data-person="tobin-ashby" data-handle></span> rolled a NATURAL 20! The bards are already writing the song.</div>
     <div class="fx">🌟 <b>Natural 20</b> fanfare plays on stream, with a card on screen</div>
   </div>
 
@@ -244,6 +245,8 @@
 
   <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Homebrewed by Stoned Sheamus<br><a href="/overlays/">Overlays</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
 </div>
+<script src="/orrery-db.js"></script>
+<script src="/orrery-cast.js"></script>
 <script src="sounds.js"></script>
 <script>
 (function () {

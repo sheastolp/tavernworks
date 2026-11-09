@@ -492,11 +492,9 @@ if (CLONE) {
 }
 // The worlds of the Grand Orrery. The picker in the header chooses one: the
 // lore-keeper works in it, and Role play opens its game. The list comes from
-// the Orrery's database (every decided world); this one is only the fallback
-// until it's read. A world's game is known here, since it lives on this site.
-const WORLDS = [
-  { id: "verrowen", name: "Verrowen", note: "Stoutwell, the Monster Wood and the Kingdom", play: "/verrowen/", game: "Wake in Verrowen" },
-];
+// the Orrery's database (every decided world), and nothing about a world is
+// written here. Only its game is, since the game lives on this site.
+const WORLDS = [{ id: "", name: "the Orrery", note: "" }];
 let world = WORLDS.find((w) => w.id === localStorage.getItem("orrery-world")) || WORLDS[0];
 function showWorld() {
   $("worldPick").innerHTML = WORLDS.map((w) => `<option value="${w.id}"${w === world ? " selected" : ""}>${esc(w.name)}</option>`).join("");
@@ -508,13 +506,41 @@ function showWorld() {
 // The Orrery's database lists every document (each *.md in grand-orrery),
 // every map (each maps/*.png, captioned from maps/README.md) and every world,
 // so the Explorer shows what the Orrery has: a new document, map or world
-// shows up here on its own, with no change to this page. DOCS, MAPS and
-// WORLDS below are only the fallback until the database is read.
+// shows up here on its own, with no change to this page. Nothing about the
+// universe is written into this page: the Orrery is the only copy (the
+// browser keeps its last good read, see /orrery-db.js).
 // The Explorer's own short ids for the documents it links to by name.
 const DOC_ID = { "universe.md": "universe", "working-notes.md": "notes", "lore.md": "lore", "roster.md": "roster", "resources.md": "resources", "bestiary.md": "bestiary", "midkemia.md": "midkemia", "rifts.md": "rifts", "README.md": "readme", "maps/README.md": "maps" };
 // The games that live on this site, by world.
-const WORLD_GAME = { verrowen: { note: "Stoutwell, the Monster Wood and the Kingdom", play: "/verrowen/", game: "Wake in Verrowen" } };
+const WORLD_GAME = { verrowen: { play: "/verrowen/", game: "Wake in Verrowen" } };
 let catalogKey = "";
+// The places the Orrery names in this world (its decided places and every
+// label on its maps), for the lore-keeper's prompts, topics and examples.
+function worldPlaces(){
+  const out = new Set();
+  for (const e of orrery ? orrery.list("place") : []) if (e.status === "decided" && e.name) out.add(e.name);
+  for (const l of MAPLABELS) out.add(l.label);
+  return [...out];
+}
+function worldBrief(){
+  const ps = worldPlaces();
+  return `${world.name} is a whole world, and no one place in it is its center. Unless asked about one place, set new things across the whole world${ps.length ? `: ${ps.slice(0, 30).join(", ")}, and beyond` : ""}. Don't put something in a place just because it's the best-described one.`;
+}
+// An example of a change in plain words, about someone in the roster.
+function changeExample(){
+  const p = PEOPLE.find((x) => !/^The /.test(x.name) && x.group !== "Roles still to fill");
+  return p ? `“rename ${p.name} to …”` : "“rename someone”";
+}
+// The topics' words that are names come from the Orrery: its places, and
+// the groups its people belong to.
+const topicWords = {};
+function orreryWords(kind){
+  const names = kind === "place" ? worldPlaces() : [...new Set(PEOPLE.flatMap((p) => [p.group, ...String((orrery && p.dbId && (orrery.get(p.dbId) || {}).section) || "").split(":")]).map((x) => String(x || "").trim()).filter((x) => x.length > 3))];
+  const key = kind + names.length;
+  if (!topicWords[key]) topicWords[key] = names.length ? new RegExp(`\\b(${names.map((n) => reEsc(n).replace(/^The /i, "(?:the )?")).join("|")})\\b`, "gi") : null;
+  return topicWords[key];
+}
+
 // Rebuilds DOCS, MAPS and WORLDS from the database. True if anything changed.
 function syncCatalog(){
   if (!orrery) return false;
@@ -544,24 +570,8 @@ function syncCatalog(){
   }
   return true;
 }
-const DOCS = [
-  { id: "universe", file: "universe.md", title: "Stoutwell & Beyond", sub: "The universe draft · decided" },
-  { id: "notes", file: "working-notes.md", title: "Village Hero", sub: "Working notes · tagged per section" },
-  { id: "lore", file: "lore.md", title: "Narrator lore", sub: "What Wake in Verrowen reads every turn" },
-  { id: "roster", file: "roster.md", title: "Character Roster", sub: "Everyone decided, at a glance" },
-  { id: "resources", file: "resources.md", title: "Resources", sub: "Items and resources by category and type" },
-  { id: "bestiary", file: "bestiary.md", title: "GuildScribe's Bestiary", sub: "Where GuildScribe's adventurers hunt and duel, and what lives there · the bots read it" },
-  { id: "midkemia", file: "midkemia.md", title: "World of Midkemia", sub: "Rose's D&D campaign · DM lore" },
-  { id: "rifts", file: "rifts.md", title: "Through the Rifts", sub: "The worlds the rifts reach, and where to play or follow each" },
-  { id: "readme", file: "README.md", title: "About the repo", sub: "README · where everyone shows up" },
-  { id: "maps", file: "maps/README.md", title: "Maps notes", sub: "maps/README.md" },
-];
-const MAPS = [
-  { file: "maps/region.png", title: "The region", caption: "The Kingdom, the Monster Wood, the Woodland Road, the croplands, Stoutwell, the Ashen Reach, the river and the mills, the lake, the fishing settlement and the mountain wall." },
-  { file: "maps/lake.png", title: "The lake", caption: "Where the river ends: the fishing settlement on the far shore, the corner of the mountain wall, the fishers' hidden pass and the Ashen Reach." },
-  { file: "maps/stoutwell.png", title: "Stoutwell", caption: "Districts, the Gathering Hall, the dried well, the Wellhouse, Monstradius, Doric's smithy, the lumber yard and the river mills." },
-  { file: "maps/capital.png", title: "The Kingdom's capital", caption: "The old wall with the Crown's seat and the Rolls House, the mint, GuildScribe, the market square, the workshop quarter and Glumtom's workshop; the poor quarters and newer walls outside; the heartland; the Clerk's road east." },
-];
+const DOCS = [];   // from the database (syncCatalog), and any other .md in the repo (findDocs)
+const MAPS = [];   // from the database (syncCatalog)
 // orrery.json (in grand-orrery) lists documents and maps the owner added on
 // the admin page, so they show up here without a code change.
 function addExtras(j){
@@ -570,7 +580,7 @@ function addExtras(j){
     if (!d || !/^[a-z0-9][a-z0-9-]{0,60}\.md$/.test(d.file) || DOCS.some((x) => x.file === d.file)) continue;
     let id = String(d.id || d.file.slice(0, -3)).replace(/[^a-z0-9-]/g, "") || "doc";
     while (DOCS.some((x) => x.id === id)) id += "-2";
-    DOCS.splice(DOCS.findIndex((x) => x.id === "readme"), 0, { id, file: d.file, title: String(d.title || d.file).slice(0, 100), sub: String(d.sub || "").slice(0, 160) });
+    DOCS.splice(Math.max(0, DOCS.findIndex((x) => x.id === "readme")), 0, { id, file: d.file, title: String(d.title || d.file).slice(0, 100), sub: String(d.sub || "").slice(0, 160) });
   }
   for (const m of Array.isArray(j.maps) ? j.maps : []) {
     if (!m || !/^maps\/[a-z0-9][a-z0-9-]{0,40}\.png$/.test(m.file) || MAPS.some((x) => x.file === m.file)) continue;
@@ -672,17 +682,18 @@ const bodyOf = (e) => String(e.body || "").split("\n").filter((l) => !/^\s*[-*]\
 // `names` are case-sensitive patterns matched as whole words, used to find
 // what each document says about them.
 let PEOPLE = [];
-const GROUP_ORDER = ["Stoutwell", "The Elderhold", "The Kingdom", "The capital peddlers", "The road peddlers", "GuildScribe's adventurers", "From Wake in Verrowen", "New at GuildScribe (not in the canon yet)", "Other worlds", "Midkemia", "Roles still to fill"];
+// The roster's groups come in the Orrery's own order (the order its people
+// are listed in); these groups the Explorer makes itself go last.
+const GROUP_LAST = ["GuildScribe's adventurers", "From Wake in Verrowen", "New at GuildScribe (not in the canon yet)", "Other worlds", "Roles still to fill"];
 const NAME_SKIP = new Set(["The", "Old", "Widow", "King", "Queen", "Reformed", "Cutpurse", "Unlucky", "Threadbare", "Wandering", "Family"]);
 function groupOf(p) {
   if (p.kind === "adventurer") return "GuildScribe's adventurers";
   if (p.group) return p.group;
-  if (p.world === "midkemia") return "Midkemia";
-  if (p.world && p.world !== "verrowen") return "Other worlds";
-  const [where, part] = String(p.section || "").split(":").map((s) => s.trim());
-  if (where === "Stoutwell") return /elderhold/i.test(part || "") ? "The Elderhold" : "Stoutwell";
-  if (where === "The Kingdom") return "The Kingdom";
-  return p.section || "Others";
+  // Someone from another world is grouped under that world's name.
+  if (p.world && world.id && p.world !== world.id) return (orrery && orrery.get(p.world) || {}).name || "Other worlds";
+  // "Place: part" sections group by the place.
+  const [where] = String(p.section || "").split(":").map((s) => s.trim());
+  return where || "Others";
 }
 function roleOf(p) {
   if (p.kind === "adventurer") return [[p.race, String(p.class || "").toLowerCase()].filter(Boolean).join(" "), [p.level != null && "level " + p.level, p.rank].filter(Boolean).join(", "), (p.companies || []).join(", ")].filter(Boolean).join(" · ");
@@ -703,45 +714,17 @@ function buildPeople() {
   }));
   // The roles nobody fills yet, so what's written about them can still be found.
   for (const r of orrery ? orrery.list("role") : []) {
-    const short = r.name.replace(/\s*\([^)]*\)/g, "").replace(/^(The |A )/, "").replace(/^(Kingdom's|Stoutwell's) /, "").trim();
+    const short = r.name.replace(/\s*\([^)]*\)/g, "").replace(/^(The |A )/, "").replace(/^[A-Z][\w-]*'s /, "").trim();
     people.push({ group: "Roles still to fill", id: r.id, dbId: r.id, name: r.name, role: "Nobody named yet", status: statusLabel(r.status), names: [reEsc(short)] });
   }
-  const rank = (g) => { const i = GROUP_ORDER.indexOf(g); return i < 0 ? GROUP_ORDER.length - 1 : i; };
+  const firstSeen = [...new Set(people.map((p) => p.group))].filter((g) => !GROUP_LAST.includes(g));
+  const order = [...firstSeen, ...GROUP_LAST];
+  const rank = (g) => order.indexOf(g);
   PEOPLE = people.map((p, i) => [p, i]).sort((a, b) => rank(a[0].group) - rank(b[0].group) || a[1] - b[1]).map(([p]) => p);
 }
 
-// Murrow's enchanted items, used only until the database can be read.
-// `names` match like the roster's; `by` links the people who make them.
-// The live list is ITEMS, built from the database.
-const BUILTIN_ITEMS = [
-  { id: "hearthstone", icon: "🔥", name: "Hearthstone", names: ["Hearthstones?"], by: ["murrow"],
-    does: "Keeps a stove warm through the night without new wood.",
-    made: "A fire user charges a smooth river stone in Murrow's shop. Murrow sets the charge so it releases slowly instead of all at once.",
-    limits: "It lasts one night per charge and still needs embers to work with. It warms the fire but doesn't replace it.",
-    rules: "Magic needs something to work with, and objects hold magic but don't make it." },
-  { id: "featherhook", icon: "🪝", name: "Featherhook", names: ["Featherhooks?"], by: ["doric", "murrow"],
-    does: "Cuts a log's weight about in half while it's being dragged.",
-    made: "Iron hooks forged by Doric, then imprinted by Murrow with a wind pattern.",
-    limits: "It draws on the latent wind in whoever holds it, so it works better for humans than halflings. Holding it for too long leaves you winded.",
-    rules: "Latent magic, attunement, and the personal well." },
-  { id: "wardbell", icon: "🔔", name: "Wardbell", names: ["Wardbells?"], by: ["murrow"],
-    does: "Rings by itself when something large comes out of the Monster Wood.",
-    made: "A detection user's sense is set into the bell's metal and pointed toward the wood.",
-    limits: "It needs a detection user to refresh it every few weeks. It can't tell goblins from trolls, only big from small.",
-    rules: "Objects run dry, and magic stays limited." },
-  { id: "truthglass", icon: "🔍", name: "Truthglass", names: ["Truthglass(?:es)?"], by: ["murrow"],
-    does: "Shows whether a coin, seal or signed paper is real.",
-    made: "A rare piece of clear quartz, charged with detection magic.",
-    limits: "It only answers real or fake. It can't tell you who forged something or why.",
-    story: "It's dangerous for anyone skimming the guard tithe, or for a crooked tax representative." },
-  { id: "rift-compass", icon: "🧭", name: "Rift compass", sub: "Murrow's secret project", names: ["[Rr]ift compass(?:es)?"], by: ["murrow"],
-    does: "Points toward places where the worlds are thin.",
-    made: "Unknown, even to Murrow. It may use a kind of magic nobody in the village has.",
-    limits: "About 80% complete, and still a secret.",
-    story: "It ties the village to Arandur, the rifts, and the wider universe." },
-];
-const BUILTIN = BUILTIN_ITEMS.map((it) => ({ ...it, cat: "Enchanted items", type: "Murrow's shop", status: "Your idea", extra: [], body: "" }));
-let ITEMS = BUILTIN, CATS = [], fromFile = false;
+// The items come from the database and nowhere else.
+let ITEMS = [], CATS = [], fromFile = false;
 
 // ── Items and resources: the database's items ──
 // Each item comes from resources.md (## category, ### type, #### entry) by
@@ -772,7 +755,7 @@ function itemFromDb(e) {
 function buildItems() {
   const got = orrery ? orrery.list("item").map(itemFromDb) : [];
   fromFile = got.length > 0;
-  ITEMS = fromFile ? got : BUILTIN;
+  ITEMS = fromFile ? got : [];
   CATS = [];
   for (const it of ITEMS) {
     let c = CATS.find((x) => x.name === it.cat);
@@ -1118,7 +1101,7 @@ function itemCard(it, showWhere) {
 function items() {
   const lead = fromFile
     ? `Every item and resource in the Orrery, from its database (compiled from <a href="#doc/resources">resources.md</a>). Browse them by category and type on the <a href="#resources">Resources</a> tab.`
-    : `Made or sold in Murrow's shop, Monstradius. Each item shows how the rules of magic work.`;
+    : `The Orrery's items show here once its database has been read.`;
   return `<p class="tag" style="margin:4px 0 14px">${lead}</p>${CATS.map((c) => fold("items:" + c.id, `${esc(c.name)}<span class="pill">${c.types.reduce((a, t) => a + t.items.length, 0)}</span>`, `<div class="grid">${c.types.flatMap((t) => t.items).map((it) => itemCard(it, false)).join("")}</div>`)).join("")}`;
 }
 
@@ -1754,10 +1737,10 @@ const AI = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
 // with an 8k-token window, so the canon and the chat are both kept to a budget.
 // The open chat sends focused canon on top of the lore, so it gets a bit more.
 const CANON_BUDGET = 15000, CHAT_BUDGET = 18000, HISTORY_BUDGET = 9000, MAX_SAY = 2000;
-const KEEPER = `You are the Orrery's lore-keeper: a writing partner for the author of the Grand Orrery, a medieval fantasy universe, helping them build its characters and its world. The LORE, ROSTER and NOTES below are canon. Talk to the author directly, plainly and briefly: under about 200 words a reply unless they ask for more. Plain text only: no markdown headings or tables; a short list is fine. Keep to the setting's rules: magic is weak, everyday and costs mana, and objects hold magic but don't make it. Verrowen is a whole world and Stoutwell is only one small village in it, not its center. Unless asked about Stoutwell, set new things across Verrowen: the Kingdom and its capital, its great houses and roads, the Woodland Road, the Monster Wood and its deep woods, the croplands, the river and its mills, the lake and the fishing settlement, the Ashen Reach, the mountain wall, and the villages and peoples beyond. Don't put something in Stoutwell just because it's the best-described place. When you suggest something, think about the whole world first. Never contradict canon. If an idea clashes with it, say so, quote what it clashes with, and suggest a way to make it fit. Ask at most two questions at a time, and accept what the author decides.`;
-const CREATE = `TASK: help the author create a NEW character for this universe. They must not be any named person in the canon, but should be tied to its people and places. Build the character with the author step by step: offer concrete options (a name that fits the naming style of their people, a role, a want, a fear, a secret, ties to named characters) and let the author choose. Favour roles, races and places the roster doesn't cover yet, especially out in Verrowen beyond Stoutwell.`;
+const KEEPER = `You are the Orrery's lore-keeper: a writing partner for the author of the Grand Orrery, a medieval fantasy universe, helping them build its characters and its world. The LORE, ROSTER and NOTES below are canon. Talk to the author directly, plainly and briefly: under about 200 words a reply unless they ask for more. Plain text only: no markdown headings or tables; a short list is fine. Keep to the setting's rules as the LORE states them. {{WORLD}} When you suggest something, think about the whole world first. Never contradict canon. If an idea clashes with it, say so, quote what it clashes with, and suggest a way to make it fit. Ask at most two questions at a time, and accept what the author decides.`;
+const CREATE = `TASK: help the author create a NEW character for this universe. They must not be any named person in the canon, but should be tied to its people and places. Build the character with the author step by step: offer concrete options (a name that fits the naming style of their people, a role, a want, a fear, a secret, ties to named characters) and let the author choose. Favour roles, races and places the roster doesn't cover yet, especially out across the whole world, not only its best-described place.`;
 const REVIEW = `TASK: review the character below against the canon. Your first reply covers: what works; anything that contradicts the LORE or other characters (quote the clash); gaps worth filling, such as age, magic, motives and ties to others; and two or three concrete suggestions. After that, answer the author's follow-ups and help them revise. Be honest but kind.`;
-const WORLD = `TASK: help the author work out a worldbuilding idea or mechanic: how magic, physics, nature, the land, peoples or customs work in this universe. In your first reply: restate the idea as one plain rule; check it against the canon (quote any clash, or say it fits); then work out what follows from it: what it costs, its limits and edge cases, what happens when it's pushed too far, and how ordinary folk across Verrowen (in the capital, on the roads, by the lake, in Stoutwell), artificers and the Kingdom would use or abuse it. End with one or two ways to tighten it. Think like a careful game designer: every power has a price and a limit, and every rule changes daily life somewhere. Keep magic weak and everyday unless the author decides otherwise.`;
+const WORLD = `TASK: help the author work out a worldbuilding idea or mechanic: how magic, physics, nature, the land, peoples or customs work in this universe. In your first reply: restate the idea as one plain rule; check it against the canon (quote any clash, or say it fits); then work out what follows from it: what it costs, its limits and edge cases, what happens when it's pushed too far, and how ordinary folk across the world (in its different places), its artificers and its rulers would use or abuse it. End with one or two ways to tighten it. Think like a careful game designer: every power has a price and a limit, and every rule changes daily life somewhere. Keep magic weak and everyday unless the author decides otherwise.`;
 const WORLD_KINDS = [
   ["magic", "✨ Magic", "Magic"],
   ["physics", "⚙️ Physics & nature", "Physics & nature"],
@@ -1774,7 +1757,7 @@ const CHAT = `TASK: an open chat with the author about anything in the Grand Orr
 const FOCUS = {
   general: `FOCUS: nothing specific yet. If they ask something, answer it from the canon, and say plainly when the canon doesn't say. If they want ideas, offer three short options from different parts of the world and ask which to explore.`,
   character: `FOCUS: characters. If they're talking about someone in the ROSTER, keep to what the canon says about them (see ABOUT below); when they want a review, cover what works, what clashes with the canon (quote it), gaps such as age, magic, motives and ties to others, and two or three concrete suggestions. If they want to make someone NEW, don't invent the character here: new characters are made by playing Wake in Verrowen, where everything about them (name, race, past, magic) is discovered through play. Tell them to press ✨ Create a character (on the Roster, or on this chat's start screen), which opens Wake in Verrowen, and that the character lands on the Roster pending review when they wrap it up. You can still talk through gaps in the roster a new character could fill, without deciding who they are.`,
-  world: (label) => `FOCUS: ${label}. Restate the idea as one plain rule and check it against the canon (quote any clash, or say it fits). Work out what follows from it: its costs, limits and edge cases, what happens when it's pushed too far, and how ordinary folk across Verrowen (in the capital, on the roads, by the lake, in Stoutwell), artificers and the Kingdom would use or abuse it. Think like a careful game designer: every power has a price and a limit, and every rule changes daily life somewhere. If they're only asking what the canon says, just answer.`,
+  world: (label) => `FOCUS: ${label}. Restate the idea as one plain rule and check it against the canon (quote any clash, or say it fits). Work out what follows from it: its costs, limits and edge cases, what happens when it's pushed too far, and how ordinary folk across the world (in its different places), its artificers and its rulers would use or abuse it. Think like a careful game designer: every power has a price and a limit, and every rule changes daily life somewhere. If they're only asking what the canon says, just answer.`,
 };
 const WRITE_CHAT = `The author says "write it up." Write up what this chat worked out, in plain text, with these labeled lines, one per line: Name, Kind, What it is (one sentence), The details, Clashes with canon (or "None"), Open questions. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "In the world" and a paragraph of about 80 words showing it in an everyday scene.`;
 
@@ -1787,8 +1770,8 @@ const TOPICS = [
   { id: "character", icon: "🧑", label: "Characters", words: /\b(characters?|npcs?|heroe?s?|villains?|backstory|personality|protagonist|someone|persona|sheet|motives?|secrets?|personalit(?:y|ies)|named?|ages?)\b/gi },
   { id: "magic", icon: "✨", label: "Magic", words: /\b(magic\w*|mana|spells?|enchant\w*|attune\w*|elemental|healers?|healing|runes?|artificers?|charged?|charges|latent|detection|fire users?|gifts?|wells? of)\b/gi },
   { id: "physics", icon: "⚙️", label: "Physics & nature", words: /\b(physics|gravity|weather|seasons?|winters?|summers?|cold|heat|sun|moons?|stars?|sky|orrery|tides?|nature|plants?|animals?|beasts?|blight|disease|light|rifts?|worlds?|cosmology)\b/gi },
-  { id: "place", icon: "🗺", label: "Regions & places", words: /\b(regions?|places?|maps?|towns?|villages?|cit(?:y|ies)|districts?|rivers?|forests?|woods?|roads?|lanes?|kingdoms?|lands?|terrain|mills?|slums|walls?|gates?|lakes?|shores?|mountains?|pass(?:es)?|fish(?:ing|ers?)?|settlements?|geography|borders?|north|south|east|west|Stoutwell|Ashen Reach|Monster Wood|Woodland Road|croplands|Verrowen|Monstradius|smithy|lumber yard|Gathering Hall)\b/gi },
-  { id: "people", icon: "🏘", label: "Peoples & groups", words: /\b(races?|elves|elf|elven|dwarf\w*|halflings?|gnomes?|humans?|goblins?|trolls?|guilds?|factions?|clans?|cultures?|famil(?:y|ies)|Elderhold|Hearthcircle|Guard|GuildScribe|guildscribes?)\b/gi },
+  { id: "place", icon: "🗺", label: "Regions & places", words: /\b(regions?|places?|maps?|towns?|villages?|cit(?:y|ies)|districts?|rivers?|forests?|woods?|roads?|lanes?|kingdoms?|lands?|terrain|mills?|slums|walls?|gates?|lakes?|shores?|mountains?|pass(?:es)?|fish(?:ing|ers?)?|settlements?|geography|borders?|north|south|east|west)\b/gi, orrery: "place" },
+  { id: "people", icon: "🏘", label: "Peoples & groups", words: /\b(races?|elves|elf|elven|dwarf\w*|halflings?|gnomes?|humans?|goblins?|trolls?|guilds?|factions?|clans?|cultures?|famil(?:y|ies)|guildscribes?)\b/gi, orrery: "group" },
   { id: "rule", icon: "⚖", label: "Rules & customs", words: /\b(rules?|laws?|customs?|traditions?|tax(?:es)?|tithes?|trade|religions?|gods?|festivals?|punish\w*|crimes?|courts?|mechanics?|dice|rolls?|stats?|currency|coins?|marriage|inherit\w*|schooling)\b/gi },
   { id: "item", icon: "🗝", label: "Items & inventions", words: /\b(items?|weapons?|swords?|axes?|armou?r|tools?|inventions?|devices?|artifacts?|amulets?|rings?|trinkets?|compass(?:es)?)\b/gi },
 ];
@@ -1805,7 +1788,7 @@ function detectTopic(c) {
   const score = Object.fromEntries(TOPICS.map((t) => [t.id, 0]));
   said.forEach((m, k) => {
     const w = [4, 1.5, 0.5][k], s = m.content;
-    for (const t of TOPICS) score[t.id] += w * hits(t.words, s);
+    for (const t of TOPICS) { const o = t.orrery && orreryWords(t.orrery); score[t.id] += w * (hits(t.words, s) + (o ? hits(o, s) : 0)); }
     for (const p of PEOPLE) score.character += 2 * w * hits(patternFor(p.names), s);
     for (const it of ITEMS) score.item += 2 * w * hits(patternFor(it.names), s);
   });
@@ -1924,7 +1907,7 @@ function chatMessages(c, mode) {
     hist.unshift(m); used += m.content.length;
   }
   while (hist.length && hist[0].role === "assistant" && hist.length < c.messages.length) hist.shift();
-  const out = [{ role: "user", content: `${KEEPER}\n\nWORLD: the author is working in ${world.name}. Keep to it unless they bring in another world.\n\n${task}${canonFor(c)}\n\n${start}` }, ...hist];
+  const out = [{ role: "user", content: `${KEEPER.replace("{{WORLD}}", worldBrief())}\n\nWORLD: the author is working in ${world.name}. Keep to it unless they bring in another world.\n\n${task}${canonFor(c)}\n\n${start}` }, ...hist];
   if (mode === "write") out.push({ role: "user", content: writePrompt(c) });
   if (out[out.length - 1].role !== "user") out.push({ role: "user", content: "Go on." });
   return out;
@@ -1994,7 +1977,7 @@ function drawChat() {
       </div>
       <div class="saybar">
         <button class="quiet back" type="button" id="backChat" title="Back to the start. This chat is kept, so you can pick it up later." aria-label="Back to the start">←</button>
-        <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "chat" ? "Ask, pitch an idea, or change the subject…" : c && c.mode === "review" ? "Ask about the review, or say what to change…" : c && c.mode === "world" ? "Push on it: what if…, what does it cost…, how would the Kingdom use it…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
+        <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "chat" ? "Ask, pitch an idea, or change the subject…" : c && c.mode === "review" ? "Ask about the review, or say what to change…" : c && c.mode === "world" ? "Push on it: what if…, what does it cost…, who would use it…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
         <button class="mic" type="button" id="micSay" title="Speak your message" aria-label="Voice typing" hidden>🎤</button>
         <button class="stopbtn" type="button" id="stopSay" title="Stop waiting for this reply" aria-label="Stop" hidden>■<span class="txt"> Stop</span></button>
         <button class="primary" type="button" id="sendSay" aria-label="Send"><span class="ico">➤</span><span class="txt">Send</span></button>
@@ -2129,21 +2112,21 @@ function setChatBusy(b) { chatBusy = b; ["sendSay", "writeBtn", "changeSay", "ba
 function drawStart() {
   const earlier = chats.slice(0, 8);
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const places = worldPlaces();
   const starters = [
-    "What gaps in Verrowen's roster could a new character fill?",
-    `Review ${pick(PEOPLE.filter((p) => !/^The /.test(p.name))).name} against the canon.`,
+    `What gaps in ${world.name}'s roster could a new character fill?`,
+    ...(PEOPLE.length ? [`Review ${pick(PEOPLE.filter((p) => !/^The /.test(p.name)).length ? PEOPLE.filter((p) => !/^The /.test(p.name)) : PEOPLE).name} against the canon.`] : []),
     "How does mana work, and what does it cost?",
-    "What lies beyond the Monster Wood?",
-    "What's life like in the fishing settlement on the lake?",
-    "What lies along the Kingdom's roads between the capital and Stoutwell?",
-    `Give the ${pick(ITEMS.filter((it) => it.cat === "Enchanted items" && !isPitch(it)).length ? ITEMS.filter((it) => it.cat === "Enchanted items" && !isPitch(it)) : BUILTIN).name.toLowerCase()} a rival invention from the Kingdom.`,
+    ...(places.length ? [`What lies beyond ${pick(places)}?`, `What's life like in ${pick(places)}?`] : []),
+    ...(places.length > 1 ? [`What lies along the roads between ${places[0]} and ${places[places.length - 1]}?`] : []),
+    ...(ITEMS.length ? [`Give the ${pick(ITEMS.filter((it) => !isPitch(it)).length ? ITEMS.filter((it) => !isPitch(it)) : ITEMS).name.toLowerCase()} a rival invention${places.length ? " from " + pick(places) : ""}.`] : []),
   ];
   $("chatlog").innerHTML = `<div class="chatstart">
     <h3>What's on your mind?</h3>
-    <p class="note">The lore-keeper knows the Grand Orrery's lore, roster, places and items. Ask it anything, pitch an idea, or ask for a review. To change the canon, just say so (“rename Tansy Ninefingers to Tansy Sevenfingers”) or press 🛠 Make it a change: it checks the change against the canon, and only one that fits can be applied, on the review branch. It works out from what you say whether you're on a character, a region, a rule of the world, magic or something else, and reads up on that part of the canon. Change the subject whenever you like.</p>
+    <p class="note">The lore-keeper knows the Grand Orrery's lore, roster, places and items. Ask it anything, pitch an idea, or ask for a review. To change the canon, just say so (${changeExample()}) or press 🛠 Make it a change: it checks the change against the canon, and only one that fits can be applied, on the review branch. It works out from what you say whether you're on a character, a region, a rule of the world, magic or something else, and reads up on that part of the canon. Change the subject whenever you like.</p>
     <div class="opt">
       <label class="sr" for="opener">Your first message</label>
-      <textarea id="opener" maxlength="${MAX_SAY}" placeholder="Optional: a halfling miller who hides a fire gift from the Elderhold… or leave it blank and it suggests a few things to work on."></textarea>
+      <textarea id="opener" maxlength="${MAX_SAY}" placeholder="Optional: an idea in a line… or leave it blank and it suggests a few things to work on."></textarea>
       <div class="chips">${starters.map((t) => `<button class="small" type="button" data-start="${esc(t)}">${esc(t)}</button>`).join("")}</div>
       <div class="row"><button class="primary" type="button" id="startOpen">Start the chat</button><a class="btn" href="${CREATE_URL}" style="text-decoration:none" title="New characters are made by playing Wake in Verrowen. They land on the Roster pending review.">✨ Create a character</a></div></div>
     ${earlier.length ? `<details class="earlierbox" id="earlierBox"${earlierOpen() ? " open" : ""}><summary>Earlier chats<span class="pill">${earlier.length}</span></summary><div class="earlier">${earlier.map((c) => {
@@ -2348,7 +2331,7 @@ async function ask(c, mode, onDone, after) {
 const CHANGE_FILES = ["roster.md", "universe.md", "working-notes.md", "resources.md", "bestiary.md"];
 const CHANGE_BUDGET = 7000, CHANGE_LORE = 12;
 // Kept short on purpose: a change sends only what it touches, not the whole canon.
-const CHANGE_KEEPER = `You are the Orrery's lore-keeper, checking an edit to the Grand Orrery, a medieval fantasy universe. LORE and SOURCE are canon. Setting rules: magic is weak, everyday and costs mana; objects hold magic but don't make it; Verrowen is a whole world and Stoutwell one small village in it.`;
+const CHANGE_KEEPER = `You are the Orrery's lore-keeper, checking an edit to the Grand Orrery, a medieval fantasy universe. LORE and SOURCE are canon. Setting rules: as LORE states them.`;
 const CHANGE_VERB = /^\s*(?:please\s+|can you\s+|could you\s+|let'?s\s+|i want to\s+)?(?:change|rename|set|replace|update|fix|correct|remove|delete|drop|move|make|add|give|swap)\b/i;
 const CHANGE_TASK = `TASK: the author wants to CHANGE the canon. REQUEST is what they asked for. SOURCE is the exact current text of the parts of the documents it touches; each part starts with "### FILE: <file>". Check the change against the LORE and the rest of SOURCE, then reply with ONE JSON object and nothing else:
 {"verdict":"fits"|"clashes"|"unclear","why":"one or two plain sentences","clash":"the exact canon words it clashes with, or \"\"","edits":[{"file":"<file>","old":"text copied exactly from SOURCE, a whole line where you can, at least 8 characters","new":"the same text with the change made"}],"adds":[{"file":"<file>","heading":"a heading line copied exactly from SOURCE","text":"one new fact, one line"}]}
@@ -2467,7 +2450,7 @@ async function askChange(c) {
   if (!c || chatBusy) return;
   const typed = $("say").value.trim();
   const req = (typed || [...c.messages].reverse().find((m) => m.role === "user")?.content || "").slice(0, MAX_SAY);
-  if (!req) return chatStatus("Write the change you want first, e.g. “Rename Tansy Ninefingers to Tansy Sevenfingers.”", true);
+  if (!req) return chatStatus("Write the change you want first, e.g. " + changeExample() + ".", true);
   if (!ownerToken()) return chatStatus("Changes need the owner's token on this browser: set it on Orrery control.", true);
   if (chatVoice) chatVoice.stop();
   if (typed) { c.messages.push({ role: "user", content: req }); $("say").value = ""; fitSay(); }

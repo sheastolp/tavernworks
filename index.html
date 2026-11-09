@@ -307,6 +307,7 @@
   <footer>Tavernworks · <span>tavernworks.dev</span> · Homebrewed by Stoned Sheamus<br><a href="/overlays/">Overlays</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
 </div>
 <script src="/projects.js"></script>
+<script src="/orrery-db.js"></script>
 <script>
 // The path so far: every change on tavernworks.dev, one lane per project,
 // oldest on the left, ending at today. One line joins every change in
@@ -441,8 +442,8 @@
      [B, `${at("BertramQuillby")} 🎲 Dice roll: 2d6+3 → [4, 6]+3 = 13. The DM nods and moves the story along.`]],
     [["Osric", "!roll will the party survive the troll?"],
      [B, `${at("Osric")} 🔮 The crystal ball clears... it shows YES for "will the party survive the troll?"`]],
-    [["Doric", "!roll will Tobin ever be ready to take over the forge?"],
-     [B, `${at("Doric")} 🔮 The crystal ball clouds over... NO for "will Tobin ever be ready to take over the forge?"`]],
+    [["Doric", "!roll will the forge be lit by morning?"],
+     [B, `${at("Doric")} 🔮 The crystal ball clouds over... NO for "will the forge be lit by morning?"`]],
     [["Osric", "!oracle who buys the next round?"],
      [B, `${at("Osric")} 🔮 The crystal ball swirls and resolves into a face: ${at("bertramquillby")}, regarding "who buys the next round?"`]],
     [["YsoldeAmbergate", "!oracle who gets the bigger harvest share?"],
@@ -459,8 +460,8 @@
      [B, `${at("TobinAshby")} ⚔️ Arandur vs TobinAshby — TobinAshby wins! ❤️ HP left: Arandur 0/18, TobinAshby 7/31. 🪙 Loot: none. 📜 Full battle log: ${GS}/r/${R.TobinAshby}`]],
     [["Osric", "!autohunt 30m"],
      [B, `${at("Osric")} 🏹 your hero heads into the wilds for 30m. A monster every ~5m at your level, same dice as !dndduel, with a report link whispered to you when the trip ends. !autohunt status to check in, !autohunt stop to recall.`]],
-    [["TobinAshby", "!party create Stoutwell"],
-     [B, `${at("TobinAshby")} party Stoutwell created. You are the leader and a member. Invite with !party invite @user Stoutwell`]],
+    [["TobinAshby", "!party create Lanternbearers"],
+     [B, `${at("TobinAshby")} party Lanternbearers created. You are the leader and a member. Invite with !party invite @user Lanternbearers`]],
     [["Arandur", "!rally"],
      [B, `📯 Arandur sounds the war horn against Young Red Dragon (HP 890/890)! Type !rally within 1m to join the raid party (1/9: Arandur). Arandur: !rally go to charge early.`],
      ["TobinAshby", "!rally"],
@@ -474,9 +475,9 @@
     [["BertramQuillby", "!hunt bugbear"],
      [B, `${at("BertramQuillby")} ⚔️ HonestBert vs Bugbear — HonestBert wins! ❤️ HP left: HonestBert 12/28, Bugbear 0/27. 🪙 Loot: 2 sp 1 cp. 📜 Bounty: Bugbear 1/5. 📜 Full battle log: ${GS}/r/${R.BertramQuillby}`]],
     [["ClementineRook", "!stall"],
-     [B, `🛒 Tansy Ninefingers is hawking one (1) lucky rabbit's foot, still faintly twitching — 5 copper (🎒 +1 DEX on your sheet). ${at("ClementineRook")} you have 3 haggle attempts left on this one — try !haggle &lt;your pitch&gt;.`],
+     [B, `🛒 {{PEDDLER}} is hawking {{WARE}}. ${at("ClementineRook")} you have 3 haggle attempts left on this one — try !haggle &lt;your pitch&gt;.`],
      ["ClementineRook", "!haggle three copper, it's barely twitching"],
-     [B, `🛒 Tansy Ninefingers: Barely?! It kicked me twice this morning. Four copper, and you're robbing a poor woman blind. 🪙 Sold for 4 cp (listed 5 cp, you saved 1 cp) — 2 sp 1 cp left. 🎒 Lucky rabbit's foot added to your sheet: DEX 14→15.`]],
+     [B, `🛒 {{PEDDLER}}: Barely?! It kicked me twice this morning. Four copper, and you're robbing a poor woman blind. 🪙 Sold for 4 cp (listed 5 cp, you saved 1 cp) — 2 sp 1 cp left. 🎒 {{WARE_NAME}} added to your sheet: DEX 14→15.`]],
     [["BertramQuillby", "!gold"],
      [B, `${at("BertramQuillby")} you carry 74 gp 3 sp 7 cp — #1 in the guild.`]],
     [["Osric", "!gold top"],
@@ -510,12 +511,12 @@
     [["ClementineRook", "!div2mission"],
      [B, `${at("ClementineRook")} 🗺️ Tonight's op: ten floors of The Summit on Heroic. Challenge: Chat picks your primary weapon.`]],
     [["Arandur", "!rob @GuildScribeBot"],
-     [B, `🎲 ${at("Arandur")} rolls to rob the Scribe… natural 1. The whole tavern saw that. 1 gp 2 sp is confiscated and rattles into the swear jar. (Jar: 1 gp 6 sp 6 cp)`]],
+     [B, `🎲 ${at("Arandur")} rolls to rob {{SCRIBE}}… natural 1. The whole tavern saw that. 1 gp 2 sp is confiscated and rattles into the swear jar. (Jar: 1 gp 6 sp 6 cp)`]],
     [["Arandur", "!abilities"],
      [B, `⚔️ ${at("Arandur")} your Lv 3 Wood Elf Rogue: d20 +5 to hit (DEX +3, prof +2), 1d8 +3 damage, 1d10 vs monsters, AC 15 (16 vs monsters). Abilities: Sneak Attack (2d6). Next: Uncanny Dodge at Lv 5.`]],
-    [["BertramQuillby", "!bribe Captain Hesketh"],
-     [B, `💰 ${at("BertramQuillby")} offers 44 gp 6 sp 2 cp to Captain Hesketh. "How generous!" Captain Hesketh says, and does absolutely nothing in return. (29 gp 7 sp 5 cp left)`],
-     ["HeskethReeve", "Bribing the Guard is a flogging offence, Quillby. I'll take it as weregild."]],
+    [["BertramQuillby", "!bribe the Guard captain"],
+     [B, `💰 ${at("BertramQuillby")} offers 44 gp 6 sp 2 cp to the Guard captain. "How generous!" the Guard captain says, and does absolutely nothing in return. (29 gp 7 sp 5 cp left)`],
+     ["HeskethReeve", "Bribing the Guard is a flogging offence. I'll take it as weregild."]],
     [["ClementineRook", "!monster goblin"],
      [B, `${at("ClementineRook")} 🔗 https://www.dndbeyond.com/search?q=Goblin · Goblin: Small humanoid, neutral evil · AC 15 (armor) · HP 7 (2d6) · Speed walk 30 ft. 📜 Full reply: ${GS}/r/${R.ClementineRook}`],
      [B, `${at("ClementineRook")} 📖 New to the bestiary! Goblin (CR 1/4, AC 15, HP 7, +4 to hit, 1d6+2) now stalks the wilds — hunt it with !dndduel goblin.`]],
@@ -540,12 +541,64 @@
     [["BertramQuillby", "!help"],
      [B, `${at("BertramQuillby")} Welcome to the Guild Hall, adventurer! 📜 Create your legend with !createchar or !newchar, check your parchment with !char, gather a company with !party create &lt;name&gt;, and consult the archives with !dndbothelp. Full guild codex: ${GS}/guide`]],
   ];
+  // The chatters are the Grand Orrery's people, and the stall's peddler and
+  // ware are the Orrery's too: nothing about the universe is written here.
+  // Each chatter's part above is a slot (named for who first played it); the
+  // Orrery's record with that id plays it if it's still in the canon, and
+  // otherwise someone else from the Orrery's roster does.
+  const SLOTS = Object.keys(U).filter((k) => k !== B && k !== "StonedSheamus");
+  const slotId = (k) => k.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
+  const handle = (n) => String(n).replace(/[^A-Za-z0-9]/g, "");
+  const COLOR = { [B]: U[B], StonedSheamus: U.StonedSheamus };
+  let cast = null;
+  function castFrom(o) {
+    const canon = (e) => e.status === "decided";
+    const people = o.list("person").filter((e) => canon(e) && !e.kind && e.name && !/^The /.test(e.name) && !/peddlers/i.test(e.group || ""));
+    if (people.length < 4) return null;
+    const used = new Set(), names = {};
+    const pool = people.slice().sort(() => Math.random() - 0.5);
+    // Everyone still in the canon plays their own part first; the parts left
+    // go to others from the roster.
+    for (const k of SLOTS) { const own = people.find((e) => e.id === slotId(k)); if (own) { used.add(own.id); names[k] = handle(own.name); } }
+    for (const k of SLOTS) {
+      if (!names[k]) { const p = pool.find((e) => !used.has(e.id)); if (!p) return null; used.add(p.id); names[k] = handle(p.name); }
+      COLOR[names[k]] = U[k];
+    }
+    const peddlers = o.list("person").filter((e) => canon(e) && /peddlers/i.test(e.group || ""));
+    const wares = o.list("item").filter((e) => canon(e) && e.fields && e.fields.sold && e.fields.pitch);
+    const ware = o.get("lucky-rabbits-foot") || wares[0];
+    const sold = ware && String(ware.fields.sold).split("·").map((x) => x.trim());
+    const me = o.get("the-scribe");
+    return {
+      names,
+      peddler: (o.get("tansy-ninefingers") || peddlers[0] || {}).name || "",
+      ware: ware && sold ? `${ware.fields.pitch} — ${sold[0]}${sold[1] ? ` (🎒 ${sold[1]} on your sheet)` : ""}` : "",
+      wareName: ware ? ware.name : "",
+      scribe: me ? me.name.replace(/^The /, "the ") : "GuildScribe",
+    };
+  }
+  // Every slot's name, in any case, becomes its player's; the {{…}} marks
+  // take the Orrery's peddler, ware and the Scribe.
+  function play(text) {
+    let t = text;
+    for (const k of SLOTS.slice().sort((a, b) => b.length - a.length)) {
+      t = t.replace(new RegExp(`\\b${k}\\b`, "gi"), (m) => (m === m.toLowerCase() ? cast.names[k].toLowerCase() : cast.names[k]));
+    }
+    return t.replace(/\{\{PEDDLER\}\}/g, cast.peddler).replace(/\{\{WARE\}\}/g, cast.ware).replace(/\{\{WARE_NAME\}\}/g, cast.wareName).replace(/\{\{SCRIBE\}\}/g, cast.scribe);
+  }
   const line = ([who, text]) => {
     const el = document.createElement("div");
     el.className = "msg" + (who === B ? " bot" : "");
-    el.innerHTML = `<span class="u" style="color:${U[who]}">${who}:</span>${text}`;
+    el.innerHTML = `<span class="u" style="color:${COLOR[who] || U[B]}">${who}:</span>${text}`;
     return el;
   };
+  const run = () => {
+  // Cast it, leaving out the stall if the Orrery has no peddler or ware.
+  for (let k = EXCHANGES.length - 1; k >= 0; k--) {
+    const ex = EXCHANGES[k];
+    if (JSON.stringify(ex).includes("{{PEDDLER}}") && !(cast.peddler && cast.ware)) { EXCHANGES.splice(k, 1); continue; }
+    EXCHANGES[k] = ex.map(([who, text]) => [who === B || who === "StonedSheamus" ? who : cast.names[who], play(text)]);
+  }
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     EXCHANGES.slice(0, 3).flat().forEach((m) => feed.appendChild(line(m)));
     return;
@@ -584,6 +637,10 @@
     setTimeout(next, (m[0] === B ? GAP_BOT : GAP_USER) + (exchangeEnds ? GAP_EXCHANGE : 0));
   };
   setTimeout(next, 600);
+  };
+  // The example only plays once the Orrery has been read (or this browser's
+  // last copy of it); without either, the chat stays empty.
+  if (window.OrreryDB) OrreryDB.get("main").then((o) => { cast = castFrom(o); if (cast) run(); }).catch(() => {});
 })();
 </script>
 <script>

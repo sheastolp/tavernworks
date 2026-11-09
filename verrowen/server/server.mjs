@@ -537,7 +537,7 @@ async function loreCatchupDraft() {
   }
   const ask = `You keep lore.md, the short, decided canon the narrator of a roleplay game reads. Below are the current LORE and the DECIDED CHANGES made to the universe's notes since it was last caught up.
 
-Write ONLY what LORE is missing: facts in the changes that LORE doesn't already state, or states differently (then write the corrected fact). Never restate, reword or summarize anything LORE already says: each line holds only the new sentences, and they're added to the end of LORE's line with the same label. One line per topic, each starting with an UPPERCASE label like LORE's (WORLD:, BEYOND:, KINGDOM:, MAGIC:, ITEMS:, RESOURCES:, PEOPLE:, STOUTWELL:, LIFE:, OTHER WORLDS:) or a short new label. Put a fact under the label for where it actually is: only things in Stoutwell go under STOUTWELL:, and a place elsewhere in Verrowen can get its own label. Plain, compact sentences. No markdown, no bullets, no commentary. Never add ideas that are still open, or anything not in the changes. If LORE already has everything, reply exactly: NOTHING NEW
+Write ONLY what LORE is missing: facts in the changes that LORE doesn't already state, or states differently (then write the corrected fact). Never restate, reword or summarize anything LORE already says: each line holds only the new sentences, and they're added to the end of LORE's line with the same label. One line per topic, each starting with an UPPERCASE label like LORE's (WORLD:, BEYOND:, KINGDOM:, MAGIC:, ITEMS:, RESOURCES:, PEOPLE:, STOUTWELL:, LIFE:, OTHER WORLDS:) or a short new label. Put a fact under the label for where it actually is: a label LORE uses for one place holds only things in that place, and a place elsewhere can get its own label. Plain, compact sentences. No markdown, no bullets, no commentary. Never add ideas that are still open, or anything not in the changes. If LORE already has everything, reply exactly: NOTHING NEW
 
 LORE:
 ${lore.replace(/^# .*\n+.*\n+/, "").trim()}
@@ -747,7 +747,7 @@ ${canon}` }], null, { temperature: 0.2, maxTokens: 1400 });
       } else {
         docsJob.doing = "Checking which places the lore names that no map shows";
         const reply = await narrate([{ role: "user", content: `Below are a fantasy universe's LORE and MAPS, a note describing what each of its maps shows. List the places the LORE names that no map shows. One per line:
-MAP: the place | the map it belongs on (the region, Stoutwell, the lake or the capital) | where the LORE puts it, in a few words
+MAP: the place | the map it belongs on (${orreryMapNames()}) | where the LORE puts it, in a few words
 Only places, never people or items. If every place is on a map, reply exactly: NOTHING
 
 MAPS:
@@ -904,7 +904,7 @@ UNIVERSE: one of the universe headings below, copied exactly (the new profile go
     place: `UNIVERSE: one of the universe headings below, copied exactly (the new place goes at the end of that part)
 - **The place's name:** what and where it is, in one or two sentences
 (or a ### heading with several bullets if there's a lot to say)
-MAP: the map it belongs on (the region, Stoutwell, the lake, the capital) | a short label for the map`,
+MAP: the map it belongs on (${orreryMapNames()}) | a short label for the map`,
     item: `RESOURCE: one emoji, then the name | a category from this list | a type (an existing one or a short new one)
 ${Object.entries(opts.cats).map(([c, t]) => c + ": " + t.join(", ")).join("\n")}
 - **Where:** where it's found, kept or made, naming places on the maps (if known)
@@ -927,10 +927,10 @@ ${opts.headings["bestiary.md"].join("\n")}
 <<<
 ${ask0}
 >>>
-Write it so it fits the LORE below and contradicts nothing in it. Magic is weak, everyday and costs the user; objects hold magic but don't make it. Keep it PG-13, suitable for children aged 6 to 10. Keep everything the author said, fill small gaps sensibly, and don't invent big new facts. If the author didn't say where it is: ${WORLD_FOCUS} Use plain sentences.
+Write it so it fits the LORE below and contradicts nothing in it. Keep to the setting's rules as LORE states them. Keep it PG-13, suitable for children aged 6 to 10. Keep everything the author said, fill small gaps sensibly, and don't invent big new facts. If the author didn't say where it is: ${WORLD_FOCUS} Use plain sentences.
 Reply with these blocks and nothing else:
 TITLE: a short name for it
-LORE: one compact line for lore.md, starting with an UPPERCASE label like LORE's (PEOPLE:, BEYOND:, KINGDOM:, WORLD:, ITEMS:, MAGIC:, or STOUTWELL: only for things in Stoutwell)
+LORE: one compact line for lore.md, starting with an UPPERCASE label LORE already uses (${orreryLoreLabels()}; a place's own label only for things in that place)
 ${blocks[kind]}
 
 Universe headings:
@@ -1193,7 +1193,7 @@ async function restCanon() {
 const JUDGE = `You are the keeper of canon for the Grand Orrery, a medieval fantasy universe, deciding on your own while its author rests. Decide whether ONE proposed addition becomes canon.
 APPROVE it only if ALL of these are true:
 - it fits the LORE below and contradicts nothing in it (names, places, history, who knows what). New people, places, customs, items and creatures are the point: never reject something only because LORE doesn't mention it yet;
-- magic stays weak and everyday: it helps with tasks, costs the user, and objects hold magic but don't make it;
+- it keeps to the setting's rules as LORE states them (how magic works, what it costs, who can use it);
 - it's medieval fantasy in tone. A short idea, even one line, is fine: it can be built on later;
 - it doesn't just repeat something LORE already says;
 - it suits a PG-13 game played by children aged 6 to 10: no sexual content, graphic gore, slurs or cruelty for its own sake;
@@ -1256,26 +1256,63 @@ function keepView(section, verdict, why, from, file = NOTES) {
   rest.views[file + "\n" + k.line] = { key: k.key, verdict, why, at: new Date().toISOString(), ...(from ? { from } : {}) };
 }
 
+// ── The Orrery's database ──
+// What the prompts say about the world (its name, its places, its maps, the
+// labels lore.md uses) comes from the Orrery's database, the same one every
+// Tavernworks app reads, never from text written here. Re-read every 10
+// minutes; the last good copy is kept in the save folder for restarts.
+const ORRERY_DB_URL = process.env.ORRERY_DB_URL || "https://raw.githubusercontent.com/sheastolp/grand-orrery/data/main/entities.public.json";
+const ORRERY_WORLD = process.env.ORRERY_WORLD || "verrowen";
+const ORRERY_DB_FILE = () => path.join(SAVE_DIR, "orrery-main.json");
+let orreryDb = null;
+try { orreryDb = JSON.parse(await fs.readFile(ORRERY_DB_FILE(), "utf8")); } catch { }
+async function refreshOrreryDb() {
+  try {
+    const r = await fetch(ORRERY_DB_URL + "?t=" + Date.now(), { signal: AbortSignal.timeout(15_000) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    if (!Array.isArray(j.entities)) throw new Error("no entities");
+    orreryDb = j;
+    await fs.mkdir(SAVE_DIR, { recursive: true });
+    await fs.writeFile(ORRERY_DB_FILE() + ".tmp", JSON.stringify(j)); await fs.rename(ORRERY_DB_FILE() + ".tmp", ORRERY_DB_FILE());
+  } catch (e) { console.error("orrery database: keeping the last copy:", e.message); }
+}
+if (SERVING) { refreshOrreryDb(); setInterval(refreshOrreryDb, 10 * 60_000).unref?.(); }
+const orreryList = (type) => (orreryDb?.entities || []).filter((e) => e.type === type && (e.status === "decided" || e.status === "dm-lore"));
+const orreryWorldName = () => (orreryDb?.entities || []).find((e) => e.type === "world" && e.id === ORRERY_WORLD)?.name || "the world";
+const orreryPlaces = () => orreryList("place").map((e) => e.name).filter(Boolean);
+const orreryMapNames = () => orreryList("map").map((e) => e.name.replace(/^The /, "the ")).join(", ") || "one of the maps";
+const orreryLoreLabels = () => [...new Set(orreryList("lore").map((e) => e.name.replace(/-\d+$/, "") + ":"))].join(" ") || "WORLD:";
+const pickFrom = (a, n) => [...a].sort(() => Math.random() - 0.5).slice(0, n);
+
 // Every AI prompt that invents or files lore carries this, so new canon
-// spreads across Verrowen instead of piling up in Stoutwell.
-const WORLD_FOCUS = `Verrowen is a whole world and Stoutwell is only one small village in it, not its center. Unless asked about Stoutwell, set new things across Verrowen: the Kingdom and its capital, its great houses and roads, the Woodland Road, the Monster Wood and its deep woods, the croplands, the river and its mills, the lake and the fishing settlement, the Ashen Reach, the mountain wall, and the villages and peoples beyond. Don't put something in Stoutwell just because it's the best-described place.`;
+// spreads across the whole world instead of piling up in its best-described
+// place. It reads the Orrery each time it's used (a template string calls
+// toString), so it always names the Orrery's current places.
+const WORLD_FOCUS = { toString() {
+  const w = orreryWorldName(), ps = orreryPlaces();
+  return `${w.charAt(0).toUpperCase() + w.slice(1)} is a whole world, and no one place in it is its center. Unless asked about one place, set new things across the whole world${ps.length ? `: ${ps.slice(0, 30).join(", ")}, and the villages and peoples beyond` : ""}. Don't put something in a place just because it's the best-described one.`;
+} };
 
 // Automatic lore: one small new piece of canon, about a different kind of
 // thing each time, written from the lore and checked against what exists.
-// Most topics are out in Verrowen; Stoutwell gets one turn in the cycle.
-const IDEA_TOPICS = [
-  "a person who lives somewhere in Verrowen outside Stoutwell: the capital, the fishing settlement, the roads, the mills or a village not yet named (name, race, age, trade, one want and one fear, ties to named people or places)",
-  "a place in Verrowen beyond Stoutwell's walls: on the Woodland Road, by the river or the lake, in the croplands, the Ashen Reach or the mountain wall",
-  "a creature of the Monster Wood, its deep woods or the mountains: where it lives, what it does, its limits",
-  "a custom, saying, food or rule of daily life somewhere in Verrowen other than Stoutwell",
-  "a place, office or great house in the Kingdom's capital",
-  "a small everyday magic item or tool found or made somewhere in Verrowen, who makes it, what it costs and its limits",
-  "a piece of Verrowen's history: the Kingdom, the old roads, the rifts or the lands around them",
-  "a people, trade, guild or group found across Verrowen, and where they live or travel",
-  "one of the market peddlers' relics and the far place in Verrowen it came from",
-  "something GuildScribe's guild hall in the capital keeps, does or is known for",
-  "a person, custom or piece of history in Stoutwell (name, race, age, trade, one want and one fear, ties to named people)",
-];
+// The places and groups each topic names come from the Orrery.
+function ideaTopics() {
+  const w = orreryWorldName(), some = (n) => { const p = pickFrom(orreryPlaces(), n).map((x) => x.replace(/^The /, "the ")); return p.length ? ": " + p.join(", ") : ""; };
+  return [
+    `a person who lives somewhere in ${w}${some(3)}, or a village not yet named (name, race, age, trade, one want and one fear, ties to named people or places)`,
+    `a place in ${w} the lore hasn't described yet, near one it has${some(4)}`,
+    `a creature of the wilds of ${w}${some(2)}: where it lives, what it does, its limits`,
+    `a custom, saying, food or rule of daily life somewhere in ${w}${some(2)}`,
+    `a place, office or great house in one of ${w}'s towns or cities${some(2)}`,
+    `a small everyday magic item or tool found or made somewhere in ${w}, who makes it, what it costs and its limits`,
+    `a piece of ${w}'s history: its rulers, its old roads, the rifts or the lands around them`,
+    `a people, trade, guild or group found across ${w}, and where they live or travel`,
+    `one of the market peddlers' relics and the far place in ${w} it came from`,
+    `something one of ${w}'s guilds or great houses keeps, does or is known for`,
+    `a person, custom or piece of history in one named place${some(1)} (name, race, age, trade, one want and one fear, ties to named people)`,
+  ];
+}
 // Topics whose ideas are things people make, use or trade. They're filed in
 // resources.md, where the Orrery's Items and Resources tabs read them;
 // everything else goes to working-notes.md.
@@ -1289,7 +1326,8 @@ async function makeIdea() {
   // the list runs newest first and a long one loses its oldest names, not its newest.
   const known = [...new Set([...heads(notes), ...heads(res), ...heads(beasts)].reverse())];
   const titles = known.join("; ").slice(0, 4000);
-  const topic = IDEA_TOPICS[rest.rounds % IDEA_TOPICS.length];
+  const topics = ideaTopics();
+  const topic = topics[rest.rounds % topics.length];
   const item = isItemTopic(topic);
   const cats = [...String(res || "").matchAll(/^##\s+(?!#)(.+?)\s*$/gm)].map((m) => m[1].trim());
   const labels = item ? `- **Does:** what it does, in one sentence
@@ -1309,7 +1347,7 @@ TYPE: a short kind of thing within that category, like "Charms and curios" or "L
 ` : "";
   const ask = `You help build the Grand Orrery, a medieval fantasy universe. Using only the LORE below, invent ONE new, small piece of canon about: ${topic}.
 ${WORLD_FOCUS}
-It must fit everything in LORE and contradict nothing. Magic is weak, everyday and costs the user. Keep it PG-13 and suitable for children aged 6 to 10. Don't repeat anything that already exists, and give it a name that isn't taken. These names are taken: ${titles}
+It must fit everything in LORE and contradict nothing, the setting's rules included. Keep it PG-13 and suitable for children aged 6 to 10. Don't repeat anything that already exists, and give it a name that isn't taken. These names are taken: ${titles}
 Reply with a TITLE line${item ? ", ICON, CATEGORY and TYPE lines" : ""} and then the idea, and nothing else:
 TITLE: a short name
 ${itemLines}- the idea in one or two plain sentences

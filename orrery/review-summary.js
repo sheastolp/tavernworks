@@ -13,13 +13,9 @@
 //   s.items  [{ doc, file, kind, title, parent, tag, oldTag, from, added, removed }]
 (function () {
   const REPO = "sheastolp/grand-orrery";
-  const DOCS = {
-    "universe.md": "Stoutwell & Beyond",
-    "working-notes.md": "Village Hero (working notes)",
-    "midkemia.md": "World of Midkemia",
-    "lore.md": "The narrator's lore",
-    "README.md": "The repo's README",
-  };
+  // Each document's name, in the Orrery's own order, from its database
+  // (filled in by build(); a document it doesn't list shows by its file name).
+  const DOCS = {};
   const SOURCES = [
     [/From the Verrowen Codex/i, "📜 Codex"],
     [/From a Wake in Verrowen story/i, "🕯 Wake in Verrowen"],
@@ -123,7 +119,7 @@
     const A = lines(before), B = lines(after), items = [];
     const sentences = (s) => s.split(/(?<=[.!?])\s+(?=[A-Z])/);
     const name = (k) => k.startsWith("CODEX · ") ? k.slice(8) : k.charAt(0) + k.slice(1).toLowerCase();
-    const base = (k) => ({ file: "lore.md", doc: DOCS["lore.md"], title: name(k), parent: k.startsWith("CODEX · ") ? "From the Codex" : "", tag: "" });
+    const base = (k) => ({ file: "lore.md", doc: DOCS["lore.md"] || "lore.md", title: name(k), parent: k.startsWith("CODEX · ") ? "From the Codex" : "", tag: "" });
     for (const [k, t] of B) {
       if (!A.has(k)) items.push({ ...base(k), kind: "new", added: [plain(t)], removed: [] });
       else if (A.get(k) !== t) { const d = lineDiff(A.get(k), t, sentences); if (d.added.length || d.removed.length) items.push({ ...base(k), kind: "changed", ...d }); }
@@ -133,6 +129,12 @@
   }
 
   async function build(j) {
+    if (window.OrreryDB) {
+      try {
+        const o = await OrreryDB.get("review");
+        for (const d of o.list("document").sort((a, b) => (a.order || 0) - (b.order || 0))) DOCS[d.file] = d.name;
+      } catch (e) { /* names stay file names */ }
+    }
     const files = j.files || [];
     const from = j.merge_base_commit && j.merge_base_commit.sha;
     const commits = j.commits || [];

@@ -189,7 +189,7 @@
     <div class="empty" id="empty">
       <div class="big">📜</div>
       <h1>The Verrowen Codex</h1>
-      <p>Keep the world here: the people of Verrowen, Stoutwell included, places, peoples, how magic works, items of note and the rules folk live by. Link notes with <b>[[double brackets]]</b>.</p>
+      <p>Keep the world here: its people, places, peoples, how magic works, items of note and the rules folk live by. Link notes with <b>[[double brackets]]</b>.</p>
       <p>Tick <b>🕯 The narrator knows this</b> on a decided note and Wake in Verrowen weaves it into stories played in this browser. Pitches stay out until you decide them.</p>
       <div class="cats" id="emptyCats"></div>
       <div class="cta">
@@ -256,17 +256,17 @@
   const KEY = "verrowen-codex", UI_KEY = "verrowen-codex.ui";
   const NARRATOR_BUDGET = 6000, NOTE_BUDGET = 700;
   const CATS = [
-    {id: "character", icon: "🧑", name: "Characters", one: "Character", f: [["race", "Race", "Halfling"], ["sex", "Sex", "F"], ["age", "Age", "33"], ["role", "Role", "Blacksmith's apprentice"], ["home", "Lives in", "Stoutwell, the SE slums"], ["secret", "Secret", "What few people know", 1]],
-      ph: "Who they are: personality, history, how they talk, who they love and fear…\n\nKnows [[Tobin Ashby]]."},
-    {id: "people", icon: "🏘", name: "Peoples & groups", one: "People or group", f: [["kind", "Kind", "Race, guild, family"], ["where", "Found in", "Stoutwell, the Kingdom"], ["leader", "Led by", ""]],
+    {id: "character", icon: "🧑", name: "Characters", one: "Character", f: [["race", "Race", "Halfling"], ["sex", "Sex", "F"], ["age", "Age", "33"], ["role", "Role", "Blacksmith's apprentice"], ["home", "Lives in", "A village, its poor quarter"], ["secret", "Secret", "What few people know", 1]],
+      ph: "Who they are: personality, history, how they talk, who they love and fear…\n\nKnows [[someone in the lore]]."},
+    {id: "people", icon: "🏘", name: "Peoples & groups", one: "People or group", f: [["kind", "Kind", "Race, guild, family"], ["where", "Found in", "A village, the capital"], ["leader", "Led by", ""]],
       ph: "What they're like, what they want, how others see them…"},
-    {id: "place", icon: "🗺", name: "Places", one: "Place", f: [["kind", "Kind", "Village, forest, ruin"], ["where", "Where", "West of Stoutwell"], ["who", "Who's there", "Goblins, the Guard"]],
+    {id: "place", icon: "🗺", name: "Places", one: "Place", f: [["kind", "Kind", "Village, forest, ruin"], ["where", "Where", "West of the village"], ["who", "Who's there", "Goblins, the Guard"]],
       ph: "What it looks, sounds and smells like, its history, its dangers…"},
     {id: "magic", icon: "✨", name: "Magic", one: "Magic", f: [["kind", "Type", "Elemental, detection"], ["who", "Who can use it", "Elves most, then humans"], ["cost", "Cost or limit", "Mana, sickness when spent"]],
       ph: "How it works, what it can't do, what it costs…"},
-    {id: "item", icon: "🗝", name: "Items", one: "Item", f: [["kind", "Kind", "Tool, relic, weapon"], ["owner", "Held by", "Murrow"], ["power", "What it does", "Finds other artificers"]],
+    {id: "item", icon: "🗝", name: "Items", one: "Item", f: [["kind", "Kind", "Tool, relic, weapon"], ["owner", "Held by", "An artificer"], ["power", "What it does", "Finds other artificers"]],
       ph: "What it looks like, where it came from, who wants it…"},
-    {id: "rule", icon: "⚖", name: "Rules & customs", one: "Rule or custom", f: [["applies", "Applies to", "All of Stoutwell"]],
+    {id: "rule", icon: "⚖", name: "Rules & customs", one: "Rule or custom", f: [["applies", "Applies to", "Everyone in the village"]],
       ph: "The rule, who keeps it, what happens when it's broken…"},
     {id: "other", icon: "🪶", name: "Other notes", one: "Note", f: [],
       ph: "Anything else about the world…"}
@@ -619,8 +619,10 @@
   // ---------- Fill in from lore.md (by way of the database) ----------
   // Each "KEY: text" line of the narrator's lore becomes a note, and the
   // PEOPLE line becomes one character each. Notes already here are skipped.
-  const LORE_CATS = {UNIVERSE: "place", WORLD: "place", TONE: "rule", MAGIC: "magic", ARTIFICERS: "magic", STOUTWELL: "place", LIFE: "rule", "DEFENSE AND LAW": "rule", LEADERSHIP: "people", BEYOND: "place"};
-  const LORE_TITLES = {UNIVERSE: "The Grand Orrery", WORLD: "Verrowen", TONE: "Tone of the world", MAGIC: "How magic works", ARTIFICERS: "Artificers", STOUTWELL: "Stoutwell", LIFE: "Life in Stoutwell", "DEFENSE AND LAW": "Defense and law", LEADERSHIP: "The Hearthcircle and the Elderhold", BEYOND: "Beyond Stoutwell"};
+  // Which kind of note a lore line makes, from plain words in its label.
+  const loreCat = (k) => /MAGIC|ARTIFICER|MANA/.test(k) ? "magic" : /TONE|LIFE|LAW|DEFENSE|CUSTOM|RULE/.test(k) ? "rule" : /LEADER|PEOPLE|GUILD|FOLK/.test(k) ? "people" : /ITEM|RESOURCE/.test(k) ? "item" : "place";
+  // A lore line's note is titled from its own label ("DEFENSE AND LAW" → "Defense and law").
+  const loreTitle = (k) => k.charAt(0) + k.slice(1).toLowerCase();
   async function fillFromLore() {
     let md;
     // The narrator's lore lines, from the Orrery's database (compiled from lore.md).
@@ -644,7 +646,7 @@
       }
       // CODEX lines are notes sent for review from a codex: "Title (facts). Text."
       if (key === "CODEX") { const t = (text.match(/^([^(.]+)/) || [])[1]; if (t) add({cat: "other", title: t.trim(), body: text}); continue; }
-      add({cat: LORE_CATS[key] || "other", title: LORE_TITLES[key] || key.charAt(0) + key.slice(1).toLowerCase(), body: text});
+      add({cat: loreCat(key), title: loreTitle(key), body: text});
     }
     persist(); drawSide();
     if (made.length && !cur) open(made[0].id);
