@@ -6,6 +6,8 @@
 // so the funnel points here instead, and this only lets the game through.
 //
 //   GET  /health     { ok, model, ollama }
+//   POST /warm       { chars }  ->  { ok, loaded, model, ctx }   loads the model and keeps it loaded
+//                    (the lore-keeper calls it while its chat is open)
 //   GET  /admin/models   (owner's token)  { model, models: [names] }
 //   POST /admin/model    (owner's token)  { model }  ->  { ok, model }   the narrator for everyone
 //   POST /admin/publish  (owner's token)  {}  ->  { ok, sha, how }   puts the Review Clone (grand-orrery's
@@ -182,6 +184,30 @@ let waiting = 0;
 // the page). Ollama stops generating when its request is cancelled, so the
 // GPU is free at once for the next turn, such as a Resend.
 // `opts` (rest mode's judging) can cool the temperature and shorten the reply.
+// The context window, in steps of 4096 tokens. Ollama reloads the model
+// whenever the window changes, so coarse steps keep it loaded from one turn
+// to the next instead of reloading as a chat grows by a few hundred words.
+function ctxFor(chars) {
+  return Math.min(MAX_CTX, Math.max(4096, Math.ceil((chars / 3 + MAX_REPLY_TOKENS + 256) / 4096) * 4096));
+}
+// Loads the model (with the window a chat of `chars` characters needs) and
+// keeps it loaded for 30 more minutes, without writing anything. The
+// lore-keeper calls this while its chat is open, so replies start at once.
+let warming = null;
+async function warm(chars) {
+  const ctx = ctxFor(chars);
+  const ps = await fetch(OLLAMA + "/api/ps", { signal: AbortSignal.timeout(3000) }).then((r) => r.json(), () => ({}));
+  const loaded = (ps.models || []).some((m) => m.name === MODEL || m.model === MODEL);
+  if (!warming) warming = fetch(OLLAMA + "/api/generate", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ model: MODEL, keep_alive: "30m", options: { num_ctx: ctx } }),
+    signal: AbortSignal.timeout(120000),
+  }).then((r) => r.ok, () => false).finally(() => { warming = null; });
+  // Already loaded: the refresh is instant. Loading: answer straight away
+  // rather than holding the page for the whole load.
+  const ok = loaded ? await warming : await Promise.race([warming, new Promise((r) => setTimeout(() => r(null), 1500))]);
+  return { ok: ok !== false, loaded: ok === true, model: MODEL, ctx };
+}
 async function narrate(messages, left, opts = {}) {
   if (waiting >= MAX_WAITING) throw Object.assign(new Error("The narrator is busy with other players. Try again in a minute."), { status: 503 });
   waiting++;
@@ -193,8 +219,7 @@ async function narrate(messages, left, opts = {}) {
     // Room for the whole conversation plus the reply. A window too small
     // cuts the start of the prompt (the rules and the lore) off silently,
     // and a small model that loses its instructions is the one that loops.
-    const chars = messages.reduce((n, m) => n + String(m.content || "").length, 0);
-    const ctx = Math.min(MAX_CTX, Math.max(4096, Math.ceil((chars / 3 + MAX_REPLY_TOKENS + 256) / 1024) * 1024));
+    const ctx = ctxFor(messages.reduce((n, m) => n + String(m.content || "").length, 0));
     const ask = (options) => fetch(OLLAMA + "/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1621,6 +1646,11 @@ const server = http.createServer(async (req, res) => {
     }
     // Browsers on other sites are turned away; scripts without an Origin header still hit the rate limits.
     if (req.headers.origin && !origin) return send(res, 403, { error: "This site isn't allowed to use the narrator" }, null);
+    if (req.method === "POST" && url.pathname === "/warm") {
+      if (!allowed("warm:" + clientIp(req), { n: 60, ms: PER_IP.ms })) return send(res, 429, { error: "Too many warm-ups" }, origin);
+      const b = await readJson(req).catch(() => ({}));
+      return send(res, 200, await warm(Math.min(MAX_BODY, Math.max(0, Number(b.chars) || 0))), origin);
+    }
     if (url.pathname.startsWith("/admin/")) {
       // Wrong tokens get the tight limit (guessing stays slow). The owner's own
       // requests get a roomy one: the review page polls rest mode and the

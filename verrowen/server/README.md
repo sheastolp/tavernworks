@@ -13,6 +13,11 @@ delete models. This server only lets the game through:
   rewritten after every turn, so stories that stop halfway are kept too.
 - `GET /health` tells the page whether the narrator is awake, and which
   model narrates.
+- `POST /warm` loads the model and keeps it loaded for 30 more minutes,
+  without writing anything. The lore-keeper calls it while its chat is
+  open, so the first reply doesn't wait for (or stumble on) a model load.
+  The context window now grows in steps of 4096 tokens, so the model isn't
+  reloaded every few turns as a chat gets longer.
 - `/admin/models` and `/admin/model` let the owner switch the narrator
   model from the page, with the owner's token.
 - Only tavernworks.dev is allowed in from a browser, and every address is

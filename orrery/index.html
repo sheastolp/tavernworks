@@ -339,6 +339,30 @@
     .say.me button.copymsg{top:2px;right:2px}
     .chatbox button.small{padding:8px 12px}
   }
+  /* The live-link pill in the chat header: tap it to check the laptop now. */
+  .chatbox button.ai{font:600 11px Inter,system-ui,sans-serif;letter-spacing:0;padding:4px 10px;border:0;border-radius:999px;background:rgba(255,255,255,.05);color:var(--muted);white-space:nowrap;flex:0 0 auto}
+  .chatbox button.ai.live{background:rgba(127,176,105,.15);color:var(--green)}
+  .chatbox button.ai.down{background:rgba(201,87,43,.15);color:var(--ember)}
+  .chatbox button.ai:not(.live){animation:aipulse 1.6s ease-in-out infinite}
+  @keyframes aipulse{50%{opacity:.55}}
+  @media (prefers-reduced-motion:reduce){.chatbox button.ai{animation:none!important}}
+  .chatextras{display:flex;flex-direction:column;gap:12px}
+  .chatextras:empty,.chatextras > [hidden]{display:none}
+  .chatextras .writeup{margin-top:0}
+  .chatbox button.linkbtn{background:none;border:0;padding:0;color:var(--gold2);font:inherit;letter-spacing:0;text-decoration:underline}
+  /* Phones: an open chat takes the whole screen, sized to what's visible above
+     the keyboard, so there's one thing to scroll (the messages) and the
+     message bar never slides away. ← goes back to the start screen. */
+  @media (max-width:600px){
+    html:has(body.chatfull),body.chatfull{overflow:hidden;overscroll-behavior:none}
+    body.chatfull .chatbox.playing{position:fixed;left:0;right:0;top:var(--app-top,0px);height:var(--app-h,100dvh);min-height:0;margin:0;border-radius:0;border-left:0;border-right:0;z-index:60}
+    body.chatfull .chatbox.playing .chathead{padding-top:max(10px,env(safe-area-inset-top))}
+    body.chatfull .chatbox.playing .chathead > span:first-child{font-size:12px}
+    .chatbox button.ai{padding:6px 9px;font-size:12px;min-height:30px}
+    .chatbox button.ai .lbl{display:none}
+    .chatlog{padding-bottom:18px}
+    .say.keeper{padding-right:30px}
+  }
   [data-install] button{font-size:13px;padding:4px 12px;margin-left:8px}
   /* The Scroll: the whole Orrery as one parchment ledger, rolled on two rods. */
   .scroll{--ink:#2b1d10;--ink2:#5e4429;--rule:rgba(94,60,28,.32);--red:#8a2b12;--leaf:#3f5a24;max-width:920px;margin:6px auto 0;padding:0 14px}
@@ -1465,7 +1489,8 @@ function route() {
   const [tab, ...rest] = (location.hash.slice(1) || "scroll").split("/");
   const arg = decodeURIComponent(rest[0] || ""), extra = rest[1] ? decodeURIComponent(rest[1]) : "";
   if (tab === "find") rest.splice(0, rest.length, rest.join("/"));
-  document.body.classList.remove("chatting");
+  document.body.classList.remove("chatting", "chatfull");
+  if (!location.hash.startsWith("#chat")) clearTimeout(aiTimer);
   document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === (tab === "person" ? "roster" : tab === "item" ? (fromFile ? "resources" : "items") : tab === "doc" ? "docs" : tab === "beast" ? "beasts" : tab)));
   let out, re = null;
   if (tab === "scroll") {
@@ -1927,14 +1952,98 @@ function writePrompt(c) {
   return k === "review" ? WRITE_REVIEW : k === "create" ? WRITE_CREATE : k === "world" ? WRITE_WORLD.replace("Name, Kind,", `Name, Kind (${topicOf(chatTopic(c)).label}),`) : WRITE_CHAT;
 }
 
+// ── The live link to the local AI ──
+// While the chat is open the page keeps a heartbeat on the laptop (every
+// 15 seconds, and at once when the tab comes back, the phone wakes or the
+// network returns). When the laptop drops off it keeps retrying on its own
+// (5s, 10s, 20s, then every 30s) and the pill says so; tap it to try now.
+// While it's up, the model is kept loaded (POST /warm every 10 minutes), so
+// replies don't wait for a model load or stumble on the first one.
+let aiUp = null, aiModel = "", aiReady = false, aiFails = 0, aiTimer = 0, aiNext = 0, aiChecking = null, aiWarmAt = 0, aiWarmMissing = false;
+const aiWaiters = new Set();
+const chatOpen = () => OWNER && location.hash.startsWith("#chat");
 function setAi(up) {
-  const p = $("aiPill");
-  if (p) { p.textContent = up ? "● Local AI awake" : "● Local AI asleep"; p.className = "ai " + (up ? "live" : "down"); }
+  const p = $("aiPill"); if (!p) return;
+  const wait = up ? 0 : Math.max(0, Math.round((aiNext - Date.now()) / 1000));
+  const t = up === null ? "Connecting…" : up ? (aiReady ? "Connected · ready" : "Connected") : aiChecking ? "Reconnecting…" : wait ? `Laptop asleep · retry in ${wait}s` : "Laptop asleep";
+  p.innerHTML = `●<span class="lbl"> ${t}</span>`;
+  p.className = "ai " + (up ? "live" : up === null ? "" : "down");
+  p.title = (up ? "The lore-keeper's laptop is answering" + (aiReady ? ", and its model is loaded." : ".") : "The laptop isn't answering. It keeps trying on its own; tap to try now.") + (aiModel ? " Model: " + aiModel + "." : "");
+  const m = $("aiModel"); if (m) m.textContent = aiModel ? "Runs " + aiModel + " on our own laptop" : "Runs on our own laptop";
 }
-let aiUp = null, aiModel = "";
+function aiLater(ms) {
+  clearTimeout(aiTimer); aiNext = Date.now() + ms;
+  aiTimer = setTimeout(() => checkAi(), ms);
+}
 function checkAi() {
-  fetch(AI + "/health").then((r) => r.json()).then((j) => { aiUp = !!(j.ok && j.ollama); aiModel = j.model || ""; }).catch(() => { aiUp = false; })
-    .finally(() => { setAi(aiUp); const m = $("aiModel"); if (m) m.textContent = aiModel ? "Runs " + aiModel + " on our own laptop" : "Runs on our own laptop"; showAiKind(); });
+  if (aiChecking) return aiChecking;
+  clearTimeout(aiTimer); setAi(aiUp);
+  aiChecking = fetch(AI + "/health", { cache: "no-store", signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined })
+    .then((r) => r.json()).then((j) => { aiUp = !!(j.ok && j.ollama); aiModel = j.model || aiModel; }).catch(() => { aiUp = false; })
+    .then(() => {
+      aiChecking = null;
+      if (aiUp) { aiFails = 0; warmAi(); for (const w of aiWaiters) w(); aiWaiters.clear(); }
+      else { aiFails++; aiReady = false; }
+      // Keep the heartbeat going only while the chat is open and on screen.
+      if (chatOpen() && document.visibilityState === "visible") aiLater(aiUp ? 15000 : [5000, 10000, 20000][aiFails - 1] || 30000);
+      setAi(aiUp); showAiKind();
+      return aiUp;
+    });
+  return aiChecking;
+}
+// Ticks the "retry in Ns" countdown on the pill.
+setInterval(() => { if (aiUp === false && !aiChecking && $("aiPill")) setAi(false); }, 1000);
+function aiWake() { if (chatOpen()) { aiFails = 0; checkAi(); } }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") aiWake(); else clearTimeout(aiTimer); });
+addEventListener("online", aiWake);
+addEventListener("focus", () => { if (aiUp !== true) aiWake(); });
+addEventListener("pageshow", (e) => { if (e.persisted) aiWake(); });
+// Keeps the model loaded, sized for the open chat. An older laptop server
+// without /warm (404) is fine: the chat still works, it just loads on demand.
+function warmAi(force) {
+  if (aiWarmMissing || !chatOpen() || (!force && Date.now() - aiWarmAt < 10 * 60 * 1000)) return;
+  aiWarmAt = Date.now();
+  const c = openChat();
+  let chars = 24000;
+  try { if (c) chars = chatMessages(c, "turn").reduce((n, m) => n + m.content.length, 0); } catch {}
+  fetch(AI + "/warm", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chars }) })
+    .then((r) => { if (r.status === 404) { aiWarmMissing = true; return null; } return r.ok ? r.json() : null; })
+    .then((j) => { if (j && j.ok) { aiReady = !!j.loaded || aiReady; if (!j.loaded) setTimeout(() => warmAi(true), 20000); setAi(aiUp); } })
+    .catch(() => { aiWarmAt = 0; });
+}
+// Resolves once the laptop answers again (or `signal` aborts).
+function waitForAi(signal) {
+  return new Promise((ok, no) => {
+    if (signal && signal.aborted) return no(new DOMException("Stopped", "AbortError"));
+    const done = () => { if (signal) signal.removeEventListener("abort", stop); ok(); };
+    const stop = () => { aiWaiters.delete(done); no(new DOMException("Stopped", "AbortError")); };
+    aiWaiters.add(done);
+    if (signal) signal.addEventListener("abort", stop, { once: true });
+    if (!aiChecking) aiLater(Math.min(Math.max(0, aiNext - Date.now()) || 3000, 5000));
+  });
+}
+// One call to the narrator, kept alive: if the laptop can't be reached the
+// message waits and goes out as soon as it's back (up to 5 minutes), and a
+// hiccup from the laptop (a 502/503 while the model loads) is retried once.
+async function narrateKept(messages, signal, say) {
+  const until = Date.now() + 5 * 60 * 1000;
+  for (let tries = 0; ; tries++) {
+    try {
+      const r = await fetch(AI + "/narrate", { method: "POST", headers: { "content-type": "application/json" }, signal, body: JSON.stringify({ messages }) });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.text) { aiUp = true; aiReady = true; aiFails = 0; setAi(true); return data.text; }
+      const err = new Error(data.error || "the laptop answered " + r.status);
+      if ((r.status === 502 || r.status === 503 || r.status === 504) && tries < 1) { say("The laptop stumbled; trying once more…"); await new Promise((w) => setTimeout(w, 2500)); continue; }
+      throw err;
+    } catch (e) {
+      if (e.name === "AbortError" || !(e instanceof TypeError)) throw e;
+      if (Date.now() > until) throw Object.assign(new Error("offline"), { offline: true });
+      aiUp = false; aiReady = false; setAi(false);
+      say("Lost the laptop. Your message is held and goes out as soon as it's back…");
+      await waitForAi(signal);
+      say("Back. Sending…");
+    }
+  }
 }
 // Abliterated or standard, worked out from the model's name (/ai-model-note.js).
 function showAiKind() {
@@ -1959,9 +2068,9 @@ function chatRoute(arg, extra) {
 }
 function drawChat() {
   const c = openChat();
-  view.innerHTML = `<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="ai" id="aiPill">Checking the local AI…</span><span class="chatnote" id="aiModel">Runs on our own laptop</span><span class="chatnote" id="aiKind" hidden></span></div>
+  view.innerHTML = `<div class="row aiinfo" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="chatnote" id="aiModel">Runs on our own laptop</span><span class="chatnote" id="aiKind" hidden></span></div>
   <section class="chatbox" aria-label="Chat with the lore-keeper">
-    <div class="chathead"><span>THE LORE-KEEPER</span>${c && c.mode === "chat" ? `<span class="topic"><label for="topicPick">On</label><select id="topicPick" title="What the lore-keeper thinks this chat is about. It works this out as you talk; pick one to pin it.">${topicOptions(c)}</select></span>` : `<span class="about">${c ? esc(chatTitle(c)) : "Characters, regions, rules and more"}</span>`}${c ? `<button type="button" class="morebtn" id="moreChat" aria-expanded="false" aria-controls="chatMore" title="More: resend, write it up, save, copy" aria-label="More actions">⋯</button>` : ""}</div>
+    <div class="chathead"><span>THE LORE-KEEPER</span><button type="button" class="ai" id="aiPill" aria-live="polite">●<span class="lbl"> Connecting…</span></button>${c && c.mode === "chat" ? `<span class="topic"><label for="topicPick">On</label><select id="topicPick" title="What the lore-keeper thinks this chat is about. It works this out as you talk; pick one to pin it.">${topicOptions(c)}</select></span>` : `<span class="about">${c ? esc(chatTitle(c)) : "Characters, regions, rules and more"}</span>`}${c ? `<button type="button" class="morebtn" id="moreChat" aria-expanded="false" aria-controls="chatMore" title="More: resend, write it up, save, copy" aria-label="More actions">⋯</button>` : ""}</div>
     <div class="chatlog" id="chatlog" aria-live="polite"></div>
     <button type="button" class="tolatest" id="toLatest" hidden>↓ Latest</button>
     <div class="chatstatus" id="chatstatus" role="status" aria-live="polite"></div>
@@ -2002,9 +2111,19 @@ function drawChat() {
   document.body.classList.add("chatting");
   if (c && touch.matches) $("say").placeholder = $("say").placeholder.replace(/\s*\(Ctrl\+Enter sends\)$/, "");
   if (c && phone.matches) $("say").placeholder = "Message the lore-keeper…";
-  setAi(aiUp);
-  if (aiUp === null || aiUp === false) checkAi(); else { const m = $("aiModel"); if (m && aiModel) m.textContent = "Runs " + aiModel + " on our own laptop"; showAiKind(); }
+  document.body.classList.toggle("chatfull", !!c);
+  setAi(aiUp); showAiKind();
+  $("aiPill").onclick = () => { aiFails = 0; checkAi(); };
+  if (c) {
+    // The write-up and a 🛠 change sit at the end of the chat itself, so they
+    // scroll with it (and show on a phone, where the chat fills the screen).
+    const x = document.createElement("div"); x.className = "chatextras"; x.id = "chatExtras";
+    x.append($("writeup"), $("changeBox"), $("reopenWrite"));
+    $("chatlog").appendChild(x);
+  }
   if (!c) drawStart(); else drawLog();
+  checkAi();   // (re)starts the heartbeat; warms the model once it answers
+  if (c && aiUp) warmAi(true);
   $("ownerSave").onclick = () => {
     const t = $("ownerToken").value.trim();
     if (!t) return $("ownerToken").focus();
@@ -2017,8 +2136,8 @@ function drawChat() {
   $("ownerCancel").onclick = () => { $("ownerRow").hidden = true; $("ownerToken").value = ""; savePending = ""; };
   if (c) {
     $("sendSay").onclick = sendSay;
-    $("chatlog").addEventListener("scroll", jumpBtn, { passive: true });
-    $("toLatest").onclick = () => { const log = $("chatlog"); log.scrollTo({ top: log.scrollHeight, behavior: "smooth" }); };
+    $("chatlog").addEventListener("scroll", () => { const l = $("chatlog"); chatStick = l.scrollHeight - l.scrollTop - l.clientHeight < 80; jumpBtn(); }, { passive: true });
+    $("toLatest").onclick = () => { const log = $("chatlog"); chatStick = true; log.scrollTo({ top: log.scrollHeight, behavior: "smooth" }); };
     $("say").oninput = fitSay;
     $("say").onfocus = () => { if (phone.matches) setTimeout(showChatBox, 300); };
     fitSay();
@@ -2069,22 +2188,30 @@ function writeLabel(c) { return writeKind(c) === "review" ? '📋<span class="lb
 // --app-h is the height actually visible, so the chat shrinks above the
 // on-screen keyboard instead of hiding behind it.
 const phone = matchMedia("(max-width:600px)"), touch = matchMedia("(pointer:coarse)");
+// --app-top follows the visible area too (iOS slides it up for the keyboard).
+// Resizing only keeps the chat at its newest message if you were already
+// there: scrolling up to read stays put when the keyboard or the address
+// bar comes and goes.
+let chatStick = true;
 function fitHeight() {
-  const vv = window.visualViewport;
-  document.documentElement.style.setProperty("--app-h", Math.round(vv ? vv.height : innerHeight) + "px");
-  if ($("chatlog") && openChat()) toLatest();
+  const vv = window.visualViewport, st = document.documentElement.style;
+  st.setProperty("--app-h", Math.round(vv ? vv.height : innerHeight) + "px");
+  st.setProperty("--app-top", Math.round(vv ? vv.offsetTop : 0) + "px");
+  if ($("chatlog") && openChat() && chatStick) toLatest();
 }
 (window.visualViewport || window).addEventListener("resize", fitHeight);
+if (window.visualViewport) visualViewport.addEventListener("scroll", fitHeight);
 fitHeight();
 function showChatBox() {
   const box = document.querySelector(".chatbox.playing");
+  if (box && phone.matches && document.body.classList.contains("chatfull")) return;   // already fills the screen
   if (box) box.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 // Scroll the chat to what's newest: the bottom, or the start of the last
 // reply when it's taller than the window, so it reads from the top.
 function toLatest() {
   const log = $("chatlog"); if (!log) return;
-  const last = log.lastElementChild;
+  const says = log.querySelectorAll(".say"), last = says[says.length - 1];
   if (last && last.classList.contains("keeper") && !last.classList.contains("writing") && last.offsetHeight > log.clientHeight - 40) log.scrollTop = last.offsetTop - 12;
   else log.scrollTop = log.scrollHeight;
   jumpBtn();
@@ -2100,7 +2227,9 @@ function jumpBtn() {
 function fitSay() {
   const r = $("say"); if (!r) return;
   if (!phone.matches) { r.style.height = ""; return; }
-  r.style.height = "auto"; r.style.height = Math.min(r.scrollHeight + 2, innerHeight * .3) + "px";
+  const was = r.offsetHeight;
+  r.style.height = "auto"; r.style.height = Math.min(r.scrollHeight + 2, (window.visualViewport ? visualViewport.height : innerHeight) * .3) + "px";
+  if (r.offsetHeight !== was && chatStick) toLatest();
 }
 function topicOptions(c) {
   const auto = topicOf(c.topic || "general");
@@ -2149,14 +2278,15 @@ function drawStart() {
   });
 }
 function drawLog() {
-  const c = openChat(), log = $("chatlog");
-  log.innerHTML = "";
+  const c = openChat(), log = $("chatlog"), extras = $("chatExtras");
+  [...log.children].forEach((el) => { if (el !== extras) el.remove(); });
+  const add = (el) => log.insertBefore(el, extras);
   for (const m of c.messages) {
     const d = document.createElement("div");
     d.className = "say " + (m.role === "assistant" ? "keeper" : "me");
     d.textContent = m.content;
     d.appendChild(copyButton(m.content));
-    log.appendChild(d);
+    add(d);
     // A reply about a world on the other side of a rift links to where it's played.
     if (m.role === "assistant") {
       const prev = c.messages[c.messages.indexOf(m) - 1];
@@ -2165,11 +2295,11 @@ function drawLog() {
         const r = document.createElement("div");
         r.className = "riftlinks inchat";
         r.innerHTML = worlds.map((w) => `<span class="tag">🌀 ${esc(w.name)}:</span>${riftLinks(w)}`).join("");
-        log.appendChild(r);
+        add(r);
       }
     }
   }
-  toLatest();
+  chatStick = true; toLatest();
   const w = $("writeup");
   w.hidden = !c.writeup || !!c.writeupClosed;
   $("reopenWrite").hidden = !c.writeup || !c.writeupClosed;
@@ -2294,21 +2424,19 @@ async function ask(c, mode, onDone, after) {
   setChatBusy(true); chatStatus("");
   const live = document.createElement("div");
   live.className = "say keeper writing"; live.textContent = mode === "write" ? "The lore-keeper is writing it up…" : "The lore-keeper is thinking…";
-  const log = $("chatlog"); if (log && openChat() === c) { log.appendChild(live); log.scrollTop = log.scrollHeight; }
+  const log = $("chatlog"); if (log && openChat() === c) { log.insertBefore(live, $("chatExtras")); if (chatStick) log.scrollTop = log.scrollHeight; }
   try {
     if (!text.lore && !Object.values(text).some(Boolean)) throw new Error("the orrery's documents haven't loaded; press Reload from GitHub");
     chatStopper = new AbortController();
-    const r = await fetch(AI + "/narrate", { method: "POST", headers: { "content-type": "application/json" }, signal: chatStopper.signal, body: JSON.stringify({ messages: chatMessages(c, mode) }) });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok || !data.text) throw new Error(data.error || "the laptop answered " + r.status);
-    onDone(data.text.trim()); c.at = Date.now(); keepChats(); saveForReview(c); aiUp = true; setAi(true);
+    const reply = await narrateKept(chatMessages(c, mode), chatStopper.signal, (t) => { live.textContent = t; const l = $("chatlog"); if (l && chatStick) l.scrollTop = l.scrollHeight; });
+    onDone(reply.trim()); c.at = Date.now(); keepChats(); saveForReview(c);
     if (openChat() === c && $("chatlog")) { drawLog(); if (after) after(); }
   } catch (e) {
-    const stopped = e.name === "AbortError", offline = !stopped && e instanceof TypeError;
+    const stopped = e.name === "AbortError", offline = !stopped && (e.offline || e instanceof TypeError);
     if (offline) { aiUp = false; setAi(false); }
     live.remove();
     chatStatus(stopped ? "Stopped. Press ↻ Resend to ask again."
-      : offline ? "The lore-keeper couldn't be reached. The laptop may be asleep; try again later."
+      : offline ? "The laptop stayed out of reach for 5 minutes. It's still being checked; press ↻ Resend once the pill turns green."
       : "The lore-keeper couldn't answer: " + e.message + ". Press ↻ Resend to try again.", !stopped);
   } finally { chatStopper = null; live.remove(); setChatBusy(false); }
 }
@@ -2463,11 +2591,8 @@ async function askChange(c) {
     if (!ctx.picked.length) throw new Error("nothing in the documents matches it. Name the person, place or thing as the Orrery spells it");
     const prompt = `${CHANGE_KEEPER}\n\n${CHANGE_TASK}\n\nLORE:\n${ctx.lore.join("\n") || "(no lore line names it)"}\n\nSOURCE:\n${ctx.picked.map((x) => "### FILE: " + x.file + "\n" + x.body).join("\n\n")}\n\nREQUEST: ${req}\n\nReply with the JSON object only.`;
     chatStopper = new AbortController();
-    const r = await fetch(AI + "/narrate", { method: "POST", headers: { "content-type": "application/json" }, signal: chatStopper.signal, body: JSON.stringify({ messages: [{ role: "user", content: prompt }] }) });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok || !data.text) throw new Error(data.error || "the laptop answered " + r.status);
-    aiUp = true; setAi(true);
-    const j = parseChange(data.text);
+    const j = parseChange(await narrateKept([{ role: "user", content: prompt }], chatStopper.signal, (t) => chatStatus(t)));
+    chatStatus("");
     if (!j) throw new Error("its answer wasn't the JSON it was asked for. Press 🛠 again to retry");
     const chk = checkChange(j, files, ctx);
     if (files.failed && files.failed.length) chk.warnings.push(`${files.failed.join(", ")} couldn't be read from the review branch just now, so the change wasn't checked against ${files.failed.length > 1 ? "them" : "it"}.`);
@@ -2480,9 +2605,10 @@ async function askChange(c) {
       : !fits ? `I can't make that change: it ${c.change.verdict === "clashes" ? "clashes with the canon" : "isn't clear enough to make"}. ${c.change.why}${c.change.clash ? ` The canon says: “${c.change.clash}”` : ""}`
       : `It fits the canon, but the edits I drafted didn't pass the checks, so nothing can be applied yet. Try saying it more exactly.` });
   } catch (e) {
-    const stopped = e.name === "AbortError", offline = !stopped && e instanceof TypeError;
+    const stopped = e.name === "AbortError", offline = !stopped && (e.offline || e instanceof TypeError);
     if (offline) { aiUp = false; setAi(false); }
-    c.change = { ...c.change, state: "error", error: stopped ? "Stopped." : offline ? "The lore-keeper couldn't be reached. The laptop may be asleep." : "Couldn't check it: " + e.message + "." };
+    chatStatus("");
+    c.change ={ ...c.change, state: "error", error: stopped ? "Stopped." : offline ? "The lore-keeper couldn't be reached. The laptop may be asleep." : "Couldn't check it: " + e.message + "." };
   } finally { chatStopper = null; setChatBusy(false); }
   c.at = Date.now(); keepChats();
   if (openChat() === c && $("chatlog")) { drawLog(); drawChange(c); }
