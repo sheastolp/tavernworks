@@ -181,7 +181,7 @@
     const fresh = items.filter((i) => i.kind === "new" && i.file !== "lore.md");
     const decided = fresh.filter((i) => /your idea|decided/i.test(i.tag)).length + items.filter((i) => i.kind === "decided").length;
     const pitches = fresh.filter((i) => /pitch|not decided/i.test(i.tag)).length;
-    if (decided || pitches) out.push(`⚖️ ${decided ? `<b>${count(decided, "entry", "entries")}</b> ${decided === 1 ? "becomes" : "become"} canon (Your idea)` : "Nothing becomes canon"}${pitches ? `; <b>${count(pitches, "pitch", "pitches")}</b> ${pitches === 1 ? "stays an idea" : "stay ideas"} to weigh, not canon` : ""}.`);
+    if (decided || pitches) out.push(`⚖️ ${decided ? `<b>${count(decided, "entry", "entries")}</b> ${decided === 1 ? "becomes" : "become"} canon (Your idea)` : "Nothing becomes canon"}${pitches ? `; <b>${count(pitches, "pitch", "pitches")}</b> ${pitches === 1 ? "stays a pitch" : "stay pitches"}, not canon` : ""}.`);
     const srcs = {};
     for (const i of items) if (i.from) srcs[i.from] = (srcs[i.from] || 0) + 1;
     const s = Object.entries(srcs);
@@ -199,7 +199,7 @@
         return `<li><span class="kind ${i.kind}">${LABEL[i.kind]}</span> <b>${esc(i.title)}</b>${meta ? ` <small>${meta}</small>` : ""}
           ${i.kind === "removed" ? lines(i.removed, "minus", "−") : lines(i.added, "plus", "+") + (i.kind === "changed" ? lines(i.removed, "minus", "−") : "")}</li>`;
       }).join("")}</ul>`).join("")}
-      <p class="note">${esc(count((j.commits || []).length, "commit"))} and ${esc(count((j.files || []).length, "file"))} behind this. The commit list and line-by-line diffs are further down.</p>`;
+      <p class="note">${esc(count((j.commits || []).length, "commit"))} and ${esc(count((j.files || []).length, "file"))} behind this. The commit list and line-by-line diffs are just below.</p>`;
   }
   // "Waiting: 2 new (Brinna Holt, Wren Alder), 1 changed (Healers)."
   function short(items) {
@@ -210,7 +210,7 @@
       const names = [...new Set(use.filter((i) => i.kind === k).map((i) => i.title))];
       return names.length ? `${names.length} ${LABEL[k].toLowerCase()} (${names.slice(0, 3).join(", ")}${names.length > 3 ? ", …" : ""})` : "";
     }).filter(Boolean);
-    return "Waiting: " + parts.join(", ") + (docItems.length && items.length > docItems.length ? ", and the narrator's lore changes" : "") + ".";
+    return "On review: " + parts.join(", ") + (docItems.length && items.length > docItems.length ? ", and the narrator's lore changes" : "") + ".";
   }
 
   window.ReviewSummary = { build };

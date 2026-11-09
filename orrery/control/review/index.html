@@ -188,14 +188,12 @@
 
   <section class="card step" id="waitCard" aria-labelledby="h-view">
     <h2 id="h-view"><span class="stepno">2</span>👁 View <span class="pill" id="viewPill">…</span></h2>
+    <p class="note">Just for looking: nothing here needs you. It shows what publishing will change, and keeps itself up to date.</p>
     <p class="count" id="count">Checking GitHub…</p>
     <div class="summary" id="summary" hidden></div>
-    <p class="note" id="loreNudge" hidden></p>
-    <div class="row">
-      <a class="btn primary" id="cloneLink" href="/orrery/?clone=review" target="_blank" rel="noopener">🔍 Open the Review Clone</a>
-      <button type="button" id="refresh">Check again</button>
+    <div class="row" id="cloneRow">
+      <a class="btn" id="cloneLink" href="/orrery/?clone=review" target="_blank" rel="noopener">🔍 Browse it in the Review Clone</a>
     </div>
-    <p class="note">The Review Clone is the whole Orrery Explorer exactly as it will look once you publish.</p>
     <details id="logCard" hidden><summary class="note">Every change, oldest first</summary><ul class="commits" id="commits"></ul></details>
     <details id="filesCard" hidden><summary class="note">File by file (what was added and removed)</summary>
       <div id="files" style="display:flex;flex-direction:column;gap:10px;margin-top:8px"></div>
@@ -210,6 +208,7 @@
       <button class="danger" type="button" id="discard">Throw it all away</button>
     </div>
     <p class="status" id="actStatus" role="status"></p>
+    <p class="note" id="loreNudge" hidden></p>
     <p class="note">Publishing puts it all live at once: the Explorer, Wake in Verrowen, GuildScribe and the other bots follow on their own. Throwing it away drops everything waiting. Both take two taps.</p>
   </section>
 
@@ -369,7 +368,7 @@ function drawNext(){
   const loaded = RV.pitches;
   const pill = (id, text, cls) => { $(id).textContent = text; $(id).className = "pill " + (cls || ""); };
   pill("approvePill", !loaded ? "…" : open ? open + " to decide" : "✔ all decided", open ? "go" : "ok");
-  pill("viewPill", RV.ahead === null ? "…" : RV.ahead ? RV.ahead + " change" + (RV.ahead > 1 ? "s" : "") + " waiting" : "nothing new", RV.ahead ? "go" : "ok");
+  pill("viewPill", RV.ahead === null ? "…" : RV.ahead ? RV.ahead + " change" + (RV.ahead > 1 ? "s" : "") : "nothing new", "");
   pill("pubPill", RV.ahead ? "ready" : RV.behind ? "line up" : "✔ live is current", RV.ahead || RV.behind ? "go" : "ok");
   const now = open ? "approveCard" : RV.ahead ? "actCard" : "";
   ["approveCard", "waitCard", "actCard"].forEach((id) => $(id).classList.toggle("active", id === now));
@@ -377,7 +376,7 @@ function drawNext(){
   $("discard").hidden = !RV.ahead && !RV.behind;
   // Approvals since the last catch-up need lore lines before the narrator knows them.
   $("loreNudge").hidden = !(RV.accepted && !RV.caught);
-  if (!$("loreNudge").hidden) $("loreNudge").innerHTML = `You approved ${RV.accepted} thing${RV.accepted > 1 ? "s" : ""}. Auto mode adds the narrator's lore lines next round, or <button type="button" id="loreNow">📜 Catch the lore up now</button>`;
+  if (!$("loreNudge").hidden) $("loreNudge").textContent = `Auto mode adds the narrator's lore lines for what you approved on its next round (or use More tools › Lore catch-up).`;
   // The bulk buttons only show when the AI has a view on something.
   const yes = pitches.filter((p) => !p.done && p.ai && p.ai.verdict === "approve").length;
   const no = pitches.filter((p) => !p.done && p.ai && p.ai.verdict === "reject").length + inbox.filter((it) => it.ai).length;
@@ -386,10 +385,6 @@ function drawNext(){
   $("bulkYes").textContent = `✔ Approve all ${yes} the AI recommends`;
   $("bulkNo").textContent = `✕ Reject all ${no} the AI turns down`;
 }
-$("waitCard").addEventListener("click", (e) => {
-  if (e.target.id !== "loreNow") return;
-  const c = reveal($("cuGo")); c.scrollIntoView({ behavior: "smooth", block: "center" }); c.click();
-});
 // After a write here: re-read, and tell every other open Orrery tab.
 function changed(){ load(); if (window.OrreryLive) OrreryLive.ping("review", "review page"); }
 // Live: the review and main branches are checked every 20 seconds while the
@@ -444,10 +439,10 @@ async function load(){
   RV.ahead = ahead; RV.behind = behind; drawNext();
   if (window.tavernPWA) tavernPWA.badge(ahead);   // the number on the Orrery app icon
   $("logCard").hidden = $("filesCard").hidden = !ahead;
-  $("cloneLink").hidden = !ahead;
+  $("cloneRow").hidden = !ahead;
   if (!ahead){
     $("summary").hidden = true;
-    $("count").innerHTML = "Nothing is waiting. The live Orrery is up to date." + (behind ? ' <span class="note">(Live has ' + behind + " change" + (behind > 1 ? "s" : "") + " that went around the review. Press Throw it all away to line review up with it.)</span>" : "");
+    $("count").innerHTML = "No changes: review matches the live Orrery." + (behind ? ' <span class="note">(Live has ' + behind + " change" + (behind > 1 ? "s" : "") + " that went around the review.)</span>" : "");
     return;
   }
   const files = j.files || [];
@@ -455,7 +450,7 @@ async function load(){
   $("summary").hidden = false; $("summary").innerHTML = '<p class="note">Reading the changes…</p>';
   if (window.ReviewSummary) ReviewSummary.build(j).then((s) => { $("summary").innerHTML = s.html || ""; $("summary").hidden = !s.html; })
     .catch(() => { $("summary").innerHTML = '<p class="note">Couldn\'t read the changes for a summary. The list below still shows them.</p>'; });
-  $("count").innerHTML = `<b>${ahead}</b> change${ahead > 1 ? "s" : ""} waiting to go live, in <b>${files.length}</b> file${files.length === 1 ? "" : "s"}.` +
+  $("count").innerHTML = `Publishing will change <b>${files.length}</b> file${files.length === 1 ? "" : "s"} (${ahead} change${ahead > 1 ? "s" : ""}).` +
     (behind ? ` <span class="note">Live also has ${behind} change${behind > 1 ? "s" : ""} review doesn't; publishing merges the two.</span>` : "");
 
   // Oldest first, the order they were made in, so the newest is at the bottom.
@@ -509,7 +504,6 @@ $("publish").addEventListener("click", (e) => confirmTwice(e.currentTarget, "Tap
   act("/admin/publish", "Publishing…", (j) => "✔ Live. Everything that reads the Orrery now has " + j.sha.slice(0, 7) + ".")));
 $("discard").addEventListener("click", (e) => confirmTwice(e.currentTarget, "Tap again to throw it all away", () =>
   act("/admin/discard", "Throwing it away…", () => "✔ Thrown away. Review matches the live Orrery again.")));
-$("refresh").addEventListener("click", () => { load(); loadPitches(); });
 $("token").addEventListener("change", () => { if ($("token").value.trim()){ try{ localStorage.setItem(KEY, $("token").value.trim()); }catch(e){} loadInbox(); loadRest(); loadPitches(); loadLk(); } drawNext(); });
 
 // ── The owner's latest lore-keeper chat ──
