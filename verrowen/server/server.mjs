@@ -173,17 +173,10 @@ function cleanMessages(list) {
 const stripThinking = (t) => String(t || "").replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, "").trim();
 
 // ── Narrating ──
-// Either signal stops the request. (AbortSignal.any is Node 20.3+; this
-// does the same on Node 18.)
-function eitherSignal(a, b) {
-  if (AbortSignal.any) return AbortSignal.any([a, b]);
-  const c = new AbortController();
-  for (const s of [a, b]) {
-    if (s.aborted) { c.abort(s.reason); break; }
-    s.addEventListener("abort", () => c.abort(s.reason), { once: true });
-  }
-  return c.signal;
-}
+// No time cap on a reply: the 4b model on a laptop GPU can take minutes
+// over a long canon prompt, and a cut-off reply reads as the narrator
+// ignoring the player. A reply ends when the model finishes, or when the
+// caller hangs up (their signal still stops the request at once).
 let waiting = 0;
 // `left` fires when the browser hangs up (the player pressed Stop, or closed
 // the page). Ollama stops generating when its request is cancelled, so the
@@ -241,7 +234,7 @@ async function narrate(messages, left, opts = {}) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ model: MODEL, messages, stream: false, keep_alive: "30m", options: { ...(opts.maxTokens ? { num_predict: opts.maxTokens } : {}), num_ctx: ctx, top_p: 0.9, repeat_last_n: 256, ...options, ...(opts.temperature != null ? { temperature: opts.temperature } : {}) } }),
-      signal: left ? eitherSignal(AbortSignal.timeout(180000), left) : AbortSignal.timeout(180000),
+      signal: left || undefined,
     });
     let r = await ask({ temperature: 0.9, repeat_penalty: 1.15 });
     let j = await r.json().catch(() => ({}));
@@ -256,7 +249,7 @@ async function narrate(messages, left, opts = {}) {
   } catch (e) {
     if (e.status) throw e;
     if (left?.aborted) throw Object.assign(new Error("The player stopped waiting"), { status: 499, quiet: true });
-    throw Object.assign(new Error(e.name === "TimeoutError" ? "The narrator took too long" : "Ollama isn't answering on the laptop"), { status: 502 });
+    throw Object.assign(new Error("Ollama isn't answering on the laptop"), { status: 502 });
   } finally { waiting--; }
 }
 
