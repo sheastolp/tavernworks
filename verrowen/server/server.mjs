@@ -80,8 +80,12 @@ const MAX_BODY = 256 * 1024;        // bytes per request
 const MAX_MESSAGES = 60;
 const MAX_FIRST = 24000;            // the first message carries the rules and the lore
 const MAX_MSG = 4000;               // every other message
-const MAX_REPLY_TOKENS = 700;
-const MAX_CTX = Number(process.env.VERROWEN_MAX_CTX || 16384);   // the most context the GPU is asked to hold       // a turn is 120 to 220 words; a profile is a bit longer
+const MAX_CTX = Number(process.env.VERROWEN_MAX_CTX || 16384);   // the most context the GPU is asked to hold
+// Replies are not capped: the model talks until it's done, and the context
+// window and the request timeout are the only limits. (Internal checks that
+// need a short, shaped answer still pass their own maxTokens.) REPLY_ROOM
+// is only the room ctxFor leaves in the window for one reply.
+const REPLY_ROOM = 4096;
 const PER_IP = { n: 40, ms: 10 * 60 * 1000 };   // narrate calls per address per 10 minutes
 const ALL = { n: 240, ms: 10 * 60 * 1000 };     // narrate calls from everyone per 10 minutes
 const MAX_WAITING = 4;
@@ -188,7 +192,7 @@ let waiting = 0;
 // whenever the window changes, so coarse steps keep it loaded from one turn
 // to the next instead of reloading as a chat grows by a few hundred words.
 function ctxFor(chars) {
-  return Math.min(MAX_CTX, Math.max(4096, Math.ceil((chars / 3 + MAX_REPLY_TOKENS + 256) / 4096) * 4096));
+  return Math.min(MAX_CTX, Math.max(4096, Math.ceil((chars / 3 + REPLY_ROOM + 256) / 4096) * 4096));
 }
 // Loads the model (with the window a chat of `chars` characters needs) and
 // keeps it loaded for 30 more minutes, without writing anything. The
@@ -223,7 +227,7 @@ async function narrate(messages, left, opts = {}) {
     const ask = (options) => fetch(OLLAMA + "/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages, stream: false, keep_alive: "30m", options: { num_predict: opts.maxTokens || MAX_REPLY_TOKENS, num_ctx: ctx, top_p: 0.9, repeat_last_n: 256, ...options, ...(opts.temperature != null ? { temperature: opts.temperature } : {}) } }),
+      body: JSON.stringify({ model: MODEL, messages, stream: false, keep_alive: "30m", options: { ...(opts.maxTokens ? { num_predict: opts.maxTokens } : {}), num_ctx: ctx, top_p: 0.9, repeat_last_n: 256, ...options, ...(opts.temperature != null ? { temperature: opts.temperature } : {}) } }),
       signal: left ? eitherSignal(AbortSignal.timeout(180000), left) : AbortSignal.timeout(180000),
     });
     let r = await ask({ temperature: 0.9, repeat_penalty: 1.15 });
