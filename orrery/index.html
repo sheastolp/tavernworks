@@ -403,6 +403,15 @@
   .chap>h3 small{display:block;font:italic 14px Spectral,serif;color:var(--ink2);letter-spacing:0;margin-top:2px}
   .chap>h4{display:flex;align-items:center;gap:12px;font-family:Cinzel,serif;font-size:14px;letter-spacing:.1em;color:var(--ink2);margin:20px 0 4px}
   .chap>h4::before,.chap>h4::after{content:"";flex:1;border-top:1px solid var(--rule)}
+  /* The Scroll's groups are folds of their own: each starts rolled up, so
+     the chapters read as headings and counts until a group is unrolled. */
+  details.grp>summary{display:flex;align-items:center;gap:12px;font-family:Cinzel,serif;font-size:14px;letter-spacing:.1em;color:var(--ink2);margin:20px 0 4px;cursor:pointer;list-style:none}
+  details.grp>summary::-webkit-details-marker{display:none}
+  details.grp>summary::before,details.grp>summary::after{content:"";flex:1;border-top:1px solid var(--rule)}
+  details.grp>summary .cnt{font:12px Inter,sans-serif;letter-spacing:0;text-transform:none}
+  details.grp>summary .chev{color:var(--red);font-family:Inter,sans-serif;letter-spacing:0;transition:transform .3s}
+  details.grp[open]>summary .chev{transform:rotate(180deg)}
+  .chap.azchap{margin-top:16px}
   .entries{list-style:none;padding:0;margin:0}
   .entry{border-bottom:1px solid rgba(94,60,28,.12)}
   .entry summary{display:grid;grid-template-columns:1.7em minmax(0,max-content) minmax(10px,1fr) auto;column-gap:8px;align-items:baseline;cursor:pointer;list-style:none;padding:7px 0 6px}
@@ -436,7 +445,7 @@
     .rec dl{grid-template-columns:1fr;gap:0}.rec dd{margin-bottom:6px}
     .ledgerbar input,.ledgerbar select{font-size:16px}
   }
-  @media print{nav.top,header,footer,.ledgerbar,.scroll .rod{display:none!important}.parch{box-shadow:none;background:#fff}}
+  @media print{nav.top,header,footer,.ledgerbar,.scroll .rod{display:none!important}.parch{box-shadow:none;background:#fff}details.grp:not([open])>ol{display:block}}
 </style>
 </head>
 <body>
@@ -1273,6 +1282,10 @@ const LEDGER = [
 ];
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
 const ledgerQ = { q: "", kind: "", status: "", sort: "chapter" };
+// Every group in the Scroll starts rolled up; the ones a reader unrolls
+// stay unrolled for the visit, so a redraw (a search, a canon update moving
+// things around) doesn't roll them back up under them.
+const openGroups = new Set();
 try { const s = JSON.parse(localStorage.getItem("orrery-scroll") || "{}"); for (const k of ["kind", "status", "sort"]) if (typeof s[k] === "string") ledgerQ[k] = s[k]; } catch {}
 const keepLedgerQ = () => { try { localStorage.setItem("orrery-scroll", JSON.stringify({ kind: ledgerQ.kind, status: ledgerQ.status, sort: ledgerQ.sort })); } catch {} };
 let ledgerMemo = null, ledgerKey = "";
@@ -1376,14 +1389,16 @@ function ledgerBody() {
   if (ledgerQ.sort === "az") {
     const sorted = [...shown].sort((a, b) => a.name.replace(/^the\s+/i, "").localeCompare(b.name.replace(/^the\s+/i, ""), undefined, { sensitivity: "base" }));
     const letters = [...new Set(sorted.map((r) => (r.name.replace(/^the\s+/i, "")[0] || "#").toUpperCase()))];
-    return head + letters.map((L) => `<section class="chap"><h4>${esc(L)}</h4><ol class="entries">${sorted.filter((r) => (r.name.replace(/^the\s+/i, "")[0] || "#").toUpperCase() === L).map(ledgerEntry).join("")}</ol></section>`).join("");
+    return head + letters.map((L) => { const inL = sorted.filter((r) => (r.name.replace(/^the\s+/i, "")[0] || "#").toUpperCase() === L), gid = "az:" + L;
+      return `<section class="chap azchap"><details class="grp" data-gid="${esc(gid)}"${openGroups.has(gid) ? " open" : ""}><summary><span>${esc(L)}</span><span class="cnt">${inL.length} ${inL.length === 1 ? "entry" : "entries"}</span><span class="chev" aria-hidden="true">⌄</span></summary><ol class="entries">${inL.map(ledgerEntry).join("")}</ol></details></section>`; }).join("");
   }
   return head + LEDGER.map((ch, k) => {
     const mine = shown.filter((r) => r.kind === ch.kind);
     if (!mine.length) return "";
     const groups = [...new Set(mine.map((r) => r.group))];
     return `<section class="chap" id="ch-${ch.kind}"><h3><span class="num">CHAPTER ${ROMAN[k]}</span>${esc(ch.title)}<small>${esc(ch.sub)} · ${ledgerCount(mine.length, ch)}</small></h3>${
-      groups.map((g) => `${groups.length > 1 ? `<h4>${esc(g)}</h4>` : ""}<ol class="entries">${mine.filter((r) => r.group === g).map(ledgerEntry).join("")}</ol>`).join("")}</section>`;
+      groups.map((g) => { const inG = mine.filter((r) => r.group === g), gid = ch.kind + ":" + g;
+        return `<details class="grp" data-gid="${esc(gid)}"${openGroups.has(gid) ? " open" : ""}><summary><span>${esc(g)}</span><span class="cnt">${ledgerCount(inG.length, ch)}</span><span class="chev" aria-hidden="true">⌄</span></summary><ol class="entries">${inG.map(ledgerEntry).join("")}</ol></details>`; }).join("")}</section>`;
   }).join("");
 }
 function scroll() {
@@ -1421,6 +1436,7 @@ let ledgerDrawn = null;
 // The big scroll starts rolled up; once unrolled it stays so for the visit.
 let bigOpen = false;
 document.addEventListener("toggle", (e) => { if (e.target.id === "bigScroll") bigOpen = e.target.open; }, true);
+document.addEventListener("toggle", (e) => { const d = e.target; if (d.classList && d.classList.contains("grp") && d.dataset.gid) (d.open ? openGroups.add(d.dataset.gid) : openGroups.delete(d.dataset.gid)); }, true);
 function refreshScroll() {
   if (!onScroll() || !$("ledgerBody")) return;
   if (ledgerRecords() === ledgerDrawn) return;
