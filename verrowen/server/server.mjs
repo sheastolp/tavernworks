@@ -830,6 +830,16 @@ function addFact(text, heading, fact) {
   const at = lines.indexOf(heading);
   if (at < 0) return null;
   let end = lines.findIndex((l, i) => i > at && /^#{1,6}\s/.test(l)); if (end < 0) end = lines.length;
+  // A table row (a new person in a roster table, say) goes inside the
+  // section's table, as its last row — a "- " bullet after the table
+  // would leave it outside the table and unread.
+  if (fact.startsWith("|")) {
+    let last = -1;
+    for (let i = at + 1; i < end; i++) if (/^\s*\|/.test(lines[i])) last = i;
+    if (last < 0) return null;
+    lines.splice(last + 1, 0, fact);
+    return lines.join("\n") + "\n";
+  }
   while (end > at + 1 && !lines[end - 1].trim()) end--;
   lines.splice(end, 0, "- " + fact);
   return lines.join("\n") + "\n";

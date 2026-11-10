@@ -2517,13 +2517,13 @@ async function ask(c, mode, onDone, after) {
 // lore.md is only changed by the lore catch-up, and midkemia.md (DM lore)
 // only from the DM, so neither is offered.
 const CHANGE_FILES = ["roster.md", "universe.md", "working-notes.md", "resources.md", "bestiary.md"];
-const CHANGE_BUDGET = 7000, CHANGE_LORE = 12;
+const CHANGE_BUDGET = 9000, CHANGE_LORE = 12;
 // Kept short on purpose: a change sends only what it touches, not the whole canon.
 const CHANGE_KEEPER = `You are the Orrery's lore-keeper, checking an edit to the Grand Orrery, a medieval fantasy universe. LORE and SOURCE are canon. Setting rules: as LORE states them.`;
 const CHANGE_VERB = /^\s*(?:please\s+|can you\s+|could you\s+|let'?s\s+|i want to\s+)?(?:change|rename|set|replace|update|fix|correct|remove|delete|drop|move|make|add|give|swap)\b/i;
 const CHANGE_TASK = `TASK: the author wants to CHANGE the canon. REQUEST is what they asked for. SOURCE is the exact current text of the parts of the documents it touches; each part starts with "### FILE: <file>". Check the change against the LORE and the rest of SOURCE, then reply with ONE JSON object and nothing else:
 {"verdict":"fits"|"clashes"|"unclear","why":"one or two plain sentences","clash":"the exact canon words it clashes with, or \"\"","edits":[{"file":"<file>","old":"text copied exactly from SOURCE, a whole line where you can, at least 8 characters","new":"the same text with the change made"}],"adds":[{"file":"<file>","heading":"a heading line copied exactly from SOURCE","text":"one new fact, one line"}]}
-Rules: copy "old" character for character from SOURCE. Change only what the request needs, but change every place in SOURCE that must follow for the canon to stay consistent (a rename changes every mention). Keep each line's Markdown, tags and format. Never touch a (DM lore) part, never add a link. "fits" only when nothing in the canon says otherwise. If it clashes or is unclear, leave edits and adds empty and say why in "why".`;
+Rules: copy "old" character for character from SOURCE. Change only what the request needs, but change every place in SOURCE that must follow for the canon to stay consistent (a rename changes every mention). Keep each line's Markdown, tags and format. Never touch a (DM lore) part, never add a link. "fits" only when nothing in the canon says otherwise. If it clashes or is unclear, leave edits and adds empty and say why in "why". A part headed \"### FILE: <file> — lines\" holds the exact lines that name the subject, with the heading they sit under and, where the line is in a table, the table's header: the roster's rows are tables, so copy a whole row as \"old\" to change that person's details (their race, age, role, line or secret). To ADD a person to a table, use adds with the table's own section heading copied exactly as \"heading\" and \"text\" as one whole new row in the same columns, starting and ending with |.`;
 // A change, not a question: an editing verb, and it names something the Orrery has.
 function looksLikeChange(t) {
   if (!CHANGE_VERB.test(t)) return false;
@@ -2566,8 +2566,38 @@ function changeSections(files) {
   out.forEach((x) => { x.dm = /\(DM lore\)/i.test(x.head); });
   return out;
 }
-// What's sent: the sections that name what the request names, then those
-// sharing the most of its words, within the budget. Never DM lore.
+// The exact lines that name the subject, from every changeable document,
+// each with the heading it sits under and, where it's a table row, the
+// table's header. Sections alone can't be trusted for this: a roster table
+// is one long section, and a person's row — their race, age, role, line,
+// secret: their details — can sit far past where a section gets cut, so a
+// change to character details would have nothing exact to copy. DM-lore
+// parts are never picked.
+function linePicks(files, named) {
+  if (!named.length) return [];
+  const picks = [];
+  for (const f of CHANGE_FILES) {
+    const lines = String(files[f] || "").replace(/\r/g, "").split("\n");
+    const keep = new Set(); let dm = false, headAt = -1;
+    lines.forEach((l, i) => {
+      if (/^#{1,4}\s/.test(l)) { dm = /\(DM lore\)/i.test(l); headAt = i; }
+      if (dm || !named.some((x) => hits(patternFor(x.names), l))) return;
+      keep.add(i); if (headAt >= 0) keep.add(headAt);
+      if (/^\s*\|/.test(l)) {
+        let j = i; while (j > 0 && /^\s*\|/.test(lines[j - 1])) j--;
+        keep.add(j);
+        if (j + 1 < i && /^\s*\|[\s:|-]+\|\s*$/.test(lines[j + 1] || "")) keep.add(j + 1);
+      }
+    });
+    if (!keep.size) continue;
+    const body = [...keep].sort((a, b) => a - b).map((i) => lines[i]).join("\n");
+    picks.push({ file: f, head: "lines", body: body.length > 2400 ? body.slice(0, 2400) : body });
+  }
+  return picks;
+}
+// What's sent: the exact lines that name the subject first, then the
+// sections that name what the request names and those sharing the most of
+// its words, within the budget. Never DM lore.
 function changeContext(req, files) {
   const named = [...PEOPLE, ...ITEMS, ...BEASTS, ...PLACES].filter((x) => x.names && x.names.length && hits(patternFor(x.names), req));
   const words = [...new Set((req.toLowerCase().match(/[a-z][a-z'-]{3,}/g) || []).filter((w) => !STOP.has(w)))];
@@ -2576,7 +2606,7 @@ function changeContext(req, files) {
     const n = named.reduce((a, it) => a + 5 * hits(patternFor(it.names), x.body), 0) + words.filter((w) => low.includes(w)).length;
     return { ...x, n };
   }).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
-  const picked = []; let used = 0;
+  const picked = linePicks(files, named); let used = picked.reduce((a, x) => a + x.body.length, 0);
   for (const x of scored) {
     const body = x.body.length > 3000 ? x.body.slice(0, 3000) : x.body;
     if (used + body.length > CHANGE_BUDGET) continue;
@@ -2616,6 +2646,16 @@ function checkChange(j, files, ctx) {
     const heading = want && /^#/.test(want) ? String(files[file] || "").replace(/\r/g, "").split("\n").find((l) => l.trim() === want) : "";
     if (!heading) { problems.push(`It wanted to add under "${want}" in ${file}, which isn't a heading there.`); continue; }
     if (/\(DM lore\)/i.test(heading)) { problems.push("DM lore is only changed from the DM."); continue; }
+    if (/^\|/.test(line)) {
+      // A whole table row (a new person in the roster, say): the part under
+      // that heading must hold a table for the row to land in.
+      const fl = String(files[file] || "").replace(/\r/g, "").split("\n");
+      const at = fl.indexOf(heading);
+      let table = false;
+      if (at >= 0) for (let i = at + 1; i < fl.length && !/^#{1,6}\s/.test(fl[i]); i++) if (/^\s*\|/.test(fl[i])) { table = true; break; }
+      if (!table) { problems.push(`It wanted to add a table row under "${want}" in ${file}, but there's no table there.`); continue; }
+      if (!/\|$/.test(line)) { problems.push("A new table row has to end with |, like the rows already there."); continue; }
+    }
     if (/https?:|\]\(/i.test(line)) { problems.push("A new line adds a link, which changes made here never do."); continue; }
     adds.push({ file, heading, text: line });
   }
@@ -2649,7 +2689,7 @@ async function askChange(c) {
     const files = await readReviewDocs();
     const ctx = changeContext(req, files);
     if (!ctx.picked.length) throw new Error("nothing in the documents matches it. Name the person, place or thing as the Orrery spells it");
-    const prompt = `${CHANGE_KEEPER}\n\n${CHANGE_TASK}\n\nLORE:\n${ctx.lore.join("\n") || "(no lore line names it)"}\n\nSOURCE:\n${ctx.picked.map((x) => "### FILE: " + x.file + "\n" + x.body).join("\n\n")}\n\nREQUEST: ${req}\n\nReply with the JSON object only.`;
+    const prompt = `${CHANGE_KEEPER}\n\n${CHANGE_TASK}\n\nLORE:\n${ctx.lore.join("\n") || "(no lore line names it)"}\n\nSOURCE:\n${ctx.picked.map((x) => "### FILE: " + x.file + (x.head === "lines" ? " — lines" : "") + "\n" + x.body).join("\n\n")}\n\nREQUEST: ${req}\n\nReply with the JSON object only.`;
     chatStopper = new AbortController();
     const j = parseChange(await narrateKept([{ role: "user", content: prompt }], chatStopper.signal, (t) => chatStatus(t)));
     chatStatus("");
