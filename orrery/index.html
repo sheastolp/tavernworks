@@ -1740,8 +1740,9 @@ if (window.OrreryLive) OrreryLive.on((m) => {
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") liveCheck(); });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && Date.now() - hallAt > 120000) loadHall(); });
 
-// ── The chat: the local AI helps create and review characters, and work
-// out worldbuilding and mechanics (magic, physics, how the world works) ──
+// ── The chat: the local AI helps change the story. The lore-keeper is
+// there to work out a change to the canon and make it, not for general
+// questions, pitches or reviews for their own sake ──
 // It talks to the same gate on the laptop as Wake in Verrowen
 // (verrowen/server/server.mjs → Ollama), with the orrery's own documents as
 // canon. Views: #chat (start or the open chat), #chat/review/<person id>.
@@ -1753,7 +1754,7 @@ const AI = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
 // with an 8k-token window, so the canon and the chat are both kept to a budget.
 // The open chat sends focused canon on top of the lore, so it gets a bit more.
 const CANON_BUDGET = 15000, CHAT_BUDGET = 18000, HISTORY_BUDGET = 9000, MAX_SAY = 2000;
-const KEEPER = `You are the Orrery's lore-keeper: a writing partner for the author of the Grand Orrery, a medieval fantasy universe, helping them build its characters and its world. The LORE, ROSTER and NOTES below are canon. Talk to the author directly, plainly and briefly: under about 200 words a reply unless they ask for more. Plain text only: no markdown headings or tables; a short list is fine. Keep to the setting's rules as the LORE states them. {{WORLD}} When you suggest something, think about the whole world first. Never contradict canon. If an idea clashes with it, say so, quote what it clashes with, and suggest a way to make it fit. Ask at most two questions at a time, and accept what the author decides.`;
+const KEEPER = `You are the Orrery's lore-keeper: a writing partner for the author of the Grand Orrery, a medieval fantasy universe, whose one job is helping them change the story. The Orrery is the database of everything in this universe: its lore, and the details of every item, location, race, person and rule. The LORE, ROSTER and NOTES below are that canon. Talk to the author directly, plainly and briefly: under about 200 words a reply unless they ask for more. Plain text only: no markdown headings or tables; a short list is fine. Keep to the setting's rules as the LORE states them. {{WORLD}} Every chat is aimed at a change: work out what should change, what else it touches, and what the new fact or wording should be. Answer a question only as far as it helps decide a change, then steer back to it. Think about the whole world first. Never contradict canon. If a change clashes with it, say so, quote what it clashes with, and suggest a way to make it fit. Once the author decides, state the change plainly in a line or two, ready to be made: the author can say it in plain words in the chat, or press the change button, and it is applied on the review branch. Nothing agreed here goes live on its own: the author's own changes wait on review and are published by the author, like everything else. Ask at most two questions at a time, and accept what the author decides.`;
 const CREATE = `TASK: help the author create a NEW character for this universe. They must not be any named person in the canon, but should be tied to its people and places. Build the character with the author step by step: offer concrete options (a name that fits the naming style of their people, a role, a want, a fear, a secret, ties to named characters) and let the author choose. Favour roles, races and places the roster doesn't cover yet, especially out across the whole world, not only its best-described place.`;
 const REVIEW = `TASK: review the character below against the canon. Your first reply covers: what works; anything that contradicts the LORE or other characters (quote the clash); gaps worth filling, such as age, magic, motives and ties to others; and two or three concrete suggestions. After that, answer the author's follow-ups and help them revise. Be honest but kind.`;
 const WORLD = `TASK: help the author work out a worldbuilding idea or mechanic: how magic, physics, nature, the land, peoples or customs work in this universe. In your first reply: restate the idea as one plain rule; check it against the canon (quote any clash, or say it fits); then work out what follows from it: what it costs, its limits and edge cases, what happens when it's pushed too far, and how ordinary folk across the world (in its different places), its artificers and its rulers would use or abuse it. End with one or two ways to tighten it. Think like a careful game designer: every power has a price and a limit, and every rule changes daily life somewhere. Keep magic weak and everyday unless the author decides otherwise.`;
@@ -1769,13 +1770,13 @@ const WORLD_KINDS = [
 const WRITE_CREATE = `The author says "write it up." Write the character as it stands, in plain text, with these labeled lines, one per line: Name, Race, Sex, Age, Role, Lives in, Appearance, Personality, Magic, Connections, Secret, Story hooks. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "Who they are" and a paragraph of about 100 words.`;
 const WRITE_WORLD = `The author says "write it up." Write the idea as it stands, in plain text, with these labeled lines, one per line: Name, Kind, The rule (one sentence), How it works, Costs and limits, Who it affects, What it changes, Clashes with canon (or "None"), Open questions. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "In the world" and a paragraph of about 80 words showing it in an everyday scene.`;
 const WRITE_REVIEW = `The author says "sum it up." Write the review's conclusions in plain text with these labeled lines: Verdict (one sentence), What works, Clashes with canon, Gaps, Changes to make (a short numbered list). Base it on the canon and on what was decided in this chat.`;
-const CHAT = `TASK: an open chat with the author about anything in the Grand Orrery: its characters, its regions and places, its peoples, its rules and customs, magic, how the world works, or story. Work out from what they say what they want: an answer from the canon, ideas, a review, or help building something new. Follow them when they change subject.`;
+const CHAT = `TASK: an open chat whose point is changing the story in the Grand Orrery: its characters, its regions and places, its peoples and races, its items, its rules and customs, magic, or how the world works. Work out from what they say what change they are after, and keep the chat on making that change well: what it is, what else it touches in the canon, and the exact new fact or wording. If they ask what the canon says, answer briefly and bring the chat back to the change it points to. Follow them when they change subject: that is a new change to work on.`;
 const FOCUS = {
-  general: `FOCUS: nothing specific yet. If they ask something, answer it from the canon, and say plainly when the canon doesn't say. If they want ideas, offer three short options from different parts of the world and ask which to explore.`,
-  character: `FOCUS: characters. If they're talking about someone in the ROSTER, keep to what the canon says about them (see ABOUT below); when they want a review, cover what works, what clashes with the canon (quote it), gaps such as age, magic, motives and ties to others, and two or three concrete suggestions. If they want to make someone NEW, don't invent the character here: new characters are made by playing Wake in Verrowen, where everything about them (name, race, past, magic) is discovered through play. Tell them to press ✨ Create a character (on the Roster, or on this chat's start screen), which opens Wake in Verrowen, and that the character lands on the Roster pending review when they wrap it up. You can still talk through gaps in the roster a new character could fill, without deciding who they are.`,
-  world: (label) => `FOCUS: ${label}. Restate the idea as one plain rule and check it against the canon (quote any clash, or say it fits). Work out what follows from it: its costs, limits and edge cases, what happens when it's pushed too far, and how ordinary folk across the world (in its different places), its artificers and its rulers would use or abuse it. Think like a careful game designer: every power has a price and a limit, and every rule changes daily life somewhere. If they're only asking what the canon says, just answer.`,
+  general: `FOCUS: nothing specific yet. Work out what change to the story the author is after. If they ask something, answer it briefly from the canon, say plainly when the canon doesn't say, and tie the answer back to the change it suggests. If they don't have a change in mind yet, offer three short changes worth making, from different parts of the world, and ask which to work on.`,
+  character: `FOCUS: characters. If they're talking about someone in the ROSTER, keep to what the canon says about them (see ABOUT below); when they want someone changed, work out the change itself: what stays, what moves, what it clashes with in the canon (quote it), and the knock-on changes to their age, magic, motives and ties to others that have to follow. If they want to make someone NEW, don't invent the character here: new characters are made by playing Wake in Verrowen, where everything about them (name, race, past, magic) is discovered through play. Tell them to press ✨ Create a character (on the Roster, or on this chat's start screen), which opens Wake in Verrowen, and that the character lands on the Roster pending review when they wrap it up. You can still talk through gaps in the roster a new character could fill, without deciding who they are.`,
+  world: (label) => `FOCUS: ${label}. Restate the idea as one plain rule and check it against the canon (quote any clash, or say it fits). Work out what follows from it: its costs, limits and edge cases, what happens when it's pushed too far, and how ordinary folk across the world (in its different places), its artificers and its rulers would use or abuse it. Think like a careful game designer: every power has a price and a limit, and every rule changes daily life somewhere. Keep the chat on the change itself: the new rule as it will stand in the canon, and what has to change elsewhere to fit it. If they're only asking what the canon says, answer briefly, then ask what they'd change about it.`,
 };
-const WRITE_CHAT = `The author says "write it up." Write up what this chat worked out, in plain text, with these labeled lines, one per line: Name, Kind, What it is (one sentence), The details, Clashes with canon (or "None"), Open questions. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "In the world" and a paragraph of about 80 words showing it in an everyday scene.`;
+const WRITE_CHAT = `The author says "write it up." Write up the change this chat worked out, in plain text, with these labeled lines, one per line: Name, Kind, What changes (one sentence), The change in full, What it replaces, Clashes with canon (or "None"), What else has to change to fit, Open questions. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "In the story" and a paragraph of about 80 words showing the changed story in an everyday scene. This write-up is what gets sent to the Orrery's review, so write the change itself, not a summary of the conversation.`;
 
 // The open chat (mode "chat") starts with no topic and works one out from
 // what the author says: the newest messages count most, a named person or
@@ -1910,7 +1911,7 @@ function chatFocus(c) {
   return t === "general" || t === "character" ? FOCUS[t] : FOCUS.world(topicOf(t).label.toLowerCase());
 }
 function chatMessages(c, mode) {
-  const task = c.mode === "chat" ? CHAT + "\n\n" + chatFocus(c) + (c.messages.some((m) => m.role === "user") ? "" : " The author hasn't said anything yet: greet them in one line and offer three short, different things to work on, drawn from what the canon leaves open: a character, a place or region, and a rule of the world.")
+  const task = c.mode === "chat" ? CHAT + "\n\n" + chatFocus(c) + (c.messages.some((m) => m.role === "user") ? "" : " The author hasn't said anything yet: greet them in one line and offer three short, different changes to make, drawn from what the canon leaves open: a change to a character, a place or region, and a rule of the world.")
     : c.mode === "review" ? REVIEW
     : c.mode === "world" ? WORLD + ` The author's topic: ${kindName(c.kind)}.` + (c.idea ? "" : " The author has no idea yet: open by picking three things the canon leaves open on this topic and pitching a short, different mechanic for each, then ask which to work out.")
     : CREATE + (c.idea ? "" : " The author has no idea yet: open by pitching three short, different character concepts that fit gaps in the roster, and ask which to build.");
@@ -2061,7 +2062,7 @@ function drawChat() {
   const c = openChat();
   view.innerHTML = `<div class="row aiinfo" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="chatnote" id="aiModel">Runs on our own laptop</span><span class="chatnote" id="aiKind" hidden></span></div>
   <section class="chatbox" aria-label="Chat with the lore-keeper">
-    <div class="chathead"><span>THE LORE-KEEPER</span><button type="button" class="ai" id="aiPill" aria-live="polite">●<span class="lbl"> Connecting…</span></button>${c && c.mode === "chat" ? `<span class="topic"><label for="topicPick">On</label><select id="topicPick" title="What the lore-keeper thinks this chat is about. It works this out as you talk; pick one to pin it.">${topicOptions(c)}</select></span>` : `<span class="about">${c ? esc(chatTitle(c)) : "Characters, regions, rules and more"}</span>`}${c ? `<button type="button" class="morebtn" id="moreChat" aria-expanded="false" aria-controls="chatMore" title="More: resend, write it up, save, copy" aria-label="More actions">⋯</button>` : ""}</div>
+    <div class="chathead"><span>THE LORE-KEEPER</span><button type="button" class="ai" id="aiPill" aria-live="polite">●<span class="lbl"> Connecting…</span></button>${c && c.mode === "chat" ? `<span class="topic"><label for="topicPick">On</label><select id="topicPick" title="What the lore-keeper thinks this chat is about. It works this out as you talk; pick one to pin it.">${topicOptions(c)}</select></span>` : `<span class="about">${c ? esc(chatTitle(c)) : "Changing the story"}</span>`}${c ? `<button type="button" class="morebtn" id="moreChat" aria-expanded="false" aria-controls="chatMore" title="More: resend, write it up, save, copy" aria-label="More actions">⋯</button>` : ""}</div>
     <div class="chatlog" id="chatlog" aria-live="polite"></div>
     <button type="button" class="tolatest" id="toLatest" hidden>↓ Latest</button>
     <div class="chatstatus" id="chatstatus" role="status" aria-live="polite"></div>
@@ -2077,7 +2078,7 @@ function drawChat() {
       </div>
       <div class="saybar">
         <button class="quiet back" type="button" id="backChat" title="Back to the start. This chat is kept, so you can pick it up later." aria-label="Back to the start">←</button>
-        <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "chat" ? "Ask, pitch an idea, or change the subject…" : c && c.mode === "review" ? "Ask about the review, or say what to change…" : c && c.mode === "world" ? "Push on it: what if…, what does it cost…, who would use it…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
+        <textarea id="say" maxlength="${MAX_SAY}" placeholder="${c && c.mode === "chat" ? "Say what to change in the story…" : c && c.mode === "review" ? "Ask about the review, or say what to change…" : c && c.mode === "world" ? "Push on it: what if…, what does it cost…, who would use it…" : "Answer, choose, or add your own ideas…"}  (Ctrl+Enter sends)"></textarea>
         <button class="mic" type="button" id="micSay" title="Speak your message" aria-label="Voice typing" hidden>🎤</button>
         <button class="stopbtn" type="button" id="stopSay" title="Stop waiting for this reply" aria-label="Stop" hidden>■<span class="txt"> Stop</span></button>
         <button class="primary" type="button" id="sendSay" aria-label="Send"><span class="ico">➤</span><span class="txt">Send</span></button>
@@ -2097,7 +2098,7 @@ function drawChat() {
   </section>
   <section class="writeup change" id="changeBox" aria-live="polite" hidden></section>
   <p class="chatnote" id="reopenWrite" hidden><button type="button" class="linkbtn" id="showWrite">📄 Show the write-up again</button></p>
-  <p class="chatnote" style="margin-top:14px">The lore-keeper is a small AI model on the same laptop as <a href="/local-ai/">Local AI</a> and the <a href="/verrowen/">Wake in Verrowen</a> narrator. It reads the documents above${codexNotes().length ? " and your decided <a href=\"/verrowen/codex/\">Codex</a> notes" : ""} as canon. Chats are kept in this browser only. If the laptop is asleep, it can't answer.</p>`;
+  <p class="chatnote" style="margin-top:14px">The lore-keeper is a small AI model on the same laptop as <a href="/local-ai/">Local AI</a> and the <a href="/verrowen/">Wake in Verrowen</a> narrator. It reads the documents above${codexNotes().length ? " and your decided <a href=\"/verrowen/codex/\">Codex</a> notes" : ""} as canon. Chats are kept in this browser only. Changes made from a chat go to the Orrery's review branch — your own included — and only go live when you publish them. If the laptop is asleep, it can't answer.</p>`;
   document.querySelector(".chatbox").classList.toggle("playing", !!c);
   document.body.classList.add("chatting");
   if (c && touch.matches) $("say").placeholder = $("say").placeholder.replace(/\s*\(Ctrl\+Enter sends\)$/, "");
@@ -2159,8 +2160,10 @@ function drawChat() {
   setChatBusy(chatBusy);
 }
 // 📨 Send for review: the write-up goes to the Grand Orrery's review (see
-// /orrery-review.js). The owner's lands on the review branch at once as a
-// pitch; anyone else's waits for the owner first. Sending again updates it.
+// /orrery-review.js). This is a personal Orrery, and nothing is published
+// from here: the owner's write-ups land on the review branch as pitches,
+// like everything else, and only go live when the owner publishes them.
+// Anyone else's waits for the owner first. Sending again updates it.
 async function sendWriteup(c) {
   if (!c || !c.writeup || !window.OrreryReview) return;
   const note = $("writeNote"), b = $("reviewWrite");
@@ -2234,19 +2237,19 @@ function drawStart() {
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
   const places = worldPlaces();
   const starters = [
-    `What gaps in ${world.name}'s roster could a new character fill?`,
-    ...(PEOPLE.length ? [`Review ${pick(PEOPLE.filter((p) => !/^The /.test(p.name)).length ? PEOPLE.filter((p) => !/^The /.test(p.name)) : PEOPLE).name} against the canon.`] : []),
-    "How does mana work, and what does it cost?",
-    ...(places.length ? [`What lies beyond ${pick(places)}?`, `What's life like in ${pick(places)}?`] : []),
-    ...(places.length > 1 ? [`What lies along the roads between ${places[0]} and ${places[places.length - 1]}?`] : []),
+    `What change to ${world.name}'s story should we make next?`,
+    ...(PEOPLE.length ? [`Change one thing in ${pick(PEOPLE.filter((p) => !/^The /.test(p.name)).length ? PEOPLE.filter((p) => !/^The /.test(p.name)) : PEOPLE).name}'s story.`] : []),
+    "Change how mana works: what should it cost now?",
+    ...(places.length ? [`Add a new detail beyond ${pick(places)}.`, `Change one thing about life in ${pick(places)}.`] : []),
+    ...(places.length > 1 ? [`Change what lies along the roads between ${places[0]} and ${places[places.length - 1]}.`] : []),
     ...(ITEMS.length ? [`Give the ${pick(ITEMS.filter((it) => !isPitch(it)).length ? ITEMS.filter((it) => !isPitch(it)) : ITEMS).name.toLowerCase()} a rival invention${places.length ? " from " + pick(places) : ""}.`] : []),
   ];
   $("chatlog").innerHTML = `<div class="chatstart">
-    <h3>What's on your mind?</h3>
-    <p class="note">The lore-keeper knows the Grand Orrery's lore, roster, places and items. Ask it anything, pitch an idea, or ask for a review. To change the canon, just say so (${changeExample()}) or press 🛠 Make it a change: it checks the change against the canon, and only one that fits can be applied, on the review branch. It works out from what you say whether you're on a character, a region, a rule of the world, magic or something else, and reads up on that part of the canon. Change the subject whenever you like.</p>
+    <h3>What should change?</h3>
+    <p class="note">The lore-keeper is for changing the story. The Grand Orrery holds the lore and the details of every item, location, race and person, and this chat is where you work out a change to it: talk the change through, check it against the canon, then make it. To change the canon, just say so (${changeExample()}) or press 🛠 Make it a change: it checks the change against the canon, and only one that fits can be applied — on the review branch, never straight to the live Orrery. Your own changes wait there too, and go live only when you publish them. It works out from what you say whether you're on a character, a region, a rule of the world, magic or something else, and reads up on that part of the canon. Change the subject whenever you like.</p>
     <div class="opt">
       <label class="sr" for="opener">Your first message</label>
-      <textarea id="opener" maxlength="${MAX_SAY}" placeholder="Optional: an idea in a line… or leave it blank and it suggests a few things to work on."></textarea>
+      <textarea id="opener" maxlength="${MAX_SAY}" placeholder="Optional: a change in a line… or leave it blank and it suggests a few changes to make."></textarea>
       <div class="chips">${starters.map((t) => `<button class="small" type="button" data-start="${esc(t)}">${esc(t)}</button>`).join("")}</div>
       <div class="row"><button class="primary" type="button" id="startOpen">Start the chat</button><a class="btn" href="${CREATE_URL}" style="text-decoration:none" title="New characters are made by playing Wake in Verrowen. They land on the Roster pending review.">✨ Create a character</a></div></div>
     ${earlier.length ? `<details class="earlierbox" id="earlierBox"${earlierOpen() ? " open" : ""}><summary>Earlier chats<span class="pill">${earlier.length}</span></summary><div class="earlier">${earlier.map((c) => {
@@ -2295,7 +2298,7 @@ function drawLog() {
   w.hidden = !c.writeup || !!c.writeupClosed;
   $("reopenWrite").hidden = !c.writeup || !c.writeupClosed;
   const wk = c.writeKind || writeKind(c);
-  $("writeHead").textContent = wk === "review" ? "The review, summed up" : wk === "create" ? "The character sheet" : "The idea, written up";
+  $("writeHead").textContent = wk === "review" ? "The review, summed up" : wk === "create" ? "The character sheet" : c.mode === "chat" ? "The change, written up" : "The idea, written up";
   $("writeText").textContent = c.writeup || "";
   $("codexWrite").hidden = wk === "review";
   $("writeNote").textContent = "";
