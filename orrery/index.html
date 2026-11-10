@@ -1303,17 +1303,42 @@ function ledgerRecords() {
   // can bring its own instead (an item's write-up, a Wake character's
   // profile) as r.story; "" opts out (Codex notes show their whole body in
   // their fields already).
-  const storyText = (raw) => {
-    const tx = plain(bodyOf({ body: cleanSection(String(raw || "")) }));
+  const storyText = (raw, own = false) => {
+    let body = cleanSection(String(raw || ""));
+    // A record's own write-up (an item's) has its facts in the field list
+    // already, so its field bullets go. A document section written about
+    // someone is mostly labeled bullets ("Who he is: …"), and those *are*
+    // the backstory: keep them, read as prose. Secrets stay out either way.
+    body = own ? bodyOf({ body }) : body.split("\n")
+      .filter((l) => {
+        if (/^\s*\|/.test(l) || /^_(From |Made up by ).*_\s*$/.test(l.trim())) return false;
+        const lab = l.split(":")[0];
+        return !(lab.length < 40 && /secret/i.test(lab));
+      })
+      .map((l) => l.replace(/^\s*[-*]\s+\*\*([^*]+):\*\*\s*/, "$1: ").replace(/^\s*[-*]\s+/, ""))
+      .join("\n");
+    const tx = plain(body);
     if (tx.length < 40 || (tx.match(/\|/g) || []).length >= 4) return "";
     if (tx.length <= 520) return tx;
     const cut = tx.slice(0, 520), end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
     return (end > 260 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, "")) + "…";
   };
+  // The section written *about* a record, not just one that mentions it:
+  // its heading names the record (universe.md's profiles, the bestiary's
+  // creatures, a place's own section), or the prose leads with its name.
+  // Anything else is a passing mention, and no backstory beats a wrong one.
+  const storyFromHits = (hits, r) => {
+    const nm = String(r.name || "").toLowerCase(), first = nm.replace(/^the\s+/, "").split(/\s+/)[0];
+    const named = (h) => { const hd = String(h.s.heading || "").toLowerCase(); return !!hd && (hd.includes(nm) || (first.length > 3 && hd.split(/[\s,]+/).includes(first))); };
+    for (const h of hits) if (named(h)) { const tx = storyText(h.s.body); if (tx) return tx; }
+    const lead = nm.replace(/^the\s+/, "");
+    for (const h of hits) { const tx = storyText(h.s.body); if (tx && tx.slice(0, 200).toLowerCase().includes(lead)) return tx; }
+    return "";
+  };
   const add = (r) => {
     const hits = hitsFor(r.re || (r.names && r.names.length ? patternFor(r.names) : null));
     const fields = (r.fields || []).filter(([, v]) => v && String(v).trim());
-    const story = r.story !== undefined ? r.story : (hits.length ? storyText(hits[0].s.body) : "");
+    const story = r.story !== undefined ? r.story : storyFromHits(hits, r);
     const brief = r.brief || r.line || "";
     out.push({ ...r, fields, story, brief, refs: hits.length,
       seen: hits.slice(0, 8).map(({ d, s }) => ({ path: (s.path[0] && s.path[0].startsWith(d.title.split(":")[0]) ? s.path : [d.title, ...s.path]).map((x) => x.replace(/[*_`]/g, "")).join(" › "), href: `#doc/${d.id}${s.sentence ? "" : "/" + slug(s.heading)}` })),
@@ -1332,7 +1357,7 @@ function ledgerRecords() {
   for (const it of ITEMS) {
     const by = (it.by || []).map((id) => (PEOPLE.find((p) => p.id === id) || {}).name).filter(Boolean).join(", ");
     add({ kind: "item", id: it.id, icon: it.icon || "📦", name: it.name, group: `${it.cat} › ${it.type}`, status: it.status || "", pending: isPitch(it),
-      line: it.does || it.sub || "", story: it.body ? storyText(it.body) : undefined, names: it.names, href: `#item/${it.id}`,
+      line: it.does || it.sub || "", story: it.body ? storyText(it.body, true) : undefined, names: it.names, href: `#item/${it.id}`,
       fields: [["Category", it.cat], ["Type", it.type], ["What it does", it.does], ["How it's made", it.made], ["Made by", by], ["Limits", it.limits], ["Rules it shows", it.rules], ["Story use", it.story], ["Also called", it.also], ["Note", it.sub], ...(it.extra || [])],
       extraHay: [it.body || ""] });
   }
