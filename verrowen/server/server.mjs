@@ -55,7 +55,8 @@
 //   POST /admin/delete-ai (owner's token) { line }  ->  { ok, sha, url, name }   takes out a section the AI added
 //   POST /suggest    { source, title, body, about, key, name }  ->  { ok, queued }
 //                    anyone: waits in the inbox above until the owner files it (always as a pitch)
-//   POST /narrate    { messages: [{ role, content }] }  ->  { text }
+//   POST /narrate    { messages: [{ role, content }], temperature?, maxTokens? }  ->  { text }
+//                    (temperature 0–1.5 / maxTokens 50–8000 pass through to the model when given)
 //   POST /save       { playerId, playerName, characterName, seed, messages, profile, purpose, character }  ->  { ok }
 //
 //   node server.mjs           run the server (default port 8792)
@@ -188,6 +189,18 @@ let waiting = 0;
 // the page). Ollama stops generating when its request is cancelled, so the
 // GPU is free at once for the next turn, such as a Resend.
 // `opts` (rest mode's judging) can cool the temperature and shorten the reply.
+// A /narrate caller (the lore-keeper) may ask for a cooler head or a
+// shorter reply; Wake in Verrowen asks for neither and gets the defaults.
+// Bounded, so a page can't ask for anything wild.
+function narrateOpts(b) {
+  const o = {};
+  const t = Number(b && b.temperature);
+  if (Number.isFinite(t) && t >= 0 && t <= 1.5) o.temperature = t;
+  const m = Math.floor(Number(b && b.maxTokens));
+  if (Number.isFinite(m) && m >= 50 && m <= 8000) o.maxTokens = m;
+  return o;
+}
+
 // The context window, in steps of 4096 tokens. Ollama reloads the model
 // whenever the window changes, so coarse steps keep it loaded from one turn
 // to the next instead of reloading as a chat grows by a few hundred words.
@@ -1820,7 +1833,7 @@ const server = http.createServer(async (req, res) => {
     // If the browser goes away before the reply is sent, stop the model.
     const gone = new AbortController();
     res.on("close", () => { if (!res.writableFinished) gone.abort(); });
-    const text = await narrate(cleanMessages(body.messages), gone.signal);
+    const text = await narrate(cleanMessages(body.messages), gone.signal, narrateOpts(body));
     return send(res, 200, { text }, origin);
   } catch (e) {
     if (e.quiet) { console.log(new Date().toISOString(), "stopped a reply: the player hung up"); return res.destroyed ? undefined : send(res, e.status, { error: e.message }, origin); }

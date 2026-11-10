@@ -1816,6 +1816,8 @@ const AI = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
 const CANON_BUDGET = 15000, CHAT_BUDGET = 18000, HISTORY_BUDGET = 9000, MAX_SAY = 2000;
 const KEEPER = `You are the lore-keeper of the Grand Orrery, talking with the author of this medieval fantasy universe. You are their story partner: you know this world inside out because the Grand Orrery is your source for everything in it — its lore, and the details of every item, location, race, person and rule. The canon below (the LORE, the ROSTER, the NOTES, and the sections about whatever you're discussing) is the world as it stands. Ground what you say in it: when the author asks what the canon says, answer from it, fully and plainly. When the canon doesn't say, say so — never invent an answer and pass it off as canon — and then help the author develop one: everything the Orrery doesn't hold yet is theirs to decide, and your job is to help them decide well.
 
+Do the work; don't applaud it. Never praise the author's ideas, this chat, or your own drafts — no "perfect", "excellent", "spot on", "fantastic", no congratulations. The author needs a clear-eyed partner, not applause: say what's true — what works, what's weak, what's missing. And never claim you have changed the Orrery: you can't. Nothing you say in conversation alters it. A change happens only when the author makes it (🛠 Make it a change) or sends a write-up in for review; when a decision settles, state it plainly as a fact ready to be made, and say that's how it gets in.
+
 Talk like a person, not a form. This is a conversation about developing the story: follow the author's lead, pick up their ideas and build on them, ask the question that opens the next door, offer two or three real directions when they're choosing, and think out loud about what follows from an idea — who it touches, what it costs, what scenes it makes possible. Match their pace: brief when they're brief, deeper when they're digging in. A few short paragraphs is a good reply; go longer when the work needs it. Plain text only: no markdown headings or tables; a short list is fine. {{WORLD}}
 
 Keep the story straight: never contradict the canon below. When an idea clashes with it, say so, quote the line it clashes with, and help find a version that fits — or name what would have to change for it to fit. Think about the whole world, not just the place you're standing in. One exception to developing things here: a brand-new named character is born in Wake in Verrowen, not in this chat (the ✨ button starts one).
@@ -2002,12 +2004,30 @@ function writeKind(c) {
   if (c.mode !== "chat") return c.mode;
   const t = chatTopic(c);
   const said = c.messages.filter((m) => m.role === "user").map((m) => m.content).join(" ");
-  if (t === "character") return namedPeople(c).length && /\b(review|check|critique|feedback|clash\w*|fits?|consistent)\b/i.test(said) && !/\b(new|create|make|build|invent)\b/i.test(said) ? "review" : "create";
+  if (t === "character") return namedPeople(c).length && /\b(review|critique|feedback|verdict|what works|what's wrong)\b/i.test(said) && !/\b(new|create|make|build|invent|expand|develop|add|flesh)\b/i.test(said) ? "review" : "create";
   return t === "general" ? "chat" : "world";
 }
+// A write-up that came back as applause instead of the document — a small
+// model does this when it's out of its depth — must not be filed: it would
+// land on the review branch as a pitch and waste the author's decision.
+// Check for the labeled lines its kind asks for, and for praise standing
+// in for content. Returns "" when the write-up is sound.
+const FLATTERY = [/perfect!/i, /spot on/i, /absolutely (excellent|fantastic|wonderful)/i, /fantastic work/i, /beautifully/i, /totally polished/i, /great picture/i];
+function writeupProblem(t, wk) {
+  if (!t) return "it came back empty";
+  const labels = wk === "review" ? ["Verdict", "What works", "Clashes with canon", "Gaps", "Changes to make"]
+    : wk === "create" ? ["Name", "Race", "Role", "Personality"] : ["Name", "Kind"];
+  const have = labels.filter((l) => new RegExp(`^\\W*${l}\\W*:`, "im").test(t)).length;
+  if (have < Math.ceil(labels.length / 2)) return "it didn't come back in the write-up's shape — its labeled lines are missing";
+  if (FLATTERY.filter((re) => re.test(t)).length >= 2) return "it reads as praise of the chat, not as the write-up itself";
+  if (t.trim().length < 120) return "it's too short to hold what was decided";
+  return "";
+}
+
 function writePrompt(c) {
   const k = writeKind(c);
-  return k === "review" ? WRITE_REVIEW : k === "create" ? WRITE_CREATE : k === "world" ? WRITE_WORLD.replace("Name, Kind,", `Name, Kind (${topicOf(chatTopic(c)).label}),`) : WRITE_CHAT;
+  const base = k === "review" ? WRITE_REVIEW : k === "create" ? WRITE_CREATE : k === "world" ? WRITE_WORLD.replace("Name, Kind,", `Name, Kind (${topicOf(chatTopic(c)).label}),`) : WRITE_CHAT;
+  return base + `\nWrite only the write-up itself, in exactly those labeled lines. No praise — not of the author, the chat or your own draft: no "perfect", "excellent", "spot on", no applause of any kind. If something is weak or undecided, say so in its line and mark it (suggested).`;
 }
 
 // ── The live link to the local AI ──
@@ -2083,11 +2103,13 @@ function waitForAi(signal) {
 // One call to the narrator, kept alive: if the laptop can't be reached the
 // message waits and goes out as soon as it's back (up to 5 minutes), and a
 // hiccup from the laptop (a 502/503 while the model loads) is retried once.
-async function narrateKept(messages, signal, say) {
+// `opts` may cool the model down (and/or shorten its reply) for work that
+// needs a literal head — write-ups and change checks run cooler than chat.
+async function narrateKept(messages, signal, say, opts) {
   const until = Date.now() + 5 * 60 * 1000;
   for (let tries = 0; ; tries++) {
     try {
-      const r = await fetch(AI + "/narrate", { method: "POST", headers: { "content-type": "application/json" }, signal, body: JSON.stringify({ messages }) });
+      const r = await fetch(AI + "/narrate", { method: "POST", headers: { "content-type": "application/json" }, signal, body: JSON.stringify({ messages, ...(opts && opts.temperature != null ? { temperature: opts.temperature } : {}), ...(opts && opts.maxTokens ? { maxTokens: opts.maxTokens } : {}) }) });
       const data = await r.json().catch(() => ({}));
       if (r.ok && data.text) { aiUp = true; aiReady = true; aiFails = 0; setAi(true); return data.text; }
       const err = new Error(data.error || "the laptop answered " + r.status);
@@ -2231,7 +2253,7 @@ function drawChat() {
 // like everything else, and only go live when the owner publishes them.
 // Anyone else's waits for the owner first. Sending again updates it.
 async function sendWriteup(c) {
-  if (!c || !c.writeup || !window.OrreryReview) return;
+  if (!c || !c.writeup || !window.OrreryReview || writeupProblem(c.writeup, c.writeKind || writeKind(c))) return;
   const note = $("writeNote"), b = $("reviewWrite");
   const on = c.mode === "chat" ? topicOf(chatTopic(c)).label : c.target && c.target.name ? "About " + c.target.name : "";
   b.disabled = true; note.textContent = "Sending for review…";
@@ -2368,6 +2390,9 @@ function drawLog() {
   $("writeText").textContent = c.writeup || "";
   $("codexWrite").hidden = wk === "review";
   $("writeNote").textContent = "";
+  const wBad = c.writeup ? (c.writeupBad !== undefined ? c.writeupBad : writeupProblem(c.writeup, wk)) : "";
+  $("reviewWrite").disabled = !!wBad; $("codexWrite").disabled = !!wBad;
+  if (wBad) $("writeNote").textContent = "⚠ This one can't be sent: " + wBad + ". Press ✍️ to write it up again — it helps to end the chat by naming plainly what was decided.";
 }
 
 function startChat(o) {
@@ -2475,7 +2500,7 @@ function writeUp() {
   if (!c.messages.some((m) => m.role === "assistant")) return chatStatus("Let the lore-keeper answer first.", true);
   const wk = writeKind(c);
   ask(c, "write", (t) => {
-    c.writeup = t; c.writeupClosed = false; c.writeKind = wk;
+    c.writeup = t; c.writeupClosed = false; c.writeKind = wk; c.writeupBad = writeupProblem(t, wk);
     const name = (t.match(/^\W*Name\W*:\s*(.+)$/im) || [])[1];
     if (wk !== "review" && name) c.title = name.replace(/[*_]/g, "").replace(/\(suggested\)/i, "").trim().slice(0, 60);
   }, () => $("writeup").scrollIntoView({ behavior: "smooth" }));
@@ -2488,7 +2513,7 @@ async function ask(c, mode, onDone, after) {
   try {
     if (!text.lore && !Object.values(text).some(Boolean)) throw new Error("the orrery's documents haven't loaded; reload the page");
     chatStopper = new AbortController();
-    const reply = await narrateKept(chatMessages(c, mode), chatStopper.signal, (t) => { live.textContent = t; const l = $("chatlog"); if (l && chatStick) l.scrollTop = l.scrollHeight; });
+    const reply = await narrateKept(chatMessages(c, mode), chatStopper.signal, (t) => { live.textContent = t; const l = $("chatlog"); if (l && chatStick) l.scrollTop = l.scrollHeight; }, mode === "write" ? { temperature: 0.45 } : { temperature: 0.6 });
     onDone(reply.trim()); c.at = Date.now(); keepChats(); saveForReview(c);
     if (openChat() === c && $("chatlog")) { drawLog(); if (after) after(); }
   } catch (e) {
@@ -2520,7 +2545,7 @@ const CHANGE_FILES = ["roster.md", "universe.md", "working-notes.md", "resources
 const CHANGE_BUDGET = 9000, CHANGE_LORE = 12;
 // Kept short on purpose: a change sends only what it touches, not the whole canon.
 const CHANGE_KEEPER = `You are the Orrery's lore-keeper, checking an edit to the Grand Orrery, a medieval fantasy universe. LORE and SOURCE are canon. Setting rules: as LORE states them.`;
-const CHANGE_VERB = /^\s*(?:please\s+|can you\s+|could you\s+|let'?s\s+|i want to\s+)?(?:change|rename|set|replace|update|fix|correct|remove|delete|drop|move|make|add|give|swap)\b/i;
+const CHANGE_VERB = /^\s*(?:please\s+|can you\s+|could you\s+|let'?s\s+|i want to\s+)?(?:change|rename|set|replace|update|fix|correct|remove|delete|drop|move|make|add|give|swap|expand|elaborate|deepen|detail|flesh\s+out)\b/i;
 const CHANGE_TASK = `TASK: the author wants to CHANGE the canon. REQUEST is what they asked for. SOURCE is the exact current text of the parts of the documents it touches; each part starts with "### FILE: <file>". Check the change against the LORE and the rest of SOURCE, then reply with ONE JSON object and nothing else:
 {"verdict":"fits"|"clashes"|"unclear","why":"one or two plain sentences","clash":"the exact canon words it clashes with, or \"\"","edits":[{"file":"<file>","old":"text copied exactly from SOURCE, a whole line where you can, at least 8 characters","new":"the same text with the change made"}],"adds":[{"file":"<file>","heading":"a heading line copied exactly from SOURCE","text":"one new fact, one line"}]}
 Rules: copy "old" character for character from SOURCE. Change only what the request needs, but change every place in SOURCE that must follow for the canon to stay consistent (a rename changes every mention). Keep each line's Markdown, tags and format. Never touch a (DM lore) part, never add a link. "fits" only when nothing in the canon says otherwise. If it clashes or is unclear, leave edits and adds empty and say why in "why". A part headed \"### FILE: <file> — lines\" holds the exact lines that name the subject, with the heading they sit under and, where the line is in a table, the table's header: the roster's rows are tables, so copy a whole row as \"old\" to change that person's details (their race, age, role, line or secret). To ADD a person to a table, use adds with the table's own section heading copied exactly as \"heading\" and \"text\" as one whole new row in the same columns, starting and ending with |.`;
@@ -2691,7 +2716,7 @@ async function askChange(c) {
     if (!ctx.picked.length) throw new Error("nothing in the documents matches it. Name the person, place or thing as the Orrery spells it");
     const prompt = `${CHANGE_KEEPER}\n\n${CHANGE_TASK}\n\nLORE:\n${ctx.lore.join("\n") || "(no lore line names it)"}\n\nSOURCE:\n${ctx.picked.map((x) => "### FILE: " + x.file + (x.head === "lines" ? " — lines" : "") + "\n" + x.body).join("\n\n")}\n\nREQUEST: ${req}\n\nReply with the JSON object only.`;
     chatStopper = new AbortController();
-    const j = parseChange(await narrateKept([{ role: "user", content: prompt }], chatStopper.signal, (t) => chatStatus(t)));
+    const j = parseChange(await narrateKept([{ role: "user", content: prompt }], chatStopper.signal, (t) => chatStatus(t), { temperature: 0.25 }));
     chatStatus("");
     if (!j) throw new Error("its answer wasn't the JSON it was asked for. Press 🛠 again to retry");
     const chk = checkChange(j, files, ctx);
