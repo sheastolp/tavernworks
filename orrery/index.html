@@ -57,6 +57,16 @@
   .hallnow b{font-family:Cinzel,serif;color:var(--gold2);letter-spacing:.04em}
   .hallnow ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px}
   .hallnow li{margin:2px 0}
+  .dbsum{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:0 0 16px}
+  .dbsum .dblede{color:var(--muted);margin-top:6px}
+  .dbsum .dblede b{color:var(--text)}
+  .dbgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+  .dbcard{display:flex;flex-direction:column;gap:2px;background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-decoration:none;transition:.15s}
+  .dbcard:hover{border-color:var(--gold)}
+  .dbcard .dbn{font-family:Cinzel,serif;font-size:24px;color:var(--gold2);line-height:1.1}
+  .dbcard .dbt{font-weight:600;font-size:13.5px;letter-spacing:.03em}
+  .dbcard .dbd{font-size:12.5px;color:var(--muted);line-height:1.45}
+  .dbsum .dbfoot{font-size:12.5px;color:var(--muted);margin-top:14px}
   main{padding:10px 0 50px}
   h2.sec{font-family:Cinzel,serif;color:var(--gold);letter-spacing:.08em;font-size:18px;margin:26px 0 12px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:12px}
@@ -1450,6 +1460,50 @@ function ledgerBody() {
         return `<details class="grp" data-gid="${esc(gid)}"${openGroups.has(gid) ? " open" : ""}><summary><span>${esc(g)}</span><span class="cnt">${ledgerCount(inG.length, ch)}</span><span class="chev" aria-hidden="true">⌄</span></summary><ol class="entries">${inG.map(ledgerEntry).join("")}</ol></details>`; }).join("")}</section>`;
   }).join("");
 }
+// ── The database at a glance ──
+// The Explorer is a viewer for the Orrery database: above the Scroll,
+// this says what the database holds — how many records of each kind,
+// where the people belong, how the items group, how much writing backs
+// it all — counted live from the same records the Scroll lists, so it
+// cannot drift from the canon it describes. Each card jumps into that
+// chapter of the Scroll.
+function dbSummary(recs) {
+  const by = (kind) => recs.filter((r) => r.kind === kind);
+  const top = (list, key, n) => {
+    const m = new Map();
+    for (const r of list) { const k = key(r); if (k) m.set(k, (m.get(k) || 0) + 1); }
+    return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n);
+  };
+  const more = (pairs, shown, tail) => {
+    const left = pairs.reduce((a, [, c]) => a + c, 0) - shown.reduce((a, [, c]) => a + c, 0);
+    return left > 0 ? ` · and ${left} more ${tail}` : "";
+  };
+  const pend = recs.filter((r) => r.pending).length;
+  const words = DOCS.reduce((a, d) => a + (text[d.id] || "").split(/\s+/).filter(Boolean).length, 0);
+  const sects = DOCS.reduce((a, d) => a + sections(d).filter((s) => s.level === 2 || s.level === 3).length, 0);
+  const cards = [];
+  const card = (kind, title, list, detail) => { if (list.length) cards.push({ kind, title, n: list.length, detail }); };
+  const people = by("person"), pGroups = top(people, (r) => r.group, 99), pTop = pGroups.slice(0, 4);
+  card("person", "The People", people, pTop.map(([g, c]) => `${g} ${c}`).join(" · ") + more(pGroups, pTop, "in other groups"));
+  const items = by("item"), iCats = top(items, (r) => String(r.group || "").split(" › ")[0], 99), iTop = iCats.slice(0, 4);
+  card("item", "Items & Resources", items, iTop.map(([g, c]) => `${g} ${c}`).join(" · ") + more(iCats, iTop, "in other kinds"));
+  const beasts = by("beast"), bTop = top(beasts, (r) => r.group, 3);
+  card("beast", "The Bestiary", beasts, bTop.map(([g, c]) => `${g} ${c}`).join(" · ") + more(top(beasts, (r) => r.group, 99), bTop, "elsewhere"));
+  const places = by("place"), adv = places.filter((r) => r.group === "Where GuildScribe's adventurers go").length, onMap = places.length - adv;
+  card("place", "Places", places, [adv ? `${adv} adventure places` : "", onMap ? `${onMap} names on the maps` : ""].filter(Boolean).join(" · "));
+  const maps = by("map");
+  card("map", "The Maps", maps, maps.map((r) => r.name).join(" · "));
+  card("doc", "The Writings", by("doc"), `${words.toLocaleString()} words in ${sects} sections: ` + DOCS.map((d) => d.title).join(" · "));
+  card("note", "Your Codex", by("note"), "Notes kept in this browser");
+  const counts = LEDGER.map((ch) => [ch, by(ch.kind).length]).filter(([, c]) => c);
+  const today = new Date().toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+  return `<section class="dbsum" aria-label="What is in the Orrery">
+    <h2 class="sec" style="margin-top:0">What's in the Orrery</h2>
+    <p class="dblede">The Grand Orrery is the canon database of ${esc(world.name)}: <b>${recs.length.toLocaleString()} records</b> — ${counts.map(([ch, c]) => `${c.toLocaleString()} ${c === 1 ? ch.one : ch.many}`).join(", ")} — backed by ${words.toLocaleString()} words of writing.${pend ? ` <b>${pend}</b> ${pend === 1 ? "record is" : "records are"} still pitches or pending, awaiting the owner.` : ""}</p>
+    <div class="dbgrid">${cards.map((c) => `<a class="dbcard" href="#scroll/${c.kind}"><span class="dbn">${c.n.toLocaleString()}</span><span class="dbt">${esc(c.title)}</span><span class="dbd">${esc(c.detail)}</span></a>`).join("")}</div>
+    <p class="dbfoot">Read from the <b>${esc(BRANCH)}</b> branch${canonSha ? ` at ${esc(canonSha.slice(0, 7))}` : ""} · ${esc(today)}${CLONE ? " · the Review Clone: what waits to be published" : ""}. Unroll the Scroll of All Things below for every record, searchable and in full.</p>
+  </section>`;
+}
 function scroll() {
   const recs = (ledgerDrawn = ledgerRecords());
   const n = (kind) => recs.filter((r) => r.kind === kind).length;
@@ -1457,7 +1511,7 @@ function scroll() {
   const today = new Date().toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
   const chapters = LEDGER.map((ch, k) => [ch, k, n(ch.kind)]).filter(([, , c]) => c);
   const total = recs.length;
-  return `<div class="scroll"><details class="bigscroll" id="bigScroll"${bigOpen ? " open" : ""}><summary class="rod"><span class="band" role="heading" aria-level="2">The Scroll of All Things<span class="pill">${total.toLocaleString()}</span></span></summary><div class="sheetwrap"><div class="sheet"><article class="parch" aria-label="The Scroll of the Grand Orrery">
+  return dbSummary(recs) + `<div class="scroll"><details class="bigscroll" id="bigScroll"${bigOpen ? " open" : ""}><summary class="rod"><span class="band" role="heading" aria-level="2">The Scroll of All Things<span class="pill">${total.toLocaleString()}</span></span></summary><div class="sheetwrap"><div class="sheet"><article class="parch" aria-label="The Scroll of the Grand Orrery">
     <div class="crest">THE GRAND ORRERY · ${esc(world.name.toUpperCase())}</div>
     <h2 class="title">The Scroll of All Things</h2>
     <div class="orn" aria-hidden="true">❦ ✦ ❦</div>
