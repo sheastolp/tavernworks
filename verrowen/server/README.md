@@ -13,11 +13,19 @@ delete models. This server only lets the game through:
   rewritten after every turn, so stories that stop halfway are kept too.
 - `GET /health` tells the page whether the narrator is awake, and which
   model narrates.
-- The Orrery database is hosted here, not on GitHub: the server keeps a
-  mirror of grand-orrery in its save folder (`orrery-host/` — the data
-  branch's builds under `db/<branch>/`, the canon documents and maps
-  under `files/<branch>/`), refreshed with the owner's GitHub token
-  whenever a branch head moves, and serves it at `GET /db/<branch>/
+- The Orrery lives here, not on GitHub: the server keeps its own clone
+  of grand-orrery in its save folder (`orrery-repo/`, one worktree per
+  branch) and it is the store of record — every Review Clone read and
+  write (filing, accepting, publishing, discarding, the catch-ups, auto
+  mode) is local git, and the database is built locally by the repo's
+  own `tools/build.mjs` after any change. GitHub is a backup: commits
+  are pushed up when they settle, but nothing waits on it and nothing
+  reads from it. If the local store can't be set up (no git, the clone
+  failed), the server falls back to the GitHub API exactly as before;
+  `ORRERY_LOCAL=off` forces the API. `/health` reports which store is
+  live as `orreryStore`. The served mirror sits in `orrery-host/` (the
+  built database under `db/<branch>/`, the canon documents and maps
+  under `files/<branch>/`), served at `GET /db/<branch>/
   entities.public.json` (the full `entities.json` is owner-only),
   `GET /head/<branch>`, `GET /tree/<branch>`, `GET /files/<branch>/<path>`
   and `GET /db/compare`. Every reader — the Explorer, the bots through
@@ -369,6 +377,8 @@ Environment variables, set with `Environment=` in the service file:
 | `VERROWEN_SAVE_DIR` | systemd's state directory | Where stories are saved |
 | `ORRERY_GITHUB_TOKEN` | (none) | Lets the owner publish the Review Clone and file lore-keeper review items. Without it, both say so |
 | `ORRERY_REPO` | `sheastolp/grand-orrery` | The repo whose `review` branch is the Review Clone |
+| `ORRERY_LOCAL` | on | The laptop-local Orrery store (see above). Set to `off` to use the GitHub API for everything |
+| `ORRERY_REPO_URL` | the repo on GitHub, with the token | Where the local store clones grand-orrery from, the first time |
 | `REST_EVERY_MIN` | `20` | Minutes between auto mode's rounds (at least 5) |
 | `REST_MAX_PER_ROUND` | `8` | The most approvals and rejections in one round |
 

@@ -69,6 +69,8 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 const PORT = Number(process.env.VERROWEN_PORT || 8792);
 const HOST = process.env.VERROWEN_HOST || "127.0.0.1";
@@ -253,8 +255,212 @@ async function narrate(messages, left, opts = {}) {
   } finally { waiting--; }
 }
 
+// ── The local Orrery store ──────────────────────────────────────────────────
+// The laptop is the Orrery's store of record: the gate keeps its own clone
+// of grand-orrery in its save dir (one worktree per branch) and every read
+// and write the Review Clone code below asks gh() for is answered by local
+// git, in the same shapes the GitHub API returns. The database is built
+// locally after any change, and GitHub is kept as a backup: local commits
+// are pushed up when they settle, but nothing waits on GitHub and nothing
+// reads from it. If the local store can't be set up (no git, clone failed),
+// the gate stays on the GitHub API exactly as before. ORRERY_LOCAL=off
+// forces the GitHub API even when the local store is healthy.
+const LOCAL_ON = process.env.ORRERY_LOCAL !== "off";
+const REPO_DIR = () => path.join(SAVE_DIR, "orrery-repo");
+const wtOf = (branch) => (branch === LIVE ? REPO_DIR() : REPO_DIR() + "-" + branch);
+const REPO_URL = process.env.ORRERY_REPO_URL || (GH_TOKEN ? `https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git` : `https://github.com/${GH_REPO}.git`);
+let localReady = false;
+let localChain = Promise.resolve();
+const execFileP = promisify(execFile);
+const withLocal = (fn) => { const run = localChain.then(fn, fn); localChain = run.then(() => {}, () => {}); return run; };
+async function gitRun(args, cwd, buf = false) {
+  try {
+    const { stdout } = await execFileP("git", args, { cwd, maxBuffer: 512 * 1024 * 1024, ...(buf ? { encoding: "buffer" } : {}) });
+    return stdout;
+  } catch (e) {
+    throw new Error("git " + args[0] + " failed: " + String(e.stderr || e.message).trim().split("\n")[0]);
+  }
+}
+const git = (args, cwd = REPO_DIR()) => gitRun(args, cwd).then((s) => s.trim());
+const gitOk = async (args, cwd = REPO_DIR()) => { try { await execFileP("git", args, { cwd, maxBuffer: 1024 * 1024 }); return true; } catch { return false; } };
+const isAncestor = (a, b) => gitOk(["merge-base", "--is-ancestor", a, b]);
+// After any local write: rebuild + re-export the mirror, then back the new
+// commits up to GitHub. Debounced so a burst of edits costs one build.
+let writeTimer = null, backupTimer = null;
+function noteLocalWrite() {
+  if (!writeTimer) {
+    writeTimer = setTimeout(() => { writeTimer = null; withLocal(async () => { try { await hostSyncLocal(); } catch (e) { console.error(new Date().toISOString(), "orrery store sync:", e.message); } }); }, 2500);
+    writeTimer.unref?.();
+  }
+  if (!backupTimer) {
+    backupTimer = setTimeout(() => { backupTimer = null; backupPush(); }, 20000);
+    backupTimer.unref?.();
+  }
+}
+async function backupPush() {
+  try { await git(["push", "--quiet", "origin", LIVE, CLONE]); console.log(new Date().toISOString(), "orrery backup pushed to GitHub"); }
+  catch (e) { console.error(new Date().toISOString(), "orrery backup push failed (the laptop copy is canonical):", e.message); }
+}
+// Clone (once) and lay out the branch worktrees. Anything wrong: stay on
+// the GitHub API and say so in the log.
+async function localInit() {
+  if (!LOCAL_ON) return;
+  try {
+    await fs.mkdir(SAVE_DIR, { recursive: true });
+    await execFileP("git", ["--version"], { cwd: SAVE_DIR });
+    if (!(await gitOk(["rev-parse", "--git-dir"], REPO_DIR()))) {
+      await gitRun(["clone", "--quiet", REPO_URL, REPO_DIR()], SAVE_DIR);
+    }
+    await git(["config", "user.name", "Orrery gate"], REPO_DIR());
+    await git(["config", "user.email", "orrery-gate@localhost"], REPO_DIR());
+    const head = await git(["symbolic-ref", "--short", "HEAD"], REPO_DIR()).catch(() => "");
+    if (head !== LIVE) await git(["checkout", "--quiet", LIVE], REPO_DIR());
+    const cloneWt = wtOf(CLONE);
+    const hasWt = await fs.stat(path.join(cloneWt, ".git")).then(() => true, () => false);
+    if (!hasWt) {
+      if (await gitOk(["rev-parse", "--verify", "refs/heads/" + CLONE], REPO_DIR())) await git(["worktree", "add", "--quiet", cloneWt, CLONE], REPO_DIR());
+      else await git(["worktree", "add", "--quiet", "-b", CLONE, cloneWt, "origin/" + CLONE], REPO_DIR());
+    }
+    localReady = true;
+    console.log(new Date().toISOString(), "orrery store: local", REPO_DIR(), LIVE, (await git(["rev-parse", LIVE])).slice(0, 7), CLONE, (await git(["rev-parse", CLONE])).slice(0, 7));
+    await withLocal(() => hostSyncLocal());
+  } catch (e) {
+    localReady = false;
+    console.error(new Date().toISOString(), "orrery store: staying on the GitHub API:", e.message);
+  }
+}
+// The mirror, sourced from the local worktrees: canon files copied out of
+// the branch's own checkout, the database built by the repo's own tool.
+// Caller holds the local lock (or is localInit, before the store is ready).
+async function hostSyncLocal() {
+  for (const b of HOST_BRANCHES) {
+    const sha = await git(["rev-parse", b]);
+    if (sha === host.sha[b] && host.dbSha[b] === sha) continue;
+    const raw = await gitRun(["ls-tree", "-r", "-t", "-z", b], REPO_DIR(), true);
+    const tree = [];
+    for (const rec of raw.toString("utf8").split("\0")) {
+      const mm = rec.match(/^(\d+) (\w+) ([0-9a-f]{40})\t([\s\S]*)$/);
+      if (mm) tree.push({ path: mm[4], type: mm[2], sha: mm[3] });
+    }
+    host.tree[b] = tree;
+    for (const t of tree) {
+      if (t.type !== "blob" || !HOST_FILE_RE.test(t.path)) continue;
+      const key = `files/${b}/${t.path}`;
+      if (host.blobSha[key] === t.sha) continue;
+      await hostPut(key, await fs.readFile(path.join(wtOf(b), ...t.path.split("/"))));
+      host.blobSha[key] = t.sha;
+    }
+    const out = path.join(SAVE_DIR, "orrery-build-" + b);
+    await fs.rm(out, { recursive: true, force: true });
+    await execFileP(process.execPath, ["tools/build.mjs", "--out", out], { cwd: wtOf(b), maxBuffer: 64 * 1024 * 1024 });
+    for (const f of ["entities.json", "entities.public.json"]) await hostPut(`db/${b}/${f}`, await fs.readFile(path.join(out, f)));
+    host.dbSha[b] = sha;
+    host.sha[b] = sha;
+  }
+  host.dataSha = host.sha[LIVE] || host.dataSha;
+  await hostSaveMeta();
+}
+// The GitHub API shapes the code below uses, answered by local git. Returns
+// null for anything unrecognized (the caller then uses the real API) and
+// never throws: a local failure is a 500 the caller handles, not a silent
+// second write somewhere else.
+async function ghLocal(pathname, init = {}) {
+  const method = (init.method || "GET").toUpperCase();
+  let body = {};
+  try { body = init.body ? JSON.parse(init.body) : {}; } catch { /* an unreadable body fails at the shape checks below */ }
+  try {
+    let m;
+    if ((m = pathname.match(/^\/git\/ref\/heads\/(.+)$/)) && method === "GET") {
+      const sha = await git(["rev-parse", "--verify", "refs/heads/" + m[1]]).catch(() => "");
+      return sha ? { ok: true, status: 200, j: { object: { sha } } } : { ok: false, status: 404, j: { message: "Not Found" } };
+    }
+    if ((m = pathname.match(/^\/git\/refs\/heads\/(.+)$/)) && method === "PATCH") {
+      const branch = m[1], target = String(body.sha || "");
+      if (!(await gitOk(["cat-file", "-e", target + "^{commit}"]))) return { ok: false, status: 422, j: { message: "Unknown commit" } };
+      const cur = await git(["rev-parse", "--verify", "refs/heads/" + branch]).catch(() => "");
+      if (!body.force && cur && cur !== target && !(await isAncestor(cur, target))) return { ok: false, status: 422, j: { message: "Update is not a fast-forward" } };
+      await git(["update-ref", "refs/heads/" + branch, target]);
+      await git(["reset", "--hard", "--quiet", target], wtOf(branch));
+      noteLocalWrite();
+      return { ok: true, status: 200, j: { object: { sha: target } } };
+    }
+    if (pathname === "/merges" && method === "POST") {
+      const base = String(body.base || ""), from = String(body.head || "");
+      const baseSha = await git(["rev-parse", base]), headSha = await git(["rev-parse", from]);
+      if (await isAncestor(headSha, baseSha)) return { ok: true, status: 204, j: {} };
+      const wt = wtOf(base);
+      if ((await git(["status", "--porcelain"], wt)) !== "") return { ok: false, status: 500, j: { message: "The local " + base + " worktree has uncommitted changes" } };
+      const merged = await gitOk(["merge", "--quiet", "-m", String(body.commit_message || "Merge " + from + " into " + base), headSha], wt);
+      if (!merged) { await git(["merge", "--abort"], wt).catch(() => {}); return { ok: false, status: 409, j: { message: "Merge conflict" } }; }
+      const sha = await git(["rev-parse", base]);
+      noteLocalWrite();
+      return { ok: true, status: 201, j: { sha } };
+    }
+    if ((m = pathname.match(/^\/contents\/(.+?)(?:\?ref=(.+))?$/)) && method === "GET") {
+      const file = decodeURIComponent(m[1]), ref = m[2] || LIVE;
+      const buf = await gitRun(["show", ref + ":" + file], REPO_DIR(), true).catch(() => null);
+      if (buf === null) return { ok: false, status: 404, j: { message: "Not Found" } };
+      const sha = await git(["rev-parse", ref + ":" + file]);
+      return { ok: true, status: 200, j: { sha, content: buf.toString("base64"), encoding: "base64" } };
+    }
+    if ((m = pathname.match(/^\/contents\/(.+)$/)) && method === "PUT") {
+      const file = decodeURIComponent(m[1]), branch = String(body.branch || CLONE);
+      const bytes = Buffer.from(String(body.content || ""), "base64");
+      const wt = wtOf(branch);
+      const dest = path.join(wt, ...file.split("/"));
+      if (!dest.startsWith(wt + path.sep)) return { ok: false, status: 400, j: { message: "Bad file path" } };
+      const curSha = await git(["rev-parse", branch + ":" + file]).catch(() => "");
+      if (body.sha && body.sha !== curSha) return { ok: false, status: 409, j: { message: "The file changed underneath" } };
+      const cur = curSha ? await gitRun(["show", branch + ":" + file], REPO_DIR(), true) : null;
+      const head = await git(["rev-parse", branch]);
+      if (cur && cur.equals(bytes)) return { ok: true, status: 200, j: { commit: { sha: head, html_url: `https://github.com/${GH_REPO}/commit/${head}` } } };
+      await fs.mkdir(path.dirname(dest), { recursive: true });
+      await fs.writeFile(dest, bytes);
+      await git(["add", "--", file], wt);
+      await git(["commit", "--quiet", "-m", String(body.message || "Update " + file)], wt);
+      const sha = await git(["rev-parse", branch]);
+      noteLocalWrite();
+      return { ok: true, status: 201, j: { commit: { sha, html_url: `https://github.com/${GH_REPO}/commit/${sha}` } } };
+    }
+    if (pathname.startsWith("/commits?")) {
+      const q = new URLSearchParams(pathname.slice(pathname.indexOf("?") + 1));
+      const sha = await git(["log", "-1", "--format=%H", String(q.get("sha") || LIVE), "--", String(q.get("path") || "")]).catch(() => "");
+      return { ok: true, status: 200, j: sha ? [{ sha }] : [] };
+    }
+    if ((m = pathname.match(/^\/compare\/(.+)\.\.\.(.+)$/))) {
+      const a = decodeURIComponent(m[1]), b = decodeURIComponent(m[2]);
+      const ahead = Number(await git(["rev-list", "--count", `${a}..${b}`]) || 0);
+      const behind = Number(await git(["rev-list", "--count", `${b}..${a}`]) || 0);
+      const logRaw = await gitRun(["log", "--reverse", "--format=%H%x1f%an%x1f%ae%x1f%aI%x1f%B%x1e", `${a}..${b}`], REPO_DIR(), true);
+      const commits = logRaw.toString("utf8").split("\x1e").map((r) => r.replace(/^\n+/, "")).filter((r) => r.trim()).map((r) => {
+        const [sha, name, email, date, ...rest] = r.split("\x1f");
+        return { sha, html_url: `https://github.com/${GH_REPO}/commit/${sha}`, commit: { message: rest.join("\x1f").replace(/\n+$/, ""), author: { name, email, date } } };
+      });
+      const nsRaw = await gitRun(["diff", "--name-status", "-z", "--find-renames", `${a}...${b}`], REPO_DIR(), true);
+      const parts = nsRaw.toString("utf8").split("\0").filter((s) => s !== "");
+      const files = [];
+      for (let i = 0; i < parts.length;) {
+        const st = parts[i++]; let name = parts[i++], prev = null;
+        if (st.startsWith("R") || st.startsWith("C")) { prev = name; name = parts[i++]; }
+        const status = st.startsWith("A") ? "added" : st.startsWith("D") ? "removed" : st.startsWith("R") ? "renamed" : "modified";
+        const entry = { filename: name, status };
+        if (prev) entry.previous_filename = prev;
+        const patch = await gitRun(["diff", `${a}...${b}`, "--", name], REPO_DIR(), true).then((s) => s.toString("utf8")).catch(() => "");
+        const at = patch.indexOf("@@");
+        if (at >= 0) entry.patch = patch.slice(at);
+        files.push(entry);
+      }
+      return { ok: true, status: 200, j: { ahead_by: ahead, behind_by: behind, total_commits: ahead, commits, files } };
+    }
+    return null;
+  } catch (e) {
+    console.error(new Date().toISOString(), "orrery store:", method, pathname, "failed:", e.message);
+    return { ok: false, status: 500, j: { message: "The local Orrery store failed: " + e.message } };
+  }
+}
+
 // ── The Review Clone ──
-async function gh(pathname, init = {}) {
+async function ghGithub(pathname, init = {}) {
   if (!GH_TOKEN) throw Object.assign(new Error("The laptop has no GitHub token yet (ORRERY_GITHUB_TOKEN). See the server README."), { status: 503 });
   const r = await fetch(GH_API + "/repos/" + GH_REPO + pathname, {
     ...init,
@@ -263,6 +469,16 @@ async function gh(pathname, init = {}) {
   });
   const j = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, j };
+}
+// Every Orrery read and write goes through here: the local store when it
+// is healthy, the GitHub API otherwise (or for shapes the store doesn't
+// know, which the code above never sends).
+async function gh(pathname, init = {}) {
+  if (LOCAL_ON && localReady) {
+    const r = await withLocal(() => ghLocal(pathname, init));
+    if (r) return r;
+  }
+  return ghGithub(pathname, init);
 }
 const headOf = async (branch) => {
   const r = await gh("/git/ref/heads/" + branch);
@@ -1321,13 +1537,13 @@ const HOST_DIR = () => path.join(SAVE_DIR, "orrery-host");
 const HOST_META = () => path.join(HOST_DIR(), "meta.json");
 const HOST_BRANCHES = ["main", "review"];
 const HOST_FILE_RE = /\.(md|png|jpe?g|webp|gif|svg|json)$/i;
-const host = { dataSha: "", sha: {}, tree: {}, blobSha: {}, busy: false, compare: null, compareAt: 0 };
-try { const m = JSON.parse(await fs.readFile(HOST_META(), "utf8")); host.dataSha = m.dataSha || ""; host.sha = m.sha || {}; host.tree = m.tree || {}; host.blobSha = m.blobSha || {}; } catch { }
+const host = { dataSha: "", dbSha: {}, sha: {}, tree: {}, blobSha: {}, busy: false, compare: null, compareAt: 0 };
+try { const m = JSON.parse(await fs.readFile(HOST_META(), "utf8")); host.dataSha = m.dataSha || ""; host.dbSha = m.dbSha || {}; host.sha = m.sha || {}; host.tree = m.tree || {}; host.blobSha = m.blobSha || {}; } catch { }
 async function hostSaveMeta() {
   try {
     await fs.mkdir(HOST_DIR(), { recursive: true });
     const tmp = HOST_META() + ".tmp";
-    await fs.writeFile(tmp, JSON.stringify({ dataSha: host.dataSha, sha: host.sha, tree: host.tree, blobSha: host.blobSha }));
+    await fs.writeFile(tmp, JSON.stringify({ dataSha: host.dataSha, dbSha: host.dbSha, sha: host.sha, tree: host.tree, blobSha: host.blobSha }));
     await fs.rename(tmp, HOST_META());
   } catch { }
 }
@@ -1341,7 +1557,20 @@ async function hostPut(key, buf) {
   await fs.mkdir(path.dirname(p), { recursive: true });
   await fs.writeFile(p + ".tmp", buf); await fs.rename(p + ".tmp", p);
 }
+// The mirror sync: from the local store when it is the store of record,
+// from GitHub otherwise.
 async function hostSync() {
+  if (LOCAL_ON && localReady) {
+    if (host.busy) return;
+    host.busy = true;
+    try { await withLocal(() => hostSyncLocal()); }
+    catch (e) { console.error(new Date().toISOString(), "orrery host sync:", e.message); }
+    finally { host.busy = false; }
+    return;
+  }
+  return hostSyncGithub();
+}
+async function hostSyncGithub() {
   if (host.busy || !GH_TOKEN) return;
   host.busy = true;
   try {
@@ -1372,7 +1601,7 @@ async function hostSync() {
   } catch (e) { console.error(new Date().toISOString(), "orrery host sync:", e.message); }
   finally { host.busy = false; }
 }
-if (SERVING) { hostSync(); setInterval(hostSync, 60_000).unref?.(); }
+if (SERVING) { localInit(); hostSync(); setInterval(hostSync, 60_000).unref?.(); }
 const HOST_TYPES = { ".md": "text/markdown; charset=utf-8", ".json": "application/json; charset=utf-8", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml" };
 function sendBytes(res, status, buf, type, origin, etag, req) {
   if (etag && req && req.headers["if-none-match"] === etag) {
@@ -1769,7 +1998,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "OPTIONS") return send(res, origin ? 204 : 403, {}, origin);
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
       const up = await fetch(OLLAMA + "/api/version", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false);
-      return send(res, 200, { ok: true, game: "Wake in Verrowen", model: MODEL, ollama: up, resting: rest.on }, origin);
+      return send(res, 200, { ok: true, game: "Wake in Verrowen", model: MODEL, ollama: up, resting: rest.on, orreryStore: LOCAL_ON ? (localReady ? "local" : "github-fallback") : "github" }, origin);
     }
     // Browsers on other sites are turned away; scripts without an Origin header still hit the rate limits.
     if (req.headers.origin && !origin) return send(res, 403, { error: "This site isn't allowed to use the narrator" }, null);
@@ -1789,10 +2018,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname.startsWith("/db/")) {
       const [, , branch, file] = url.pathname.split("/");
       if (HOST_BRANCHES.includes(branch) && file === "entities.public.json")
-        return hostServeFile(res, req, `db/${branch}/entities.public.json`, "application/json; charset=utf-8", origin, `"db-${host.dataSha}-${branch}"`);
+        return hostServeFile(res, req, `db/${branch}/entities.public.json`, "application/json; charset=utf-8", origin, `"db-${host.dbSha[branch] || host.dataSha}-${branch}"`);
       if (HOST_BRANCHES.includes(branch) && file === "entities.json") {
         if (!isOwner(req)) return send(res, 401, { error: "The full database, secrets and all, is the owner's only" }, origin);
-        return hostServeFile(res, req, `db/${branch}/entities.json`, "application/json; charset=utf-8", origin, `"dbf-${host.dataSha}-${branch}"`);
+        return hostServeFile(res, req, `db/${branch}/entities.json`, "application/json; charset=utf-8", origin, `"dbf-${host.dbSha[branch] || host.dataSha}-${branch}"`);
       }
       return send(res, 404, { error: "Not here" }, origin);
     }
