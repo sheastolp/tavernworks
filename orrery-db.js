@@ -13,7 +13,10 @@
 //
 // The client never throws: before its first good read, lookups return nothing.
 (function () {
-  const CLIENT = "https://cdn.jsdelivr.net/gh/sheastolp/grand-orrery@d91122f2f80a0f98644f9c473142be268c9a9530/client/orrery.js";
+  const CLIENT = "https://cdn.jsdelivr.net/gh/sheastolp/grand-orrery@45c7741a590b29ba77f657881db19fea4553e5b6/client/orrery.js";
+  // The database is hosted on the laptop (the gate's /db/… mirror), not
+  // on GitHub; the client falls back to GitHub if the laptop can't serve.
+  const HOST = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
   const open = {};
   // One client per branch, shared by everything on the page.
   function get(branch = "main") {
@@ -22,7 +25,7 @@
         // The browser keeps the Orrery's last good read, so a page opened
         // while GitHub is out of reach still shows the Orrery (never a
         // hand-written copy of it).
-        .then(({ Orrery, storageCache }) => { const o = new Orrery({ branch, refreshMinutes: 0, cache: storageCache("orrery-db-" + branch) }); return o.ready().then(() => o); })
+        .then(({ Orrery, storageCache }) => { const o = new Orrery({ branch, refreshMinutes: 0, cache: storageCache("orrery-db-" + branch), baseUrl: HOST }); return o.ready().then(() => o); })
         .catch((e) => { delete open[branch]; throw e; });
     }
     return open[branch];

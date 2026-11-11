@@ -14,6 +14,9 @@
 //   OrreryLive.on((m) => …)            m = { branch, what, at }
 (function () {
   const REPO = "sheastolp/grand-orrery";
+  // Branch heads come from the laptop that hosts the database now (the
+  // gate's mirror); GitHub's API is only the fallback.
+  const HOST = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
   const KEY = "orrery-live-ping";
   const fns = new Set();
   const fire = (m) => { for (const f of fns) { try { f(m); } catch (e) { console.error("orrery live", e); } } };
@@ -31,6 +34,19 @@
 
   const tags = {}, heads = {};
   async function head(branch = "main") {
+    try {
+      const headers = {};
+      if (tags[branch] && heads[branch]) headers["if-none-match"] = tags[branch];
+      const r = await fetch(HOST + "/head/" + branch, { cache: "no-store", headers });
+      if (r.status === 304) return heads[branch] || "";
+      if (r.ok) {
+        const sha = (await r.text()).trim();
+        if (/^[0-9a-f]{40}$/.test(sha)) { tags[branch] = r.headers.get("etag") || ""; heads[branch] = sha; return sha; }
+      }
+    } catch { }
+    return headGithub(branch);
+  }
+  async function headGithub(branch = "main") {
     try {
       const headers = { accept: "application/vnd.github.sha" };
       if (tags[branch] && heads[branch]) headers["if-none-match"] = tags[branch];

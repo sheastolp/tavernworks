@@ -1,6 +1,6 @@
 // Service worker for the installable Orrery Explorer (scope /orrery/),
 // which takes in the Orrery control page and the Review Clone too.
-self.PWA_CACHE = "orrery-v25";
+self.PWA_CACHE = "orrery-v26";
 self.PWA_SHELL = ["/orrery/", "/orrery/control/", "/orrery/control/review/", "/voice-input.js", "/ai-model-note.js", "/pwa.js", "/orrery-review.js", "/orrery-db.js", "/orrery-live.js", "/orrery/review-summary.js", "/orrery/manifest.webmanifest", "/orrery/icon-192.png"];
 importScripts("/pwa-sw-core.js");
 
@@ -9,8 +9,8 @@ importScripts("/pwa-sw-core.js");
 // that holds the owner's token; the browser decides how often it runs.
 self.addEventListener("periodicsync", (e) => {
   if (e.tag !== "orrery-review") return;
-  e.waitUntil(fetch("https://api.github.com/repos/sheastolp/grand-orrery/compare/main...review", { cache: "no-store", headers: { accept: "application/vnd.github+json" } })
-    .then((r) => (r.ok ? r.json() : Promise.reject()))
+  e.waitUntil(fetch("https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443/db/compare", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : fetch("https://api.github.com/repos/sheastolp/grand-orrery/compare/main...review", { cache: "no-store", headers: { accept: "application/vnd.github+json" } }).then((x) => (x.ok ? x.json() : Promise.reject()))))
     .then((j) => { const n = j.ahead_by || 0; return n ? self.navigator.setAppBadge(n) : self.navigator.clearAppBadge(); })
     .catch(() => {}));
 });

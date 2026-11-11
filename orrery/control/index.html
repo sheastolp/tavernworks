@@ -170,8 +170,8 @@ $("useModel").addEventListener("click", async () => {
 });
 
 checkHealth();
-fetch("https://api.github.com/repos/sheastolp/grand-orrery/compare/main...review", { headers: { accept: "application/vnd.github+json" } })
-  .then((r) => r.ok ? r.json() : Promise.reject())
+fetch(SERVER + "/db/compare", { cache: "no-store" })
+  .then((r) => r.ok ? r.json() : fetch("https://api.github.com/repos/sheastolp/grand-orrery/compare/main...review", { headers: { accept: "application/vnd.github+json" } }).then((x) => x.ok ? x.json() : Promise.reject()))
   .then((j) => { const n = j.ahead_by || 0; if (window.tavernPWA) tavernPWA.badge(n); $("waiting").textContent = n ? n + " change" + (n > 1 ? "s are" : " is") + " waiting for you." : "Nothing is waiting. The clone matches what's live."; })
   .catch(() => { $("waiting").textContent = "Couldn't check GitHub right now."; });
 const saved = store.get();

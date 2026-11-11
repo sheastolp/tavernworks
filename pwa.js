@@ -23,7 +23,7 @@
   const me = document.currentScript;
   const sw = me && me.dataset.sw, scope = me && me.dataset.scope, badgeMode = me && me.dataset.badge;
   const OWNER_KEY = "verrowen-owner";
-  const COMPARE = "https://api.github.com/repos/sheastolp/grand-orrery/compare/main...review";
+  const COMPARE = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443/db/compare";
   const root = document.documentElement;
   const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
   const ready = (fn) => (document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", fn) : fn());

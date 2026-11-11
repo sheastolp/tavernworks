@@ -510,10 +510,14 @@ const CLONE = new URLSearchParams(location.search).get("clone") === "review";
 // set from /orrery/control/, where changes are approved or turned down.
 const OWNER = (() => { try { return !!localStorage.getItem("verrowen-owner"); } catch { return false; } })();
 const BRANCH = CLONE ? "review" : "main";
-// RAW is pinned to the branch's newest commit on every load (see load()):
-// raw.githubusercontent.com caches a branch name for minutes, but a commit
-// id is always exactly that version, so a fresh publish shows up straight away.
-const RAW_BASE = "https://raw.githubusercontent.com/sheastolp/grand-orrery/";
+// The database is hosted on the laptop now, not on GitHub: the gate
+// serves its mirror of grand-orrery at /files/<branch>/, /db/, /head/ and
+// /tree/ (see the server README), so the Explorer reads the canon from
+// there and GitHub's limits stop mattering. RAW is the branch's folder on
+// the laptop; load() checks the branch head (also from the laptop) so a
+// fresh publish shows up straight away.
+const GATE = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
+const RAW_BASE = GATE + "/files/";
 let RAW = RAW_BASE + BRANCH + "/";
 if (CLONE) {
   document.title = "Review Clone · " + document.title;
@@ -523,8 +527,8 @@ if (CLONE) {
   bar.innerHTML = '<b>🔍 Review Clone.</b> This is the Orrery as it will look once the owner publishes what\'s waiting on the <code>review</code> branch. <span id="cloneSum"></span> <a href="/orrery/control/review/">Review the changes</a> · <a href="/orrery/">Live Orrery</a>';
   document.body.prepend(bar);
   // One line on what's waiting, from /orrery/review-summary.js.
-  fetch("https://api.github.com/repos/sheastolp/grand-orrery/compare/main...review", { cache: "no-store", headers: { accept: "application/vnd.github+json" } })
-    .then((r) => (r.ok ? r.json() : Promise.reject()))
+  fetch(GATE + "/db/compare", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : fetch("https://api.github.com/repos/sheastolp/grand-orrery/compare/main...review", { cache: "no-store", headers: { accept: "application/vnd.github+json" } }).then((x) => (x.ok ? x.json() : Promise.reject()))))
     .then((j) => (j.ahead_by ? (window.ReviewSummary ? ReviewSummary.build(j) : null) : { short: "Nothing is waiting: it matches the live Orrery." }))
     .then((s) => { const el = document.getElementById("cloneSum"); if (el && s && s.short) el.textContent = s.short; })
     .catch(() => {});
@@ -626,13 +630,14 @@ function addExtras(j){
   }
 }
 // Every Markdown document in grand-orrery (at the top and in maps/), so
-// each one can be read here, not only the ones listed above. Needs GitHub's
-// API; without it, the list above and orrery.json still show.
+// each one can be read here, not only the ones listed above. The tree
+// comes from the laptop's mirror (GitHub's API is the fallback); without
+// either, the list above and orrery.json still show.
 async function findDocs(sha){
   try{
-    const r = await fetch("https://api.github.com/repos/sheastolp/grand-orrery/git/trees/" + (sha || BRANCH) + "?recursive=1", { cache: "no-store" });
-    if (!r.ok) return;
-    const j = await r.json();
+    const r = await fetch(GATE + "/tree/" + BRANCH, { cache: "no-store" }).catch(() => null);
+    const j = r && r.ok ? await r.json() : await fetch("https://api.github.com/repos/sheastolp/grand-orrery/git/trees/" + (sha || BRANCH) + "?recursive=1", { cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    if (!j) return;
     for (const t of j.tree || []) {
       if (t.type !== "blob" || !/^(maps\/)?[^/]+\.md$/i.test(t.path) || DOCS.some((d) => d.file === t.path)) continue;
       let id = idOf(t.path.replace(/\.md$/i, "")) || "doc";
@@ -1648,7 +1653,7 @@ async function load(quiet = false, head) {
   // Without the API, fall back to the branch name, which can lag a few minutes.
   const sha = head !== undefined ? head : await branchHead();
   canonSha = sha;
-  RAW = RAW_BASE + (sha || BRANCH) + "/";
+  RAW = RAW_BASE + BRANCH + "/";
   const bust = sha ? "" : "?t=" + Date.now();
   // The database first: it says which documents, maps and worlds there are.
   const dbOk = await readDb();
@@ -1868,7 +1873,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 // New chats are open ("chat" mode): one box to start, and the topic
 // (characters, regions, rules…) is worked out from the conversation. Older
 // chats in the "create", "review" and "world" modes still open and continue.
-const AI = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
+const AI = GATE;
 // The gate takes 24,000 characters in the first message and runs the model
 // with an 8k-token window, so the canon and the chat are both kept to a budget.
 // The open chat sends focused canon on top of the lore, so it gets a bit more.
@@ -2727,8 +2732,8 @@ async function readReviewDocs() {
       const r = await fetch(AI + "/admin/review-text?file=" + encodeURIComponent(f), { cache: "no-store", headers: { authorization: "Bearer " + token } });
       if (r.ok) { const j = await r.json(); if (typeof j.text === "string") return (files[f] = j.text); }
     } catch {}
-    const r = await fetch("https://api.github.com/repos/sheastolp/grand-orrery/contents/" + f + "?ref=review", { cache: "no-store", headers: { accept: "application/vnd.github.raw+json" } });
-    files[f] = r.ok ? await r.text() : null;
+    const r = await fetch(GATE + "/files/review/" + f, { cache: "no-store" }).catch(() => null);
+    files[f] = r && r.ok ? await r.text() : null;
   }));
   // A file that couldn't be read is checked as empty, flagged, and not kept.
   const failed = CHANGE_FILES.filter((f) => files[f] === null);
