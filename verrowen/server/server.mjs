@@ -71,6 +71,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import zlib from "node:zlib";
 
 const PORT = Number(process.env.VERROWEN_PORT || 8792);
 const HOST = process.env.VERROWEN_HOST || "127.0.0.1";
@@ -438,6 +439,23 @@ async function ghLocal(pathname, init = {}) {
       });
       const nsRaw = await gitRun(["diff", "--name-status", "-z", "--find-renames", `${a}...${b}`], REPO_DIR(), true);
       const parts = nsRaw.toString("utf8").split("\0").filter((s) => s !== "");
+      // One diff for the whole compare, split per file — not a git call per file.
+      const diffRaw = await gitRun(["diff", "--find-renames", `${a}...${b}`], REPO_DIR(), true).then((s) => s.toString("utf8")).catch(() => "");
+      const patchByFile = {};
+      {
+        let cur = null, on = false;
+        for (const line of diffRaw.split("\n")) {
+          if (line.startsWith("diff --git ")) {
+            const rest = line.slice("diff --git ".length), cut = rest.lastIndexOf(" b/");
+            cur = cut > 0 ? rest.slice(cut + 3) : null; on = false;
+            if (cur) patchByFile[cur] = "";
+            continue;
+          }
+          if (!cur) continue;
+          if (line.startsWith("@@")) on = true;
+          if (on) patchByFile[cur] += line + "\n";
+        }
+      }
       const files = [];
       for (let i = 0; i < parts.length;) {
         const st = parts[i++]; let name = parts[i++], prev = null;
@@ -445,9 +463,8 @@ async function ghLocal(pathname, init = {}) {
         const status = st.startsWith("A") ? "added" : st.startsWith("D") ? "removed" : st.startsWith("R") ? "renamed" : "modified";
         const entry = { filename: name, status };
         if (prev) entry.previous_filename = prev;
-        const patch = await gitRun(["diff", `${a}...${b}`, "--", name], REPO_DIR(), true).then((s) => s.toString("utf8")).catch(() => "");
-        const at = patch.indexOf("@@");
-        if (at >= 0) entry.patch = patch.slice(at);
+        const patch = (patchByFile[name] || "").replace(/\n+$/, "");
+        if (patch) entry.patch = patch;
         files.push(entry);
       }
       return { ok: true, status: 200, j: { ahead_by: ahead, behind_by: behind, total_commits: ahead, commits, files } };
@@ -1603,22 +1620,42 @@ async function hostSyncGithub() {
 }
 if (SERVING) { localInit(); hostSync(); setInterval(hostSync, 60_000).unref?.(); }
 const HOST_TYPES = { ".md": "text/markdown; charset=utf-8", ".json": "application/json; charset=utf-8", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml" };
-function sendBytes(res, status, buf, type, origin, etag, req) {
+function sendBytes(res, status, buf, type, origin, etag, req, gz = null) {
   if (etag && req && req.headers["if-none-match"] === etag) {
-    res.writeHead(304, { etag, vary: "Origin", ...(origin ? { "access-control-allow-origin": origin } : {}) });
+    res.writeHead(304, { etag, vary: "Origin, Accept-Encoding", ...(origin ? { "access-control-allow-origin": origin } : {}) });
     return res.end();
   }
-  const headers = { "content-type": type, "cache-control": "no-cache", vary: "Origin" };
+  const headers = { "content-type": type, "cache-control": "no-cache", vary: "Origin, Accept-Encoding" };
+  let body = buf;
+  if (gz && /\bgzip\b/.test(String(req?.headers["accept-encoding"] || ""))) { body = gz; headers["content-encoding"] = "gzip"; }
+  headers["content-length"] = body.length;
   if (etag) headers.etag = etag;
   if (origin) Object.assign(headers, { "access-control-allow-origin": origin, "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "content-type, authorization", "access-control-max-age": "600" });
   res.writeHead(status, headers);
-  res.end(buf);
+  res.end(body);
 }
+// The mirror's files are static between syncs: keep each served file (and
+// its gzipped twin, ~5x smaller for the database) in memory, keyed by the
+// etag the sync state already knows, and answer a matching If-None-Match
+// without touching disk at all.
+const fileCache = new Map();
+const COMPRESSIBLE = /json|text\/|svg|xml/;
 async function hostServeFile(res, req, key, type, origin, etag) {
-  try {
-    const buf = await fs.readFile(path.join(HOST_DIR(), ...key.split("/")));
-    return sendBytes(res, 200, buf, type, origin, etag, req);
-  } catch { return send(res, 404, { error: "Not mirrored yet — the laptop is still fetching the Orrery" }, origin); }
+  if (etag && req.headers["if-none-match"] === etag) {
+    res.writeHead(304, { etag, vary: "Origin, Accept-Encoding", ...(origin ? { "access-control-allow-origin": origin } : {}) });
+    return res.end();
+  }
+  let hit = fileCache.get(key);
+  if (!hit || hit.etag !== etag) {
+    let buf;
+    try { buf = await fs.readFile(path.join(HOST_DIR(), ...key.split("/"))); }
+    catch { return send(res, 404, { error: "Not mirrored yet — the laptop is still fetching the Orrery" }, origin); }
+    const gz = COMPRESSIBLE.test(type) && buf.length >= 1024 ? zlib.gzipSync(buf, { level: 6 }) : null;
+    hit = { etag, raw: buf, gz };
+    fileCache.set(key, hit);
+    if (fileCache.size > 96) fileCache.delete(fileCache.keys().next().value);
+  }
+  return sendBytes(res, 200, hit.raw, type, origin, etag, req, hit.gz);
 }
 async function hostCompare() {
   if (host.compare && Date.now() - host.compareAt < 120_000) return host.compare;
