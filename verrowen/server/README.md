@@ -7,7 +7,7 @@ The funnel points at this small server instead of at Ollama itself. Anyone
 can reach a funnel address, and Ollama's own API can also download, copy and
 delete models. This server only lets the game through:
 
-- `POST /narrate` runs one turn on one model (`gemma3:4b` by default), with
+- `POST /narrate` runs one turn on one model (`huihui_ai/phi4-mini-abliterated:3.8b` by default), with
   reply length, message count and size capped.
 - `POST /save` keeps each player's story on the laptop, one file per player,
   rewritten after every turn, so stories that stop halfway are kept too.
@@ -40,11 +40,11 @@ steps run as **root** on the laptop.
 ## 1. Get the model
 
 ```sh
-ollama pull gemma3:4b
+ollama pull huihui_ai/phi4-mini-abliterated:3.8b
 ```
 
-It's about 3.3 GB, so it fits in the GTX 1650's 4 GB. Check it:
-`ollama run gemma3:4b "hi"`, then `ollama ps` should say `100% GPU`.
+It's a small model, so it fits in the GTX 1650's 4 GB. Check it:
+`ollama run huihui_ai/phi4-mini-abliterated:3.8b "hi"`, then `ollama ps` should say `100% GPU`.
 
 ## 2. Copy the server to the laptop
 
@@ -349,7 +349,7 @@ Environment variables, set with `Environment=` in the service file:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `VERROWEN_MODEL` | `gemma3:4b` | The model that narrates until the owner picks another on the page |
+| `VERROWEN_MODEL` | `huihui_ai/phi4-mini-abliterated:3.8b` | The model that narrates until the owner picks another on the page |
 | `VERROWEN_MAX_CTX` | `16384` | The largest context window a reply may use. Each reply gets just enough room for its prompt; lower this if a model runs out of GPU memory |
 | `VERROWEN_PORT` | `8792` | Port to listen on |
 | `VERROWEN_HOST` | `127.0.0.1` | Address to listen on |

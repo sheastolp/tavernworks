@@ -73,7 +73,7 @@ import crypto from "node:crypto";
 const PORT = Number(process.env.VERROWEN_PORT || 8792);
 const HOST = process.env.VERROWEN_HOST || "127.0.0.1";
 const OLLAMA = (process.env.OLLAMA_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
-const DEFAULT_MODEL = process.env.VERROWEN_MODEL || "gemma3:4b";
+const DEFAULT_MODEL = process.env.VERROWEN_MODEL || "huihui_ai/phi4-mini-abliterated:3.8b";
 const ORIGINS = (process.env.VERROWEN_ORIGINS || "https://tavernworks.dev").split(",").map((s) => s.trim()).filter(Boolean);
 const SAVE_DIR = process.env.VERROWEN_SAVE_DIR || process.env.STATE_DIRECTORY || path.resolve("verrowen-saves");
 
