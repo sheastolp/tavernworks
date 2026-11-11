@@ -31,10 +31,21 @@
   if (standalone()) root.classList.add("standalone");
 
   // ── Service worker ──
+  // Every browser must converge on the same app: ask for the newest worker
+  // on every open (and again when a long-lived window comes back to the
+  // front), and when a new worker takes over, reload once so the page the
+  // person is looking at is the new one, not the one the old worker served.
   let reg = null;
   if (sw && "serviceWorker" in navigator) {
+    const hadController = !!navigator.serviceWorker.controller;
     addEventListener("load", () => navigator.serviceWorker.register(sw, scope ? { scope } : undefined)
-      .then((r) => { reg = r; syncBackground(); }).catch(() => {}));
+      .then((r) => { reg = r; r.update().catch(() => {}); syncBackground(); }).catch(() => {}));
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && reg) reg.update().catch(() => {}); });
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController) return;                       // first install: the page is already the new one
+      try { if (sessionStorage.getItem("pwa-reloaded")) return; sessionStorage.setItem("pwa-reloaded", "1"); } catch { return; }
+      location.reload();
+    });
   }
 
   // ── Install button ──

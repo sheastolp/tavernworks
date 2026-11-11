@@ -25,7 +25,7 @@
         // The browser keeps the Orrery's last good read, so a page opened
         // while GitHub is out of reach still shows the Orrery (never a
         // hand-written copy of it).
-        .then(({ Orrery, storageCache }) => { const o = new Orrery({ branch, refreshMinutes: 0, cache: storageCache("orrery-db-" + branch), baseUrl: HOST }); return o.ready().then(() => o); })
+        .then(({ Orrery, storageCache }) => { const o = new Orrery({ branch, refreshMinutes: 0, cache: storageCache("orrery-db2-" + branch), baseUrl: HOST }); return o.ready().then(() => o); })
         .catch((e) => { delete open[branch]; throw e; });
     }
     return open[branch];
