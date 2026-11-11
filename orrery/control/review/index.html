@@ -56,7 +56,9 @@
   .count{font-size:18px}
   .count b{color:var(--gold2)}
   .what{margin-top:10px;font-size:14.5px;color:var(--muted)} .what summary{cursor:pointer;color:var(--gold2)} .what p{margin-top:6px}
-  .summary{margin:12px 0 4px;display:flex;flex-direction:column;gap:6px}
+  .summary{margin:12px 0 4px}
+  .summary > summary{cursor:pointer;color:var(--gold2);font-size:15.5px;padding:4px 0}
+  #summaryBody{display:flex;flex-direction:column;gap:6px}
   .summary .lead{font-size:16.5px;color:var(--text)}
   .summary .impact{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:4px;font-size:14.5px}
   .summary h3{font-family:Cinzel,serif;font-size:14px;letter-spacing:.08em;color:var(--gold);margin-top:10px}
@@ -192,7 +194,10 @@
     <h2 id="h-view"><span class="stepno">2</span>👁 View <span class="pill" id="viewPill">…</span></h2>
     <p class="note">Just for looking: nothing here needs you. It shows what publishing will change, and keeps itself up to date.</p>
     <p class="count" id="count">Checking GitHub…</p>
-    <div class="summary" id="summary" hidden></div>
+    <details class="summary" id="summary" hidden>
+      <summary id="summaryHead">What publishing will change</summary>
+      <div id="summaryBody"></div>
+    </details>
     <div class="row" id="cloneRow">
       <a class="btn" id="cloneLink" href="/orrery/?clone=review" target="_blank" rel="noopener">🔍 Browse it in the Review Clone</a>
     </div>
@@ -354,6 +359,10 @@ function makeFold(box, head, open){
   setFold(box, open);
 }
 document.querySelectorAll("#moreTools > section.card").forEach((c) => { const h = c.querySelector(":scope > h2"); if (h) makeFold(c, h, false); });
+// Step 2 (View) starts folded too: it's only for looking, and unfolded it
+// was a wall to scroll past between Approve and Publish. Its heading pill
+// still says how much is waiting; one tap opens it.
+makeFold($("waitCard"), $("h-view"), false);
 // Opens whatever holds el, so the page can point at it.
 function reveal(el){
   const m = el.closest("details.more"); if (m) m.open = true;
@@ -449,9 +458,19 @@ async function load(){
   }
   const files = j.files || [];
   // The plain-words summary: what a reader of the Orrery would notice.
-  $("summary").hidden = false; $("summary").innerHTML = '<p class="note">Reading the changes…</p>';
-  if (window.ReviewSummary) ReviewSummary.build(j).then((s) => { $("summary").innerHTML = s.html || ""; $("summary").hidden = !s.html; })
-    .catch(() => { $("summary").innerHTML = '<p class="note">Couldn\'t read the changes for a summary. The list below still shows them.</p>'; });
+  // It starts folded shut — the headline rides on the fold, and the full
+  // entry-by-entry view is one tap away instead of a wall to scroll past.
+  $("summary").hidden = false; $("summary").removeAttribute("open");
+  $("summaryHead").textContent = "What publishing will change";
+  $("summaryBody").innerHTML = '<p class="note">Reading the changes…</p>';
+  if (window.ReviewSummary) ReviewSummary.build(j).then((s) => {
+      const html = s.html || "";
+      const lead = (html.match(/<p class="lead">([\s\S]*?)<\/p>/) || [])[1] || "";
+      if (lead) { const t = document.createElement("div"); t.innerHTML = lead; $("summaryHead").textContent = t.textContent; }
+      $("summaryBody").innerHTML = html.replace(/<p class="lead">[\s\S]*?<\/p>/, "");
+      $("summary").hidden = !html;
+    })
+    .catch(() => { $("summaryBody").innerHTML = '<p class="note">Couldn\'t read the changes for a summary. The list below still shows them.</p>'; });
   $("count").innerHTML = `Publishing will change <b>${files.length}</b> file${files.length === 1 ? "" : "s"} (${ahead} change${ahead > 1 ? "s" : ""}).` +
     (behind ? ` <span class="note">Live also has ${behind} change${behind > 1 ? "s" : ""} review doesn't; publishing merges the two.</span>` : "");
 

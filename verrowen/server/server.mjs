@@ -335,8 +335,15 @@ async function localInit() {
 // Caller holds the local lock (or is localInit, before the store is ready).
 async function hostSyncLocal() {
   for (const b of HOST_BRANCHES) {
+    try { await hostSyncLocalBranch(b); }
+    catch (e) { console.error(new Date().toISOString(), "orrery host sync (" + b + "):", e.message); }
+  }
+  host.dataSha = host.sha[LIVE] || host.dataSha;
+  await hostSaveMeta();
+}
+async function hostSyncLocalBranch(b) {
     const sha = await git(["rev-parse", b]);
-    if (sha === host.sha[b] && host.dbSha[b] === sha) continue;
+    if (sha === host.sha[b] && host.dbSha[b] === sha) return;
     const raw = await gitRun(["ls-tree", "-r", "-t", "-z", b], REPO_DIR(), true);
     const tree = [];
     for (const rec of raw.toString("utf8").split("\0")) {
@@ -357,9 +364,6 @@ async function hostSyncLocal() {
     for (const f of ["entities.json", "entities.public.json"]) await hostPut(`db/${b}/${f}`, await fs.readFile(path.join(out, f)));
     host.dbSha[b] = sha;
     host.sha[b] = sha;
-  }
-  host.dataSha = host.sha[LIVE] || host.dataSha;
-  await hostSaveMeta();
 }
 // The GitHub API shapes the code below uses, answered by local git. Returns
 // null for anything unrecognized (the caller then uses the real API) and
@@ -1575,8 +1579,12 @@ async function hostPut(key, buf) {
   await fs.writeFile(p + ".tmp", buf); await fs.rename(p + ".tmp", p);
 }
 // The mirror sync: from the local store when it is the store of record,
-// from GitHub otherwise.
+// from GitHub otherwise. While the local store is still starting, wait for
+// it: a GitHub sync racing the local one can overwrite the mirror with the
+// data branch's older builds and leave it stale.
+let localInitDone = null;
 async function hostSync() {
+  if (LOCAL_ON && localInitDone) { try { await localInitDone; } catch { /* localInit logged it */ } }
   if (LOCAL_ON && localReady) {
     if (host.busy) return;
     host.busy = true;
@@ -1618,7 +1626,7 @@ async function hostSyncGithub() {
   } catch (e) { console.error(new Date().toISOString(), "orrery host sync:", e.message); }
   finally { host.busy = false; }
 }
-if (SERVING) { localInit(); hostSync(); setInterval(hostSync, 60_000).unref?.(); }
+if (SERVING) { localInitDone = localInit(); hostSync(); setInterval(hostSync, 60_000).unref?.(); }
 const HOST_TYPES = { ".md": "text/markdown; charset=utf-8", ".json": "application/json; charset=utf-8", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml" };
 function sendBytes(res, status, buf, type, origin, etag, req, gz = null) {
   if (etag && req && req.headers["if-none-match"] === etag) {
