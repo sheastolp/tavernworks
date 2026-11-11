@@ -245,6 +245,11 @@
   .writeup button.closew{border-color:var(--line);color:var(--muted);padding:4px 10px;font-size:15px;line-height:1}
   .linkbtn{background:none;border:0;padding:0;color:var(--gold2);font:inherit;text-decoration:underline;cursor:pointer}
   .writeup button.primary{background:var(--gold);color:var(--bg);font-weight:800}
+  .writeup .wform{display:flex;flex-direction:column;gap:10px}
+  .writeup .wform .fld{display:flex;flex-direction:column;gap:4px}
+  .writeup .wform label{font-family:Cinzel,serif;font-size:11.5px;letter-spacing:.1em;color:var(--gold2);text-transform:uppercase}
+  .writeup .wform textarea,.writeup .wform input{width:100%;box-sizing:border-box;background:var(--bg);color:inherit;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:Spectral,Georgia,serif;font-size:16px;line-height:1.45}
+  .writeup .wform textarea:focus,.writeup .wform input:focus{border-color:var(--gold);outline:none}
   /* 🛠 A change asked for in plain words: the lore-keeper's verdict and the exact edits. */
   .change .edit{border:1px solid var(--line);border-radius:10px;padding:8px 12px;font:13.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
   .change .edit .f{color:var(--muted);font-family:Inter,sans-serif;font-size:12.5px}
@@ -1814,7 +1819,9 @@ const AI = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";
 // with an 8k-token window, so the canon and the chat are both kept to a budget.
 // The open chat sends focused canon on top of the lore, so it gets a bit more.
 const CANON_BUDGET = 15000, CHAT_BUDGET = 18000, HISTORY_BUDGET = 9000, MAX_SAY = 2000;
-const KEEPER = `You are the lore-keeper of the Grand Orrery, talking with the author of this medieval fantasy universe. You are their story partner: you know this world inside out because the Grand Orrery is your source for everything in it — its lore, and the details of every item, location, race, person and rule. The canon below (the LORE, the ROSTER, the NOTES, and the sections about whatever you're discussing) is the world as it stands. Ground what you say in it: when the author asks what the canon says, answer from it, fully and plainly. When the canon doesn't say, say so — never invent an answer and pass it off as canon — and then help the author develop one: everything the Orrery doesn't hold yet is theirs to decide, and your job is to help them decide well.
+const KEEPER = `You are the lore-keeper of the Grand Orrery, talking with the author of this medieval fantasy universe. You are their research assistant and story partner: you know this world inside out because the Grand Orrery is your source for everything in it — its lore, and the details of every item, location, race, person and rule. The canon below (the LORE, the ROSTER, the NOTES, and the sections about whatever you're discussing) is the world as it stands. Ground what you say in it: when the author asks what the canon says, answer from it, fully and plainly. When the canon doesn't say, say so — never invent an answer and pass it off as canon — and then help the author develop one: everything the Orrery doesn't hold yet is theirs to decide, and your job is to help them decide well.
+
+Work like a researcher, not just a companion. Dig before you answer: cross-check names, ages, places and ties across the canon, quote the exact lines you rely on, and keep a running eye out for contradictions, stale details and gaps — when you find one, name it and offer the fix. When the author is weighing a question the canon only half-answers, lay out what it does say, what it leaves open, and what each way of closing the gap would change elsewhere. You can prepare additions and edits to the Orrery itself — new people, places, items, creatures and lore, and changes to any line already there — through the write-up and 🛠 change routes described below; the author always sees them before they are filed, and files them only for review.
 
 Do the work; don't applaud it. Never praise the author's ideas, this chat, or your own drafts — no "perfect", "excellent", "spot on", "fantastic", no congratulations. The author needs a clear-eyed partner, not applause: say what's true — what works, what's weak, what's missing. And never claim you have changed the Orrery: you can't. Nothing you say in conversation alters it. A change happens only when the author makes it (🛠 Make it a change) or sends a write-up in for review; when a decision settles, state it plainly as a fact ready to be made, and say that's how it gets in.
 
@@ -1822,7 +1829,7 @@ Talk like a person, not a form. This is a conversation about developing the stor
 
 Keep the story straight: never contradict the canon below. When an idea clashes with it, say so, quote the line it clashes with, and help find a version that fits — or name what would have to change for it to fit. Think about the whole world, not just the place you're standing in. One exception to developing things here: a brand-new named character is born in Wake in Verrowen, not in this chat (the ✨ button starts one).
 
-When the author wants something to become canon, help them shape it until it's ready, then sum it up briefly. They can write it up (✍️) or make it a change (🛠), and it goes to the Orrery's review branch — the author's own changes too — and only goes live when the author publishes it. Never claim a change is already live, and never hurry the author toward one: most of this chat is talk, and the talk is the point.`;
+When the author wants something to become canon, help them shape it until it's ready, then sum it up briefly. Two routes in: a 🛠 change edits lines that are already there and adds single lines — a new roster row makes a new person, a new line under a place's or an item's section adds to it; a ✍️ write-up files a whole new person, place, item, creature or piece of lore as a pitch the author checks in a form before submitting. Both go to the Orrery's review branch — the author's own changes too — and only go live when the author publishes them. Never claim a change is already live, and never hurry the author toward one: most of this chat is talk, and the talk is the point.`;
 const CREATE = `TASK: help the author create a NEW character for this universe. They must not be any named person in the canon, but should be tied to its people and places. Build the character with the author step by step: offer concrete options (a name that fits the naming style of their people, a role, a want, a fear, a secret, ties to named characters) and let the author choose. Favour roles, races and places the roster doesn't cover yet, especially out across the whole world, not only its best-described place.`;
 const REVIEW = `TASK: review the character below against the canon. Your first reply covers: what works; anything that contradicts the LORE or other characters (quote the clash); gaps worth filling, such as age, magic, motives and ties to others; and two or three concrete suggestions. After that, answer the author's follow-ups and help them revise. Be honest but kind.`;
 const WORLD = `TASK: help the author work out a worldbuilding idea or mechanic: how magic, physics, nature, the land, peoples or customs work in this universe. In your first reply: restate the idea as one plain rule; check it against the canon (quote any clash, or say it fits); then work out what follows from it: what it costs, its limits and edge cases, what happens when it's pushed too far, and how ordinary folk across the world (in its different places), its artificers and its rulers would use or abuse it. End with one or two ways to tighten it. Think like a careful game designer: every power has a price and a limit, and every rule changes daily life somewhere. Keep magic weak and everyday unless the author decides otherwise.`;
@@ -1838,7 +1845,7 @@ const WORLD_KINDS = [
 const WRITE_CREATE = `The author says "write it up." Write the character as it stands, in plain text, with these labeled lines, one per line: Name, Race, Sex, Age, Role, Lives in, Appearance, Personality, Magic, Connections, Secret, Story hooks. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "Who they are" and a paragraph of about 100 words.`;
 const WRITE_WORLD = `The author says "write it up." Write the idea as it stands, in plain text, with these labeled lines, one per line: Name, Kind, The rule (one sentence), How it works, Costs and limits, Who it affects, What it changes, Clashes with canon (or "None"), Open questions. Use what was decided in this chat; for anything still open, give a fitting choice and mark it "(suggested)". Then a line reading "In the world" and a paragraph of about 80 words showing it in an everyday scene.`;
 const WRITE_REVIEW = `The author says "sum it up." Write the review's conclusions in plain text with these labeled lines: Verdict (one sentence), What works, Clashes with canon, Gaps, Changes to make (a short numbered list). Base it on the canon and on what was decided in this chat.`;
-const CHAT = `You are chatting with the author to develop the story of this world: its characters and their arcs, its regions and places, its peoples and races, its items, its rules, customs and magic, and the threads that tie them together. The canon below is your shared ground truth — start from it, and say when you're going beyond it. Develop, don't just answer: explore the author's ideas alongside them, connect them to the people and places already in the canon, play out consequences, and follow them when they change subject — that's the new thread. When they're picking between directions, lay the real choices out plainly, say which you'd pick, and why. Don't drag the talk to a decision it isn't ready for.`;
+const CHAT = `You are chatting with the author to develop the story of this world: its characters and their arcs, its regions and places, its peoples and races, its items, its rules, customs and magic, and the threads that tie them together. The canon below is your shared ground truth — start from it, and say when you're going beyond it. Research first: when the author asks what the canon says, answer with its specifics — the names, ages, places and numbers as written — and name the exact point where the canon runs out. When your digging turns up a contradiction, a stale line or a hole, flag it and offer the fix: a 🛠 change for lines already there, a write-up for something new. Develop, don't just answer: explore the author's ideas alongside them, connect them to the people and places already in the canon, play out consequences, and follow them when they change subject — that's the new thread. When they're picking between directions, lay the real choices out plainly, say which you'd pick, and why. Don't drag the talk to a decision it isn't ready for.`;
 const FOCUS = {
   general: `Nothing is pinned yet: let the conversation find its subject. If the author asks about the canon, answer fully from it, and say plainly when it doesn't say. If they're developing something, dive in with them. If they seem stuck, offer two or three story threads worth pulling, from different parts of the world — a character whose story is unfinished, a place the canon leaves open, a rule with real pressure on it — and ask which one pulls them.`,
   character: `You're developing characters' stories: what they want, what they're afraid of, the choices that change them, and the scenes where it shows. For anyone in the ROSTER, keep to what the canon says about them (see ABOUT below) and build from it. Age, magic, motives and ties to others are the load-bearing parts: when an idea moves one, think aloud about what it does to the rest, and if it clashes with the canon, quote the clash and help reshape the idea — or name what would have to change. A brand-new named character isn't made in this chat: they're made by playing Wake in Verrowen, where their name, past and magic come out of play, and they land on the Roster pending review. If the author is reaching for someone new, point them to ✨ Create a character (on the Roster, or on this chat's start screen) — and meanwhile, talk freely about the gap in the story a new character could fill, without fixing who they are.`,
@@ -2027,7 +2034,104 @@ function writeupProblem(t, wk) {
 function writePrompt(c) {
   const k = writeKind(c);
   const base = k === "review" ? WRITE_REVIEW : k === "create" ? WRITE_CREATE : k === "world" ? WRITE_WORLD.replace("Name, Kind,", `Name, Kind (${topicOf(chatTopic(c)).label}),`) : WRITE_CHAT;
-  return base + `\nWrite only the write-up itself, in exactly those labeled lines. No praise — not of the author, the chat or your own draft: no "perfect", "excellent", "spot on", no applause of any kind. If something is weak or undecided, say so in its line and mark it (suggested).`;
+  return base + `\nWrite only the write-up itself, in exactly those labeled lines. No praise — not of the author, the chat or your own draft: no "perfect", "excellent", "spot on", no applause of any kind. If something is weak or undecided, say so in its line and mark it (suggested). End with one more labeled line, "Why:", giving in one or two plain sentences the reason this belongs in the canon — the review shows it, so make it a real reason, not a compliment.`;
+}
+
+// ── The write-up as a form ──
+// The write-up is shown as a form, not a slab of text: its labeled lines
+// become fields the author can read and fix before anything is filed,
+// the title gets a field of its own, and a "Why" field rides along so
+// the review page can show the reason next to the change. Editing the
+// form rewrites the write-up itself (the same labeled text the checks
+// and the filing use); the plain-text view stays one tap away.
+// [WRITE-FORM-BEGIN]
+const WRITE_LABELS = new Set(["name", "race", "sex", "age", "role", "lives in", "appearance", "personality", "magic", "connections", "secret", "story hooks", "kind", "the rule", "how it works", "costs and limits", "who it affects", "what it changes", "clashes with canon", "open questions", "verdict", "what works", "gaps", "changes to make", "the idea", "in full", "how it fits the canon", "what else it touches", "open threads", "why", "what it is", "who", "where", "limits", "ties", "label", "the details"]);
+const WRITE_TAILS = ["Who they are", "In the world", "In the story"];
+function writeLabelOf(line) {
+  const m = line.match(/^\s*(?:\*\*)?([A-Z][A-Za-z'’ ]{1,30}?)(?:\*\*)?:(?:\s+(.*))?$/);
+  if (!m) return null;
+  const label = m[1].trim();
+  return WRITE_LABELS.has(label.toLowerCase()) ? { label, value: (m[2] || "").trim() } : null;
+}
+function parseWriteup(t) {
+  const fields = [], pre = [];
+  let tail = null, cur = null;
+  for (const raw of String(t || "").split("\n")) {
+    const line = raw.replace(/\s+$/, "");
+    const tailHit = WRITE_TAILS.find((x) => line.trim().replace(/\*+/g, "") === x);
+    if (tailHit) { tail = { head: tailHit, body: "" }; cur = null; continue; }
+    if (tail) { tail.body += (tail.body ? "\n" : "") + line; continue; }
+    const f = writeLabelOf(line);
+    if (f) { cur = { ...f }; fields.push(cur); continue; }
+    if (cur) cur.value += (cur.value ? "\n" : "") + line;
+    else pre.push(line);
+  }
+  if (tail) tail.body = tail.body.trim();
+  return { pre: pre.join("\n").trim(), fields, tail };
+}
+function assembleWriteup(p) {
+  const out = [];
+  if (p.pre) out.push(p.pre);
+  for (const f of p.fields) {
+    const v = String(f.value || "").trim();
+    if (f.label === "Why" && !v) continue;
+    out.push(f.label + ": " + v);
+  }
+  let s = out.join("\n");
+  if (p.tail && p.tail.body) s += (s ? "\n\n" : "") + p.tail.head + "\n" + p.tail.body;
+  return s.trim();
+}
+// [WRITE-FORM-END]
+let writeFormFor = "", writeFormChat = "";
+function readWriteForm(host) {
+  const p = { pre: "", fields: [], tail: null };
+  host.querySelectorAll(".wval").forEach((el) => {
+    const kind = el.dataset.kind, v = el.value;
+    if (kind === "pre") p.pre = v.trim();
+    else if (kind === "tail") p.tail = { head: el.dataset.label, body: v.trim() };
+    else p.fields.push({ label: el.dataset.label, value: v });
+  });
+  return p;
+}
+function drawWriteState(c) {
+  const wk = c.writeKind || writeKind(c);
+  const wBad = c.writeup ? (c.writeupBad !== undefined ? c.writeupBad : writeupProblem(c.writeup, wk)) : "";
+  $("reviewWrite").disabled = !!wBad; $("codexWrite").disabled = !!wBad;
+  $("writeNote").textContent = wBad ? "⚠ This one can't be sent: " + wBad + ". Press ✍️ to write it up again — it helps to end the chat by naming plainly what was decided." : "";
+  return wBad;
+}
+function renderWriteForm(c) {
+  const host = $("writeForm"); if (!host || !c.writeup) return;
+  if (writeFormChat === c.id && writeFormFor === c.writeup && host.childNodes.length) return;
+  writeFormChat = c.id; writeFormFor = c.writeup;
+  const p = parseWriteup(c.writeup);
+  if (!p.fields.some((f) => f.label === "Why")) p.fields.push({ label: "Why", value: "" });
+  host.innerHTML = "";
+  const fld = (label, value, kind, rows) => {
+    const d = document.createElement("div"); d.className = "fld";
+    const l = document.createElement("label"); l.textContent = label; d.appendChild(l);
+    const t = document.createElement(kind === "title" ? "input" : "textarea");
+    t.className = "wval"; t.dataset.kind = kind; t.dataset.label = label; t.value = value || "";
+    if (kind === "title") { t.maxLength = 120; t.placeholder = "The pitch's title"; }
+    else t.rows = rows || Math.min(6, Math.max(1, String(value || "").split("\n").length + (String(value || "").length > 90 ? 1 : 0)));
+    d.appendChild(t); host.appendChild(d);
+    return t;
+  };
+  const titleEl = fld("Title — how it will be listed for review", c.title || "", "title", 1);
+  titleEl.addEventListener("input", () => { c.title = titleEl.value.trim().slice(0, 120); keepChats(); });
+  if (p.pre) fld("Opening", p.pre, "pre");
+  for (const f of p.fields) fld(f.label === "Why" ? "Why — the reason this belongs in the canon (the review shows it)" : f.label, f.value, "field");
+  if (p.tail) fld(p.tail.head + " — closing paragraph", p.tail.body, "tail");
+  host.querySelectorAll(".wval").forEach((el) => {
+    if (el.dataset.kind === "title") return;
+    el.addEventListener("input", () => {
+      c.writeup = assembleWriteup(readWriteForm(host));
+      writeFormFor = c.writeup;
+      c.writeupBad = writeupProblem(c.writeup, c.writeKind || writeKind(c));
+      $("writeText").textContent = c.writeup;
+      keepChats(); drawWriteState(c);
+    });
+  });
 }
 
 // ── The live link to the local AI ──
@@ -2181,8 +2285,9 @@ function drawChat() {
   </section>
   <section class="writeup" id="writeup" hidden>
     <div class="writetop"><h3 id="writeHead"></h3><button type="button" class="closew" id="closeWrite" title="Close the write-up. It's kept with this chat." aria-label="Close the write-up">✕</button></div>
-    <pre id="writeText"></pre>
-    <div class="row"><button class="primary" type="button" id="copyWrite">Copy</button><button type="button" id="codexWrite" hidden>🗂 Add to the Codex</button><button type="button" id="reviewWrite" title="Send this write-up to the Grand Orrery's review. It waits on the Review Clone until the owner publishes it.">📨 Send for review</button><button type="button" id="closeWrite2">Close</button><span class="chatnote" id="writeNote"></span></div>
+    <div id="writeForm" class="wform"></div>
+    <pre id="writeText" hidden></pre>
+    <div class="row"><button class="primary" type="button" id="copyWrite">Copy</button><button type="button" id="codexWrite" hidden>🗂 Add to the Codex</button><button type="button" id="reviewWrite" title="Submit this write-up to the Grand Orrery's review. It waits on the Review Clone until the owner publishes it.">📨 Submit for review</button><button type="button" id="writeView" title="Switch between the form and the write-up as plain text">Text</button><button type="button" id="closeWrite2">Close</button><span class="chatnote" id="writeNote"></span></div>
   </section>
   <section class="writeup change" id="changeBox" aria-live="polite" hidden></section>
   <p class="chatnote" id="reopenWrite" hidden><button type="button" class="linkbtn" id="showWrite">📄 Show the write-up again</button></p>
@@ -2241,6 +2346,11 @@ function drawChat() {
     $("copyWrite").onclick = async () => { try { await navigator.clipboard.writeText(c.writeup); $("writeNote").textContent = "Copied."; } catch { $("writeNote").textContent = "Copy didn't work here. Select the text and copy it by hand."; } };
     $("codexWrite").onclick = () => addToCodex(c);
     $("reviewWrite").onclick = () => sendWriteup(c);
+    $("writeView").onclick = () => {
+      const pre = $("writeText"), form = $("writeForm");
+      pre.hidden = !pre.hidden; form.hidden = !pre.hidden;
+      $("writeView").textContent = pre.hidden ? "Text" : "Form";
+    };
     const closeWrite = () => { c.writeupClosed = true; keepChats(); drawLog(); };
     $("closeWrite").onclick = closeWrite; $("closeWrite2").onclick = closeWrite;
     $("showWrite").onclick = () => { c.writeupClosed = false; keepChats(); drawLog(); $("writeup").scrollIntoView({ behavior: "smooth" }); };
@@ -2389,10 +2499,8 @@ function drawLog() {
   $("writeHead").textContent = wk === "review" ? "The review, summed up" : wk === "create" ? "The character sheet" : c.mode === "chat" ? "The change, written up" : "The idea, written up";
   $("writeText").textContent = c.writeup || "";
   $("codexWrite").hidden = wk === "review";
-  $("writeNote").textContent = "";
-  const wBad = c.writeup ? (c.writeupBad !== undefined ? c.writeupBad : writeupProblem(c.writeup, wk)) : "";
-  $("reviewWrite").disabled = !!wBad; $("codexWrite").disabled = !!wBad;
-  if (wBad) $("writeNote").textContent = "⚠ This one can't be sent: " + wBad + ". Press ✍️ to write it up again — it helps to end the chat by naming plainly what was decided.";
+  if (c.writeup && !c.writeupClosed) renderWriteForm(c);
+  drawWriteState(c);
 }
 
 function startChat(o) {
@@ -2548,7 +2656,7 @@ const CHANGE_KEEPER = `You are the Orrery's lore-keeper, checking an edit to the
 const CHANGE_VERB = /^\s*(?:please\s+|can you\s+|could you\s+|let'?s\s+|i want to\s+)?(?:change|rename|set|replace|update|fix|correct|remove|delete|drop|move|make|add|give|swap|expand|elaborate|deepen|detail|flesh\s+out)\b/i;
 const CHANGE_TASK = `TASK: the author wants to CHANGE the canon. REQUEST is what they asked for. SOURCE is the exact current text of the parts of the documents it touches; each part starts with "### FILE: <file>". Check the change against the LORE and the rest of SOURCE, then reply with ONE JSON object and nothing else:
 {"verdict":"fits"|"clashes"|"unclear","why":"one or two plain sentences","clash":"the exact canon words it clashes with, or \"\"","edits":[{"file":"<file>","old":"text copied exactly from SOURCE, a whole line where you can, at least 8 characters","new":"the same text with the change made"}],"adds":[{"file":"<file>","heading":"a heading line copied exactly from SOURCE","text":"one new fact, one line"}]}
-Rules: copy "old" character for character from SOURCE. Change only what the request needs, but change every place in SOURCE that must follow for the canon to stay consistent (a rename changes every mention). Keep each line's Markdown, tags and format. Never touch a (DM lore) part, never add a link. "fits" only when nothing in the canon says otherwise. If it clashes or is unclear, leave edits and adds empty and say why in "why". A part headed \"### FILE: <file> — lines\" holds the exact lines that name the subject, with the heading they sit under and, where the line is in a table, the table's header: the roster's rows are tables, so copy a whole row as \"old\" to change that person's details (their race, age, role, line or secret). To ADD a person to a table, use adds with the table's own section heading copied exactly as \"heading\" and \"text\" as one whole new row in the same columns, starting and ending with |.`;
+Rules: copy "old" character for character from SOURCE. Change only what the request needs, but change every place in SOURCE that must follow for the canon to stay consistent (a rename changes every mention). Keep each line's Markdown, tags and format. Never touch a (DM lore) part, never add a link. "fits" only when nothing in the canon says otherwise. If it clashes or is unclear, leave edits and adds empty and say why in "why". A part headed \"### FILE: <file> — lines\" holds the exact lines that name the subject, with the heading they sit under and, where the line is in a table, the table's header: the roster's rows are tables, so copy a whole row as \"old\" to change that person's details (their race, age, role, line or secret). To ADD a person to a table, use adds with the table's own section heading copied exactly as \"heading\" and \"text\" as one whole new row in the same columns, starting and ending with |. To ADD a line about a place or an item, use adds with the exact heading of its section in universe.md or resources.md and the new line as \"text\" (a bullet's words, without the dash; for an item entry, keep its label style, like \"**Does:** …\"). A whole NEW person beyond a roster row, place, item or creature is not a line change: if the request asks for one, answer verdict \"unclear\", leave edits and adds empty, and say in \"why\" that it goes in as a write-up instead (the ✍️ Write it up button), which files it whole for review.`;
 // A change, not a question: an editing verb, and it names something the Orrery has.
 function looksLikeChange(t) {
   if (!CHANGE_VERB.test(t)) return false;

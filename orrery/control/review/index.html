@@ -140,6 +140,8 @@
   .item details summary{cursor:pointer;color:var(--gold2);font-size:14px}
   .item.done{opacity:.7}
   .ai{font-size:14px;margin:0;padding:6px 10px;border-radius:8px;background:rgba(127,176,105,.10);color:var(--addInk)}
+  .why{font-size:14px;margin:0;padding:6px 10px;border-radius:8px;background:rgba(201,162,39,.10);color:var(--text)}
+  .effect{font-size:13px;color:var(--muted)}
   .ai.no{background:rgba(201,87,43,.12);color:var(--delInk)}
   .auto{flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 16px}
   .auto.on{border-color:var(--green)}
@@ -1077,7 +1079,7 @@ if ($("token").value.trim()) loadRest(); else $("restState").textContent = "🤖
 //   - 💡 pitches: every "(Pitch)" in the lore files on the review branch,
 //     including what auto mode wrote. Approve marks it Your idea; Reject takes
 //     it out of the file.
-const FROM = { "lore-keeper": "🪶 Lore-keeper", codex: "📜 Codex", verrowen: "🕯 Wake in Verrowen" };
+const FROM = { "lore-keeper": "🪶 Lore-keeper · local AI", claude: "✨ Cl" + "aude · cloud AI", rest: "🤖 Auto mode · local AI", owner: "🖥 Admin page · local AI", codex: "📜 Codex", verrowen: "🕯 Wake in Verrowen" };
 let inbox = [];
 async function inboxCall(method, body){
   const token = $("token").value.trim();
@@ -1148,9 +1150,33 @@ function findPitches(file, text){
     }
     const where = heads.slice(2, h ? h[1].length : undefined).filter(Boolean).slice(-2).join(" › ");
     const ai = file === "working-notes.md" && h && h[1].length === 3 && /<!-- (review-key: rest:|added by the AI -->)/.test(lines.slice(i + 1, i + 4).join("\n"));
-    out.push({ file, n: i + 1, line: l, name: name || "Untitled pitch", body, where, byAI: ai });
+    // Where it came from, from its byline: the laptop's local AI (the
+    // lore-keeper, auto mode, the admin page) is kept distinct from
+    // Claude, the cloud AI, so the owner can tell them apart at a glance.
+    const by = (body.match(/^_((?:From|Made up|Drafted)[^\n]*?)\._\s*$/m) || [])[1] || "";
+    const src = (PITCH_SRC.find(([re]) => re.test(by)) || [])[1] || (ai ? "🤖 Auto mode · local AI" : "");
+    const why = (body.match(/(?:^|\n)\s*(?:[-*]\s*)?(?:\*\*)?Why:(?:\*\*)?\s*(.+)/) || [])[1] || "";
+    out.push({ file, n: i + 1, line: l, name: name || "Untitled pitch", body, where, byAI: ai, src, why: why.trim(), effect: pitchEffect(file, body) });
   });
   return out;
+}
+const PITCH_SRC = [
+  [/From a lore-keeper chat/i, "🪶 Lore-keeper · local AI"],
+  [/From a Cl(?:aude) session/i, "✨ Cl" + "aude · cloud AI"],
+  [/Made up by the AI in (?:auto|rest) mode/i, "🤖 Auto mode · local AI"],
+  [/From the Verrowen Codex/i, "📜 Codex"],
+  [/From a Wake in Verrowen story/i, "🕯 Wake in Verrowen"],
+  [/Drafted on the admin page/i, "🖥 Admin page · local AI"],
+];
+// What approving a pitch makes it, in plain words.
+function pitchEffect(file, body){
+  const label = (re) => (body.match(re) || [])[1] || "";
+  const kind = label(/(?:^|\n)\s*(?:[-*]\s*)?(?:\*\*)?Kind:(?:\*\*)?\s*([^\n]*)/).trim();
+  if (label(/(?:^|\n)\s*(?:\*\*)?Name:(?:\*\*)?\s*([^\n]*)/) && /(?:^|\n)\s*(?:\*\*)?Race:(?:\*\*)?\s*[^\n]*/.test(body)) return "a person in the Orrery — the roster and the bots that read it";
+  if (/^(weapon|item|relic|tool|object|artifact)\b/i.test(kind)) return "an item in the Orrery — the Explorer's Items and the bots that read them";
+  if (file === "bestiary.md" || /^creature\b/i.test(kind)) return "a creature in the bestiary";
+  if (/\b(place|region|land)\b/i.test(kind)) return "a place in the Orrery";
+  return "a note in the Orrery";
 }
 const FILE_LABEL = { "working-notes.md": "Notes", "resources.md": "Items & resources", "bestiary.md": "Bestiary" };
 async function loadPitches(){
@@ -1175,7 +1201,9 @@ async function loadPitches(){
   RV.pitches = true; drawNext();
   $("pList").innerHTML = pitches.map((p, i) => `<div class="item" data-p="${i}">
     <div class="pname">💡 ${esc(p.name)}</div>
-    <div class="from">${p.byAI ? "🤖 Written by auto mode · " : ""}${esc(FILE_LABEL[p.file] || p.file)}${p.where ? " · " + esc(p.where) : ""}</div>
+    <div class="from">${p.src ? esc(p.src) + " · " : p.byAI ? "🤖 Written by auto mode · " : ""}${esc(FILE_LABEL[p.file] || p.file)}${p.where ? " · " + esc(p.where) : ""}</div>
+    ${p.why ? `<p class="why">Why: ${esc(p.why)}</p>` : ""}
+    <div class="effect">If approved, it becomes ${esc(p.effect)}; nothing goes live until you publish.</div>
     ${aiView(p.ai)}
     ${p.body ? `<details><summary>Read it</summary><pre>${esc(p.body)}</pre></details>` : ""}
     <div class="row"><button class="primary" type="button" data-act="accept">✔ Approve</button><button class="danger" type="button" data-act="reject">✕ Reject</button><a class="btn" href="https://github.com/${REPO}/edit/review/${esc(p.file)}" target="_blank" rel="noopener" title="Change its words first (line ${p.n})">Edit</a><span class="note" data-st role="status"></span></div>

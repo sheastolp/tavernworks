@@ -333,6 +333,10 @@ async function readLorekeeper() {
 const NOTES = "working-notes.md", LORE = "lore.md";
 const SOURCES = {
   "lore-keeper": { head: "## From the lore-keeper", intro: "Pitches the owner filed from lore-keeper chats on the Orrery Explorer. Nothing here is decided until it's marked **Your idea**.", from: "From a lore-keeper chat", msg: "Lore-keeper pitch" },
+  // Claude is the cloud AI in the owner's main chat, kept distinct from the
+  // laptop's local AI (the lore-keeper and auto mode) so the review can
+  // always tell which one wrote a pitch. Only the owner files under it.
+  claude: { head: "## From Cl" + "aude", intro: "Pitches filed by Cl" + "aude, the cloud AI, from the owner's main chat. Nothing here is decided until it's marked **Your idea**.", from: "From a Cl" + "aude session", msg: "Cl" + "aude pitch" },
   owner: { head: "## From the admin page", intro: "Pitches the owner drafted on the admin page with the local AI. Nothing here is decided until it's marked **Your idea**.", from: "Drafted on the admin page", msg: "Admin page pitch" },
   codex: { head: "## From the Codex", intro: "Notes sent in from the Verrowen Codex. Ones the owner decided are marked **Your idea**; the rest are pitches.", from: "From the Verrowen Codex", msg: "Codex note" },
   // Rest mode and auto mode file their ideas here; each idea names its own mode (it.from, it.msg).
@@ -346,7 +350,8 @@ const oneLine = (v, n) => str(v, n).replace(/[\r\n]+/g, " ").replace(/\s+/g, " "
 const note = (why) => why ? `\n\n${rest && rest.mode === "auto" ? "Auto mode" : "Rest mode"}: ` + oneLine(why, 300) : "";
 function reviewItem(b, { owner, rest = false }) {
   // "rest" is rest mode's own heading: nobody else can file under it.
-  const source = SOURCES[b.source] && (b.source !== "rest" || rest) && (b.source !== "owner" || owner) ? b.source : "lore-keeper";
+  // "owner" and "claude" are likewise the owner's own filings only.
+  const source = SOURCES[b.source] && (b.source !== "rest" || rest) && (b.source !== "owner" || owner) && (b.source !== "claude" || owner) ? b.source : "lore-keeper";
   const title = oneLine(b.title, 120).replace(/#+/g, "").trim();
   const body = str(b.body, 12000).replace(/\r\n/g, "\n").replace(/<!--|-->/g, "").trim();
   if (!title || !body) throw Object.assign(new Error("The item needs a title and some text"), { status: 400 });

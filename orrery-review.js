@@ -8,8 +8,10 @@
 // Anyone else's goes to the laptop's review queue first, and the owner files
 // it (always as a pitch) or turns it down from the same review page.
 //
-//   OrreryReview.send({ source: "lore-keeper" | "codex" | "verrowen", title, body,
+//   OrreryReview.send({ source: "lore-keeper" | "codex" | "verrowen" | "Claude", title, body,
 //                       key, about, name, decided, loreLine, chatId })
+// "Claude" is the cloud AI's own heading, kept distinct from the laptop's
+// local AI sources (the lore-keeper, auto mode); only the owner files it.
 //     -> { filed: true, updated } | { queued: true }   (throws an Error with a message to show)
 (function () {
   const SERVER = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:8443";

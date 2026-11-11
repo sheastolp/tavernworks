@@ -19,7 +19,10 @@
   const SOURCES = [
     [/From the Verrowen Codex/i, "📜 Codex"],
     [/From a Wake in Verrowen story/i, "🕯 Wake in Verrowen"],
-    [/From a lore-keeper chat/i, "🪶 Lore-keeper"],
+    [/From a lore-keeper chat/i, "🪶 Lore-keeper (local AI)"],
+    [/From a Cl(?:aude) session/i, "✨ Cl" + "aude (cloud AI)"],
+    [/Made up by the AI in (?:auto|rest) mode/i, "🤖 Auto mode (local AI)"],
+    [/Drafted on the admin page/i, "🖥 Admin page (local AI)"],
   ];
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const plain = (s) => String(s).replace(/!\[[^\]]*\]\([^)]*\)/g, "[picture]").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\[\[([^\]]+)\]\]/g, "$1").replace(/[*_`>]+/g, "").replace(/^\s*[-#]+\s*/, "").replace(/\s+/g, " ").trim();
@@ -81,7 +84,7 @@
     return { added: add, removed: rem };
   }
   const sourceOf = (body) => {
-    const by = (body.match(/^_(From [^\n]*?)\._\s*$/m) || [])[1] || "";
+    const by = (body.match(/^_((?:From|Made up|Drafted)[^\n]*?)\._\s*$/m) || [])[1] || "";
     const src = SOURCES.find(([re]) => re.test(by));
     const who = (by.match(/sent by ([^·]+)/) || [])[1];
     return { from: src ? src[1] : "", who: who ? who.trim() : "" };
@@ -93,7 +96,8 @@
     for (const [k, s] of B) {
       const o = A.get(k);
       const src = sourceOf(s.body);
-      const base = { file, doc: DOCS[file] || file, title: s.title, parent: s.parent, tag: s.tag, ...src };
+      const why = (s.body.match(/(?:^|\n)\s*(?:[-*]\s*)?(?:\*\*)?Why:(?:\*\*)?\s*(.+)/) || [])[1] || "";
+      const base = { file, doc: DOCS[file] || file, title: s.title, parent: s.parent, tag: s.tag, why: why.trim(), ...src };
       if (!o) { items.push({ ...base, kind: "new", added: lineDiff("", dropByline(s.body)).added, removed: [] }); continue; }
       const d = lineDiff(dropByline(o.body), dropByline(s.body));
       if (o.tag !== s.tag) items.push({ ...base, kind: /your idea/i.test(s.tag) ? "decided" : "retagged", oldTag: o.tag, ...d });
@@ -186,6 +190,11 @@
     for (const i of items) if (i.from) srcs[i.from] = (srcs[i.from] || 0) + 1;
     const s = Object.entries(srcs);
     if (s.length) out.push(`📨 Sent in from ${list(s.map(([k, n]) => `${k} (${n})`))}${items.some((i) => !i.from && i.file !== "lore.md") ? ", plus edits made to the files directly" : ""}.`);
+    const claudeN = items.filter((i) => /\(cloud AI\)/.test(i.from || "")).length;
+    const localN = items.filter((i) => /\(local AI\)/.test(i.from || "")).length;
+    if (claudeN || localN) out.push(`🔀 Of these, ${[claudeN && `<b>${count(claudeN, "entry", "entries")}</b> came from ✨ Cl` + "aude, the cloud AI", localN && `<b>${count(localN, "entry", "entries")}</b> from the laptop's local AI (the lore-keeper, auto mode and the admin page)`].filter(Boolean).join(", and ")}.`);
+    const whys = items.filter((i) => i.why).length;
+    if (whys) out.push(`💬 ${count(whys, "entry", "entries")} ${whys === 1 ? "carries" : "carry"} a “Why” line, shown with the entry below.`);
     return out;
   }
   function render(items, j) {
@@ -196,8 +205,9 @@
       <ul class="impact">${impact(items).map((t) => `<li>${t}</li>`).join("")}</ul>
       ${docs.map((d) => `<h3>${esc(d)}</h3><ul class="entries">${items.filter((i) => i.doc === d).map((i) => {
         const meta = [i.parent, i.kind === "decided" || i.kind === "retagged" ? `${i.oldTag || "untagged"} → ${i.tag || "untagged"}` : i.tag, i.from, i.who && "sent by " + i.who].filter(Boolean).map(esc).join(" · ");
+        const shown = (arr) => i.why ? arr.filter((l) => !/^Why:/i.test(l)) : arr;
         return `<li><span class="kind ${i.kind}">${LABEL[i.kind]}</span> <b>${esc(i.title)}</b>${meta ? ` <small>${meta}</small>` : ""}
-          ${i.kind === "removed" ? lines(i.removed, "minus", "−") : lines(i.added, "plus", "+") + (i.kind === "changed" ? lines(i.removed, "minus", "−") : "")}</li>`;
+          ${i.kind === "removed" ? lines(shown(i.removed), "minus", "−") : lines(shown(i.added), "plus", "+") + (i.kind === "changed" ? lines(shown(i.removed), "minus", "−") : "")}${i.why ? `<div class="why">Why: ${esc(cut(i.why, 220))}</div>` : ""}</li>`;
       }).join("")}</ul>`).join("")}
       <p class="note">${esc(count((j.commits || []).length, "commit"))} and ${esc(count((j.files || []).length, "file"))} behind this. The commit list and line-by-line diffs are just below.</p>`;
   }
