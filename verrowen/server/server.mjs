@@ -1306,6 +1306,99 @@ function keepView(section, verdict, why, from, file = NOTES) {
   rest.views[file + "\n" + k.line] = { key: k.key, verdict, why, at: new Date().toISOString(), ...(from ? { from } : {}) };
 }
 
+// ── Hosting the Orrery database ──
+// The database is served from this laptop, not from GitHub: every reader
+// (the Explorer, the bots through the Orrery client) reads the built
+// database and the canon files from here, so GitHub's API and raw limits
+// stop mattering as the Orrery grows. The gate keeps a mirror of
+// grand-orrery in the save folder — the data branch's built files under
+// db/<branch>/, the canon documents and maps under files/<branch>/ —
+// refreshed from GitHub (with the owner's token, from this one machine)
+// whenever a branch head moves, and served last-good when GitHub can't
+// be reached. Only the public database is public: entities.json holds
+// the secrets, so it is owner-only, like everything under /admin/.
+const HOST_DIR = () => path.join(SAVE_DIR, "orrery-host");
+const HOST_META = () => path.join(HOST_DIR(), "meta.json");
+const HOST_BRANCHES = ["main", "review"];
+const HOST_FILE_RE = /\.(md|png|jpe?g|webp|gif|svg|json)$/i;
+const host = { dataSha: "", sha: {}, tree: {}, blobSha: {}, busy: false, compare: null, compareAt: 0 };
+try { const m = JSON.parse(await fs.readFile(HOST_META(), "utf8")); host.dataSha = m.dataSha || ""; host.sha = m.sha || {}; host.tree = m.tree || {}; host.blobSha = m.blobSha || {}; } catch { }
+async function hostSaveMeta() {
+  try {
+    await fs.mkdir(HOST_DIR(), { recursive: true });
+    const tmp = HOST_META() + ".tmp";
+    await fs.writeFile(tmp, JSON.stringify({ dataSha: host.dataSha, sha: host.sha, tree: host.tree, blobSha: host.blobSha }));
+    await fs.rename(tmp, HOST_META());
+  } catch { }
+}
+async function ghBlob(sha) {
+  const r = await gh("/git/blobs/" + sha);
+  if (!r.ok || r.j.encoding !== "base64") throw Object.assign(new Error(`GitHub blob ${sha} unreadable (${r.status})`), { status: 502 });
+  return Buffer.from(String(r.j.content || "").replace(/\n/g, ""), "base64");
+}
+async function hostPut(key, buf) {
+  const p = path.join(HOST_DIR(), ...key.split("/"));
+  await fs.mkdir(path.dirname(p), { recursive: true });
+  await fs.writeFile(p + ".tmp", buf); await fs.rename(p + ".tmp", p);
+}
+async function hostSync() {
+  if (host.busy || !GH_TOKEN) return;
+  host.busy = true;
+  try {
+    const dSha = await headOf("data").catch(() => "");
+    if (dSha && dSha !== host.dataSha) {
+      const tree = ((await gh("/git/trees/" + dSha + "?recursive=1")).j.tree) || [];
+      for (const b of HOST_BRANCHES) for (const f of ["entities.public.json", "entities.json"]) {
+        const e = tree.find((t) => t.path === `${b}/${f}` && t.type === "blob");
+        if (e) await hostPut(`db/${b}/${f}`, await ghBlob(e.sha));
+      }
+      host.dataSha = dSha;
+    }
+    for (const b of HOST_BRANCHES) {
+      const sha = await headOf(b).catch(() => "");
+      if (!sha || sha === host.sha[b]) continue;
+      const tree = ((await gh("/git/trees/" + sha + "?recursive=1")).j.tree) || [];
+      host.tree[b] = tree.map((t) => ({ path: t.path, type: t.type, sha: t.sha }));
+      for (const t of tree) {
+        if (t.type !== "blob" || !HOST_FILE_RE.test(t.path)) continue;
+        const key = `files/${b}/${t.path}`;
+        if (host.blobSha[key] === t.sha) continue;
+        await hostPut(key, await ghBlob(t.sha));
+        host.blobSha[key] = t.sha;
+      }
+      host.sha[b] = sha;
+    }
+    await hostSaveMeta();
+  } catch (e) { console.error(new Date().toISOString(), "orrery host sync:", e.message); }
+  finally { host.busy = false; }
+}
+if (SERVING) { hostSync(); setInterval(hostSync, 60_000).unref?.(); }
+const HOST_TYPES = { ".md": "text/markdown; charset=utf-8", ".json": "application/json; charset=utf-8", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml" };
+function sendBytes(res, status, buf, type, origin, etag, req) {
+  if (etag && req && req.headers["if-none-match"] === etag) {
+    res.writeHead(304, { etag, vary: "Origin", ...(origin ? { "access-control-allow-origin": origin } : {}) });
+    return res.end();
+  }
+  const headers = { "content-type": type, "cache-control": "no-cache", vary: "Origin" };
+  if (etag) headers.etag = etag;
+  if (origin) Object.assign(headers, { "access-control-allow-origin": origin, "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "content-type, authorization", "access-control-max-age": "600" });
+  res.writeHead(status, headers);
+  res.end(buf);
+}
+async function hostServeFile(res, req, key, type, origin, etag) {
+  try {
+    const buf = await fs.readFile(path.join(HOST_DIR(), ...key.split("/")));
+    return sendBytes(res, 200, buf, type, origin, etag, req);
+  } catch { return send(res, 404, { error: "Not mirrored yet — the laptop is still fetching the Orrery" }, origin); }
+}
+async function hostCompare() {
+  if (host.compare && Date.now() - host.compareAt < 120_000) return host.compare;
+  const r = await gh("/compare/" + LIVE + "..." + CLONE);
+  if (!r.ok) throw Object.assign(new Error(`GitHub refused the compare (${r.status})`), { status: 502 });
+  host.compare = r.j; host.compareAt = Date.now();
+  return host.compare;
+}
+
 // ── The Orrery's database ──
 // What the prompts say about the world (its name, its places, its maps, the
 // labels lore.md uses) comes from the Orrery's database, the same one every
@@ -1318,6 +1411,15 @@ let orreryDb = null;
 try { orreryDb = JSON.parse(await fs.readFile(ORRERY_DB_FILE(), "utf8")); } catch { }
 async function refreshOrreryDb() {
   try {
+    // The laptop's own mirror first (see "Hosting the Orrery database");
+    // the raw GitHub URL stays as the fallback, and ORRERY_DB_URL set
+    // explicitly still wins over both.
+    if (!process.env.ORRERY_DB_URL) {
+      try {
+        const j = JSON.parse(await fs.readFile(path.join(HOST_DIR(), "db", "main", "entities.public.json"), "utf8"));
+        if (Array.isArray(j.entities)) { orreryDb = j; return; }
+      } catch { }
+    }
     const r = await fetch(ORRERY_DB_URL + "?t=" + Date.now(), { signal: AbortSignal.timeout(15_000) });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const j = await r.json();
@@ -1676,6 +1778,44 @@ const server = http.createServer(async (req, res) => {
       const b = await readJson(req).catch(() => ({}));
       return send(res, 200, await warm(Math.min(MAX_BODY, Math.max(0, Number(b.chars) || 0))), origin);
     }
+    // The Orrery database, hosted on this laptop (see "Hosting the Orrery
+    // database" above): the built database, the branch heads and trees,
+    // and the canon files themselves. Public reads; the full database
+    // (entities.json, secrets included) stays owner-only.
+    if (req.method === "GET" && url.pathname === "/db/compare") {
+      try { return send(res, 200, await hostCompare(), origin); }
+      catch (e) { return send(res, e.status || 502, { error: e.message }, origin); }
+    }
+    if (req.method === "GET" && url.pathname.startsWith("/db/")) {
+      const [, , branch, file] = url.pathname.split("/");
+      if (HOST_BRANCHES.includes(branch) && file === "entities.public.json")
+        return hostServeFile(res, req, `db/${branch}/entities.public.json`, "application/json; charset=utf-8", origin, `"db-${host.dataSha}-${branch}"`);
+      if (HOST_BRANCHES.includes(branch) && file === "entities.json") {
+        if (!isOwner(req)) return send(res, 401, { error: "The full database, secrets and all, is the owner's only" }, origin);
+        return hostServeFile(res, req, `db/${branch}/entities.json`, "application/json; charset=utf-8", origin, `"dbf-${host.dataSha}-${branch}"`);
+      }
+      return send(res, 404, { error: "Not here" }, origin);
+    }
+    if (req.method === "GET" && url.pathname.startsWith("/head/")) {
+      const branch = url.pathname.slice(6);
+      const sha = branch === "data" ? host.dataSha : host.sha[branch];
+      if (!sha) return send(res, 404, { error: "Not mirrored yet" }, origin);
+      return sendBytes(res, 200, sha + "\n", "text/plain; charset=utf-8", origin, `"head-${sha}"`, req);
+    }
+    if (req.method === "GET" && url.pathname.startsWith("/tree/")) {
+      const branch = url.pathname.slice(6);
+      if (!HOST_BRANCHES.includes(branch) || !host.tree[branch]) return send(res, 404, { error: "Not mirrored yet" }, origin);
+      return send(res, 200, { tree: host.tree[branch] }, origin);
+    }
+    if (req.method === "GET" && url.pathname.startsWith("/files/")) {
+      const rest = url.pathname.slice(7), slash = rest.indexOf("/");
+      const branch = slash > 0 ? rest.slice(0, slash) : "", file = slash > 0 ? decodeURIComponent(rest.slice(slash + 1)) : "";
+      if (!HOST_BRANCHES.includes(branch) || !file || file.split("/").includes("..") || !HOST_FILE_RE.test(file))
+        return send(res, 404, { error: "Not here" }, origin);
+      const key = `files/${branch}/${file}`;
+      const type = HOST_TYPES[file.slice(file.lastIndexOf(".")).toLowerCase()] || "application/octet-stream";
+      return hostServeFile(res, req, key, type, origin, `"f-${host.sha[branch] || ""}-${host.blobSha[key] || ""}"`);
+    }
     if (url.pathname.startsWith("/admin/")) {
       // Wrong tokens get the tight limit (guessing stays slow). The owner's own
       // requests get a roomy one: the review page polls rest mode and the
@@ -1685,6 +1825,7 @@ const server = http.createServer(async (req, res) => {
       if (!allowed((own ? "owner:" : "badtoken:") + clientIp(req), { n: own ? 2000 : 30, ms: PER_IP.ms })) return send(res, 429, { error: "Too many tries. Wait a few minutes." }, origin);
       if (!own) return send(res, 401, { error: "That's not the owner's token" }, origin);
       if (req.method === "GET" && url.pathname === "/admin/models") return send(res, 200, { model: MODEL, models: await installed() }, origin);
+      if (req.method === "POST" && url.pathname === "/admin/host-sync") { hostSync(); return send(res, 200, { ok: true, dataSha: host.dataSha, sha: host.sha }, origin); }
       if (req.method === "POST" && url.pathname === "/admin/model") {
         const want = String((await readJson(req)).model || "");
         if (!(await installed()).includes(want)) return send(res, 400, { error: `${want || "That model"} isn't installed on the laptop` }, origin);

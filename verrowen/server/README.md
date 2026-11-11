@@ -13,6 +13,17 @@ delete models. This server only lets the game through:
   rewritten after every turn, so stories that stop halfway are kept too.
 - `GET /health` tells the page whether the narrator is awake, and which
   model narrates.
+- The Orrery database is hosted here, not on GitHub: the server keeps a
+  mirror of grand-orrery in its save folder (`orrery-host/` — the data
+  branch's builds under `db/<branch>/`, the canon documents and maps
+  under `files/<branch>/`), refreshed with the owner's GitHub token
+  whenever a branch head moves, and serves it at `GET /db/<branch>/
+  entities.public.json` (the full `entities.json` is owner-only),
+  `GET /head/<branch>`, `GET /tree/<branch>`, `GET /files/<branch>/<path>`
+  and `GET /db/compare`. Every reader — the Explorer, the bots through
+  the Orrery client — reads from the laptop, so GitHub's API and raw
+  limits don't matter as the Orrery grows. `POST /admin/host-sync`
+  forces a mirror refresh.
 - `POST /warm` loads the model and keeps it loaded for 30 more minutes,
   without writing anything. The lore-keeper calls it while its chat is
   open, so the first reply doesn't wait for (or stumble on) a model load.
