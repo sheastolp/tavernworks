@@ -45,6 +45,7 @@
   .status{color:var(--muted);font-size:14px;margin:8px 0}
   .clonebar{position:sticky;top:0;z-index:50;background:#3a2410;border-bottom:1px solid var(--gold);color:var(--text);font-size:14px;padding:9px 16px;text-align:center}
   .clonebar b{color:var(--gold2)}
+  .clonebar a.jump{color:var(--gold2)}
   .status.err{color:var(--ember)}
   .status.hall{font-size:13px;margin-top:2px}
   .status.hall .warn{color:var(--ember)}
@@ -166,6 +167,10 @@
   .md img{max-width:100%;border-radius:10px;border:1px solid var(--line)}
   .md hr{border:0;border-top:1px solid var(--line);margin:1em 0}
   mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 2px}
+  /* The passage a review summary entry links to. */
+  .md h1,.md h2,.md h3,.md h4,.md h5,.md h6,.jumped{scroll-margin-top:72px}
+  .jumped{background:var(--mark);border-radius:4px;outline:3px solid var(--mark);animation:jumped 3.5s ease-out forwards}
+  @keyframes jumped{0%,55%{background:var(--mark);outline-color:var(--mark)}100%{background:transparent;outline-color:transparent}}
   .toc{columns:2 220px;font-size:14px;margin:8px 0 0;padding-left:1.2em}
   .toc a{color:var(--muted);text-decoration:none}.toc a:hover{color:var(--gold2)}
   .missing{border:1px dashed var(--line);border-radius:10px;padding:28px 16px;text-align:center;color:var(--muted);font-size:14px}
@@ -530,7 +535,7 @@ if (CLONE) {
   fetch(GATE + "/db/compare", { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : fetch("https://api.github.com/repos/sheastolp/grand-orrery/compare/main...review", { cache: "no-store", headers: { accept: "application/vnd.github+json" } }).then((x) => (x.ok ? x.json() : Promise.reject()))))
     .then((j) => (j.ahead_by ? (window.ReviewSummary ? ReviewSummary.build(j) : null) : { short: "Nothing is waiting: it matches the live Orrery." }))
-    .then((s) => { const el = document.getElementById("cloneSum"); if (el && s && s.short) el.textContent = s.short; })
+    .then((s) => { const el = document.getElementById("cloneSum"); if (!el || !s) return; if (s.shortHtml) el.innerHTML = s.shortHtml; else if (s.short) el.textContent = s.short; })
     .catch(() => {});
 }
 // The worlds of the Grand Orrery. The picker in the header chooses one: the
@@ -1271,7 +1276,9 @@ function docs() {
   return `<div class="grid">${DOCS.map((d) => `<a class="card" href="#doc/${d.id}"><b>${esc(d.title)}</b><span>${esc(d.sub)}</span><div class="count">${esc(d.file)} · ${(text[d.id] || "").split(/\s+/).filter(Boolean).length.toLocaleString()} words</div></a>`).join("")}</div>`;
 }
 function doc(id) {
-  const d = DOCS.find((x) => x.id === id);
+  // By id, or by file name: the review summary links entries as
+  // #doc/<file>/<heading>/<text>, since it doesn't know the ids.
+  const d = DOCS.find((x) => x.id === id) || DOCS.find((x) => x.file === id);
   if (!d) return `<p>No such document. <a href="#docs">All documents</a>.</p>`;
   const heads = sections(d).filter((s) => s.level === 2 || s.level === 3);
   return `<div class="crumb"><a href="#docs">Documents</a> › ${esc(d.file)}</div>${riftPanel(RIFTS.filter((r) => r.doc === d.file))}${
@@ -1630,8 +1637,42 @@ function route() {
   else out = roster();
   view.innerHTML = out;
   if (re) view.querySelectorAll(".md").forEach((el) => highlight(el, re));
+  if (tab === "doc" && rest[2]) return jumpTo(extra, decodeURIComponent(rest.slice(2).join("/")));
   const target = extra && document.getElementById(extra);
   if (target) target.scrollIntoView(); else window.scrollTo(0, 0);
+}
+
+// From a review summary entry: scroll to the passage holding `want`
+// (a line of the entry, as the summary shows it), looked for first in
+// the section under heading `id`, then anywhere in the document, and
+// flash it. Without a match the heading is shown, as a plain link would.
+const jumpNorm = (t) => String(t).toLowerCase().replace(/\[\[|\]\]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+function jumpTo(id, want) {
+  const root = view.querySelector(".panel.md");
+  const head = id && document.getElementById(id);
+  if (!root) { if (head) head.scrollIntoView(); else window.scrollTo(0, 0); return; }
+  const blocks = [...root.querySelectorAll("p,li,dd,dt,td,blockquote,pre,h1,h2,h3,h4,h5,h6")].filter((el) => !el.querySelector("p,li"));
+  // The section: from its heading up to the next heading of the same or a higher level.
+  let inSec = blocks;
+  if (head && root.contains(head)) {
+    const lvl = +head.tagName[1], all = [...root.querySelectorAll("*")], from = all.indexOf(head);
+    const end = all.findIndex((el, i) => i > from && /^H[1-6]$/.test(el.tagName) && +el.tagName[1] <= lvl);
+    inSec = blocks.filter((el) => { const i = all.indexOf(el); return i > from && (end < 0 || i < end); });
+  }
+  // The whole line, then shorter and shorter pieces of it: the summary
+  // may have trimmed it, and inline markup can differ a little.
+  const n = jumpNorm(want.replace(/^…|…$/g, ""));
+  const words = n.split(" ").filter(Boolean);
+  const tries = n ? [n, words.slice(0, 12).join(" "), words.slice(0, 6).join(" "), words.slice(-6).join(" ")].filter((t, i, a) => t && a.indexOf(t) === i) : [];
+  let hit = null;
+  for (const t of tries) {
+    hit = inSec.find((el) => jumpNorm(el.textContent).includes(t)) || blocks.find((el) => jumpNorm(el.textContent).includes(t));
+    if (hit) break;
+  }
+  const el = hit || head;
+  if (!el) { window.scrollTo(0, 0); return; }
+  el.scrollIntoView({ block: hit ? "center" : "start" });
+  el.classList.remove("jumped"); void el.offsetWidth; el.classList.add("jumped");
 }
 
 // The branch's newest commit, or "" when GitHub's API is out of reach (it

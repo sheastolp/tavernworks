@@ -10,7 +10,13 @@
 //
 //   const s = await ReviewSummary.build(compareJson)
 //   s.html   the full summary        s.short  one line for the clone bar
+//   s.shortHtml  the same line with each name linked to its entry
 //   s.items  [{ doc, file, kind, title, parent, tag, oldTag, from, added, removed }]
+//
+// Every entry's title, and each line shown under it, links into the
+// Explorer at that exact text (#doc/<file>/<heading>/<text>, see jumpTo in
+// /orrery/index.html): what's added or kept opens in the Review Clone,
+// what's removed in the live Orrery, where it still stands.
 (function () {
   const REPO = "sheastolp/grand-orrery";
   // Each document's name, in the Orrery's own order, from its database
@@ -26,6 +32,19 @@
   ];
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const plain = (s) => String(s).replace(/!\[[^\]]*\]\([^)]*\)/g, "[picture]").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\[\[([^\]]+)\]\]/g, "$1").replace(/[*_`>]+/g, "").replace(/^\s*[-#]+\s*/, "").replace(/\s+/g, " ").trim();
+  // The Explorer's heading ids (slug in /orrery/index.html).
+  const slug = (s) => s.toLowerCase().replace(/[*_`()]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  // Where an entry (or one of its lines) is in the Explorer. `live`: the
+  // live Orrery, for text that publishing takes away.
+  function href(i, line, live) {
+    const base = live ? "/orrery/" : "/orrery/?clone=review";
+    if (i.doc === "Other files") return base + (/^Map:/.test(i.title) ? "#maps" : "#docs");
+    // lore.md has no headings: its entries are found by their text.
+    const head = i.file === "lore.md" ? "" : slug(i.tag ? `${i.title} (${i.tag})` : i.title);
+    // No line: the entry's heading itself ("-"), flashed as the passage.
+    const want = line || (i.file === "lore.md" ? (i.added[0] || i.removed[0] || "") : "-");
+    return `${base}#doc/${encodeURIComponent(i.file)}/${head}${want ? "/" + encodeURIComponent(want.slice(0, 200)) : ""}`;
+  }
   const cut = (s, n = 160) => (s.length > n ? s.slice(0, n - 1).trim() + "…" : s);
   const raw = (ref, file) => fetch(`https://raw.githubusercontent.com/${REPO}/${ref}/${file.split("/").map(encodeURIComponent).join("/")}`)
     .then((r) => (r.ok ? r.text() : "")).catch(() => "");
@@ -158,7 +177,7 @@
     const order = Object.keys(DOCS);
     const rank = (f) => { const i = order.indexOf(f); return i < 0 ? 99 : i; };
     items.sort((a, b) => rank(a.file) - rank(b.file) || a.file.localeCompare(b.file));
-    return { items, html: render(items, j), short: short(items) };
+    return { items, html: render(items, j), short: short(items), shortHtml: short(items, true) };
   }
 
   // ── Words ──
@@ -200,27 +219,34 @@
   function render(items, j) {
     if (!items.length) return "";
     const docs = [...new Set(items.map((i) => i.doc))];
-    const lines = (arr, cls, sign) => arr.slice(0, 3).map((l) => `<div class="${cls}">${sign} ${esc(cut(l))}</div>`).join("") + (arr.length > 3 ? `<div class="more">…and ${arr.length - 3} more line${arr.length - 3 > 1 ? "s" : ""}</div>` : "");
+    const go = (u, t, tip) => `<a class="jump" href="${esc(u)}" target="_blank" rel="noopener" title="${esc(tip)}">${t}</a>`;
+    // Removed text, and the entry's old version, are only in the live Orrery.
+    const lines = (i, arr, cls, sign) => arr.slice(0, 3).map((l) => `<div class="${cls}">${go(href(i, l, cls === "minus"), `${sign} ${esc(cut(l))}`, cls === "minus" ? "Show this line in the live Orrery" : "Show this line in the Review Clone")}</div>`).join("") + (arr.length > 3 ? `<div class="more">…and ${arr.length - 3} more line${arr.length - 3 > 1 ? "s" : ""}</div>` : "");
     return `<p class="lead">${esc(headline(items))}</p>
       <ul class="impact">${impact(items).map((t) => `<li>${t}</li>`).join("")}</ul>
       ${docs.map((d) => `<h3>${esc(d)}</h3><ul class="entries">${items.filter((i) => i.doc === d).map((i) => {
         const meta = [i.parent, i.kind === "decided" || i.kind === "retagged" ? `${i.oldTag || "untagged"} → ${i.tag || "untagged"}` : i.tag, i.from, i.who && "sent by " + i.who].filter(Boolean).map(esc).join(" · ");
         const shown = (arr) => i.why ? arr.filter((l) => !/^Why:/i.test(l)) : arr;
-        return `<li><span class="kind ${i.kind}">${LABEL[i.kind]}</span> <b>${esc(i.title)}</b>${meta ? ` <small>${meta}</small>` : ""}
-          ${i.kind === "removed" ? lines(shown(i.removed), "minus", "−") : lines(shown(i.added), "plus", "+") + (i.kind === "changed" ? lines(shown(i.removed), "minus", "−") : "")}${i.why ? `<div class="why">Why: ${esc(cut(i.why, 220))}</div>` : ""}</li>`;
+        const gone = i.kind === "removed";
+        return `<li><span class="kind ${i.kind}">${LABEL[i.kind]}</span> ${go(href(i, "", gone), `<b>${esc(i.title)}</b>`, gone ? "Show it in the live Orrery" : "Show it in the Review Clone")}${meta ? ` <small>${meta}</small>` : ""}
+          ${gone ? lines(i, shown(i.removed), "minus", "−") : lines(i, shown(i.added), "plus", "+") + (i.kind === "changed" ? lines(i, shown(i.removed), "minus", "−") : "")}${i.why ? `<div class="why">Why: ${esc(cut(i.why, 220))}</div>` : ""}</li>`;
       }).join("")}</ul>`).join("")}
       <p class="note">${esc(count((j.commits || []).length, "commit"))} and ${esc(count((j.files || []).length, "file"))} behind this. The commit list and line-by-line diffs are just below.</p>`;
   }
   // "Waiting: 2 new (Brinna Holt, Wren Alder), 1 changed (Healers)."
-  function short(items) {
+  // With `linked`, HTML: each name links to its entry (for the Review
+  // Clone's bar, so the links stay on the page).
+  function short(items, linked) {
     if (!items.length) return "";
     const docItems = items.filter((i) => i.file !== "lore.md");
     const use = docItems.length ? docItems : items;
+    const name = (i) => linked ? `<a class="jump" href="${esc(href(i, "", i.kind === "removed"))}">${esc(i.title)}</a>` : i.title;
     const parts = ["new", "decided", "changed", "retagged", "removed"].map((k) => {
-      const names = [...new Set(use.filter((i) => i.kind === k).map((i) => i.title))];
-      return names.length ? `${names.length} ${LABEL[k].toLowerCase()} (${names.slice(0, 3).join(", ")}${names.length > 3 ? ", …" : ""})` : "";
+      const seen = new Set(), its = use.filter((i) => i.kind === k && !seen.has(i.title) && seen.add(i.title));
+      return its.length ? `${its.length} ${LABEL[k].toLowerCase()} (${its.slice(0, 3).map(name).join(", ")}${its.length > 3 ? ", …" : ""})` : "";
     }).filter(Boolean);
-    return "On review: " + parts.join(", ") + (docItems.length && items.length > docItems.length ? ", and the narrator's lore changes" : "") + ".";
+    const tail = (docItems.length && items.length > docItems.length ? ", and the narrator's lore changes" : "") + ".";
+    return "On review: " + parts.join(", ") + (linked ? esc(tail) : tail);
   }
 
   window.ReviewSummary = { build };
