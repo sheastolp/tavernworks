@@ -162,7 +162,7 @@ for entry in "${BOTS[@]}"; do
     # UndercoverBurn runs streamlink and ffmpeg to hear the streamer.
     run=""
     [ "$name" = undercoverburn ] && run=" --allow-run=streamlink,ffmpeg"
-    [ "$name" = towncrier ] && run=" --allow-run=streamlink,ffmpeg,tesseract"
+    [ "$name" = towncrier ] && run=" --allow-run=streamlink,ffmpeg,tesseract,google-chrome-stable,google-chrome,chromium,chromium-browser,firefox"
     echo "ExecStart=$DENO run --allow-net --allow-env --allow-read --allow-write$run server.ts"
     echo "Restart=always"
     echo "RestartSec=5"
