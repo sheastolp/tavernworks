@@ -160,9 +160,6 @@ for entry in "${BOTS[@]}"; do
     echo "WorkingDirectory=$dir"
     echo "EnvironmentFile=$env"
     # UndercoverBurn runs streamlink and ffmpeg to hear the streamer.
-    # Town Crier runs streamlink, ffmpeg and tesseract to read the
-    # Words on Stream letters off the picture (words.ts; it never
-    # posts what it finds).
     run=""
     [ "$name" = undercoverburn ] && run=" --allow-run=streamlink,ffmpeg"
     [ "$name" = towncrier ] && run=" --allow-run=streamlink,ffmpeg,tesseract"
