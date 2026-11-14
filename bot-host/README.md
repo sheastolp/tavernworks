@@ -128,6 +128,11 @@ It's the "Hear the streamer" switch on UndercoverBurn's `/dashboard`.
 ffmpeg and the bot's `--allow-run` permission), then
 `systemctl restart tavernworks-undercoverburn`.
 
+GuildScribe's **shot listening** (`!feature shot listen on`) hears the streamer
+the same way and gets the same `--allow-run=streamlink,ffmpeg` permission. If
+`/admin/listen` says "streamlink + ffmpeg: can't run", run `setup.sh` again,
+then `systemctl restart tavernworks-guildscribe`.
+
 ## 4. Get the tunnel ready (nothing switches yet)
 
 Install `cloudflared` from Cloudflare's package repo and create the tunnel:

@@ -20,7 +20,7 @@
 #
 # What it does:
 #   - installs Deno if it's missing, plus ffmpeg and streamlink (UndercoverBurn
-#     uses them to hear the streamer)
+#     and GuildScribe's shot listening use them to hear the streamer)
 #   - clones the bot repos
 #   - creates a settings file per bot (from each repo's .env.example) for you
 #     to fill in
@@ -82,8 +82,8 @@ fi
 DENO=$(command -v deno || echo "$DENO_INSTALL/bin/deno")
 echo "Deno: $("$DENO" --version | head -1)"
 
-# UndercoverBurn pulls each live stream's audio with streamlink and ffmpeg to
-# hear what the streamer says. streamlink comes from pipx, not apt: Twitch
+# UndercoverBurn and GuildScribe (shot listening) pull each live stream's audio
+# with streamlink and ffmpeg to hear what the streamer says. streamlink comes from pipx, not apt: Twitch
 # changes often and the apt copy falls behind. Re-running this upgrades it.
 if [ "$MODE" = system ]; then
   command -v ffmpeg >/dev/null && command -v pipx >/dev/null ||
@@ -96,7 +96,7 @@ if [ "$MODE" = system ]; then
   fi
   echo "streamlink: $(streamlink --version 2>/dev/null || echo missing), ffmpeg: $(command -v ffmpeg || echo missing)"
 elif ! command -v streamlink >/dev/null || ! command -v ffmpeg >/dev/null; then
-  echo "UndercoverBurn needs streamlink and ffmpeg to hear the streamer: sudo apt-get install ffmpeg pipx && pipx install streamlink"
+  echo "UndercoverBurn and GuildScribe need streamlink and ffmpeg to hear the streamer: sudo apt-get install ffmpeg pipx && pipx install streamlink"
 fi
 
 mkdir -p "$UNIT_DIR" "$CONF_DIR"
@@ -159,9 +159,11 @@ for entry in "${BOTS[@]}"; do
     [ "$MODE" = system ] && echo "User=$RUN_USER"
     echo "WorkingDirectory=$dir"
     echo "EnvironmentFile=$env"
-    # UndercoverBurn runs streamlink and ffmpeg to hear the streamer.
+    # UndercoverBurn and GuildScribe (shot listening) run streamlink and
+    # ffmpeg to hear the streamer.
     run=""
     [ "$name" = undercoverburn ] && run=" --allow-run=streamlink,ffmpeg"
+    [ "$name" = guildscribe ] && run=" --allow-run=streamlink,ffmpeg"
     [ "$name" = towncrier ] && run=" --allow-run=streamlink,ffmpeg,tesseract,google-chrome-stable,google-chrome,chromium,chromium-browser,firefox"
     echo "ExecStart=$DENO run --allow-net --allow-env --allow-read --allow-write$run server.ts"
     echo "Restart=always"
