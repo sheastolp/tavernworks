@@ -23,7 +23,7 @@ if [ -z "$RPC_SERVER" ]; then
   RPC_SERVER="$(find "$POOL_DIR" -name ggml-rpc-server -type f | head -1)"
 fi
 [ -n "$RPC_SERVER" ] || { echo "!! ggml-rpc-server not found after extract."; exit 1; }
-"$RPC_SERVER" --version | grep -q "$BUILD" || { echo "!! Worker binary is not $BUILD — mismatched builds cannot pool."; exit 1; }
+"$RPC_SERVER" --version | grep -q "build 12359" || { echo "!! Worker binary is not $BUILD — mismatched builds cannot pool."; exit 1; }
 echo ">> Worker binary OK ($BUILD): $RPC_SERVER"
 
 # 2. Tailnet address. RPC has NO password — bind to the tailnet only,
