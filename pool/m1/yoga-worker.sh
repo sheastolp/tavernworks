@@ -3,7 +3,7 @@
 # Run this on the Yoga. Safe to re-run; it skips work already done.
 set -euo pipefail
 
-POOL_DIR="$HOME/ai-pool"
+POOL_DIR="${HOME:-/root}/ai-pool"  # systemd may not set HOME; set -u makes that fatal
 BUILD="b12359"
 BASE="https://github.com/ggml-org/llama.cpp/releases/download/$BUILD"
 mkdir -p "$POOL_DIR"; cd "$POOL_DIR"

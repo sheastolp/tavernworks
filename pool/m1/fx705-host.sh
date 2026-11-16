@@ -4,7 +4,7 @@
 # Run this on the FX705. Safe to re-run; downloads resume, checks repeat.
 set -euo pipefail
 
-POOL_DIR="$HOME/ai-pool"
+POOL_DIR="${HOME:-/root}/ai-pool"  # systemd may not set HOME; set -u makes that fatal
 BUILD="b12359"
 BASE="https://github.com/ggml-org/llama.cpp/releases/download/$BUILD"
 MODEL="huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf"
