@@ -23,7 +23,7 @@ done
 echo ">> Asking the pooled 14B for a roast..."
 curl -s "http://$HOST_IP:8090/v1/chat/completions" \
   -H 'Content-Type: application/json' \
-  -d '{"messages":[{"role":"user","content":"Roast a streamer who just whiffed an easy shot, one short sentence."}],"max_tokens":60}' \
+  -d '{"messages":[{"role":"user","content":"Roast a streamer who just whiffed an easy shot, one short sentence."}],"max_tokens":60,"chat_template_kwargs":{"enable_thinking":false}}' \
 | python3 -c '
 import json, sys
 d = json.load(sys.stdin)

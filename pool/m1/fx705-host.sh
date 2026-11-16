@@ -113,6 +113,7 @@ echo ">> Watch the load log: it should list a CUDA device AND an RPC device,"
 echo ">> with layers offloaded to both. Leave this terminal open; Ctrl-C stops the pool."
 exec "$SERVER" -m "$POOL_DIR/$MODEL" \
   --reasoning off \
+  --chat-template-kwargs '{"enable_thinking":false}' \
   --rpc "$YOGA_IP:50052" \
   --tensor-split 2,1 \
   -ngl 99 -fit off \
