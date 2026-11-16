@@ -63,6 +63,36 @@ its `OPENAI_BASE_URL` to `http://<FX705 tailnet IP>:8080/v1`, then
 address) and restart again. If banter feels laggy on a live stream,
 flip back first and retune the split second.
 
+## Run it as a service (close the terminals)
+
+Both halves have systemd units in this folder. The scripts were
+taught to run unattended: no prompts (the Ollama unload defaults to
+yes), and the host finds the Yoga's tailnet address on its own by
+looking up the peer whose name contains "yoga". Order doesn't
+matter — if the worker isn't up yet, the host service retries every
+15 seconds until it is.
+
+**Yoga:** Ctrl-C the foreground worker if it's running, then:
+```
+curl -fsSL -H "Accept: application/vnd.github.raw" "https://api.github.com/repos/sheastolp/tavernworks/contents/pool/m1/yoga-worker.sh" -o ~/ai-pool-m1/yoga-worker.sh
+curl -fsSL -H "Accept: application/vnd.github.raw" "https://api.github.com/repos/sheastolp/tavernworks/contents/pool/m1/ai-pool-worker.service" -o ~/ai-pool-m1/ai-pool-worker.service
+mkdir -p /opt/ai-pool && cp ~/ai-pool-m1/yoga-worker.sh /opt/ai-pool/ && chmod +x /opt/ai-pool/yoga-worker.sh
+cp ~/ai-pool-m1/ai-pool-worker.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now ai-pool-worker
+journalctl -u ai-pool-worker -f
+```
+
+**FX705:** Ctrl-C the foreground host (even mid-download — the
+service run resumes the model download where it stopped), then the
+same shape with fx705-host.sh / ai-pool-host.service /
+ai-pool-host. Watch it with `journalctl -u ai-pool-host -f`; once
+it has loaded the model you can close everything.
+
+Day to day: `systemctl stop|start|restart ai-pool-host` (or
+ai-pool-worker), logs via journalctl. Updating a script later means
+re-copying it into /opt/ai-pool and restarting the service — the
+same pattern as the gate.
+
 ## Stopping
 
 Ctrl-C in either terminal stops that side. Nothing is installed as a
