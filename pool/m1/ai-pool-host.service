@@ -1,0 +1,13 @@
+[Unit]
+Description=AI Pool host — pooled 14B llama-server (FX705 + Yoga split)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/ai-pool/fx705-host.sh
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

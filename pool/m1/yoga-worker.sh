@@ -31,7 +31,8 @@ echo ">> Worker binary OK (pinned $BUILD archive): $RPC_SERVER"
 # 2. Tailnet address. RPC has NO password — bind to the tailnet only,
 #    never 0.0.0.0 on a public interface.
 TS_IP="$(tailscale ip -4 2>/dev/null | head -1 || true)"
-if [ -z "$TS_IP" ]; then read -rp "Yoga tailnet IP (100.x.y.z): " TS_IP; fi
+if [ -z "$TS_IP" ] && [ -t 0 ]; then read -rp "Yoga tailnet IP (100.x.y.z): " TS_IP; fi
+[ -n "$TS_IP" ] || { echo "!! No tailnet IP — is tailscale up?"; exit 1; }
 echo ">> Yoga tailnet IP: $TS_IP"
 
 # 3. Serve. This build's rpc-server has no memory flag — how much of

@@ -28,7 +28,8 @@ PS_JSON="$(curl -s http://localhost:11434/api/ps || true)"
 if echo "$PS_JSON" | grep -q '"name"'; then
   echo ">> Ollama is holding model(s) in VRAM right now:"
   echo "$PS_JSON" | grep -o '"name":"[^"]*"'
-  read -rp ">> Unload them for this pool session? [Y/n] " ans
+  ans="Y"
+  if [ -t 0 ]; then read -rp ">> Unload them for this pool session? [Y/n] " ans || ans="Y"; fi
   case "${ans:-Y}" in
     n|N) echo ">> Leaving Ollama loaded — expect the pool to load slowly or fail on VRAM." ;;
     *)
@@ -72,8 +73,24 @@ echo ">> Model verified: $MODEL"
 
 # 3. Addresses, and prove the Yoga worker is listening before loading 9 GB.
 TS_IP="$(tailscale ip -4 2>/dev/null | head -1 || true)"
-if [ -z "$TS_IP" ]; then read -rp "FX705 tailnet IP (100.x.y.z): " TS_IP; fi
-read -rp "Yoga tailnet IP (100.x.y.z): " YOGA_IP
+if [ -z "$TS_IP" ] && [ -t 0 ]; then read -rp "FX705 tailnet IP (100.x.y.z): " TS_IP; fi
+[ -n "$TS_IP" ] || { echo "!! No tailnet IP — is tailscale up?"; exit 1; }
+# Yoga address: environment wins, then tailnet peer discovery (the
+# Yoga's hostname), then an interactive prompt. Under systemd there
+# is no terminal, so discovery is what makes the service work.
+if [ -z "${YOGA_IP:-}" ]; then
+  YOGA_IP="$(tailscale status --json 2>/dev/null | python3 -c 'import json,sys
+try:
+    d = json.load(sys.stdin)
+    for p in (d.get("Peer") or {}).values():
+        if "yoga" in (p.get("HostName","") + p.get("DNSName","")).lower():
+            print(p["TailscaleIPs"][0]); break
+except Exception:
+    pass' || true)"
+  [ -n "$YOGA_IP" ] && echo ">> Found the Yoga on the tailnet: $YOGA_IP"
+fi
+if [ -z "${YOGA_IP:-}" ] && [ -t 0 ]; then read -rp "Yoga tailnet IP (100.x.y.z): " YOGA_IP; fi
+[ -n "${YOGA_IP:-}" ] || { echo "!! No Yoga IP — set YOGA_IP in the service environment."; exit 1; }
 if (timeout 5 bash -c "exec 3<>/dev/tcp/$YOGA_IP/50052") 2>/dev/null; then
   echo ">> Yoga worker reachable at $YOGA_IP:50052"
 else

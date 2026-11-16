@@ -1,0 +1,13 @@
+[Unit]
+Description=AI Pool worker — ggml-rpc-server offering this PC to the pool
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/ai-pool/yoga-worker.sh
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target
