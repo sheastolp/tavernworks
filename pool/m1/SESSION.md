@@ -7,6 +7,12 @@ connection the whole session is roughly half an hour.
 ## Before you start
 
 - Both laptops plugged in, awake, and on the tailnet.
+- The FX705's 4 GB GPU is shared: Ollama (phi4-mini, ~2.4 GB) and the
+  Whisper service already live there. The host script checks whether
+  Ollama is holding its model in VRAM and offers to unload it for the
+  session — say yes for a clean measurement; the bots reload it on
+  demand afterwards. (End state, once Burn and the gate move to the
+  pool: Ollama on the FX705 retires and this contention goes away.)
 - FX705: ~12 GB free disk (model 9 GB + engines). Yoga: ~2 GB free.
 - Copy this `m1/` folder to both laptops (USB, scp, however you like).
 - `chmod +x *.sh` in the folder on each laptop.

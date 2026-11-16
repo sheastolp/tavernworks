@@ -20,6 +20,26 @@ else
   exit 1
 fi
 
+# 0.5 VRAM contention — Ollama holding phi4-mini (~2.4 GB) leaves too
+#     little of this 4 GB card for the pool's local slice. Offer to
+#     unload it for the session; the bots reload it on their next
+#     request (one slower reply, then normal).
+PS_JSON="$(curl -s http://localhost:11434/api/ps || true)"
+if echo "$PS_JSON" | grep -q '"name"'; then
+  echo ">> Ollama is holding model(s) in VRAM right now:"
+  echo "$PS_JSON" | grep -o '"name":"[^"]*"'
+  read -rp ">> Unload them for this pool session? [Y/n] " ans
+  case "${ans:-Y}" in
+    n|N) echo ">> Leaving Ollama loaded — expect the pool to load slowly or fail on VRAM." ;;
+    *)
+      for m in $(echo "$PS_JSON" | grep -o '"name":"[^"]*"' | cut -d'"' -f4); do
+        curl -s http://localhost:11434/api/generate -d "{\"model\":\"$m\",\"keep_alive\":0}" >/dev/null 2>&1 || true
+        echo ">> Unloaded $m"
+      done
+      ;;
+  esac
+fi
+
 # 1. Engine + CUDA runtime, extracted together.
 SERVER="$(find "$POOL_DIR" -name llama-server -type f 2>/dev/null | head -1 || true)"
 if [ -z "$SERVER" ]; then

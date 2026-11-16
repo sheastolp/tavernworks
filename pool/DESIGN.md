@@ -49,6 +49,18 @@ bots talk to one address and the pool serves it.
 
 ### 2. Coordinator + enrollment webpage (one PC — the FX705 fits: it
 already hosts the gate and Ollama)
+
+GPU tenancy on the FX705 (real constraint, flagged 2026-11-15): the
+GTX 1650's 4 GB VRAM already serves Ollama (phi4-mini ≈ 2.4 GB
+resident) and the Whisper transcription service. The pool's local
+slice cannot share that card with Ollama's model and still fit — so
+M1 measures with Ollama's model unloaded (the host script offers
+this), and the production end state is that the pool REPLACES Ollama
+on the FX705: once Burn and the lore-keeper point at the pool, Ollama
+there retires and the contention disappears. Whisper stays — small
+and bursty. If Ollama ever has to coexist with the pool, the split
+shifts toward the Yoga's RAM and everything gets slower; that's the
+fallback, not the plan.
 - **Roster:** PCs that have joined — name, tailnet address, memory offered,
   up/down (probed live), which slice of the model each holds.
 - **Join a PC:** enter its tailnet address + memory offered; the page
