@@ -99,12 +99,12 @@ else
 fi
 
 # 4. Serve the pooled model: layers split 3:2 toward this machine's GPU,
-#    thinking OFF (Burn must never receive think blocks).
+#    reasoning OFF (Burn must never receive think blocks).
 echo ">> Starting pooled Qwen3-14B at http://$TS_IP:8080"
 echo ">> Watch the load log: it should list a CUDA device AND an RPC device,"
 echo ">> with layers offloaded to both. Leave this terminal open; Ctrl-C stops the pool."
 exec "$SERVER" -m "$POOL_DIR/$MODEL" \
-  --chat-template-kwargs '{"enable_thinking":false}' \
+  --reasoning off \
   --rpc "$YOGA_IP:50052" \
   --tensor-split 3,2 \
   -ngl 99 -fit off \

@@ -33,7 +33,7 @@ Download it onto the **FX705** (the host owns the model file), e.g.
 **Thinking mode — OFF for this pool.** Qwen3 reasons in a <think>
 block before answering by default: slower, and think text must never
 reach Twitch chat. The Step 2 start command disables it via
-`--chat-template-kwargs '{"enable_thinking":false}'`, so the model
+`--reasoning off`, so the model
 answers directly. (If the lore-keeper is ever tested against the pool,
 it can be re-run with thinking on — better research answers, slower.)
 
@@ -87,7 +87,7 @@ ggml-rpc-server -H <Yoga tailnet IP> -p 50052
 
 ```
 llama-server -m huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf \
-  --chat-template-kwargs '{"enable_thinking":false}' \
+  --reasoning off \
   --rpc <Yoga tailnet IP>:50052 \
   --tensor-split 3,2 \
   -ngl 99 -fit off \
