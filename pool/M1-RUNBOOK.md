@@ -92,7 +92,7 @@ llama-server -m huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf \
   --tensor-split 3,2 \
   -ngl 99 -fit off \
   -c 8192 \
-  --host <FX705 tailnet IP> --port 8080
+  --host <FX705 tailnet IP> --port 8090
 ```
 - `--tensor-split 3,2` = layer proportions, local:remote — the FX705
   (GPU) takes the bigger share. Tune after the first timing run.
@@ -104,7 +104,7 @@ llama-server -m huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf \
 
 From the FX705 (or any tailnet machine):
 ```
-curl http://<FX705 tailnet IP>:8080/v1/chat/completions \
+curl http://<FX705 tailnet IP>:8090/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Roast a streamer who just whiffed an easy shot, one short sentence."}],"max_tokens":60}'
 ```
@@ -118,7 +118,7 @@ curl http://<FX705 tailnet IP>:8080/v1/chat/completions \
 ## Step 4 — only after M1 passes (later sessions)
 
 - Point Burn at it: Burn's AI base URL already supports a local
-  OpenAI-shaped server — set it to `http://<FX705 tailnet IP>:8080/v1`
+  OpenAI-shaped server — set it to `http://<FX705 tailnet IP>:8090/v1`
   and the model to the pooled 14B, same as its Ollama setup today.
 - Then M2: the enrollment page replaces these hand-run commands.
 

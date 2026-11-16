@@ -7,7 +7,7 @@ set -euo pipefail
 HOST_IP="${1:-$(tailscale ip -4 2>/dev/null | head -1 || true)}"
 [ -n "$HOST_IP" ] || { echo "Usage: ./test-pool.sh <FX705 tailnet IP>"; exit 1; }
 
-curl -s "http://$HOST_IP:8080/v1/chat/completions" \
+curl -s "http://$HOST_IP:8090/v1/chat/completions" \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Roast a streamer who just whiffed an easy shot, one short sentence."}],"max_tokens":60}' \
 | python3 -c '

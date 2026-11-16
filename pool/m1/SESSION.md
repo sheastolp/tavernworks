@@ -57,7 +57,7 @@ IP is wrong — nothing else fails that way.
 ## Optional last step — point Burn at it (only if the test passed)
 
 On the Yoga: back up `/etc/tavernworks/undercoverburn.env`, change
-its `OPENAI_BASE_URL` to `http://<FX705 tailnet IP>:8080/v1`, then
+its `OPENAI_BASE_URL` to `http://<FX705 tailnet IP>:8090/v1`, then
 `sudo systemctl restart tavernworks-undercoverburn` and check
 /admin/connections. To flip back, restore the backup (the Ollama
 address) and restart again. If banter feels laggy on a live stream,
