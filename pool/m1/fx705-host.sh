@@ -98,9 +98,15 @@ else
   exit 1
 fi
 
-# 4. Serve the pooled model: layers split evenly (the 4 GB card
-#    cannot hold 60% of the weights AND the KV cache — the 3,2 split
-#    OOM'd on KV allocation live on 2026-11-15; 1,1 + a 4096 context fits).
+# 4. Serve the pooled model. Sizing learned live (2026-11-15/16):
+#    the split proportions run RPC-first — the FIRST number is the
+#    Yoga's share, the second is this card's. And each device gets
+#    ONE buffer for all its layers, so this card's share must fit
+#    whole in 4 GB alongside Whisper: at 3,2 the card held 40% and
+#    died on the KV cache; at 1,1 it was handed 4.2 GB in a single
+#    allocation and died instantly (2,207 service restarts overnight).
+#    2,1 gives the card ~3.0 GB of weights; -c 4096 keeps its KV
+#    share near 200 MiB. If it still OOMs, go 3,1 (~2.25 GB).
 #    reasoning OFF (Burn must never receive think blocks).
 echo ">> Starting pooled Qwen3-14B at http://$TS_IP:8090"
 echo ">> Watch the load log: it should list a CUDA device AND an RPC device,"
@@ -108,7 +114,7 @@ echo ">> with layers offloaded to both. Leave this terminal open; Ctrl-C stops t
 exec "$SERVER" -m "$POOL_DIR/$MODEL" \
   --reasoning off \
   --rpc "$YOGA_IP:50052" \
-  --tensor-split 1,1 \
+  --tensor-split 2,1 \
   -ngl 99 -fit off \
   -c 4096 \
   --host "$TS_IP" --port 8090
