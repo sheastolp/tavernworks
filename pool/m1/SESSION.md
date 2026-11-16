@@ -35,9 +35,10 @@ running in that terminal.
 ```
 ./yoga-worker.sh
 ```
-Downloads the same pinned build (Vulkan, CPU fallback), checks its
-own version matches, and starts the worker offering 6000 MB on the
-Yoga's tailnet address, port 50052. Leave it running.
+Downloads the same pinned build (Vulkan, CPU fallback) and starts
+the worker on the Yoga's tailnet address, port 50052 — the host's
+split decides its share of the model (about 3.6 GB at 3,2). Leave
+it running.
 
 **3. Test (back on the FX705, new terminal)**
 ```

@@ -8,7 +8,9 @@ bots talk to one address and the pool serves it.
 ## How the split actually works (llama.cpp RPC — verified 2026-11-15)
 
 - Every PC runs one small worker: `ggml-rpc-server` from llama.cpp. It
-  offers that PC's GPU/CPU and a memory budget (`-m <MB>`) to the pool.
+  offers that PC's GPU/CPU to the pool; how much memory it carries is
+  set by the host's tensor-split (the v1.0.0 rpc-server has no memory
+  flag of its own — noted during M1).
 - One host PC runs `llama-server` with `--rpc <worker1>,<worker2>,...` and
   `--tensor-split <proportions>`. The host owns the model file (GGUF) and
   the API; each worker holds and computes a slice of the model's layers.

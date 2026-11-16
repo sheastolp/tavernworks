@@ -74,12 +74,14 @@ to talk. Exact assets from the b12359 release:
 ## Step 1 — worker on the Yoga
 
 ```
-ggml-rpc-server -H <Yoga tailnet IP> -p 50052 -m 6000
+ggml-rpc-server -H <Yoga tailnet IP> -p 50052
 ```
 - `-H` is the Yoga's **tailnet** address (100.x.y.z) — never 0.0.0.0 on a
   public interface; RPC has no password, the tailnet is the fence.
-- `-m 6000` offers 6 GB of the Yoga's memory to the pool. Adjust to leave
-  the bots plenty of headroom — Town Crier / UndercoverBurn live here.
+- This build's rpc-server has **no memory flag** (and no --version) —
+  how much of the model lands on the Yoga is set by the host's
+  `--tensor-split` (at 3,2 that's ~3.6 GB of the 9 GB, inside the
+  headroom the bots on this machine need).
 
 ## Step 2 — host on the FX705
 
