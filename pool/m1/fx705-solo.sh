@@ -2,6 +2,9 @@
 # AI Pool M1 — SOLO experiment: the same 14B on the FX705 ALONE.
 # Layers that fit go on the GPU, the rest run on the FX705's CPU/RAM
 # (llama.cpp's auto-fit decides) — no split, no Yoga, no network.
+# NOTE: do NOT pass -ngl here — an explicit n_gpu_layers makes the
+# auto-fit abort (seen live: 'n_gpu_layers already set by user to 99,
+# abort' followed by an 8.2 GB cudaMalloc failure on the 4 GB card).
 # Purpose: compare speed against the split (which measured 0.9 tok/s
 # on 2026-11-16 — the Yoga's share is the bottleneck). Foreground;
 # Ctrl-C ends it. Stop ai-pool-host first so the GPU is free.
@@ -51,5 +54,5 @@ echo ">> Then run ./test-pool.sh in another terminal. Ctrl-C here stops it."
 exec "$SERVER" -m "$MODEL" \
   --reasoning off \
   --chat-template-kwargs '{"enable_thinking":false}' \
-  -ngl 99 -c 4096 \
+  -c 4096 \
   --host "$TS_IP" --port 8090
