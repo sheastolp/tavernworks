@@ -57,7 +57,7 @@ if [ -n "$CUBLAS" ]; then
 else
   export LD_LIBRARY_PATH="$BIN_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
-VER="$(LD_LIBRARY_PATH="$LDPATH" "$SERVER" --version 2>&1 || true)"
+VER="$("$SERVER" --version 2>&1 || true)"
 echo "$VER"
 case "$VER" in
   *"build 12359"*) echo ">> Host build confirmed: $BUILD" ;;
