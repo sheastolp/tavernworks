@@ -89,12 +89,12 @@ ggml-rpc-server -H <Yoga tailnet IP> -p 50052
 llama-server -m huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf \
   --reasoning off \
   --rpc <Yoga tailnet IP>:50052 \
-  --tensor-split 3,2 \
+  --tensor-split 1,1 \
   -ngl 99 -fit off \
-  -c 8192 \
+  -c 4096 \
   --host <FX705 tailnet IP> --port 8090
 ```
-- `--tensor-split 3,2` = layer proportions, local:remote — the FX705
+- `--tensor-split 1,1` = layer proportions, local:remote — the FX705
   (GPU) takes the bigger share. Tune after the first timing run.
 - `-fit off`: llama.cpp's auto-fit is known to crash with RPC on.
 - Success looks like: load log shows layers offloaded to the RPC device,

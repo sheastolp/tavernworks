@@ -98,7 +98,9 @@ else
   exit 1
 fi
 
-# 4. Serve the pooled model: layers split 3:2 toward this machine's GPU,
+# 4. Serve the pooled model: layers split evenly (the 4 GB card
+#    cannot hold 60% of the weights AND the KV cache — the 3,2 split
+#    OOM'd on KV allocation live on 2026-11-15; 1,1 + a 4096 context fits).
 #    reasoning OFF (Burn must never receive think blocks).
 echo ">> Starting pooled Qwen3-14B at http://$TS_IP:8090"
 echo ">> Watch the load log: it should list a CUDA device AND an RPC device,"
@@ -106,7 +108,7 @@ echo ">> with layers offloaded to both. Leave this terminal open; Ctrl-C stops t
 exec "$SERVER" -m "$POOL_DIR/$MODEL" \
   --reasoning off \
   --rpc "$YOGA_IP:50052" \
-  --tensor-split 3,2 \
+  --tensor-split 1,1 \
   -ngl 99 -fit off \
-  -c 8192 \
+  -c 4096 \
   --host "$TS_IP" --port 8090
