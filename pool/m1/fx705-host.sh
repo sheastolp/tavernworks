@@ -57,7 +57,12 @@ if [ -n "$CUBLAS" ]; then
 else
   export LD_LIBRARY_PATH="$BIN_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
-"$SERVER" --version | grep -q "build 12359" || { echo "!! Host binary is not $BUILD — mismatched builds cannot pool."; exit 1; }
+VER="$(LD_LIBRARY_PATH="$LDPATH" "$SERVER" --version 2>&1 || true)"
+echo "$VER"
+case "$VER" in
+  *"build 12359"*) echo ">> Host build confirmed: $BUILD" ;;
+  *) echo "!! Host binary is not $BUILD — mismatched builds cannot pool."; exit 1 ;;
+esac
 echo ">> Host binary OK ($BUILD): $SERVER"
 
 # 2. Model — resumable download, then checksum. A bad file never loads.
