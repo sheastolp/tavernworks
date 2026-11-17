@@ -187,7 +187,10 @@ class Worker:
 
     def fetch_manifest(self):
         url = self.cfg["pool_url"].rstrip("/") + "/downloads/manifest.json"
-        with urllib.request.urlopen(url, timeout=30) as r:
+        # The User-Agent matters: Cloudflare refuses the default
+        # Python-urllib one with a 403 (learned live, 2026-11-17).
+        req = urllib.request.Request(url, headers={"User-Agent": "pool-worker"})
+        with urllib.request.urlopen(req, timeout=30) as r:
             return json.loads(r.read().decode())
 
     @staticmethod
