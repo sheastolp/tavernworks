@@ -1,0 +1,14 @@
+[Unit]
+Description=AI Pool solo — Qwen2.5-14B on the FX705 alone (GPU + CPU layers)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+Conflicts=ai-pool-host.service
+
+[Service]
+Type=simple
+ExecStart=/opt/ai-pool/fx705-solo.sh Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target
