@@ -1,0 +1,14 @@
+[Unit]
+Description=AI Pool worker — pinned rpc-server + dial-out relay (M5b)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=POOL_WORKER_DIR=/root/pool-worker
+ExecStart=/usr/bin/python3 /opt/ai-pool/pool-worker.py
+Restart=on-failure
+RestartSec=20
+
+[Install]
+WantedBy=multi-user.target

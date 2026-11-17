@@ -18,13 +18,22 @@
 #                       stored. The operator approves or revokes
 #                       from the tailnet control page.
 #   GET  /enroll/<id>?key=...   poll enrollment status
+#   GET  /relay        (M5b) WebSocket upgrade: an APPROVED worker
+#                       dials out here (headers X-Enrollment-Id /
+#                       X-Enrollment-Key); the front bridges the
+#                       connection to a per-machine localhost port
+#                       that llama-server can target with --rpc.
+#                       Revoking the enrollment cuts the relay.
 #
 # Python 3 standard library only. Binds localhost by default —
 # cloudflared is the public face. Test hooks: POOL_DIR,
 # POOL_FRONT_BIND, POOL_FRONT_PORT, POOL_COORD_URL.
+import base64
 import hashlib
 import json
 import os
+import socket
+import struct
 import secrets
 import threading
 import time
@@ -44,6 +53,10 @@ ENROLL_PATH = os.path.join(POOL_DIR, "enrollments.json")
 PORT = int(os.environ.get("POOL_FRONT_PORT", "8092"))
 COORD_URL = os.environ.get("POOL_COORD_URL", "http://100.100.40.72:8091/status.json")
 MAX_COMPONENT_MB = 512
+RELAY_STATE_PATH = os.path.join(POOL_DIR, "relay-state.json")
+RELAY_BASE_PORT = int(os.environ.get("POOL_RELAY_BASE_PORT", "51100"))
+RELAY_PUBLIC_PATH = "/relay"
+WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 _lock = threading.Lock()
 _hash_cache = {}
@@ -116,7 +129,7 @@ def pool_status():
             "model": "—",
             "serving": "—",
             "split": "—",
-            "enrollment": "Not yet open — worker app in development",
+            "enrollment": "Open — worker app available; operator approves each machine",
             "speed": "—",
             "updated": datetime.now().strftime("%d %b %Y"),
         }
@@ -168,9 +181,309 @@ def enrollment_status(eid, key):
                 return 403, {"error": "bad key"}
             out = {"id": eid, "status": rec["status"], "name": rec["name"]}
             if rec["status"] == "approved":
-                out["relay"] = "not yet configured — the worker relay arrives in M5b"
+                out["relay"] = RELAY_PUBLIC_PATH
+                out["relay_note"] = ("Connect the worker to this pool address "
+                                      "with a WebSocket upgrade on the relay "
+                                      "path; it is bridged to a localhost "
+                                      "port on the host.")
             return 200, out
     return 404, {"error": "no such enrollment"}
+
+# ------------------------------------------------------------------
+# M5b dial-out relay.
+#
+# An approved worker holds ONE persistent outbound WebSocket to
+# /relay (through the Cloudflare Tunnel — raw TCP cannot cross it,
+# WebSocket can). Inside the WebSocket, a tiny stream protocol
+# multiplexes TCP connections: [stream_id u32][type u8][payload],
+# type 1=OPEN, 2=DATA, 3=CLOSE. For each connected machine the front
+# listens on a per-machine 127.0.0.1 port on the FX705; llama-server
+# targets that port with --rpc and its bytes are carried down the
+# worker's WebSocket to the worker's local rpc-server (which listens
+# on the worker's own localhost only — nothing inbound, anywhere).
+# ------------------------------------------------------------------
+
+def ws_accept(key):
+    return base64.b64encode(
+        hashlib.sha1((key + WS_GUID).encode()).digest()).decode()
+
+
+class WSReader:
+    """Buffered WebSocket frame reader over a raw socket."""
+
+    def __init__(self, sock):
+        self.sock = sock
+        self.buf = b""
+
+    def read_exact(self, n):
+        while len(self.buf) < n:
+            chunk = self.sock.recv(65536)
+            if not chunk:
+                raise ConnectionError("socket closed")
+            self.buf += chunk
+        out, self.buf = self.buf[:n], self.buf[n:]
+        return out
+
+    def read_frame(self):
+        """Returns (opcode, payload) with fragmentation reassembled."""
+        payload = b""
+        opcode = None
+        while True:
+            b1, b2 = self.read_exact(2)
+            fin = b1 & 0x80
+            op = b1 & 0x0F
+            masked = b2 & 0x80
+            length = b2 & 0x7F
+            if length == 126:
+                length = struct.unpack(">H", self.read_exact(2))[0]
+            elif length == 127:
+                length = struct.unpack(">Q", self.read_exact(8))[0]
+            mask = self.read_exact(4) if masked else None
+            data = self.read_exact(length) if length else b""
+            if mask:
+                data = bytes(b ^ mask[i % 4] for i, b in enumerate(data))
+            if op in (0, 1, 2):  # continuation / text / binary
+                if opcode is None:
+                    opcode = op
+                payload += data
+                if fin:
+                    return opcode, payload
+            else:  # control frame (ping/pong/close) — returned at once
+                return op, data
+
+
+def ws_send(sock, lock, opcode, payload):
+    header = bytearray([0x80 | opcode])
+    n = len(payload)
+    if n < 126:
+        header.append(n)
+    elif n < 65536:
+        header.append(126)
+        header += struct.pack(">H", n)
+    else:
+        header.append(127)
+        header += struct.pack(">Q", n)
+    with lock:
+        sock.sendall(bytes(header) + payload)
+
+
+class RelayConn:
+    def __init__(self, hub, rec, sock):
+        self.hub = hub
+        self.id = rec["id"]
+        self.name = rec["name"]
+        self.sock = sock
+        self.reader = WSReader(sock)
+        self.send_lock = threading.Lock()
+        self.streams = {}          # sid -> TCP socket (llama-server side)
+        self.streams_lock = threading.Lock()
+        self.next_sid = 0
+        self.port = None
+        self.listener = None
+        self.alive = True
+        self.since = now_iso()
+
+    # -- worker -> front ------------------------------------------------
+    def run(self):
+        try:
+            while self.alive:
+                op, payload = self.reader.read_frame()
+                if op == 9:        # ping
+                    ws_send(self.sock, self.send_lock, 10, payload)
+                elif op == 8:      # close
+                    break
+                elif op in (1, 2) and len(payload) >= 5:
+                    sid, typ = struct.unpack(">IB", payload[:5])
+                    data = payload[5:]
+                    if typ == 2:   # DATA
+                        with self.streams_lock:
+                            tcp = self.streams.get(sid)
+                        if tcp:
+                            try:
+                                tcp.sendall(data)
+                            except OSError:
+                                self.close_stream(sid, notify=True)
+                    elif typ == 3:  # CLOSE
+                        self.close_stream(sid, notify=False)
+        except (ConnectionError, OSError):
+            pass
+        finally:
+            self.hub.drop(self.id)
+
+    def send_stream(self, sid, typ, data=b""):
+        if not self.alive:
+            return False
+        try:
+            ws_send(self.sock, self.send_lock, 2,
+                    struct.pack(">IB", sid, typ) + data)
+            return True
+        except OSError:
+            return False
+
+    # -- front (llama-server) -> worker ---------------------------------
+    def start_listener(self, port):
+        self.port = port
+        ls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ls.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        ls.bind(("127.0.0.1", port))
+        ls.listen(16)
+        self.listener = ls
+        threading.Thread(target=self._accept_loop, daemon=True).start()
+
+    def _accept_loop(self):
+        while self.alive:
+            try:
+                tcp, _ = self.listener.accept()
+            except OSError:
+                return
+            with self.streams_lock:
+                self.next_sid += 1
+                sid = self.next_sid
+                self.streams[sid] = tcp
+            if not self.send_stream(sid, 1):
+                self.close_stream(sid, notify=False)
+                continue
+            threading.Thread(target=self._pump_tcp, args=(sid, tcp),
+                             daemon=True).start()
+
+    def _pump_tcp(self, sid, tcp):
+        try:
+            while self.alive:
+                data = tcp.recv(262144)
+                if not data:
+                    break
+                if not self.send_stream(sid, 2, data):
+                    break
+        except OSError:
+            pass
+        finally:
+            self.close_stream(sid, notify=True)
+
+    def close_stream(self, sid, notify):
+        with self.streams_lock:
+            tcp = self.streams.pop(sid, None)
+        if tcp:
+            try:
+                tcp.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                tcp.close()
+            except OSError:
+                pass
+        if notify:
+            self.send_stream(sid, 3)
+
+    def close(self):
+        self.alive = False
+        for sid in list(self.streams):
+            self.close_stream(sid, notify=False)
+        if self.listener:
+            try:
+                self.listener.close()
+            except OSError:
+                pass
+        try:
+            ws_send(self.sock, self.send_lock, 8, b"")
+        except OSError:
+            pass
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
+            self.sock.close()
+        except OSError:
+            pass
+
+
+class RelayHub:
+    def __init__(self):
+        self.conns = {}            # enrollment id -> RelayConn
+        self.lock = threading.Lock()
+
+    def _free_port(self):
+        used = {c.port for c in self.conns.values() if c.port}
+        port = RELAY_BASE_PORT
+        while port in used or port < RELAY_BASE_PORT + 200:
+            if port not in used:
+                probe = socket.socket()
+                try:
+                    probe.bind(("127.0.0.1", port))
+                    probe.close()
+                    return port
+                except OSError:
+                    pass
+            port += 1
+        raise RuntimeError("no relay port free")
+
+    def attach(self, rec, sock):
+        with self.lock:
+            old = self.conns.pop(rec["id"], None)
+            if old:
+                old.close()
+            conn = RelayConn(self, rec, sock)
+            conn.port = self._free_port()
+            self.conns[rec["id"]] = conn
+        conn.start_listener(conn.port)
+        self.write_state()
+        return conn
+
+    def drop(self, eid):
+        with self.lock:
+            conn = self.conns.pop(eid, None)
+        if conn:
+            conn.close()
+            self.write_state()
+
+    def write_state(self):
+        state = {"machines": [
+            {"id": c.id, "name": c.name, "port": c.port,
+             "rpc": "127.0.0.1:" + str(c.port), "since": c.since}
+            for c in self.conns.values() if c.port],
+            "generated": now_iso()}
+        try:
+            tmp = RELAY_STATE_PATH + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(state, f, indent=1)
+            os.replace(tmp, RELAY_STATE_PATH)
+        except OSError:
+            pass
+
+    def enforce_approvals(self):
+        """Revocation cuts the relay: drop any live connection whose
+        enrollment is no longer approved."""
+        while True:
+            time.sleep(15)
+            try:
+                data = load_enrollments()
+                status = {r["id"]: r["status"]
+                          for r in data["enrollments"]}
+                for eid in list(self.conns):
+                    if status.get(eid) != "approved":
+                        self.drop(eid)
+            except Exception:
+                pass
+
+
+HUB = RelayHub()
+
+
+def relay_authorize(enrollment_id, key):
+    """Returns the enrollment record iff the key matches AND the
+    enrollment is approved; otherwise None."""
+    if not enrollment_id or not key:
+        return None
+    data = load_enrollments()
+    for rec in data["enrollments"]:
+        if rec["id"] == enrollment_id:
+            if rec["status"] != "approved":
+                return None
+            digest = hashlib.sha256(key.encode()).hexdigest()
+            if secrets.compare_digest(digest, rec["key_hash"]):
+                return rec
+            return None
+    return None
 
 
 LANDING = """<!doctype html>
@@ -226,7 +539,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
-        if path == "/":
+        if path == RELAY_PUBLIC_PATH:
+            self.handle_relay()
+        elif path == "/":
             st = pool_status()
             self._send(200, LANDING.format(
                 brain=escape(str(st.get("brain", "—"))),
@@ -310,6 +625,28 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(chunk)
                 remaining -= len(chunk)
 
+    def handle_relay(self):
+        if (self.headers.get("Upgrade") or "").lower() != "websocket":
+            self._send(400, "websocket upgrade required")
+            return
+        rec = relay_authorize(self.headers.get("X-Enrollment-Id"),
+                              self.headers.get("X-Enrollment-Key"))
+        if rec is None:
+            self._send(403, "not an approved enrollment")
+            return
+        key = self.headers.get("Sec-WebSocket-Key")
+        if not key:
+            self._send(400, "missing Sec-WebSocket-Key")
+            return
+        self.send_response(101)
+        self.send_header("Upgrade", "websocket")
+        self.send_header("Connection", "Upgrade")
+        self.send_header("Sec-WebSocket-Accept", ws_accept(key.strip()))
+        self.end_headers()
+        self.close_connection = True
+        conn = HUB.attach(rec, self.connection)
+        conn.run()  # blocks until the worker disconnects
+
     def do_POST(self):
         parsed = urlparse(self.path)
         if parsed.path != "/enroll":
@@ -333,6 +670,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+    threading.Thread(target=HUB.enforce_approvals, daemon=True).start()
     bind = os.environ.get("POOL_FRONT_BIND", "127.0.0.1")
     srv = ThreadingHTTPServer((bind, PORT), Handler)
     print("AI Pool front door on http://" + bind + ":" + str(PORT) +

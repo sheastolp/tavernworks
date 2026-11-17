@@ -286,7 +286,7 @@ def status_json():
         "model": st["brain"]["model"] or st["current_model"],
         "serving": "UndercoverBurn, the Twitch roast bot" if st["brain"]["up"] else "—",
         "split": "Active" if st["mode"] == "split" else "Standby — proven, currently off",
-        "enrollment": "Not yet open — worker app in development",
+        "enrollment": "Open — worker app available; operator approves each machine",
         "speed": MEASURED_SPEED,
         "updated": datetime.now().strftime("%d %b %Y"),
     }
