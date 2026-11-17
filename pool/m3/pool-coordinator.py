@@ -10,7 +10,7 @@
 #   - start/stop the brain (solo or split) via systemd
 #   - pick the model (writes current-model.txt, which the solo and
 #     host scripts read at startup) and compute the tensor split
-#     from the roster's offered memory (pool-split.txt)
+#     from the roster's offered memory (pool-split.txt + pool-rpc.txt)
 #   - serve /status.json in the shape the public pool page reads
 #
 # Python 3 standard library only — python3 is already on the FX705.
@@ -35,6 +35,8 @@ POOL_DIR = os.environ.get("POOL_DIR", os.path.join(HOME, "ai-pool"))
 CONFIG_PATH = os.path.join(POOL_DIR, "pool-config.json")
 CURRENT_MODEL_PATH = os.path.join(POOL_DIR, "current-model.txt")
 SPLIT_PATH = os.path.join(POOL_DIR, "pool-split.txt")
+RPC_PATH = os.path.join(POOL_DIR, "pool-rpc.txt")
+RELAY_STATE_PATH = os.path.join(POOL_DIR, "relay-state.json")
 MEMINFO_PATH = os.environ.get("POOL_MEMINFO", "/proc/meminfo")
 PORT = int(os.environ.get("POOL_PORT", "8091"))
 DEFAULT_MODEL = "Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf"
@@ -171,6 +173,30 @@ def worker_up(ip):
         return False
 
 
+def load_relay_machines():
+    """Live relayed (public) workers: the front door's
+    relay-state.json joined with enrollments for offered memory.
+    A machine appears here only while its relay is connected."""
+    try:
+        with open(RELAY_STATE_PATH) as f:
+            state = json.load(f)
+    except Exception:
+        return []
+    offered = {}
+    for rec in load_enrollments()["enrollments"]:
+        offered[rec.get("id")] = int(rec.get("offered_mb") or 0)
+    out = []
+    for m in state.get("machines", []):
+        if m.get("rpc"):
+            out.append({
+                "id": m.get("id", ""),
+                "name": m.get("name", "relayed worker"),
+                "rpc": m["rpc"],
+                "offered_mb": offered.get(m.get("id"), 0),
+            })
+    return out
+
+
 def catalog():
     out = []
     try:
@@ -194,11 +220,12 @@ def current_model():
     return DEFAULT_MODEL
 
 
-def compute_split(cfg, fx_share):
-    workers = [m for m in cfg["machines"] if m.get("role") == "worker"]
+def compute_split(offered_list, fx_share):
+    """One proportion per live RPC device, in device order, plus
+    the host card's share — always last, always 1: the card's slice
+    must fit whole in its 4 GB (the M1 sizing lesson)."""
     parts = []
-    for w in workers:
-        offered = int(w.get("offered_mb") or 0)
+    for offered in offered_list:
         parts.append(str(max(1, round(offered / fx_share))) if fx_share else "1")
     parts.append("1")
     return ",".join(parts)
@@ -217,23 +244,51 @@ def pool_state():
 
     machines = []
     total_offered = 0
+    devices = []  # live RPC devices, in split order
     for m in cfg["machines"]:
         entry = dict(m)
         if m.get("role") == "coordinator":
             entry["up"] = brain["up"] or solo == "active" or host == "active"
-            entry["holds"] = "first layers (an end)"
+            entry["holds"] = "last layers (an end)"
             total_offered += gpu_total + mem["total_mb"]
         else:
             entry["up"] = worker_up(m.get("ip", ""))
-            entry["holds"] = "middle layers" if m.get("name") != "Yoga" else "last layers (an end)"
+            entry["holds"] = "middle layers"
             total_offered += int(m.get("offered_mb") or 0)
+            if entry["up"]:
+                if not devices:
+                    entry["holds"] = "first layers (an end)"
+                devices.append({
+                    "name": m.get("name", "?"),
+                    "endpoint": str(m.get("ip", "")) + ":50052",
+                    "offered_mb": int(m.get("offered_mb") or 0),
+                    "source": "tailnet",
+                })
         machines.append(entry)
+    # Relayed public workers come AFTER the operator's own tailnet
+    # machines in the device order, and the host card's share is
+    # appended last by compute_split. Split proportions run
+    # RPC-first (proven in M1), so the split's two ends — the first
+    # RPC device and the card — always sit on the operator's own
+    # machines, and public workers only ever hold middle layers.
+    for rm in load_relay_machines():
+        machines.append({
+            "name": rm["name"], "role": "worker (relay)",
+            "ip": rm["rpc"], "offered_mb": rm["offered_mb"],
+            "up": True, "holds": "middle layers", "relayed": True,
+        })
+        total_offered += rm["offered_mb"]
+        devices.append({
+            "name": rm["name"], "endpoint": rm["rpc"],
+            "offered_mb": rm["offered_mb"], "source": "relay",
+        })
 
     solo_capacity = gpu_total + mem["available_mb"] - reserve
-    workers_offered = sum(int(m.get("offered_mb") or 0)
-                          for m in cfg["machines"] if m.get("role") == "worker")
+    workers_offered = sum(d["offered_mb"] for d in devices)
     split_capacity = fx_share + workers_offered  # M1-proven: the 2,1 load's KV lived inside these shares
-    split = compute_split(cfg, fx_share)
+    split = compute_split([d["offered_mb"] for d in devices], fx_share)
+    rpc_list = ",".join(d["endpoint"] for d in devices)
+    ends_safe = bool(devices) and devices[0]["source"] == "tailnet"
 
     models = []
     cur = current_model()
@@ -265,6 +320,9 @@ def pool_state():
         "solo_capacity_mb": solo_capacity,
         "split_capacity_mb": split_capacity,
         "split": split,
+        "rpc_list": rpc_list,
+        "devices": devices,
+        "ends_safe": ends_safe,
         "models": models,
         "current_model": cur,
         "endpoint": "http://" + ip + ":8090/v1",
@@ -301,10 +359,22 @@ def act(name, fields):
         return "Starting the solo brain — loading takes a few minutes."
     if name == "start_split":
         st = pool_state()
+        if not st["rpc_list"]:
+            return ("No live worker to split with — the tailnet worker "
+                    "and any relayed workers are all down. Nothing started.")
+        if not st["ends_safe"]:
+            return ("Only public relayed workers are live. A split "
+                    "needs one of your own machines at the front of "
+                    "the split (the ends stay on your hardware) — "
+                    "start a tailnet worker first. Nothing started.")
+        with open(RPC_PATH, "w") as f:
+            f.write(st["rpc_list"] + "\n")
         with open(SPLIT_PATH, "w") as f:
             f.write(st["split"] + "\n")
         sh(["systemctl", "start", "ai-pool-host"], timeout=30)
-        return "Starting the split pool with tensor split " + st["split"] + " — loading takes a few minutes."
+        return ("Starting the split pool across " + st["rpc_list"] +
+                " + this card, tensor split " + st["split"] +
+                " — loading takes a few minutes.")
     if name == "stop":
         sh(["systemctl", "stop", "ai-pool-solo", "ai-pool-host"], timeout=60)
         return "Brain stopped. Burn's AI is paused until a brain starts again."
@@ -321,6 +391,8 @@ def act(name, fields):
             return "Model set to " + model + " — the solo brain is restarting with it (a few minutes)."
         if st["units"]["ai-pool-host"] == "active":
             st2 = pool_state()
+            with open(RPC_PATH, "w") as f:
+                f.write(st2["rpc_list"] + "\n")
             with open(SPLIT_PATH, "w") as f:
                 f.write(st2["split"] + "\n")
             sh(["systemctl", "restart", "ai-pool-host"], timeout=30)
@@ -405,12 +477,13 @@ def page(st, msg=""):
     rows = ""
     for m in st["machines"]:
         offered = "detected live" if m.get("role") == "coordinator" else (
+            str(m.get("offered_mb") or 0) + " MB (enrollment)" if m.get("relayed") else (
             str(m.get("offered_mb") or 0) + " MB "
             '<form class="inline" method="post" action="/action">'
             '<input type="hidden" name="action" value="set_offered">'
             '<input type="hidden" name="machine" value="' + escape(str(m.get("name", ""))) + '">'
             '<input name="offered_mb" size="6" placeholder="MB">'
-            '<button class="alt" type="submit">Set</button></form>')
+            '<button class="alt" type="submit">Set</button></form>'))
         rows += ("<tr><td><strong>" + escape(str(m.get("name", ""))) + "</strong></td>"
                  "<td>" + escape(str(m.get("role", ""))) + " · " + escape(str(m.get("ip", ""))) + "</td>"
                  "<td>" + offered + "</td>"

@@ -84,15 +84,28 @@ else
   echo ">> Model (via current-model.txt): $MODEL"
 fi
 
-# 3. Addresses, and prove the Yoga worker is listening before loading 9 GB.
+# 3. Addresses, and prove every RPC worker is listening before
+#    loading 9 GB.
 TS_IP="$(tailscale ip -4 2>/dev/null | head -1 || true)"
 if [ -z "$TS_IP" ] && [ -t 0 ]; then read -rp "FX705 tailnet IP (100.x.y.z): " TS_IP; fi
 [ -n "$TS_IP" ] || { echo "!! No tailnet IP — is tailscale up?"; exit 1; }
-# Yoga address: environment wins, then tailnet peer discovery (the
-# Yoga's hostname), then an interactive prompt. Under systemd there
-# is no terminal, so discovery is what makes the service work.
-if [ -z "${YOGA_IP:-}" ]; then
-  YOGA_IP="$(tailscale status --json 2>/dev/null | python3 -c 'import json,sys
+# RPC device list: the coordinator (M3/M5c) writes pool-rpc.txt from
+# ALL live machines — tailnet workers first (the first RPC device
+# holds the model's first layers), then relayed public workers
+# (middle layers only); this card always takes the last share.
+# Without the file, fall back to the M1 arrangement: the Yoga alone,
+# found by tailnet peer discovery (environment wins, then discovery,
+# then an interactive prompt — under systemd there is no terminal,
+# so discovery is what makes the service work).
+RPC_LIST=""
+if [ -f "$POOL_DIR/pool-rpc.txt" ]; then
+  RPC_LIST="$(head -1 "$POOL_DIR/pool-rpc.txt" | tr -d '[:space:]')"
+fi
+if [ -n "$RPC_LIST" ]; then
+  echo ">> RPC devices (coordinator's list): $RPC_LIST"
+else
+  if [ -z "${YOGA_IP:-}" ]; then
+    YOGA_IP="$(tailscale status --json 2>/dev/null | python3 -c 'import json,sys
 try:
     d = json.load(sys.stdin)
     for p in (d.get("Peer") or {}).values():
@@ -100,20 +113,25 @@ try:
             print(p["TailscaleIPs"][0]); break
 except Exception:
     pass' || true)"
-  [ -n "$YOGA_IP" ] && echo ">> Found the Yoga on the tailnet: $YOGA_IP"
+    [ -n "$YOGA_IP" ] && echo ">> Found the Yoga on the tailnet: $YOGA_IP"
+  fi
+  if [ -z "${YOGA_IP:-}" ] && [ -t 0 ]; then read -rp "Yoga tailnet IP (100.x.y.z): " YOGA_IP; fi
+  [ -n "${YOGA_IP:-}" ] || { echo "!! No RPC list and no Yoga IP — start the split from the coordinator, or set YOGA_IP."; exit 1; }
+  RPC_LIST="$YOGA_IP:50052"
 fi
-if [ -z "${YOGA_IP:-}" ] && [ -t 0 ]; then read -rp "Yoga tailnet IP (100.x.y.z): " YOGA_IP; fi
-[ -n "${YOGA_IP:-}" ] || { echo "!! No Yoga IP — set YOGA_IP in the service environment."; exit 1; }
-if (timeout 5 bash -c "exec 3<>/dev/tcp/$YOGA_IP/50052") 2>/dev/null; then
-  echo ">> Yoga worker reachable at $YOGA_IP:50052"
-else
-  echo "!! Cannot reach the Yoga worker at $YOGA_IP:50052 — run yoga-worker.sh on the Yoga first."
-  exit 1
-fi
+OLD_IFS="$IFS"; IFS=',' read -ra RPC_ENDPOINTS <<< "$RPC_LIST"; IFS="$OLD_IFS"
+for EP in "${RPC_ENDPOINTS[@]}"; do
+  if (timeout 5 bash -c "exec 3<>/dev/tcp/${EP%:*}/${EP##*:}") 2>/dev/null; then
+    echo ">> RPC worker reachable at $EP"
+  else
+    echo "!! Cannot reach the RPC worker at $EP — check that machine's worker first."
+    exit 1
+  fi
+done
 
 # 4. Serve the pooled model. Sizing learned live (2026-11-15/16):
 #    the split proportions run RPC-first — the FIRST number is the
-#    Yoga's share, the second is this card's. And each device gets
+#    first RPC device's share, the last is this card's. And each device gets
 #    ONE buffer for all its layers, so this card's share must fit
 #    whole in 4 GB alongside Whisper: at 3,2 the card held 40% and
 #    died on the KV cache; at 1,1 it was handed 4.2 GB in a single
@@ -128,14 +146,14 @@ if [ -f "$POOL_DIR/pool-split.txt" ]; then
   PS="$(head -1 "$POOL_DIR/pool-split.txt" | tr -d '[:space:]')"
   case "$PS" in *","*) SPLIT="$PS" ;; esac
 fi
-echo ">> Tensor split: $SPLIT (first number is the Yoga's share, second is this card's)"
+echo ">> Tensor split: $SPLIT (shares follow the --rpc order; the last is this card's)"
 echo ">> Starting pooled $MODEL at http://$TS_IP:8090"
 echo ">> Watch the load log: it should list a CUDA device AND an RPC device,"
 echo ">> with layers offloaded to both. Leave this terminal open; Ctrl-C stops the pool."
 exec "$SERVER" -m "$POOL_DIR/$MODEL" \
   --reasoning off \
   --chat-template-kwargs '{"enable_thinking":false}' \
-  --rpc "$YOGA_IP:50052" \
+  --rpc "$RPC_LIST" \
   --tensor-split "$SPLIT" \
   -ngl 99 -fit off \
   -c 4096 \
