@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="canonical" href="https://tavernworks.dev/pool/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The AI Pool — Tavernworks</title>
+<meta name="description" content="One AI model, split across a pool of PCs. The Tavernworks AI Pool: how it works, who's in, and how to join.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍺</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&family=Spectral:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,168,74,.18), transparent 70%),
+      var(--bg);
+    min-height:100vh;
+  }
+  main{max-width:880px;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+  a{color:var(--gold2)}
+  .crumb{font-size:.85rem;color:var(--muted);margin-bottom:1.5rem}
+  h1{font-family:Cinzel,serif;font-weight:800;font-size:2.4rem;line-height:1.15;color:var(--gold2)}
+  .tagline{font-family:Spectral,serif;font-style:italic;color:var(--muted);font-size:1.15rem;margin:.6rem 0 2rem}
+  h2{font-family:Cinzel,serif;font-weight:600;font-size:1.35rem;color:var(--gold);margin:2.2rem 0 .8rem}
+  p{margin:.6rem 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1.1rem 1.25rem;margin:1rem 0}
+  .status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.7rem}
+  .stat{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:.8rem 1rem}
+  .stat .k{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .stat .v{font-weight:600;margin-top:.15rem}
+  .dot{display:inline-block;width:.6em;height:.6em;border-radius:50%;background:var(--green);margin-right:.45em}
+  .dot.idle{background:var(--muted)}
+  table{width:100%;border-collapse:collapse;margin:.6rem 0}
+  th,td{text-align:left;padding:.55rem .6rem;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.06em}
+  .totals{display:flex;flex-wrap:wrap;gap:.7rem;margin:1rem 0}
+  .total{flex:1 1 160px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:.8rem 1rem;text-align:center}
+  .total .n{font-family:Cinzel,serif;font-size:1.5rem;font-weight:800;color:var(--gold2)}
+  .total .k{font-size:.8rem;color:var(--muted)}
+  ol.steps{margin:.6rem 0 .6rem 1.3rem}
+  ol.steps li{margin:.45rem 0}
+  .btn{display:inline-block;background:var(--ember);color:#fff;text-decoration:none;font-weight:600;
+       padding:.7rem 1.2rem;border-radius:10px;margin-top:.6rem}
+  .btn:hover{background:#d96a3a}
+  .fine{font-size:.88rem;color:var(--muted)}
+  footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--line);color:var(--muted);font-size:.88rem}
+</style>
+</head>
+<body>
+<main>
+  <div class="crumb"><a href="https://tavernworks.dev/">Tavernworks</a> / The AI Pool</div>
+
+  <h1>The AI Pool</h1>
+  <p class="tagline">One AI model, split across a pool of ordinary PCs — bigger than any one of them could run alone.</p>
+
+  <p>Most home PCs top out around a 4-billion-parameter AI model. The pool links
+  machines together so a single much larger model — today a <strong>14B</strong> — can be
+  spread across all of them, each PC carrying part of it. It's the mining-pool idea,
+  pointed at AI instead of coins.</p>
+
+  <h2>Pool status</h2>
+  <div class="card">
+    <div class="status-grid">
+      <div class="stat"><div class="k">Brain</div><div class="v"><span class="dot"></span><span id="st-brain">Online — running on the FX705</span></div></div>
+      <div class="stat"><div class="k">Model</div><div class="v" id="st-model">Qwen2.5-14B abliterated (Q4_K_M)</div></div>
+      <div class="stat"><div class="k">Currently serving</div><div class="v" id="st-serving">UndercoverBurn, the Twitch roast bot</div></div>
+      <div class="stat"><div class="k">Split mode (2 PCs)</div><div class="v"><span class="dot idle"></span><span id="st-split">Standby — proven, currently off</span></div></div>
+      <div class="stat"><div class="k">Enrollment</div><div class="v" id="st-enrollment">Not yet open — worker app in development</div></div>
+      <div class="stat"><div class="k">Measured speed</div><div class="v" id="st-speed">3.3 tokens/sec (solo) · 0.9 split</div></div>
+    </div>
+    <p class="fine" style="margin-top:.8rem">Status as of <span id="st-updated">16 Nov 2026</span>. Milestone 1 (proof) completed 16 Nov 2026: the 14B loaded split across two laptops and answered; the same model now runs solo on the host and writes Burn's roasts live.</p>
+  </div>
+
+  <h2>The roster</h2>
+  <div class="card">
+    <table>
+      <tr><th>Machine</th><th>Role</th><th>Hardware</th><th>Status</th></tr>
+      <tr>
+        <td><strong>FX705</strong> (host)</td>
+        <td>Coordinator. Holds the model's first and last layers — the ends — and the public front door.</td>
+        <td>NVIDIA GTX 1650, 4 GB VRAM + system RAM</td>
+        <td>Serving</td>
+      </tr>
+      <tr>
+        <td><strong>Yoga</strong></td>
+        <td>Worker. Carries the model's other end in split mode; also home to the Twitch bots.</td>
+        <td>Intel UHD 620 + CPU</td>
+        <td>Standby</td>
+      </tr>
+      <tr>
+        <td><strong>Streaming PC</strong></td>
+        <td>Deliberately <em>not</em> enrolled — its owner games on it, and the pool never touches it.</td>
+        <td>—</td>
+        <td>Not enrolled</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="totals">
+    <div class="total"><div class="n">2</div><div class="k">PCs in the pool</div></div>
+    <div class="total"><div class="n">14B</div><div class="k">model size (about 9 GB)</div></div>
+    <div class="total"><div class="n">3.3</div><div class="k">tokens/sec, measured</div></div>
+    <div class="total"><div class="n">1</div><div class="k">bot live on the pool</div></div>
+  </div>
+
+  <h2>How it works</h2>
+  <ol class="steps">
+    <li><strong>One model, many PCs.</strong> The model is sliced by layers. Each enrolled PC holds some slices in memory; a request flows through them in order.</li>
+    <li><strong>The operator holds the ends.</strong> The first slice (which sees your words) and the last slice (which produces the reply) always stay on the operator's own machines. Contributor PCs only ever hold middle layers.</li>
+    <li><strong>Workers dial out.</strong> The worker app connects to the coordinator — no open ports on your PC — and the operator approves every machine before it can hold any part of the model.</li>
+    <li><strong>Your PC stays yours.</strong> The worker yields the moment you need your machine: gaming, fullscreen apps, low memory, on battery, or a manual pause. Leaving is a graceful drain, never a yank.</li>
+  </ol>
+
+  <h2>Join the pool</h2>
+  <div class="card">
+    <p>Enrollment isn't open yet — the one-click worker app is still in development.
+    When it opens, joining is: install the app, tell it how much memory you can offer,
+    and wait for the operator's approval. Contributors earn <strong>shares</strong> for the
+    memory and hours their PC puts in, and spend shares to use the pool themselves —
+    through a web chat, a personal API key, or an MCP endpoint.</p>
+    <p>Want in when it opens? Register your interest with a note about your machine:</p>
+    <a class="btn" href="https://github.com/sheastolp/tavernworks/issues/new?title=AI%20Pool%20interest&body=Machine%3A%20%0AGPU%20%2F%20VRAM%3A%20%0ARAM%3A%20%0AOS%3A%20%0AAnything%20else%3A%20">Register interest on GitHub</a>
+    <p class="fine" style="margin-top:.7rem">No account on the pool itself exists yet, and nothing to download — anyone offering you a “pool worker” download today isn't us.</p>
+  </div>
+
+  <h2>Privacy &amp; safety, in plain words</h2>
+  <p>Middle layers see numbers, not readable text — but they aren't magic either, so the
+  design keeps the sensitive ends on the operator's hardware and says so openly. Worker
+  software is open source, holds its slices in RAM only, and every download is verified
+  against a published SHA-256 checksum before it runs. The pool's front door keeps an
+  accounting ledger of who used how many tokens — prompts and replies themselves are
+  not logged.</p>
+
+  <footer>
+    Part of <a href="https://tavernworks.dev/">Tavernworks</a> — the workshop of Stoned Sheamus.
+    Design notes and milestone history live in the project repo.
+  </footer>
+</main>
+
+<script>
+(function () {
+  // Read-only live status: if the coordinator ever publishes a status
+  // file, refresh the baked-in values above. Any failure (offline, not
+  // published yet, bad data) simply leaves the static status in place.
+  var URL = "https://pool.tavernworks.dev/status.json";
+  function set(id, text) {
+    var el = document.getElementById(id);
+    if (el && typeof text === "string" && text) el.textContent = text;
+  }
+  try {
+    if (typeof fetch !== "function") return;
+    var ctl = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 4000);
+    fetch(URL, ctl ? { signal: ctl.signal } : {})
+      .then(function (r) { clearTimeout(timer); return r.ok ? r.json() : null; })
+      .then(function (s) {
+        if (!s) return;
+        set("st-brain", s.brain);
+        set("st-model", s.model);
+        set("st-serving", s.serving);
+        set("st-split", s.split);
+        set("st-enrollment", s.enrollment);
+        set("st-speed", s.speed);
+        set("st-updated", s.updated);
+      })
+      .catch(function () { /* keep the baked-in status */ });
+  } catch (e) { /* keep the baked-in status */ }
+})();
+</script>
+</body>
+</html>
