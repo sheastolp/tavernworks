@@ -677,7 +677,9 @@ function refreshBalance() {
     }).catch(function () { showAccount("Could not reach the pool front door."); });
 }
 el("savekey").addEventListener("click", function () {
+  if (!key()) { showAccount("Paste your account key into the box first — it is shown once on the register page, when the account is created."); return; }
   try { localStorage.setItem("poolkey", key()); } catch (e) {}
+  showAccount("Key saved — checking…");
   refreshBalance();
 });
 el("check").addEventListener("click", refreshBalance);
