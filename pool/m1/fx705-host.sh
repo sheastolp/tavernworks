@@ -136,8 +136,8 @@ done
 #    whole in 4 GB alongside Whisper: at 3,2 the card held 40% and
 #    died on the KV cache; at 1,1 it was handed 4.2 GB in a single
 #    allocation and died instantly (2,207 service restarts overnight).
-#    2,1 gives the card ~3.0 GB of weights; -c 4096 keeps its KV
-#    share near 200 MiB. If it still OOMs, go 3,1 (~2.25 GB).
+#    2,1 gives the card ~3.0 GB of weights. If it still OOMs, go
+#    3,1 (~2.25 GB). Context is handled at the launch below.
 #    reasoning OFF (Burn must never receive think blocks).
 # Tensor split: the coordinator (M3) computes it from the roster's
 # offered memory into pool-split.txt; 2,1 is the M1-proven fallback.
@@ -147,14 +147,37 @@ if [ -f "$POOL_DIR/pool-split.txt" ]; then
   case "$PS" in *","*) SPLIT="$PS" ;; esac
 fi
 echo ">> Tensor split: $SPLIT (shares follow the --rpc order; the last is this card's)"
-echo ">> Starting pooled $MODEL at http://$TS_IP:8090"
+# Context 16384 (2026-11-17, Shea's ask) so the lore-keeper's
+# canon prompt fits on the split too, not just on solo. The KV
+# pool splits by layer share like the weights: at 2,1 this card's
+# slice of a 16k KV pool is ~0.9 GB on top of its ~3.0 GB of
+# weights — borderline in 4 GB next to Whisper. So: if the brain
+# dies DURING LOAD at 16384, retry ONCE at 4096 (the M1-proven
+# size, ~200 MiB card KV share). A brain that loaded and ran past
+# the load window is not retried here — its exit code passes
+# through and systemd decides. Ctrl-C (130/131) never retries.
+CTX_WANT=16384
+CTX_FALLBACK=4096
+CTX_LOAD_WINDOW="${POOL_SPLIT_LOAD_WINDOW:-900}"
+run_brain() {
+  "$SERVER" -m "$POOL_DIR/$MODEL" \
+    --reasoning off \
+    --chat-template-kwargs '{"enable_thinking":false}' \
+    --rpc "$RPC_LIST" \
+    --tensor-split "$SPLIT" \
+    -ngl 99 -fit off \
+    -c "$1" \
+    --host "$TS_IP" --port 8090
+}
+echo ">> Starting pooled $MODEL at http://$TS_IP:8090 (context $CTX_WANT; load fallback $CTX_FALLBACK)"
 echo ">> Watch the load log: it should list a CUDA device AND an RPC device,"
 echo ">> with layers offloaded to both. Leave this terminal open; Ctrl-C stops the pool."
-exec "$SERVER" -m "$POOL_DIR/$MODEL" \
-  --reasoning off \
-  --chat-template-kwargs '{"enable_thinking":false}' \
-  --rpc "$RPC_LIST" \
-  --tensor-split "$SPLIT" \
-  -ngl 99 -fit off \
-  -c 4096 \
-  --host "$TS_IP" --port 8090
+START=$SECONDS
+CODE=0
+run_brain "$CTX_WANT" || CODE=$?
+if [ "$CODE" -ne 0 ] && [ "$CODE" -ne 130 ] && [ "$CODE" -ne 131 ] && [ $((SECONDS - START)) -lt "$CTX_LOAD_WINDOW" ]; then
+  echo "!! Brain exited (code $CODE) during load at context $CTX_WANT — retrying once at $CTX_FALLBACK."
+  CODE=0
+  run_brain "$CTX_FALLBACK" || CODE=$?
+fi
+exit "$CODE"
