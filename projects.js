@@ -681,6 +681,7 @@ window.TAVERN_PROJECTS = {
     ["orrery","2026-11-06","One app, the Orrery: it opens on the lore-keeper chat, with a world picker and a Role play tab into Wake in Verrowen","/orrery/#chat"],
     ["verrowen","2026-11-06","Wake in Verrowen is for making a character: names aren't known at the start, so the true-name picker is gone and the narrator reveals a name that fits the lore","/verrowen/"],
     ["verrowen","2026-11-06","Wake in Verrowen, the lore-keeper and the Terms work out from the model's name whether the laptop runs an abliterated or a standard AI model, and say so","/verrowen/"],
-    ["crier","2026-11-06","Town Crier: GuildScribe's and UndercoverBurn's ad-break alerts become one bot of their own, for any channel","https://crier.tavernworks.dev/"]
+    ["crier","2026-11-06","Town Crier: GuildScribe's and UndercoverBurn's ad-break alerts become one bot of their own, for any channel","https://crier.tavernworks.dev/"],
+    ["home","2026-11-17","The home page opens on a rift: step through the portal into the tavern and the Orrery, with the worlds it links read from the Orrery","/"]
   ]
 };

@@ -197,12 +197,53 @@
   @media (max-width:620px){.lanes li{padding:0 8px}.lanes li a{display:none}.trail-note{font-size:12.5px}}
   @media (prefers-reduced-motion:reduce){.track .now-dot{animation:none}}
 
+  /* The rift: the home page opens on a doorway rift, a tear between the
+     Orrery's worlds. Stepping through it opens the tavern. Only shown when
+     script set .rift-on on <html>, so without script the page is just the page. */
+  .rift{display:none}
+  html.rift-on{overflow:hidden}
+  html.rift-on .rift{
+    display:flex;position:fixed;inset:0;z-index:50;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+    padding:24px 16px;text-align:center;
+    background:radial-gradient(ellipse 60% 55% at 50% 48%, rgba(110,60,170,.22), transparent 70%),var(--bg);
+    transition:opacity .7s ease
+  }
+  .rift .sign{margin-bottom:0}
+  .rift button{all:unset;cursor:pointer;display:block;border-radius:24px;transition:transform .25s ease,filter .25s ease}
+  .rift button:hover{transform:scale(1.03);filter:brightness(1.12) drop-shadow(0 0 28px rgba(245,200,115,.25))}
+  .rift button:focus-visible{outline:2px solid var(--gold);outline-offset:6px}
+  .rift img{display:block;mix-blend-mode:lighten;-webkit-mask-image:radial-gradient(closest-side,#000 70%,transparent);mask-image:radial-gradient(closest-side,#000 70%,transparent);width:min(320px,70vw);height:auto;max-height:58vh;object-fit:contain}
+  .rift h2{font-family:Cinzel,serif;font-weight:800;font-size:clamp(22px,4.5vw,32px);color:var(--gold2)}
+  .rift p{color:var(--muted);max-width:440px;font-size:15px}
+  .rift .worlds{font-family:Cinzel,serif;font-size:13px;letter-spacing:.12em;color:var(--gold)}
+  .rift .worlds:empty{display:none}
+  html.rift-on .rift.through{opacity:0;pointer-events:none}
+  .rift.through button{transform:scale(3.2);filter:brightness(1.8) blur(2px);transition:transform .7s ease-in,filter .7s ease-in}
+  @media (prefers-reduced-motion:reduce){.rift button,.rift.through button,html.rift-on .rift{transition:none}}
+
   footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
   footer span{color:var(--gold)}
   footer a:hover{color:var(--gold2)}
 </style>
+<script>
+// Open on the rift, unless the link points somewhere on the page (#orrery,
+// #support...) or this tab has already stepped through.
+(function () {
+  try { if (location.hash || sessionStorage.getItem("tavern-rift")) return; } catch (e) {}
+  document.documentElement.classList.add("rift-on");
+})();
+</script>
 </head>
 <body>
+<section class="rift" id="rift" aria-label="The rift">
+  <div class="sign">A RIFT HAS OPENED</div>
+  <button type="button" id="rift-door" aria-label="Step through the rift into Tavernworks and the Grand Orrery">
+    <img src="/rift.gif" width="320" height="440" alt="A glowing doorway rift, a gold-edged tear with violet light swirling inside">
+  </button>
+  <h2>Step through</h2>
+  <p>The worlds of the Grand Orrery connect through rifts. This one opens on the tavern, the Orrery and everything we're building.</p>
+  <div class="worlds" id="rift-worlds"></div>
+</section>
 <div class="wrap">
 
   <header>
@@ -308,6 +349,31 @@
 </div>
 <script src="/projects.js"></script>
 <script src="/orrery-db.js"></script>
+<script>
+// The rift: a click (or Enter) steps through; this tab remembers it, so
+// coming back to the home page doesn't put the rift in the way again. The
+// worlds it links come from the Orrery.
+(function () {
+  const gate = document.getElementById("rift");
+  if (!document.documentElement.classList.contains("rift-on")) { gate.remove(); return; }
+  const door = document.getElementById("rift-door");
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  door.addEventListener("click", () => {
+    try { sessionStorage.setItem("tavern-rift", "1"); } catch (e) {}
+    gate.classList.add("through");
+    setTimeout(() => {
+      document.documentElement.classList.remove("rift-on");
+      gate.remove();
+      window.scrollTo(0, 0);
+    }, calm ? 0 : 700);
+  });
+  if (window.OrreryDB) OrreryDB.get("main").then((o) => {
+    const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+    const worlds = o.list("world").filter((w) => (w.status === "decided" || w.status === "dm-lore") && w.name).map((w) => esc(w.name));
+    if (worlds.length) document.getElementById("rift-worlds").innerHTML = "Through the rifts: " + worlds.join(" · ");
+  }).catch(() => {});
+})();
+</script>
 <script>
 // The path so far: every change on tavernworks.dev, one lane per project,
 // oldest on the left, ending at today. One line joins every change in
