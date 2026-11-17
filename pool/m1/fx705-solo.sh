@@ -11,8 +11,10 @@
 set -euo pipefail
 
 POOL_DIR="${HOME:-/root}/ai-pool"
-MODEL="huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf"
+MODEL="${1:-huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf}"
 mkdir -p "$POOL_DIR"; cd "$POOL_DIR"
+[ -f "$MODEL" ] || { echo "!! Model file not in $POOL_DIR: $MODEL"; exit 1; }
+echo ">> Model: $MODEL"
 
 if command -v nvidia-smi >/dev/null; then
   echo ">> NVIDIA driver: $(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1)"
