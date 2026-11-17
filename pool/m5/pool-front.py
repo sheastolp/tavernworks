@@ -663,7 +663,7 @@ CHAT_PAGE = r'''<!doctype html>
 </div>
 <script>
 "use strict";
-var history = [];
+var chatHistory = [];
 function el(id) { return document.getElementById(id); }
 function key() { return el("key").value.trim(); }
 function headers() { return { "Content-Type": "application/json", "Authorization": "Bearer " + key() }; }
@@ -716,7 +716,7 @@ el("send").addEventListener("click", function () {
   if (!key()) { el("status").textContent = "Save your account key first."; return; }
   el("input").value = "";
   addMsg("user", text);
-  history.push({ role: "user", content: text });
+  chatHistory.push({ role: "user", content: text });
   el("send").disabled = true;
   el("status").textContent = "Sending…";
   var poller = setInterval(function () {
@@ -726,19 +726,19 @@ el("send").addEventListener("click", function () {
       else { el("status").textContent = "Generating…"; }
     }).catch(function () {});
   }, 2000);
-  fetch("/v1/chat/completions", { method: "POST", headers: headers(), body: JSON.stringify({ messages: history.slice(-20), max_tokens: 512 }) })
+  fetch("/v1/chat/completions", { method: "POST", headers: headers(), body: JSON.stringify({ messages: chatHistory.slice(-20), max_tokens: 512 }) })
     .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
     .then(function (res) {
       clearInterval(poller);
       el("send").disabled = false;
       if (!res.ok) {
         el("status").textContent = (res.j.error && (res.j.error.message || res.j.error)) || ("Request failed (" + res.status + ")");
-        history.pop();
+        chatHistory.pop();
         return;
       }
       var reply = res.j.choices && res.j.choices[0] && res.j.choices[0].message && res.j.choices[0].message.content || "";
       addMsg("assistant", reply);
-      history.push({ role: "assistant", content: reply });
+      chatHistory.push({ role: "assistant", content: reply });
       el("status").textContent = "";
       refreshBalance();
     })
@@ -746,7 +746,7 @@ el("send").addEventListener("click", function () {
       clearInterval(poller);
       el("send").disabled = false;
       el("status").textContent = "Could not reach the pool front door.";
-      history.pop();
+      chatHistory.pop();
     });
 });
 el("link").addEventListener("click", function () {
