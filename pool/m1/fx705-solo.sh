@@ -51,7 +51,7 @@ fi
 TS_IP="$(tailscale ip -4 2>/dev/null | head -1 || true)"
 [ -n "$TS_IP" ] || { echo "!! No tailnet IP — is tailscale up?"; exit 1; }
 
-echo ">> Starting SOLO Qwen3-14B at http://$TS_IP:8090 (auto-fit: GPU what fits, CPU the rest)"
+echo ">> Starting SOLO $MODEL at http://$TS_IP:8090 (auto-fit: GPU what fits, CPU the rest)"
 echo ">> Then run ./test-pool.sh in another terminal. Ctrl-C here stops it."
 exec "$SERVER" -m "$MODEL" \
   --reasoning off \
