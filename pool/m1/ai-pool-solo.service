@@ -6,7 +6,7 @@ Conflicts=ai-pool-host.service
 
 [Service]
 Type=simple
-ExecStart=/opt/ai-pool/fx705-solo.sh Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf
+ExecStart=/opt/ai-pool/fx705-solo.sh
 Restart=on-failure
 RestartSec=15
 

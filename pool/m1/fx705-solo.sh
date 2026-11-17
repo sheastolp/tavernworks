@@ -11,7 +11,15 @@
 set -euo pipefail
 
 POOL_DIR="${HOME:-/root}/ai-pool"
-MODEL="${1:-huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf}"
+# Model choice: an explicit argument wins, then the coordinator's
+# current-model.txt (the M3 model picker writes it), then the
+# production default — the Qwen2.5, because the Qwen3 file thinks
+# out loud through every off switch we found.
+MODEL="${1:-}"
+if [ -z "$MODEL" ] && [ -f "$POOL_DIR/current-model.txt" ]; then
+  MODEL="$(head -1 "$POOL_DIR/current-model.txt" | tr -d '[:space:]')"
+fi
+MODEL="${MODEL:-Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf}"
 mkdir -p "$POOL_DIR"; cd "$POOL_DIR"
 [ -f "$MODEL" ] || { echo "!! Model file not in $POOL_DIR: $MODEL"; exit 1; }
 echo ">> Model: $MODEL"

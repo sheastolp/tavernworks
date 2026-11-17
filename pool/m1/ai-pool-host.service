@@ -2,6 +2,7 @@
 Description=AI Pool host — pooled 14B llama-server (FX705 + Yoga split)
 After=network-online.target tailscaled.service
 Wants=network-online.target
+Conflicts=ai-pool-solo.service
 
 [Service]
 Type=simple

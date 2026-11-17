@@ -8,6 +8,12 @@ POOL_DIR="${HOME:-/root}/ai-pool"  # systemd may not set HOME; set -u makes that
 BUILD="b12359"
 BASE="https://github.com/ggml-org/llama.cpp/releases/download/$BUILD"
 MODEL="huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf"
+# The M3 model picker can point the split at another on-disk model
+# via current-model.txt; the pinned Qwen3 above stays the default.
+if [ -f "$POOL_DIR/current-model.txt" ]; then
+  CM="$(head -1 "$POOL_DIR/current-model.txt" | tr -d '[:space:]')"
+  [ -n "$CM" ] && MODEL="$CM"
+fi
 MODEL_URL="https://huggingface.co/bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF/resolve/main/$MODEL"
 MODEL_SHA256="d76889059a3bfab30bc565012a0184827ff2bdc10197f6babc24541b98451dbe"
 mkdir -p "$POOL_DIR"; cd "$POOL_DIR"
@@ -66,10 +72,17 @@ case "$VER" in
 esac
 echo ">> Host binary OK ($BUILD): $SERVER"
 
-# 2. Model — resumable download, then checksum. A bad file never loads.
-if [ ! -f "$MODEL" ]; then wget -c "$MODEL_URL" -O "$MODEL"; fi
-echo "$MODEL_SHA256  $MODEL" | sha256sum -c - || { echo "!! Model checksum MISMATCH — delete the file and re-run."; exit 1; }
-echo ">> Model verified: $MODEL"
+# 2. Model — the pinned file downloads (resumable) and is checksum-
+#    verified; any other model must already be on disk (the
+#    coordinator's picker only lists on-disk models anyway).
+if [ "$MODEL" = "huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf" ]; then
+  if [ ! -f "$MODEL" ]; then wget -c "$MODEL_URL" -O "$MODEL"; fi
+  echo "$MODEL_SHA256  $MODEL" | sha256sum -c - || { echo "!! Model checksum MISMATCH — delete the file and re-run."; exit 1; }
+  echo ">> Model verified: $MODEL"
+else
+  [ -f "$MODEL" ] || { echo "!! Model file not in $POOL_DIR: $MODEL (only the pinned Qwen3 downloads automatically)"; exit 1; }
+  echo ">> Model (via current-model.txt): $MODEL"
+fi
 
 # 3. Addresses, and prove the Yoga worker is listening before loading 9 GB.
 TS_IP="$(tailscale ip -4 2>/dev/null | head -1 || true)"
@@ -108,14 +121,22 @@ fi
 #    2,1 gives the card ~3.0 GB of weights; -c 4096 keeps its KV
 #    share near 200 MiB. If it still OOMs, go 3,1 (~2.25 GB).
 #    reasoning OFF (Burn must never receive think blocks).
-echo ">> Starting pooled Qwen3-14B at http://$TS_IP:8090"
+# Tensor split: the coordinator (M3) computes it from the roster's
+# offered memory into pool-split.txt; 2,1 is the M1-proven fallback.
+SPLIT="2,1"
+if [ -f "$POOL_DIR/pool-split.txt" ]; then
+  PS="$(head -1 "$POOL_DIR/pool-split.txt" | tr -d '[:space:]')"
+  case "$PS" in *","*) SPLIT="$PS" ;; esac
+fi
+echo ">> Tensor split: $SPLIT (first number is the Yoga's share, second is this card's)"
+echo ">> Starting pooled $MODEL at http://$TS_IP:8090"
 echo ">> Watch the load log: it should list a CUDA device AND an RPC device,"
 echo ">> with layers offloaded to both. Leave this terminal open; Ctrl-C stops the pool."
 exec "$SERVER" -m "$POOL_DIR/$MODEL" \
   --reasoning off \
   --chat-template-kwargs '{"enable_thinking":false}' \
   --rpc "$YOGA_IP:50052" \
-  --tensor-split 2,1 \
+  --tensor-split "$SPLIT" \
   -ngl 99 -fit off \
   -c 4096 \
   --host "$TS_IP" --port 8090

@@ -1,0 +1,1 @@
+{"fx705_gpu_cap_mb":3072,"kv_reserve_mb":1024,"machines":[{"ip":"100.100.40.72","name":"FX705","offered_mb":0,"role":"coordinator"},{"ip":"100.115.176.72","name":"Yoga","offered_mb":6144,"role":"worker"}]}
