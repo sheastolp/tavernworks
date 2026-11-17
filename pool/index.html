@@ -73,7 +73,7 @@
       <div class="stat"><div class="k">Model</div><div class="v" id="st-model">Qwen2.5-14B abliterated (Q4_K_M)</div></div>
       <div class="stat"><div class="k">Currently serving</div><div class="v" id="st-serving">UndercoverBurn, the Twitch roast bot</div></div>
       <div class="stat"><div class="k">Split mode (2 PCs)</div><div class="v"><span class="dot idle"></span><span id="st-split">Standby — proven, currently off</span></div></div>
-      <div class="stat"><div class="k">Enrollment</div><div class="v" id="st-enrollment">Not yet open — worker app in development</div></div>
+      <div class="stat"><div class="k">Enrollment</div><div class="v" id="st-enrollment">Open — worker app available; operator approves each machine</div></div>
       <div class="stat"><div class="k">Measured speed</div><div class="v" id="st-speed">3.3 tokens/sec (solo) · 0.9 split</div></div>
     </div>
     <p class="fine" style="margin-top:.8rem">Status as of <span id="st-updated">16 Nov 2026</span>. Milestone 1 (proof) completed 16 Nov 2026: the 14B loaded split across two laptops and answered; the same model now runs solo on the host and writes Burn's roasts live.</p>
@@ -121,14 +121,29 @@
 
   <h2>Join the pool</h2>
   <div class="card">
-    <p>Enrollment isn't open yet — the one-click worker app is still in development.
-    When it opens, joining is: install the app, tell it how much memory you can offer,
-    and wait for the operator's approval. Contributors earn <strong>shares</strong> for the
-    memory and hours their PC puts in, and spend shares to use the pool themselves —
-    through a web chat, a personal API key, or an MCP endpoint.</p>
-    <p>Want in when it opens? Register your interest with a note about your machine:</p>
-    <a class="btn" href="https://github.com/sheastolp/tavernworks/issues/new?title=AI%20Pool%20interest&body=Machine%3A%20%0AGPU%20%2F%20VRAM%3A%20%0ARAM%3A%20%0AOS%3A%20%0AAnything%20else%3A%20">Register interest on GitHub</a>
-    <p class="fine" style="margin-top:.7rem">No account on the pool itself exists yet, and nothing to download — anyone offering you a “pool worker” download today isn't us.</p>
+    <p>Joining is open. Install the worker app from the
+    <a href="https://pool.tavernworks.dev/downloads/">download shelf</a>, tell it how much
+    memory you can offer, and wait for the operator's approval — every machine is approved
+    by hand. Your PC dials out to the pool; nothing about it is exposed to the internet.</p>
+    <p>Contributors earn <strong>shares</strong> for the memory and hours their PC puts in,
+    and spend shares to use the pool themselves — through the
+    <a href="https://pool.tavernworks.dev/chat">web chat</a> or a personal API key for the
+    pool's OpenAI-shaped endpoint (an MCP door is on the roadmap). To use the pool you
+    need an account:</p>
+    <a class="btn" href="https://pool.tavernworks.dev/register">Get an account</a>
+    <a class="btn" href="https://pool.tavernworks.dev/chat">Open the chat</a>
+    <p class="fine" style="margin-top:.7rem">Downloads are versioned components, each verified against the published SHA-256 manifest before anything runs. Only ever download the worker from the shelf above — anyone offering you a “pool worker” download anywhere else isn't us.</p>
+  </div>
+
+  <h2>Shares — the pool's fairness ledger</h2>
+  <div class="card">
+    <p>Mining pools publish their stats; so does this one. Contributing earns shares,
+    using the pool spends them, and every movement is written to an append-only ledger
+    (who, when, how many tokens — never what was said).</p>
+    <p id="sh-rates">Starter balance 100 shares · earn 1 per GB-hour online (x3 while your slice is carrying the model) · spend 10 per 1,000 tokens generated.</p>
+    <ul id="sh-list"><li>No accounts yet.</li></ul>
+    <p class="fine" id="sh-totals"></p>
+    <p class="fine" id="sh-paused"></p>
   </div>
 
   <h2>Privacy &amp; safety, in plain words</h2>
@@ -173,6 +188,46 @@
       })
       .catch(function () { /* keep the baked-in status */ });
   } catch (e) { /* keep the baked-in status */ }
+})();
+</script>
+<script>
+(function () {
+  // Published shares stats (rates + balances) from the front door.
+  // Any failure leaves the baked-in text in place.
+  var URL = "https://pool.tavernworks.dev/shares.json";
+  function el(id) { return document.getElementById(id); }
+  try {
+    if (typeof fetch !== "function") return;
+    var ctl = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 4000);
+    fetch(URL, ctl ? { signal: ctl.signal } : {})
+      .then(function (r) { clearTimeout(timer); return r.ok ? r.json() : null; })
+      .then(function (s) {
+        if (!s) return;
+        var rates = el("sh-rates");
+        if (rates && s.rates) rates.textContent = "Starter balance " + s.rates.starter + " shares · earn " + s.rates.earn_per_gb_hour + " per GB-hour online (x" + s.rates.worked_multiplier + " while your slice is carrying the model) · spend " + s.rates.spend_per_1k_tokens + " per 1,000 tokens generated.";
+        var list = el("sh-list");
+        if (list) {
+          list.innerHTML = "";
+          if (s.accounts && s.accounts.length) {
+            s.accounts.forEach(function (a) {
+              var li = document.createElement("li");
+              li.textContent = a.name + " — " + a.balance + " shares";
+              list.appendChild(li);
+            });
+          } else {
+            var li2 = document.createElement("li");
+            li2.textContent = "No accounts yet.";
+            list.appendChild(li2);
+          }
+        }
+        var tot = el("sh-totals");
+        if (tot && s.totals) tot.textContent = "All time: " + s.totals.earned + " shares earned, " + s.totals.spent + " spent.";
+        var paused = el("sh-paused");
+        if (paused) paused.textContent = s.paused ? "Public usage is currently paused by the operator." : "";
+      })
+      .catch(function () { /* keep the baked-in text */ });
+  } catch (e) { /* keep the baked-in text */ }
 })();
 </script>
 </body>

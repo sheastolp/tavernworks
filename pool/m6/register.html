@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Pool — Get an account</title>
+<style>
+  body { background:#15100c; color:#e8ded0; font-family:Georgia, 'Times New Roman', serif; margin:0; }
+  .wrap { max-width:680px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { color:#e0a84a; font-size:26px; margin:8px 0 4px; }
+  a { color:#e0a84a; }
+  .card { background:#241a13; border:1px solid #4a3826; border-radius:10px; padding:16px; margin:14px 0; }
+  .muted { color:#b8a88f; font-size:14px; }
+  input[type=text] { width:100%; box-sizing:border-box; background:#15100c; color:#e8ded0; border:1px solid #4a3826; border-radius:6px; padding:9px; margin:4px 0 8px; }
+  button { background:#e0a84a; color:#15100c; border:0; border-radius:6px; padding:9px 18px; font-weight:bold; cursor:pointer; }
+  code { background:#15100c; border:1px solid #4a3826; border-radius:6px; padding:2px 6px; word-break:break-all; }
+  #result { display:none; }
+  .key { font-size:17px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Get a pool account</h1>
+  <p class="muted">An account gives you a personal key for the <a href="/chat">chat page</a> and for the pool's OpenAI-shaped API. New accounts start with a small free share balance; contributing a machine earns more. The operator approves each account by hand, so there may be a wait. <a href="/">Pool home</a></p>
+
+  <div class="card">
+    <label for="name">Account name (shown on the public shares board)</label>
+    <input type="text" id="name" placeholder="e.g. sam-gaming-rig">
+    <button id="create" type="button">Create account</button>
+    <p class="muted" id="msg"></p>
+  </div>
+
+  <div class="card" id="result">
+    <p><strong>Save this key now — it is shown once and cannot be recovered:</strong></p>
+    <p class="key"><code id="newkey"></code></p>
+    <p class="muted" id="nextsteps"></p>
+  </div>
+</div>
+<script>
+"use strict";
+function el(id) { return document.getElementById(id); }
+el("create").addEventListener("click", function () {
+  var name = el("name").value.trim();
+  if (!name) { el("msg").textContent = "Pick an account name first."; return; }
+  el("msg").textContent = "Creating…";
+  fetch("/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name }) })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) {
+      if (!res.ok) { el("msg").textContent = res.j.error || "Could not create the account."; return; }
+      el("msg").textContent = "";
+      el("newkey").textContent = res.j.key;
+      el("nextsteps").textContent = "Status: " + res.j.status + ". Once the operator approves the account, paste the key into the chat page to check your balance and start. API door: POST /v1/chat/completions with header Authorization: Bearer <your key>.";
+      el("result").style.display = "block";
+      try { localStorage.setItem("poolkey", res.j.key); } catch (e) {}
+    })
+    .catch(function () { el("msg").textContent = "Could not reach the pool front door."; });
+});
+</script>
+</body>
+</html>

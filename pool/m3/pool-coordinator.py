@@ -42,6 +42,19 @@ PORT = int(os.environ.get("POOL_PORT", "8091"))
 DEFAULT_MODEL = "Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf"
 MEASURED_SPEED = "3.3 tokens/sec (solo) · 0.9 split"
 ENROLL_PATH = os.path.join(POOL_DIR, "enrollments.json")
+ACCOUNTS_PATH = os.path.join(POOL_DIR, "accounts.json")
+LEDGER_PATH = os.path.join(POOL_DIR, "ledger.jsonl")
+SHARES_CFG_PATH = os.path.join(POOL_DIR, "shares-config.json")
+DEFAULT_SHARES = {
+    "starter": 100.0,
+    "earn_per_gb_hour": 1.0,
+    "worked_multiplier": 3.0,
+    "spend_per_1k_tokens": 10.0,
+    "max_output_tokens": 1024,
+    "max_context_chars": 48000,
+    "public_max_inflight": 2,
+    "public_paused": False,
+}
 
 
 def load_enrollments():
@@ -60,6 +73,82 @@ def save_enrollments(data):
     with open(tmp, "w") as f:
         json.dump(data, f, indent=1)
     os.replace(tmp, ENROLL_PATH)
+
+
+def load_accounts():
+    try:
+        with open(ACCOUNTS_PATH) as f:
+            data = json.load(f)
+        if isinstance(data, dict) and isinstance(data.get("accounts"), list):
+            return data
+    except Exception:
+        pass
+    return {"accounts": []}
+
+
+def save_accounts(data):
+    tmp = ACCOUNTS_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=1)
+    os.replace(tmp, ACCOUNTS_PATH)
+
+
+def load_shares_cfg():
+    cfg = dict(DEFAULT_SHARES)
+    try:
+        with open(SHARES_CFG_PATH) as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            cfg.update({k: v for k, v in data.items() if k in DEFAULT_SHARES})
+    except Exception:
+        pass
+    return cfg
+
+
+def save_shares_cfg(cfg):
+    tmp = SHARES_CFG_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump({k: cfg[k] for k in DEFAULT_SHARES}, f, indent=1)
+    os.replace(tmp, SHARES_CFG_PATH)
+
+
+def append_ledger(account_id, kind, shares, detail):
+    rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+           "account": account_id, "kind": kind,
+           "shares": round(float(shares), 4), "detail": str(detail)[:120]}
+    with open(LEDGER_PATH, "a") as f:
+        f.write(json.dumps(rec) + "\n")
+
+
+def ledger_balances():
+    out = {}
+    try:
+        with open(LEDGER_PATH) as f:
+            for line in f:
+                try:
+                    rec = json.loads(line)
+                    out[rec["account"]] = round(
+                        out.get(rec["account"], 0.0) + float(rec["shares"]), 4)
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    return out
+
+
+def starter_credited(account_id):
+    try:
+        with open(LEDGER_PATH) as f:
+            for line in f:
+                try:
+                    rec = json.loads(line)
+                    if rec.get("account") == account_id and rec.get("kind") == "starter":
+                        return True
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    return False
 
 DEFAULT_CONFIG = {
     "machines": [
@@ -438,6 +527,54 @@ def act(name, fields):
         cfg["machines"].append({"name": mname, "ip": ip, "role": "worker", "offered_mb": offered})
         save_config(cfg)
         return mname + " joined the pool offering " + str(offered) + " MB."
+    if name in ("approve_account", "revoke_account"):
+        aid = (fields.get("id") or [""])[0]
+        data = load_accounts()
+        for rec in data["accounts"]:
+            if rec.get("id") == aid:
+                rec["status"] = "approved" if name == "approve_account" else "revoked"
+                rec["decided"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                save_accounts(data)
+                if name == "approve_account" and not starter_credited(aid):
+                    starter = float(load_shares_cfg()["starter"])
+                    append_ledger(aid, "starter", starter, "starter balance")
+                    return ("Account approved: " + rec.get("name", "?") +
+                            " — starter balance of " + str(starter) + " shares credited.")
+                return ("Account " + rec["status"] + ": " + rec.get("name", "?") + ".")
+        return "No account with that id."
+    if name == "gift":
+        aid = (fields.get("id") or [""])[0]
+        try:
+            amount = float((fields.get("amount") or ["0"])[0])
+        except ValueError:
+            return "Gift amount must be a number."
+        if amount <= 0:
+            return "Gift amount must be positive."
+        for rec in load_accounts()["accounts"]:
+            if rec.get("id") == aid:
+                append_ledger(aid, "gift", amount, "operator gift")
+                return "Gifted " + str(amount) + " shares to " + rec.get("name", "?") + "."
+        return "No account with that id."
+    if name == "set_shares":
+        scfg = load_shares_cfg()
+        for k in ("starter", "earn_per_gb_hour", "worked_multiplier", "spend_per_1k_tokens"):
+            raw = (fields.get(k) or [""])[0]
+            if raw != "":
+                try:
+                    scfg[k] = float(raw)
+                except ValueError:
+                    return k + " must be a number."
+        for k in ("max_output_tokens", "max_context_chars", "public_max_inflight"):
+            raw = (fields.get(k) or [""])[0]
+            if raw != "":
+                try:
+                    scfg[k] = int(raw)
+                except ValueError:
+                    return k + " must be a whole number."
+        scfg["public_paused"] = (fields.get("public_paused") or [""])[0] == "on"
+        save_shares_cfg(scfg)
+        return ("Shares settings saved." +
+                (" Public usage is PAUSED." if scfg["public_paused"] else ""))
     return "Unknown action."
 
 
@@ -527,6 +664,47 @@ def page(st, msg=""):
     enroll_html = ('<div class="tbl"><table><tr><th>Machine</th><th>Offered</th><th>Hardware</th>'
                    '<th>Status</th><th></th></tr>' + erows + "</table></div>") if erows else \
         "<p>No enrollments yet.</p>"
+    bals = ledger_balances()
+    acct_rows = ""
+    for rec in load_accounts()["accounts"]:
+        btns = ""
+        if rec.get("status") in ("pending", "revoked"):
+            btns += ('<form class="inline" method="post" action="/action">'
+                     '<input type="hidden" name="action" value="approve_account">'
+                     '<input type="hidden" name="id" value="' + escape(str(rec.get("id", ""))) + '">'
+                     '<button type="submit">Approve</button></form> ')
+        if rec.get("status") in ("pending", "approved"):
+            btns += ('<form class="inline" method="post" action="/action">'
+                     '<input type="hidden" name="action" value="revoke_account">'
+                     '<input type="hidden" name="id" value="' + escape(str(rec.get("id", ""))) + '">'
+                     '<button class="alt" type="submit">Revoke</button></form> ')
+        if rec.get("status") == "approved":
+            btns += ('<form class="inline" method="post" action="/action">'
+                     '<input type="hidden" name="action" value="gift">'
+                     '<input type="hidden" name="id" value="' + escape(str(rec.get("id", ""))) + '">'
+                     '<input name="amount" size="5" placeholder="shares">'
+                     '<button class="alt" type="submit">Gift</button></form>')
+        acct_rows += ("<tr><td><strong>" + escape(str(rec.get("name", "?"))) + "</strong></td>"
+                      "<td>…" + escape(str(rec.get("key_hint", ""))) + "</td>"
+                      "<td>" + escape(str(rec.get("status", "?"))) + "</td>"
+                      "<td>" + str(bals.get(rec.get("id"), 0.0)) + "</td><td>" + btns + "</td></tr>")
+    accounts_html = ('<div class="tbl"><table><tr><th>Account</th><th>Key</th><th>Status</th>'
+                     '<th>Balance</th><th></th></tr>' + acct_rows + "</table></div>") if acct_rows else \
+        "<p>No accounts yet.</p>"
+    scfg = load_shares_cfg()
+    shares_html = ('<form method="post" action="/action">'
+                   '<input type="hidden" name="action" value="set_shares">'
+                   '<div class="tbl"><table>'
+                   '<tr><td>Starter balance (shares)</td><td><input name="starter" size="8" value="' + str(scfg["starter"]) + '"></td></tr>'
+                   '<tr><td>Earn per GB-hour online</td><td><input name="earn_per_gb_hour" size="8" value="' + str(scfg["earn_per_gb_hour"]) + '"></td></tr>'
+                   '<tr><td>Worked multiplier (carrying a slice)</td><td><input name="worked_multiplier" size="8" value="' + str(scfg["worked_multiplier"]) + '"></td></tr>'
+                   '<tr><td>Spend per 1,000 tokens generated</td><td><input name="spend_per_1k_tokens" size="8" value="' + str(scfg["spend_per_1k_tokens"]) + '"></td></tr>'
+                   '<tr><td>Max output tokens per request</td><td><input name="max_output_tokens" size="8" value="' + str(scfg["max_output_tokens"]) + '"></td></tr>'
+                   '<tr><td>Max conversation chars per request</td><td><input name="max_context_chars" size="8" value="' + str(scfg["max_context_chars"]) + '"></td></tr>'
+                   '<tr><td>Public generations at once (queue)</td><td><input name="public_max_inflight" size="8" value="' + str(scfg["public_max_inflight"]) + '"></td></tr>'
+                   '<tr><td>Pause public usage</td><td><input type="checkbox" name="public_paused"' + (" checked" if scfg["public_paused"] else "") + '></td></tr>'
+                   '</table></div>'
+                   '<button type="submit" style="margin-top:.6rem">Save shares settings</button></form>')
     mode_txt = {"solo": "Solo — FX705 alone", "split": "Split — pooled across machines",
                 "starting": "Starting…", "off": "Off"}[st["mode"]]
     brain_line = dot(st["brain"]["up"]) + mode_txt
@@ -593,6 +771,24 @@ brain with it if one is running (expect a few minutes of loading).</p>
 <p class="fine">Machines register at pool.tavernworks.dev/enroll and wait here.
 Approving says the machine MAY join — it can only hold model slices once the
 worker relay (M5b) is live. Revoking cuts it off.</p>
+</div>
+
+<h2>Accounts (public)</h2>
+<div class="card">
+{accounts_html}
+<p class="fine">Accounts register at pool.tavernworks.dev/register; the key is
+shown once and only its hash is kept. Approving credits the starter balance
+from the shares settings below. Revoking blocks the key at every public
+door. Balances fold from the append-only ledger.</p>
+</div>
+
+<h2>Shares</h2>
+<div class="card">
+{shares_html}
+<p class="fine">Earn: a linked machine accrues offered-GB x hours x the base
+rate, times the worked multiplier while its slice is in the live split.
+Spend: charged per token generated, after a successful reply. Pausing
+public usage closes the chat/API doors; your bots keep their direct lane.</p>
 </div>
 
 <h2>Endpoint card</h2>

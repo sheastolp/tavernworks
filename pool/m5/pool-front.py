@@ -25,6 +25,21 @@
 #                       that llama-server can target with --rpc.
 #                       Revoking the enrollment cuts the relay.
 #
+#   M6 accounts + shares:
+#   GET  /register      signup page (the key is shown once)
+#   POST /register      create an account -> {id, key, pending}
+#   GET  /chat          web chat page (account key in the browser)
+#   GET  /me            {name, status, balance} for a Bearer key
+#   POST /link          link an enrollment to your account, so its
+#                       machine earns shares for you
+#   POST /v1/chat/completions  the API door (Bearer account key):
+#                       one open FIFO queue, shares charged per
+#                       token generated from the append-only ledger;
+#                       prompts and replies are never logged
+#   GET  /v1/models     model list for an approved key
+#   GET  /shares.json   published rates + balances (pool stats)
+#   GET  /queue.json    {inflight, waiting, paused}
+#
 # Python 3 standard library only. Binds localhost by default —
 # cloudflared is the public face. Test hooks: POOL_DIR,
 # POOL_FRONT_BIND, POOL_FRONT_PORT, POOL_COORD_URL.
@@ -57,6 +72,24 @@ RELAY_STATE_PATH = os.path.join(POOL_DIR, "relay-state.json")
 RELAY_BASE_PORT = int(os.environ.get("POOL_RELAY_BASE_PORT", "51100"))
 RELAY_PUBLIC_PATH = "/relay"
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+ACCOUNTS_PATH = os.path.join(POOL_DIR, "accounts.json")
+LEDGER_PATH = os.path.join(POOL_DIR, "ledger.jsonl")
+SHARES_CFG_PATH = os.path.join(POOL_DIR, "shares-config.json")
+BRAIN_URL = os.environ.get("POOL_BRAIN_URL", "http://100.100.40.72:8090")
+COORD_STATE_URL = os.environ.get(
+    "POOL_COORD_STATE_URL", COORD_URL.rsplit("/", 1)[0] + "/api/state")
+EARN_TICK_SEC = float(os.environ.get("POOL_EARN_TICK_SEC", "60"))
+QUEUE_WAIT_SEC = float(os.environ.get("POOL_QUEUE_WAIT_SEC", "180"))
+DEFAULT_SHARES = {
+    "starter": 100.0,
+    "earn_per_gb_hour": 1.0,
+    "worked_multiplier": 3.0,
+    "spend_per_1k_tokens": 10.0,
+    "max_output_tokens": 1024,
+    "max_context_chars": 48000,
+    "public_max_inflight": 2,
+    "public_paused": False,
+}
 
 _lock = threading.Lock()
 _hash_cache = {}
@@ -188,6 +221,593 @@ def enrollment_status(eid, key):
                                       "port on the host.")
             return 200, out
     return 404, {"error": "no such enrollment"}
+
+# ------------------------------------------------------------------
+# M6 accounts + shares.
+#
+# Accounts: POST /register creates one (name + a personal key shown
+# ONCE; only its SHA-256 is stored). The operator approves or revokes
+# accounts from the tailnet control page; approval writes the starter
+# balance into the ledger.
+#
+# Shares (DESIGN, decided 2026-11-15 — mining-pool style):
+#   EARN  a relay-connected machine linked to an approved account
+#         accrues offered-GB x hours x the base rate, times the
+#         worked multiplier while its endpoint is in the live split.
+#   SPEND a chat completion costs shares proportional to the tokens
+#         generated, charged after a successful reply.
+# The ledger (ledger.jsonl) is append-only; balances are a fold of
+# it. Accounting records who / when / how many tokens — never prompt
+# or reply text.
+#
+# The public doors share ONE open FIFO queue: at most
+# public_max_inflight generations run at once. The operator's bots
+# connect to the brain directly on the tailnet and never pass
+# through here — that is their reserved lane.
+# ------------------------------------------------------------------
+
+import math
+import urllib.error
+
+
+def load_shares_cfg():
+    cfg = dict(DEFAULT_SHARES)
+    try:
+        with open(SHARES_CFG_PATH) as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            cfg.update({k: v for k, v in data.items() if k in DEFAULT_SHARES})
+    except Exception:
+        pass
+    return cfg
+
+
+def load_accounts():
+    try:
+        with open(ACCOUNTS_PATH) as f:
+            data = json.load(f)
+        if isinstance(data, dict) and isinstance(data.get("accounts"), list):
+            return data
+    except Exception:
+        pass
+    return {"accounts": []}
+
+
+def save_accounts(data):
+    tmp = ACCOUNTS_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=1)
+    os.replace(tmp, ACCOUNTS_PATH)
+
+
+def create_account(fields):
+    name = str(fields.get("name") or "").strip()[:60]
+    if not name:
+        return 400, {"error": "an account name is required"}
+    with _lock:
+        data = load_accounts()
+        for rec in data["accounts"]:
+            if rec["name"].lower() == name.lower() and rec["status"] != "revoked":
+                return 409, {"error": "that name is taken — pick another"}
+        key = secrets.token_urlsafe(24)
+        rec = {
+            "id": uuid.uuid4().hex,
+            "name": name,
+            "key_hash": hashlib.sha256(key.encode()).hexdigest(),
+            "key_hint": key[-4:],
+            "status": "pending",
+            "created": now_iso(),
+            "decided": None,
+        }
+        data["accounts"].append(rec)
+        save_accounts(data)
+    return 201, {"id": rec["id"], "key": key, "status": "pending",
+                 "note": "Save the key now — it is shown once and cannot "
+                         "be recovered. The operator approves accounts "
+                         "by hand; the key works once approved."}
+
+
+def account_for_key(key):
+    if not key:
+        return None
+    digest = hashlib.sha256(key.encode()).hexdigest()
+    for rec in load_accounts()["accounts"]:
+        if secrets.compare_digest(digest, rec.get("key_hash", "")):
+            return rec
+    return None
+
+
+def append_ledger(account_id, kind, shares, detail):
+    line = json.dumps({"ts": now_iso(), "account": account_id, "kind": kind,
+                       "shares": round(float(shares), 4),
+                       "detail": str(detail)[:120]})
+    with _lock:
+        with open(LEDGER_PATH, "a") as f:
+            f.write(line + "\n")
+
+
+_ledger_cache = {"sig": None, "balances": {}}
+
+
+def balances():
+    try:
+        st = os.stat(LEDGER_PATH)
+        sig = (st.st_size, st.st_mtime_ns)
+    except Exception:
+        return {}
+    if _ledger_cache["sig"] == sig:
+        return _ledger_cache["balances"]
+    out = {}
+    try:
+        with open(LEDGER_PATH) as f:
+            for line in f:
+                try:
+                    rec = json.loads(line)
+                    out[rec["account"]] = round(
+                        out.get(rec["account"], 0.0) + float(rec["shares"]), 4)
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    _ledger_cache.update(sig=sig, balances=out)
+    return out
+
+
+def account_balance(account_id):
+    return balances().get(account_id, 0.0)
+
+
+class DoorQueue:
+    # One open FIFO queue for the public doors. Tickets are served in
+    # order; a waiter whose wait times out leaves a skip mark so the
+    # queue behind it keeps moving.
+    def __init__(self):
+        self.cond = threading.Condition()
+        self.inflight = 0
+        self.waiting = 0
+        self.next_ticket = 0
+        self.serving = 0
+        self.skipped = set()
+
+    def _advance(self):
+        while self.serving in self.skipped:
+            self.skipped.discard(self.serving)
+            self.serving += 1
+
+    def acquire(self, max_inflight, timeout):
+        deadline = time.time() + timeout
+        with self.cond:
+            ticket = self.next_ticket
+            self.next_ticket += 1
+            self.waiting += 1
+            try:
+                while True:
+                    self._advance()
+                    if ticket == self.serving and self.inflight < max_inflight:
+                        self.serving += 1
+                        self.inflight += 1
+                        self.cond.notify_all()
+                        return True
+                    left = deadline - time.time()
+                    if left <= 0:
+                        self.skipped.add(ticket)
+                        self._advance()
+                        self.cond.notify_all()
+                        return False
+                    self.cond.wait(timeout=min(left, 1.0))
+            finally:
+                self.waiting -= 1
+
+    def release(self):
+        with self.cond:
+            self.inflight = max(0, self.inflight - 1)
+            self.cond.notify_all()
+
+    def snapshot(self):
+        with self.cond:
+            return {"inflight": self.inflight, "waiting": self.waiting}
+
+
+DOOR_QUEUE = DoorQueue()
+
+
+def brain_request(method, path, body=None, timeout=30):
+    req = urllib.request.Request(
+        BRAIN_URL + path, data=body, method=method,
+        headers={"Content-Type": "application/json",
+                 "User-Agent": "pool-worker"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
+    except Exception as e:
+        return 502, json.dumps(
+            {"error": "the pool brain is unreachable: " + str(e)}).encode()
+
+
+def chat_completion(account, fields):
+    cfg = load_shares_cfg()
+    if cfg["public_paused"]:
+        return 503, {"error": "public usage is paused by the operator"}
+    if account["status"] != "approved":
+        return 403, {"error": "account is " + account["status"] +
+                              " — the operator approves accounts by hand"}
+    messages = fields.get("messages")
+    if not isinstance(messages, list) or not messages:
+        return 400, {"error": "messages (a non-empty list) is required"}
+    if fields.get("stream"):
+        return 400, {"error": "streaming is not offered on the public "
+                              "door yet — send stream:false"}
+    chars = 0
+    for m in messages:
+        if isinstance(m, dict):
+            chars += len(str(m.get("content") or ""))
+    if chars > int(cfg["max_context_chars"]):
+        return 413, {"error": "conversation too long for the public door (" +
+                              str(chars) + " chars; cap " +
+                              str(int(cfg["max_context_chars"])) + ")"}
+    if account_balance(account["id"]) <= 0:
+        return 402, {"error": "out of shares — contribute a machine to "
+                              "earn more, or ask the operator for a gift"}
+    body = dict(fields)
+    try:
+        want = int(fields.get("max_tokens") or 512)
+    except (TypeError, ValueError):
+        want = 512
+    body["max_tokens"] = max(1, min(want, int(cfg["max_output_tokens"])))
+    body["stream"] = False
+    payload = json.dumps(body).encode()
+    if not DOOR_QUEUE.acquire(int(cfg["public_max_inflight"]), QUEUE_WAIT_SEC):
+        return 429, {"error": "the queue did not move in time — try again "
+                              "shortly", "queue": DOOR_QUEUE.snapshot()}
+    try:
+        status, raw = brain_request("POST", "/v1/chat/completions",
+                                    payload, timeout=300)
+    finally:
+        DOOR_QUEUE.release()
+    if status != 200:
+        return status, {"error": "the pool brain answered " + str(status),
+                        "brain": raw.decode(errors="replace")[:300]}
+    try:
+        data = json.loads(raw.decode())
+    except Exception:
+        return 502, {"error": "the pool brain sent an unreadable reply"}
+    usage = data.get("usage") or {}
+    tokens = usage.get("completion_tokens")
+    if not isinstance(tokens, int) or tokens < 0:
+        try:
+            content = data["choices"][0]["message"]["content"] or ""
+        except Exception:
+            content = ""
+        tokens = max(1, len(content) // 4)
+    if tokens > 0:
+        cost = max(1, math.ceil(tokens / 1000.0 *
+                                float(cfg["spend_per_1k_tokens"])))
+        append_ledger(account["id"], "spend", -cost,
+                      "chat " + str(tokens) + " tokens")
+        data["pool"] = {"cost_shares": cost,
+                        "balance": account_balance(account["id"])}
+    return 200, data
+
+
+def link_enrollment(account, fields):
+    eid = str(fields.get("enrollment_id") or "")
+    ekey = str(fields.get("enrollment_key") or "")
+    if account["status"] != "approved":
+        return 403, {"error": "account is " + account["status"]}
+    with _lock:
+        data = load_enrollments()
+        for rec in data["enrollments"]:
+            if rec["id"] == eid:
+                if not ekey or not secrets.compare_digest(
+                        hashlib.sha256(ekey.encode()).hexdigest(),
+                        rec.get("key_hash", "")):
+                    return 403, {"error": "bad enrollment key"}
+                if rec["status"] != "approved":
+                    return 409, {"error": "that enrollment is " + rec["status"]}
+                rec["account_id"] = account["id"]
+                save_enrollments(data)
+                return 200, {"linked": eid, "machine": rec["name"],
+                             "note": "the machine now earns shares for " +
+                                     account["name"]}
+    return 404, {"error": "no such enrollment"}
+
+
+_state_cache2 = {"at": 0, "data": None}
+
+
+def coord_state():
+    if (time.time() - _state_cache2["at"] < 15 and
+            _state_cache2["data"] is not None):
+        return _state_cache2["data"]
+    try:
+        with urllib.request.urlopen(COORD_STATE_URL, timeout=4) as r:
+            data = json.loads(r.read().decode())
+        _state_cache2.update(at=time.time(), data=data)
+        return data
+    except Exception:
+        return _state_cache2["data"] or {}
+
+
+def earn_tick(hours):
+    # Accrue shares for relay-connected machines linked to approved
+    # accounts. Offered GB x hours x base rate, times the worked
+    # multiplier while the machine's endpoint is in the live split.
+    cfg = load_shares_cfg()
+    try:
+        with open(RELAY_STATE_PATH) as f:
+            relay = json.load(f)
+    except Exception:
+        return
+    machines = relay.get("machines") if isinstance(relay, dict) else None
+    if not machines:
+        return
+    st = coord_state()
+    rpc_list = str(st.get("rpc_list") or "")
+    split_live = st.get("mode") == "split"
+    enrollments = {r["id"]: r for r in load_enrollments()["enrollments"]}
+    accounts = {a["id"]: a for a in load_accounts()["accounts"]}
+    for m in machines:
+        rec = enrollments.get(m.get("id") or "")
+        if not rec or rec.get("status") != "approved":
+            continue
+        acct = accounts.get(rec.get("account_id") or "")
+        if not acct or acct.get("status") != "approved":
+            continue
+        worked = bool(split_live and m.get("rpc") and m["rpc"] in rpc_list)
+        mult = float(cfg["worked_multiplier"]) if worked else 1.0
+        amount = round((float(rec.get("offered_mb") or 0) / 1024.0) *
+                       float(cfg["earn_per_gb_hour"]) * float(hours) * mult, 4)
+        if amount >= 0.0001:
+            append_ledger(acct["id"], "earn", amount,
+                          ("worked " if worked else "online ") +
+                          str(rec.get("name")) + " " + str(round(hours, 3)) + "h")
+
+
+def earn_loop():
+    while True:
+        time.sleep(EARN_TICK_SEC)
+        try:
+            earn_tick(EARN_TICK_SEC / 3600.0)
+        except Exception:
+            pass
+
+
+def shares_public():
+    cfg = load_shares_cfg()
+    bals = balances()
+    rows = []
+    for a in load_accounts()["accounts"]:
+        if a["status"] == "approved":
+            rows.append({"name": a["name"], "balance": bals.get(a["id"], 0.0)})
+    rows.sort(key=lambda r: -r["balance"])
+    totals = {"earned": 0.0, "spent": 0.0}
+    try:
+        with open(LEDGER_PATH) as f:
+            for line in f:
+                try:
+                    rec = json.loads(line)
+                    if float(rec["shares"]) > 0:
+                        totals["earned"] = round(
+                            totals["earned"] + float(rec["shares"]), 4)
+                    else:
+                        totals["spent"] = round(
+                            totals["spent"] - float(rec["shares"]), 4)
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    return {"rates": {"starter": cfg["starter"],
+                      "earn_per_gb_hour": cfg["earn_per_gb_hour"],
+                      "worked_multiplier": cfg["worked_multiplier"],
+                      "spend_per_1k_tokens": cfg["spend_per_1k_tokens"]},
+            "paused": bool(cfg["public_paused"]),
+            "accounts": rows, "totals": totals, "updated": now_iso()}
+
+CHAT_PAGE = r'''<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Pool — Chat</title>
+<style>
+  body { background:#15100c; color:#e8ded0; font-family:Georgia, 'Times New Roman', serif; margin:0; }
+  .wrap { max-width:760px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { color:#e0a84a; font-size:26px; margin:8px 0 4px; }
+  a { color:#e0a84a; }
+  .card { background:#241a13; border:1px solid #4a3826; border-radius:10px; padding:16px; margin:14px 0; }
+  .muted { color:#b8a88f; font-size:14px; }
+  input[type=text], input[type=password] { width:100%; box-sizing:border-box; background:#15100c; color:#e8ded0; border:1px solid #4a3826; border-radius:6px; padding:9px; margin:4px 0 8px; }
+  textarea { width:100%; box-sizing:border-box; background:#15100c; color:#e8ded0; border:1px solid #4a3826; border-radius:6px; padding:9px; min-height:64px; }
+  button { background:#e0a84a; color:#15100c; border:0; border-radius:6px; padding:9px 18px; font-weight:bold; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .msg { margin:10px 0; padding:10px 12px; border-radius:8px; white-space:pre-wrap; word-wrap:break-word; }
+  .user { background:#2e2115; border:1px solid #4a3826; }
+  .assistant { background:#1d1712; border:1px solid #3a2d1e; }
+  .who { color:#e0a84a; font-size:12px; text-transform:uppercase; letter-spacing:1px; }
+  #status { min-height:20px; }
+  .row { display:flex; gap:8px; } .row > * { flex:1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AI Pool — Chat</h1>
+  <p class="muted">Chat with the pooled model. Usage spends shares; contributing a machine earns them. <a href="/">Pool home</a> · <a href="/register">Get an account</a></p>
+
+  <div class="card">
+    <div class="who">Your account key</div>
+    <input type="password" id="key" placeholder="Paste your account key">
+    <div class="row">
+      <button id="savekey" type="button">Save key</button>
+      <button id="check" type="button">Check balance</button>
+    </div>
+    <p class="muted" id="account">No key saved yet. Keys are shown once, when the account is created.</p>
+  </div>
+
+  <div class="card">
+    <div id="log"></div>
+    <p class="muted" id="status"></p>
+    <textarea id="input" placeholder="Say something to the pooled model…"></textarea>
+    <button id="send" type="button">Send</button>
+  </div>
+
+  <div class="card">
+    <div class="who">Link a machine you enrolled</div>
+    <p class="muted">Machines earn shares for the account they are linked to. You need the enrollment id and the enrollment key (shown once when the machine enrolled; the worker keeps both in its config file).</p>
+    <input type="text" id="linkid" placeholder="Enrollment id">
+    <input type="password" id="linkkey" placeholder="Enrollment key">
+    <button id="link" type="button">Link machine</button>
+    <p class="muted" id="linkmsg"></p>
+  </div>
+</div>
+<script>
+"use strict";
+var history = [];
+function el(id) { return document.getElementById(id); }
+function key() { return el("key").value.trim(); }
+function headers() { return { "Content-Type": "application/json", "Authorization": "Bearer " + key() }; }
+function showAccount(text) { el("account").textContent = text; }
+function refreshBalance() {
+  if (!key()) { showAccount("No key saved yet."); return; }
+  fetch("/me", { headers: headers() }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) {
+      if (!res.ok) { showAccount(res.j.error || "That key was not accepted."); return; }
+      showAccount(res.j.name + " — status: " + res.j.status + " — balance: " + res.j.balance + " shares");
+    }).catch(function () { showAccount("Could not reach the pool front door."); });
+}
+el("savekey").addEventListener("click", function () {
+  try { localStorage.setItem("poolkey", key()); } catch (e) {}
+  refreshBalance();
+});
+el("check").addEventListener("click", refreshBalance);
+try { var saved = localStorage.getItem("poolkey"); if (saved) { el("key").value = saved; refreshBalance(); } } catch (e) {}
+function addMsg(who, text) {
+  var d = document.createElement("div");
+  d.className = "msg " + who;
+  var w = document.createElement("div");
+  w.className = "who";
+  w.textContent = who === "user" ? "You" : "Pool";
+  var t = document.createElement("div");
+  t.textContent = text;
+  d.appendChild(w); d.appendChild(t);
+  el("log").appendChild(d);
+  window.scrollTo(0, document.body.scrollHeight);
+}
+el("send").addEventListener("click", function () {
+  var text = el("input").value.trim();
+  if (!text) { return; }
+  if (!key()) { el("status").textContent = "Save your account key first."; return; }
+  el("input").value = "";
+  addMsg("user", text);
+  history.push({ role: "user", content: text });
+  el("send").disabled = true;
+  el("status").textContent = "Sending…";
+  var poller = setInterval(function () {
+    fetch("/queue.json").then(function (r) { return r.json(); }).then(function (q) {
+      if (q.paused) { el("status").textContent = "Public usage is paused by the operator."; }
+      else if (q.waiting > 0) { el("status").textContent = "In the open queue — " + q.waiting + " waiting, " + q.inflight + " generating…"; }
+      else { el("status").textContent = "Generating…"; }
+    }).catch(function () {});
+  }, 2000);
+  fetch("/v1/chat/completions", { method: "POST", headers: headers(), body: JSON.stringify({ messages: history.slice(-20), max_tokens: 512 }) })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
+    .then(function (res) {
+      clearInterval(poller);
+      el("send").disabled = false;
+      if (!res.ok) {
+        el("status").textContent = (res.j.error && (res.j.error.message || res.j.error)) || ("Request failed (" + res.status + ")");
+        history.pop();
+        return;
+      }
+      var reply = res.j.choices && res.j.choices[0] && res.j.choices[0].message && res.j.choices[0].message.content || "";
+      addMsg("assistant", reply);
+      history.push({ role: "assistant", content: reply });
+      el("status").textContent = "";
+      refreshBalance();
+    })
+    .catch(function () {
+      clearInterval(poller);
+      el("send").disabled = false;
+      el("status").textContent = "Could not reach the pool front door.";
+      history.pop();
+    });
+});
+el("link").addEventListener("click", function () {
+  if (!key()) { el("linkmsg").textContent = "Save your account key first."; return; }
+  fetch("/link", { method: "POST", headers: headers(), body: JSON.stringify({ enrollment_id: el("linkid").value.trim(), enrollment_key: el("linkkey").value.trim() }) })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) { el("linkmsg").textContent = res.ok ? ("Linked: " + res.j.machine + " now earns shares for your account.") : (res.j.error || "Link failed."); })
+    .catch(function () { el("linkmsg").textContent = "Could not reach the pool front door."; });
+});
+</script>
+</body>
+</html>
+'''
+
+
+REGISTER_PAGE = r'''<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Pool — Get an account</title>
+<style>
+  body { background:#15100c; color:#e8ded0; font-family:Georgia, 'Times New Roman', serif; margin:0; }
+  .wrap { max-width:680px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { color:#e0a84a; font-size:26px; margin:8px 0 4px; }
+  a { color:#e0a84a; }
+  .card { background:#241a13; border:1px solid #4a3826; border-radius:10px; padding:16px; margin:14px 0; }
+  .muted { color:#b8a88f; font-size:14px; }
+  input[type=text] { width:100%; box-sizing:border-box; background:#15100c; color:#e8ded0; border:1px solid #4a3826; border-radius:6px; padding:9px; margin:4px 0 8px; }
+  button { background:#e0a84a; color:#15100c; border:0; border-radius:6px; padding:9px 18px; font-weight:bold; cursor:pointer; }
+  code { background:#15100c; border:1px solid #4a3826; border-radius:6px; padding:2px 6px; word-break:break-all; }
+  #result { display:none; }
+  .key { font-size:17px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Get a pool account</h1>
+  <p class="muted">An account gives you a personal key for the <a href="/chat">chat page</a> and for the pool's OpenAI-shaped API. New accounts start with a small free share balance; contributing a machine earns more. The operator approves each account by hand, so there may be a wait. <a href="/">Pool home</a></p>
+
+  <div class="card">
+    <label for="name">Account name (shown on the public shares board)</label>
+    <input type="text" id="name" placeholder="e.g. sam-gaming-rig">
+    <button id="create" type="button">Create account</button>
+    <p class="muted" id="msg"></p>
+  </div>
+
+  <div class="card" id="result">
+    <p><strong>Save this key now — it is shown once and cannot be recovered:</strong></p>
+    <p class="key"><code id="newkey"></code></p>
+    <p class="muted" id="nextsteps"></p>
+  </div>
+</div>
+<script>
+"use strict";
+function el(id) { return document.getElementById(id); }
+el("create").addEventListener("click", function () {
+  var name = el("name").value.trim();
+  if (!name) { el("msg").textContent = "Pick an account name first."; return; }
+  el("msg").textContent = "Creating…";
+  fetch("/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name }) })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) {
+      if (!res.ok) { el("msg").textContent = res.j.error || "Could not create the account."; return; }
+      el("msg").textContent = "";
+      el("newkey").textContent = res.j.key;
+      el("nextsteps").textContent = "Status: " + res.j.status + ". Once the operator approves the account, paste the key into the chat page to check your balance and start. API door: POST /v1/chat/completions with header Authorization: Bearer <your key>.";
+      el("result").style.display = "block";
+      try { localStorage.setItem("poolkey", res.j.key); } catch (e) {}
+    })
+    .catch(function () { el("msg").textContent = "Could not reach the pool front door."; });
+});
+</script>
+</body>
+</html>
+'''
+
 
 # ------------------------------------------------------------------
 # M5b dial-out relay.
@@ -536,6 +1156,10 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, code, obj):
         self._send(code, json.dumps(obj, indent=1), "application/json")
 
+    def _bearer(self):
+        h = self.headers.get("Authorization") or ""
+        return h[7:].strip() if h.lower().startswith("bearer ") else ""
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
@@ -573,6 +1197,34 @@ class Handler(BaseHTTPRequestHandler):
             q = parse_qs(parsed.query)
             code, obj = enrollment_status(path[len("/enroll/"):], (q.get("key") or [""])[0])
             self._json(code, obj)
+        elif path == "/chat":
+            self._send(200, CHAT_PAGE)
+        elif path == "/register":
+            self._send(200, REGISTER_PAGE)
+        elif path == "/me":
+            acct = account_for_key(self._bearer())
+            if not acct:
+                self._json(403, {"error": "bad or missing account key"})
+            else:
+                self._json(200, {"name": acct["name"], "status": acct["status"],
+                                 "balance": account_balance(acct["id"])})
+        elif path == "/shares.json":
+            self._json(200, shares_public())
+        elif path == "/queue.json":
+            snap = DOOR_QUEUE.snapshot()
+            snap["paused"] = bool(load_shares_cfg()["public_paused"])
+            self._json(200, snap)
+        elif path == "/v1/models":
+            acct = account_for_key(self._bearer())
+            if not acct or acct["status"] != "approved":
+                self._json(403, {"error": "an approved account key is required"})
+            else:
+                status, raw = brain_request("GET", "/v1/models", None, timeout=15)
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
         elif path == "/health":
             self._json(200, {"status": "ok"})
         else:
@@ -649,7 +1301,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path != "/enroll":
+        if parsed.path not in ("/enroll", "/register", "/link", "/v1/chat/completions"):
             self._send(404, "Not here")
             return
         length = int(self.headers.get("Content-Length") or 0)
@@ -664,13 +1316,29 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             self._json(400, {"error": "unreadable body"})
             return
-        code, obj = create_enrollment(fields)
+        if parsed.path == "/enroll":
+            code, obj = create_enrollment(fields)
+        elif parsed.path == "/register":
+            code, obj = create_account(fields)
+        elif parsed.path == "/link":
+            acct = account_for_key(self._bearer())
+            if not acct:
+                code, obj = 403, {"error": "bad or missing account key"}
+            else:
+                code, obj = link_enrollment(acct, fields)
+        else:
+            acct = account_for_key(self._bearer())
+            if not acct:
+                code, obj = 403, {"error": "bad or missing account key"}
+            else:
+                code, obj = chat_completion(acct, fields)
         self._json(code, obj)
 
 
 def main():
     os.makedirs(DOWNLOADS_DIR, exist_ok=True)
     threading.Thread(target=HUB.enforce_approvals, daemon=True).start()
+    threading.Thread(target=earn_loop, daemon=True).start()
     bind = os.environ.get("POOL_FRONT_BIND", "127.0.0.1")
     srv = ThreadingHTTPServer((bind, PORT), Handler)
     print("AI Pool front door on http://" + bind + ":" + str(PORT) +

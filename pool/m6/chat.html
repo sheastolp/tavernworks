@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Pool — Chat</title>
+<style>
+  body { background:#15100c; color:#e8ded0; font-family:Georgia, 'Times New Roman', serif; margin:0; }
+  .wrap { max-width:760px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { color:#e0a84a; font-size:26px; margin:8px 0 4px; }
+  a { color:#e0a84a; }
+  .card { background:#241a13; border:1px solid #4a3826; border-radius:10px; padding:16px; margin:14px 0; }
+  .muted { color:#b8a88f; font-size:14px; }
+  input[type=text], input[type=password] { width:100%; box-sizing:border-box; background:#15100c; color:#e8ded0; border:1px solid #4a3826; border-radius:6px; padding:9px; margin:4px 0 8px; }
+  textarea { width:100%; box-sizing:border-box; background:#15100c; color:#e8ded0; border:1px solid #4a3826; border-radius:6px; padding:9px; min-height:64px; }
+  button { background:#e0a84a; color:#15100c; border:0; border-radius:6px; padding:9px 18px; font-weight:bold; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .msg { margin:10px 0; padding:10px 12px; border-radius:8px; white-space:pre-wrap; word-wrap:break-word; }
+  .user { background:#2e2115; border:1px solid #4a3826; }
+  .assistant { background:#1d1712; border:1px solid #3a2d1e; }
+  .who { color:#e0a84a; font-size:12px; text-transform:uppercase; letter-spacing:1px; }
+  #status { min-height:20px; }
+  .row { display:flex; gap:8px; } .row > * { flex:1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AI Pool — Chat</h1>
+  <p class="muted">Chat with the pooled model. Usage spends shares; contributing a machine earns them. <a href="/">Pool home</a> · <a href="/register">Get an account</a></p>
+
+  <div class="card">
+    <div class="who">Your account key</div>
+    <input type="password" id="key" placeholder="Paste your account key">
+    <div class="row">
+      <button id="savekey" type="button">Save key</button>
+      <button id="check" type="button">Check balance</button>
+    </div>
+    <p class="muted" id="account">No key saved yet. Keys are shown once, when the account is created.</p>
+  </div>
+
+  <div class="card">
+    <div id="log"></div>
+    <p class="muted" id="status"></p>
+    <textarea id="input" placeholder="Say something to the pooled model…"></textarea>
+    <button id="send" type="button">Send</button>
+  </div>
+
+  <div class="card">
+    <div class="who">Link a machine you enrolled</div>
+    <p class="muted">Machines earn shares for the account they are linked to. You need the enrollment id and the enrollment key (shown once when the machine enrolled; the worker keeps both in its config file).</p>
+    <input type="text" id="linkid" placeholder="Enrollment id">
+    <input type="password" id="linkkey" placeholder="Enrollment key">
+    <button id="link" type="button">Link machine</button>
+    <p class="muted" id="linkmsg"></p>
+  </div>
+</div>
+<script>
+"use strict";
+var history = [];
+function el(id) { return document.getElementById(id); }
+function key() { return el("key").value.trim(); }
+function headers() { return { "Content-Type": "application/json", "Authorization": "Bearer " + key() }; }
+function showAccount(text) { el("account").textContent = text; }
+function refreshBalance() {
+  if (!key()) { showAccount("No key saved yet."); return; }
+  fetch("/me", { headers: headers() }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) {
+      if (!res.ok) { showAccount(res.j.error || "That key was not accepted."); return; }
+      showAccount(res.j.name + " — status: " + res.j.status + " — balance: " + res.j.balance + " shares");
+    }).catch(function () { showAccount("Could not reach the pool front door."); });
+}
+el("savekey").addEventListener("click", function () {
+  try { localStorage.setItem("poolkey", key()); } catch (e) {}
+  refreshBalance();
+});
+el("check").addEventListener("click", refreshBalance);
+try { var saved = localStorage.getItem("poolkey"); if (saved) { el("key").value = saved; refreshBalance(); } } catch (e) {}
+function addMsg(who, text) {
+  var d = document.createElement("div");
+  d.className = "msg " + who;
+  var w = document.createElement("div");
+  w.className = "who";
+  w.textContent = who === "user" ? "You" : "Pool";
+  var t = document.createElement("div");
+  t.textContent = text;
+  d.appendChild(w); d.appendChild(t);
+  el("log").appendChild(d);
+  window.scrollTo(0, document.body.scrollHeight);
+}
+el("send").addEventListener("click", function () {
+  var text = el("input").value.trim();
+  if (!text) { return; }
+  if (!key()) { el("status").textContent = "Save your account key first."; return; }
+  el("input").value = "";
+  addMsg("user", text);
+  history.push({ role: "user", content: text });
+  el("send").disabled = true;
+  el("status").textContent = "Sending…";
+  var poller = setInterval(function () {
+    fetch("/queue.json").then(function (r) { return r.json(); }).then(function (q) {
+      if (q.paused) { el("status").textContent = "Public usage is paused by the operator."; }
+      else if (q.waiting > 0) { el("status").textContent = "In the open queue — " + q.waiting + " waiting, " + q.inflight + " generating…"; }
+      else { el("status").textContent = "Generating…"; }
+    }).catch(function () {});
+  }, 2000);
+  fetch("/v1/chat/completions", { method: "POST", headers: headers(), body: JSON.stringify({ messages: history.slice(-20), max_tokens: 512 }) })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
+    .then(function (res) {
+      clearInterval(poller);
+      el("send").disabled = false;
+      if (!res.ok) {
+        el("status").textContent = (res.j.error && (res.j.error.message || res.j.error)) || ("Request failed (" + res.status + ")");
+        history.pop();
+        return;
+      }
+      var reply = res.j.choices && res.j.choices[0] && res.j.choices[0].message && res.j.choices[0].message.content || "";
+      addMsg("assistant", reply);
+      history.push({ role: "assistant", content: reply });
+      el("status").textContent = "";
+      refreshBalance();
+    })
+    .catch(function () {
+      clearInterval(poller);
+      el("send").disabled = false;
+      el("status").textContent = "Could not reach the pool front door.";
+      history.pop();
+    });
+});
+el("link").addEventListener("click", function () {
+  if (!key()) { el("linkmsg").textContent = "Save your account key first."; return; }
+  fetch("/link", { method: "POST", headers: headers(), body: JSON.stringify({ enrollment_id: el("linkid").value.trim(), enrollment_key: el("linkkey").value.trim() }) })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) { el("linkmsg").textContent = res.ok ? ("Linked: " + res.j.machine + " now earns shares for your account.") : (res.j.error || "Link failed."); })
+    .catch(function () { el("linkmsg").textContent = "Could not reach the pool front door."; });
+});
+</script>
+</body>
+</html>
