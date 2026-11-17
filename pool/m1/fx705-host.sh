@@ -156,6 +156,11 @@ echo ">> Tensor split: $SPLIT (shares follow the --rpc order; the last is this c
 # size, ~200 MiB card KV share). A brain that loaded and ran past
 # the load window is not retried here — its exit code passes
 # through and systemd decides. Ctrl-C (130/131) never retries.
+# Before the retry, wait for every RPC worker to answer again:
+# a load that kills a worker (the 16k attempt can OOM the Yoga's
+# rpc-server) leaves a dead endpoint for as long as that machine's
+# own restart takes, and an instant retry would fail on the dead
+# endpoint even though 4096 itself is fine.
 CTX_WANT=16384
 CTX_FALLBACK=4096
 CTX_LOAD_WINDOW="${POOL_SPLIT_LOAD_WINDOW:-900}"
@@ -169,6 +174,19 @@ run_brain() {
     -c "$1" \
     --host "$TS_IP" --port 8090
 }
+wait_for_workers() {
+  # Poll every RPC endpoint until all answer, up to $1 seconds.
+  local deadline=$((SECONDS + $1)) ep ok
+  while [ $SECONDS -lt $deadline ]; do
+    ok=1
+    for ep in "${RPC_ENDPOINTS[@]}"; do
+      (timeout 3 bash -c "exec 3<>/dev/tcp/${ep%:*}/${ep##*:}") 2>/dev/null || { ok=0; break; }
+    done
+    [ "$ok" = 1 ] && return 0
+    sleep 3
+  done
+  return 1
+}
 echo ">> Starting pooled $MODEL at http://$TS_IP:8090 (context $CTX_WANT; load fallback $CTX_FALLBACK)"
 echo ">> Watch the load log: it should list a CUDA device AND an RPC device,"
 echo ">> with layers offloaded to both. Leave this terminal open; Ctrl-C stops the pool."
@@ -176,7 +194,12 @@ START=$SECONDS
 CODE=0
 run_brain "$CTX_WANT" || CODE=$?
 if [ "$CODE" -ne 0 ] && [ "$CODE" -ne 130 ] && [ "$CODE" -ne 131 ] && [ $((SECONDS - START)) -lt "$CTX_LOAD_WINDOW" ]; then
-  echo "!! Brain exited (code $CODE) during load at context $CTX_WANT — retrying once at $CTX_FALLBACK."
+  echo "!! Brain exited (code $CODE) during load at context $CTX_WANT — waiting for the RPC workers to answer again, then retrying once at $CTX_FALLBACK."
+  if wait_for_workers "${POOL_SPLIT_WORKER_WAIT:-120}"; then
+    echo ">> All RPC workers are answering again."
+  else
+    echo "!! RPC workers still not answering after ${POOL_SPLIT_WORKER_WAIT:-120}s — retrying anyway; the run fails fast if they are truly down."
+  fi
   CODE=0
   run_brain "$CTX_FALLBACK" || CODE=$?
 fi
