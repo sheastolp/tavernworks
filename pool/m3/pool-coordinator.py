@@ -359,7 +359,8 @@ button:disabled{opacity:.45;cursor:default}
 input{background:var(--bg2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:.45rem .6rem}
 .fine{font-size:.87rem;color:var(--muted)} .ok{color:var(--green)} .no{color:var(--red)}
 .msg{background:#2c3a1e;border:1px solid var(--green);border-radius:10px;padding:.7rem 1rem;margin:.8rem 0}
-code{background:var(--bg2);padding:.1rem .35rem;border-radius:5px}
+code{background:var(--bg2);padding:.1rem .35rem;border-radius:5px;word-break:break-all}
+.tbl{overflow-x:auto}
 form.inline{display:inline} .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
 """
 
@@ -436,10 +437,10 @@ def page(st, msg=""):
 </div>
 
 <h2>Roster</h2>
-<div class="card"><table>
+<div class="card"><div class="tbl"><table>
 <tr><th>Machine</th><th>Role · address</th><th>Offered</th><th>Holds</th><th>State</th></tr>
 {rows}
-</table>
+</table></div>
 <form method="post" action="/action" style="margin-top:.8rem">
   <input type="hidden" name="action" value="join">
   <div class="row">
@@ -453,10 +454,10 @@ def page(st, msg=""):
 </div>
 
 <h2>Models on the host</h2>
-<div class="card"><table>
+<div class="card"><div class="tbl"><table>
 <tr><th>Model</th><th>Size</th><th>Fit check</th><th></th></tr>
 {mrows}
-</table>
+</table></div>
 <p class="fine">“Use this model” writes the picker's choice for the next start — and restarts the
 brain with it if one is running (expect a few minutes of loading).</p>
 </div>
