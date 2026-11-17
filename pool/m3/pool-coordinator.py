@@ -39,6 +39,25 @@ MEMINFO_PATH = os.environ.get("POOL_MEMINFO", "/proc/meminfo")
 PORT = int(os.environ.get("POOL_PORT", "8091"))
 DEFAULT_MODEL = "Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf"
 MEASURED_SPEED = "3.3 tokens/sec (solo) · 0.9 split"
+ENROLL_PATH = os.path.join(POOL_DIR, "enrollments.json")
+
+
+def load_enrollments():
+    try:
+        with open(ENROLL_PATH) as f:
+            data = json.load(f)
+        if isinstance(data, dict) and isinstance(data.get("enrollments"), list):
+            return data
+    except Exception:
+        pass
+    return {"enrollments": []}
+
+
+def save_enrollments(data):
+    tmp = ENROLL_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=1)
+    os.replace(tmp, ENROLL_PATH)
 
 DEFAULT_CONFIG = {
     "machines": [
@@ -319,6 +338,19 @@ def act(name, fields):
                 save_config(cfg)
                 return target + " now offers " + str(offered) + " MB."
         return "No machine by that name."
+    if name in ("approve_enrollment", "revoke_enrollment"):
+        eid = (fields.get("id") or [""])[0]
+        data = load_enrollments()
+        for rec in data["enrollments"]:
+            if rec.get("id") == eid:
+                rec["status"] = "approved" if name == "approve_enrollment" else "revoked"
+                rec["decided"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                save_enrollments(data)
+                return ("Enrollment approved: " + rec.get("name", "?") +
+                        " — it can join once the worker relay (M5b) is live."
+                        if rec["status"] == "approved" else
+                        "Enrollment revoked: " + rec.get("name", "?") + ".")
+        return "No enrollment with that id."
     if name == "join":
         mname = (fields.get("name") or [""])[0].strip()
         ip = (fields.get("ip") or [""])[0].strip()
@@ -402,6 +434,26 @@ def page(st, msg=""):
                   "</td><td>" + str(md["size_mb"]) + " MB</td><td>" + " · ".join(fit) +
                   "</td><td>" + btn + "</td></tr>")
 
+    erows = ""
+    for rec in load_enrollments()["enrollments"]:
+        btns = ""
+        if rec.get("status") in ("pending", "revoked"):
+            btns += ('<form class="inline" method="post" action="/action">'
+                     '<input type="hidden" name="action" value="approve_enrollment">'
+                     '<input type="hidden" name="id" value="' + escape(str(rec.get("id", ""))) + '">'
+                     '<button type="submit">Approve</button></form> ')
+        if rec.get("status") in ("pending", "approved"):
+            btns += ('<form class="inline" method="post" action="/action">'
+                     '<input type="hidden" name="action" value="revoke_enrollment">'
+                     '<input type="hidden" name="id" value="' + escape(str(rec.get("id", ""))) + '">'
+                     '<button class="alt" type="submit">Revoke</button></form>')
+        erows += ("<tr><td><strong>" + escape(str(rec.get("name", "?"))) + "</strong></td>"
+                  "<td>" + str(rec.get("offered_mb", 0)) + " MB</td>"
+                  "<td>" + escape(str(rec.get("gpu", ""))) + " · " + escape(str(rec.get("os", ""))) + "</td>"
+                  "<td>" + escape(str(rec.get("status", "?"))) + "</td><td>" + btns + "</td></tr>")
+    enroll_html = ('<div class="tbl"><table><tr><th>Machine</th><th>Offered</th><th>Hardware</th>'
+                   '<th>Status</th><th></th></tr>' + erows + "</table></div>") if erows else \
+        "<p>No enrollments yet.</p>"
     mode_txt = {"solo": "Solo — FX705 alone", "split": "Split — pooled across machines",
                 "starting": "Starting…", "off": "Off"}[st["mode"]]
     brain_line = dot(st["brain"]["up"]) + mode_txt
@@ -460,6 +512,14 @@ def page(st, msg=""):
 </table></div>
 <p class="fine">“Use this model” writes the picker's choice for the next start — and restarts the
 brain with it if one is running (expect a few minutes of loading).</p>
+</div>
+
+<h2>Enrollments (public)</h2>
+<div class="card">
+{enroll_html}
+<p class="fine">Machines register at pool.tavernworks.dev/enroll and wait here.
+Approving says the machine MAY join — it can only hold model slices once the
+worker relay (M5b) is live. Revoking cuts it off.</p>
 </div>
 
 <h2>Endpoint card</h2>

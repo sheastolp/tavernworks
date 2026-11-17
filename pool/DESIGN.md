@@ -401,3 +401,34 @@ misbehaves:
 And the contributor side is already covered: if bot load ever made a
 pooled machine hot or busy, the thermal watchdog and owner-first
 yield drain it out of the pool exactly like a game starting would.
+
+## Public phase roadmap (added 2026-11-16, when Shea green-lit the start)
+
+- **M5a — the public front door:** a separate public-front service on
+  the FX705 (pool-front.py) behind the pool.tavernworks.dev
+  Cloudflare Tunnel. Public-safe endpoints ONLY: /status.json
+  (proxied from the tailnet coordinator), the downloads shelf
+  (versioned components, SHA-256 manifest, Range/resumable), and
+  the enrollment API (a machine registers -> pending -> the
+  operator approves or revokes from the tailnet control page;
+  the machine's key is shown once and stored hashed). The M3
+  control page itself is NEVER tunnel-exposed — it stays
+  tailnet-only, unauthenticated by design of the tailnet trust
+  model.
+- **M5b — the worker app + relay:** the downloadable worker
+  (registers, waits for approval, runs the pinned rpc-server) and
+  the dial-out relay: the worker holds a persistent outbound
+  connection to the front; the front bridges it to a per-machine
+  localhost port on the FX705 that llama-server can target.
+  Per-machine keys gate the relay; revocation cuts it.
+- **M5c — host integration:** the host script builds its --rpc
+  list and tensor split from ALL live machines (tailnet + relayed
+  public workers), ends staying on Shea's machines; first
+  stranger-path test uses the Yoga enrolling as a public worker
+  (its RPC travelling the relay, not its tailnet shortcut).
+- **M6 — accounts + shares:** user accounts, personal API keys
+  (hashed, revocable), web chat, the append-only shares ledger,
+  starter balances, published stats; Burn/lore-keeper reserved
+  lane; per-bot budgets from the guardrails section.
+- **M7 — MCP both ways:** the pool as an MCP server (chat, status,
+  model list) and registered MCP servers offered to the model.

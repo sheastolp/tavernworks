@@ -1,0 +1,14 @@
+[Unit]
+Description=AI Pool front door — public status, downloads, enrollment (M5a)
+After=network-online.target tailscaled.service pool-coordinator.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=POOL_DIR=/root/ai-pool
+ExecStart=/usr/bin/python3 /opt/ai-pool/pool-front.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
