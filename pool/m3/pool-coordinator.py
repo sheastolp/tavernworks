@@ -45,6 +45,7 @@ ENROLL_PATH = os.path.join(POOL_DIR, "enrollments.json")
 ACCOUNTS_PATH = os.path.join(POOL_DIR, "accounts.json")
 LEDGER_PATH = os.path.join(POOL_DIR, "ledger.jsonl")
 SHARES_CFG_PATH = os.path.join(POOL_DIR, "shares-config.json")
+MCP_PATH = os.path.join(POOL_DIR, "mcp-servers.json")
 DEFAULT_SHARES = {
     "starter": 100.0,
     "earn_per_gb_hour": 1.0,
@@ -110,6 +111,24 @@ def save_shares_cfg(cfg):
     with open(tmp, "w") as f:
         json.dump({k: cfg[k] for k in DEFAULT_SHARES}, f, indent=1)
     os.replace(tmp, SHARES_CFG_PATH)
+
+
+def load_mcp_servers():
+    try:
+        with open(MCP_PATH) as f:
+            data = json.load(f)
+        if isinstance(data, dict) and isinstance(data.get("servers"), list):
+            return [s for s in data["servers"] if isinstance(s, dict)]
+    except Exception:
+        pass
+    return []
+
+
+def save_mcp_servers(servers):
+    tmp = MCP_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump({"servers": servers}, f, indent=1)
+    os.replace(tmp, MCP_PATH)
 
 
 def append_ledger(account_id, kind, shares, detail):
@@ -575,6 +594,38 @@ def act(name, fields):
         save_shares_cfg(scfg)
         return ("Shares settings saved." +
                 (" Public usage is PAUSED." if scfg["public_paused"] else ""))
+    if name == "add_mcp_server":
+        sname = (fields.get("name") or [""])[0].strip()
+        surl = (fields.get("url") or [""])[0].strip()
+        skey = (fields.get("key") or [""])[0].strip()
+        if not sname or not all(c.isalnum() or c in "-_" for c in sname):
+            return "MCP server name must be letters, numbers, - or _ (it prefixes the tool names)."
+        if not (surl.startswith("http://") or surl.startswith("https://")):
+            return "MCP server URL must start with http:// or https://."
+        servers = [s for s in load_mcp_servers() if s.get("name") != sname]
+        servers.append({"name": sname, "url": surl, "key": skey, "enabled": True})
+        save_mcp_servers(servers)
+        return ("MCP server registered: " + sname + " — when a chat opts in "
+                "(mcp_tools), its tools are offered to the pooled model as " +
+                sname + "__<tool>.")
+    if name == "remove_mcp_server":
+        sname = (fields.get("name") or [""])[0].strip()
+        servers = load_mcp_servers()
+        keep = [s for s in servers if s.get("name") != sname]
+        if len(keep) == len(servers):
+            return "No MCP server by that name."
+        save_mcp_servers(keep)
+        return "MCP server removed: " + sname + "."
+    if name == "toggle_mcp_server":
+        sname = (fields.get("name") or [""])[0].strip()
+        servers = load_mcp_servers()
+        for s in servers:
+            if s.get("name") == sname:
+                s["enabled"] = not s.get("enabled", True)
+                save_mcp_servers(servers)
+                return ("MCP server " + sname + " is now " +
+                        ("enabled." if s["enabled"] else "disabled."))
+        return "No MCP server by that name."
     return "Unknown action."
 
 
@@ -705,6 +756,31 @@ def page(st, msg=""):
                    '<tr><td>Pause public usage</td><td><input type="checkbox" name="public_paused"' + (" checked" if scfg["public_paused"] else "") + '></td></tr>'
                    '</table></div>'
                    '<button type="submit" style="margin-top:.6rem">Save shares settings</button></form>')
+    mcp_rows = ""
+    for s in load_mcp_servers():
+        btns = ('<form class="inline" method="post" action="/action">'
+                '<input type="hidden" name="action" value="toggle_mcp_server">'
+                '<input type="hidden" name="name" value="' + escape(str(s.get("name", ""))) + '">'
+                '<button class="alt" type="submit">' + ("Disable" if s.get("enabled", True) else "Enable") + '</button></form> '
+                '<form class="inline" method="post" action="/action">'
+                '<input type="hidden" name="action" value="remove_mcp_server">'
+                '<input type="hidden" name="name" value="' + escape(str(s.get("name", ""))) + '">'
+                '<button class="alt" type="submit">Remove</button></form>')
+        mcp_rows += ("<tr><td><strong>" + escape(str(s.get("name", "?"))) + "</strong></td>"
+                     "<td>" + escape(str(s.get("url", ""))) + "</td>"
+                     "<td>" + ("enabled" if s.get("enabled", True) else "disabled") + "</td>"
+                     "<td>" + ("key set" if s.get("key") else "—") + "</td><td>" + btns + "</td></tr>")
+    mcp_html = ('<div class="tbl"><table><tr><th>Server</th><th>URL</th><th>State</th>'
+                '<th>Key</th><th></th></tr>' + mcp_rows + "</table></div>") if mcp_rows else \
+        "<p>No MCP servers registered.</p>"
+    mcp_add_html = ('<form method="post" action="/action" style="margin-top:.8rem">'
+                    '<input type="hidden" name="action" value="add_mcp_server">'
+                    '<div class="row">'
+                    '<input name="name" placeholder="Name" size="12">'
+                    '<input name="url" placeholder="https://…/mcp" size="30">'
+                    '<input name="key" placeholder="Bearer key (optional)" size="16">'
+                    '<button class="alt" type="submit">Register server</button>'
+                    '</div></form>')
     mode_txt = {"solo": "Solo — FX705 alone", "split": "Split — pooled across machines",
                 "starting": "Starting…", "off": "Off"}[st["mode"]]
     brain_line = dot(st["brain"]["up"]) + mode_txt
@@ -789,6 +865,18 @@ door. Balances fold from the append-only ledger.</p>
 rate, times the worked multiplier while its slice is in the live split.
 Spend: charged per token generated, after a successful reply. Pausing
 public usage closes the chat/API doors; your bots keep their direct lane.</p>
+</div>
+
+<h2>MCP servers (tools for the model)</h2>
+<div class="card">
+{mcp_html}
+{mcp_add_html}
+<p class="fine">Registered servers are offered to the pooled model when a
+chat opts in (the chat page's tools checkbox, or "mcp_tools": true on the
+API door). Their tools appear as name__tool. Register only servers you
+trust — tool results are fed back into the model's context. Keys are
+kept in mcp-servers.json on this machine only. The pool's own MCP door
+for clients is https://pool.tavernworks.dev/mcp (account key as Bearer).</p>
 </div>
 
 <h2>Endpoint card</h2>

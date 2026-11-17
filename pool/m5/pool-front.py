@@ -40,6 +40,15 @@
 #   GET  /shares.json   published rates + balances (pool stats)
 #   GET  /queue.json    {inflight, waiting, paused}
 #
+#   M7 MCP, both ways:
+#   POST /mcp           the pool as an MCP server (JSON-RPC 2.0,
+#                       Bearer account key): pool_chat, pool_status,
+#                       pool_models, pool_balance
+#   chat opt-in         {"mcp_tools": true} on the API door offers
+#                       the operator-registered MCP servers' tools
+#                       to the pooled model; calls are executed and
+#                       fed back for up to 3 rounds
+#
 # Python 3 standard library only. Binds localhost by default —
 # cloudflared is the public face. Test hooks: POOL_DIR,
 # POOL_FRONT_BIND, POOL_FRONT_PORT, POOL_COORD_URL.
@@ -457,35 +466,80 @@ def chat_completion(account, fields):
         want = 512
     body["max_tokens"] = max(1, min(want, int(cfg["max_output_tokens"])))
     body["stream"] = False
-    payload = json.dumps(body).encode()
+    use_tools = bool(fields.get("mcp_tools"))
+    body.pop("mcp_tools", None)
+    tools, routes = [], {}
+    if use_tools:
+        body.pop("tools", None)
+        tools, routes = mcp_aggregate_tools()
     if not DOOR_QUEUE.acquire(int(cfg["public_max_inflight"]), QUEUE_WAIT_SEC):
         return 429, {"error": "the queue did not move in time — try again "
                               "shortly", "queue": DOOR_QUEUE.snapshot()}
+    total_tokens = 0
+    data = None
     try:
-        status, raw = brain_request("POST", "/v1/chat/completions",
-                                    payload, timeout=300)
+        rounds = 0
+        while True:
+            rounds += 1
+            send = dict(body)
+            if tools:
+                send["tools"] = tools
+            status, raw = brain_request("POST", "/v1/chat/completions",
+                                        json.dumps(send).encode(), timeout=300)
+            if status != 200:
+                return status, {"error": "the pool brain answered " + str(status),
+                                "brain": raw.decode(errors="replace")[:300]}
+            try:
+                data = json.loads(raw.decode())
+            except Exception:
+                return 502, {"error": "the pool brain sent an unreadable reply"}
+            usage = data.get("usage") or {}
+            if isinstance(usage.get("completion_tokens"), int) and \
+                    usage["completion_tokens"] > 0:
+                total_tokens += usage["completion_tokens"]
+            calls = []
+            try:
+                calls = data["choices"][0]["message"].get("tool_calls") or []
+            except Exception:
+                calls = []
+            if not calls or rounds >= MCP_MAX_ROUNDS:
+                break
+            try:
+                assistant_msg = data["choices"][0]["message"]
+            except Exception:
+                break
+            new_messages = list(body["messages"]) + [assistant_msg]
+            for call in calls:
+                fn = call.get("function") or {}
+                ns_name = fn.get("name") or ""
+                try:
+                    cargs = json.loads(fn.get("arguments") or "{}")
+                except Exception:
+                    cargs = {}
+                if ns_name in routes:
+                    try:
+                        text = mcp_call_tool(routes, ns_name, cargs)
+                    except Exception as e:
+                        text = "tool error: " + str(e)
+                else:
+                    text = "tool error: unknown tool " + ns_name
+                new_messages.append({"role": "tool",
+                                     "tool_call_id": call.get("id") or "",
+                                     "content": text})
+            body["messages"] = new_messages
     finally:
         DOOR_QUEUE.release()
-    if status != 200:
-        return status, {"error": "the pool brain answered " + str(status),
-                        "brain": raw.decode(errors="replace")[:300]}
-    try:
-        data = json.loads(raw.decode())
-    except Exception:
-        return 502, {"error": "the pool brain sent an unreadable reply"}
-    usage = data.get("usage") or {}
-    tokens = usage.get("completion_tokens")
-    if not isinstance(tokens, int) or tokens < 0:
+    if total_tokens <= 0:
         try:
             content = data["choices"][0]["message"]["content"] or ""
         except Exception:
             content = ""
-        tokens = max(1, len(content) // 4)
-    if tokens > 0:
-        cost = max(1, math.ceil(tokens / 1000.0 *
+        total_tokens = max(1, len(content) // 4)
+    if total_tokens > 0:
+        cost = max(1, math.ceil(total_tokens / 1000.0 *
                                 float(cfg["spend_per_1k_tokens"])))
         append_ledger(account["id"], "spend", -cost,
-                      "chat " + str(tokens) + " tokens")
+                      "chat " + str(total_tokens) + " tokens")
         data["pool"] = {"cost_shares": cost,
                         "balance": account_balance(account["id"])}
     return 200, data
@@ -643,12 +697,14 @@ CHAT_PAGE = r'''<!doctype html>
       <button id="check" type="button">Check balance</button>
     </div>
     <p class="muted" id="account">No key saved yet. Keys are shown once, when the account is created.</p>
+    <p class="muted">API door: POST /v1/chat/completions · MCP door: POST /mcp — same key, in an Authorization: Bearer header.</p>
   </div>
 
   <div class="card">
     <div id="log"></div>
     <p class="muted" id="status"></p>
     <textarea id="input" placeholder="Say something to the pooled model…"></textarea>
+    <label class="muted" style="display:block;margin:6px 0"><input type="checkbox" id="usetools"> Let the model use registered tools (MCP)</label>
     <button id="send" type="button">Send</button>
   </div>
 
@@ -726,7 +782,7 @@ el("send").addEventListener("click", function () {
       else { el("status").textContent = "Generating…"; }
     }).catch(function () {});
   }, 2000);
-  fetch("/v1/chat/completions", { method: "POST", headers: headers(), body: JSON.stringify({ messages: chatHistory.slice(-20), max_tokens: 512 }) })
+  fetch("/v1/chat/completions", { method: "POST", headers: headers(), body: JSON.stringify({ messages: chatHistory.slice(-20), max_tokens: 512, mcp_tools: el("usetools").checked }) })
     .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
     .then(function (res) {
       clearInterval(poller);
@@ -827,6 +883,209 @@ el("create").addEventListener("click", function () {
 </body>
 </html>
 '''
+
+
+# ------------------------------------------------------------------
+# M7 — MCP both ways.
+#
+# OUT: the pool as an MCP server. POST /mcp speaks JSON-RPC 2.0
+# (MCP Streamable HTTP, JSON responses), authenticated with the
+# same personal account key as the other doors. Tools: pool_chat
+# (spends shares through the very same chat path as the API door),
+# pool_status, pool_models, pool_balance.
+#
+# IN: MCP servers the operator registers on the coordinator
+# (mcp-servers.json) are offered to the pooled model as tools. A
+# chat request that opts in ({"mcp_tools": true}) gets the
+# aggregated tool list; when the model calls a tool, the front
+# executes it against the registered server and feeds the result
+# back, up to MCP_MAX_ROUNDS rounds. Tool names are namespaced
+# <server>__<tool> so servers cannot shadow each other.
+# ------------------------------------------------------------------
+
+MCP_PATH = os.path.join(POOL_DIR, "mcp-servers.json")
+MCP_PROTOCOL = "2025-03-26"
+MCP_MAX_ROUNDS = 3
+MCP_TOOL_RESULT_CAP = 8000
+_mcp_tools_cache = {"at": 0, "tools": [], "routes": {}}
+
+
+def load_mcp_servers():
+    try:
+        with open(MCP_PATH) as f:
+            data = json.load(f)
+        if isinstance(data, dict) and isinstance(data.get("servers"), list):
+            return [s for s in data["servers"] if isinstance(s, dict)]
+    except Exception:
+        pass
+    return []
+
+
+def mcp_rpc(server, method, params, timeout=30):
+    body = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}
+    headers = {"Content-Type": "application/json", "User-Agent": "pool-worker"}
+    if server.get("key"):
+        headers["Authorization"] = "Bearer " + str(server["key"])
+    req = urllib.request.Request(str(server["url"]),
+                                 data=json.dumps(body).encode(),
+                                 headers=headers, method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode())
+
+
+def mcp_aggregate_tools():
+    if time.time() - _mcp_tools_cache["at"] < 30 and _mcp_tools_cache["tools"]:
+        return _mcp_tools_cache["tools"], _mcp_tools_cache["routes"]
+    tools, routes = [], {}
+    for server in load_mcp_servers():
+        if not server.get("enabled", True):
+            continue
+        try:
+            out = mcp_rpc(server, "tools/list", {}, timeout=15)
+            listed = (out.get("result") or {}).get("tools") or []
+        except Exception:
+            continue
+        for t in listed:
+            if not isinstance(t, dict) or not t.get("name"):
+                continue
+            ns = str(server["name"]) + "__" + str(t["name"])
+            tools.append({"type": "function", "function": {
+                "name": ns,
+                "description": str(t.get("description") or "")[:500],
+                "parameters": t.get("inputSchema") or
+                {"type": "object", "properties": {}}}})
+            routes[ns] = (server, str(t["name"]))
+    _mcp_tools_cache.update(at=time.time(), tools=tools, routes=routes)
+    return tools, routes
+
+
+def mcp_call_tool(routes, ns_name, args):
+    server, orig = routes[ns_name]
+    out = mcp_rpc(server, "tools/call",
+                  {"name": orig, "arguments": args or {}}, timeout=30)
+    result = out.get("result") or {}
+    parts = []
+    for c in result.get("content") or []:
+        if isinstance(c, dict) and c.get("type") == "text":
+            parts.append(str(c.get("text") or ""))
+    text = "\n".join(parts) or json.dumps(result)[:1000]
+    if result.get("isError"):
+        text = "tool error: " + text
+    return text[:MCP_TOOL_RESULT_CAP]
+
+
+def mcp_tools_list():
+    return {"tools": [
+        {"name": "pool_chat",
+         "description": "Chat with the AI Pool's shared model. Costs "
+                        "shares per token generated, like the chat page.",
+         "inputSchema": {"type": "object", "properties": {
+             "message": {"type": "string",
+                         "description": "What to say to the model"},
+             "system": {"type": "string",
+                        "description": "Optional system prompt"},
+             "max_tokens": {"type": "integer",
+                            "description": "Reply length cap"}},
+             "required": ["message"]}},
+        {"name": "pool_status",
+         "description": "The pool's live status: brain, model, serving, split.",
+         "inputSchema": {"type": "object", "properties": {}}},
+        {"name": "pool_models",
+         "description": "Models the pool brain currently serves.",
+         "inputSchema": {"type": "object", "properties": {}}},
+        {"name": "pool_balance",
+         "description": "Your account's status and shares balance.",
+         "inputSchema": {"type": "object", "properties": {}}},
+    ]}
+
+
+def mcp_text(text, is_error=False):
+    return {"content": [{"type": "text", "text": text}],
+            "isError": bool(is_error)}
+
+
+def mcp_handle(account, req):
+    # Returns (http_status, obj) — obj None means a notification ack.
+    method = req.get("method") or ""
+    rid = req.get("id")
+    params = req.get("params") or {}
+    if method.startswith("notifications/"):
+        return 202, None
+    if method == "initialize":
+        want = str(params.get("protocolVersion") or "")
+        version = want if want in ("2025-03-26", "2025-06-18",
+                                   "2024-11-05") else MCP_PROTOCOL
+        return 200, {"jsonrpc": "2.0", "id": rid, "result": {
+            "protocolVersion": version,
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "ai-pool", "version": "1.0"}}}
+    if method == "ping":
+        return 200, {"jsonrpc": "2.0", "id": rid, "result": {}}
+    if method == "tools/list":
+        return 200, {"jsonrpc": "2.0", "id": rid, "result": mcp_tools_list()}
+    if method == "tools/call":
+        name = params.get("name") or ""
+        args = params.get("arguments") or {}
+        if name == "pool_balance":
+            out = mcp_text(account["name"] + " — status " +
+                           account["status"] + ", balance " +
+                           str(account_balance(account["id"])) + " shares")
+        elif name == "pool_status":
+            st = pool_status()
+            out = mcp_text("\n".join([
+                "Brain: " + str(st.get("brain")),
+                "Model: " + str(st.get("model")),
+                "Serving: " + str(st.get("serving")),
+                "Split: " + str(st.get("split")),
+                "Speed: " + str(st.get("speed"))]))
+        elif name == "pool_models":
+            status, raw = brain_request("GET", "/v1/models", None, timeout=15)
+            if status != 200:
+                out = mcp_text("the pool brain answered " + str(status), True)
+            else:
+                try:
+                    ids = [d.get("id") for d in
+                           json.loads(raw.decode()).get("data", [])]
+                    out = mcp_text("Models: " +
+                                   ", ".join(str(i) for i in ids))
+                except Exception:
+                    out = mcp_text(
+                        "the pool brain sent an unreadable model list", True)
+        elif name == "pool_chat":
+            message = str(args.get("message") or "").strip()
+            if not message:
+                out = mcp_text("pool_chat needs a message", True)
+            else:
+                messages = []
+                if args.get("system"):
+                    messages.append({"role": "system",
+                                     "content": str(args["system"])})
+                messages.append({"role": "user", "content": message})
+                fields = {"messages": messages}
+                if args.get("max_tokens"):
+                    fields["max_tokens"] = args["max_tokens"]
+                code, resp = chat_completion(account, fields)
+                if code != 200:
+                    out = mcp_text(str(resp.get("error") or
+                                       ("chat failed: " + str(code))), True)
+                else:
+                    try:
+                        reply = resp["choices"][0]["message"]["content"] or ""
+                    except Exception:
+                        reply = ""
+                    pool = resp.get("pool") or {}
+                    if pool:
+                        reply += ("\n\n[pool: cost " +
+                                  str(pool.get("cost_shares")) +
+                                  " shares; balance " +
+                                  str(pool.get("balance")) + "]")
+                    out = mcp_text(reply)
+        else:
+            out = mcp_text("unknown tool: " + str(name), True)
+        return 200, {"jsonrpc": "2.0", "id": rid, "result": out}
+    return 200, {"jsonrpc": "2.0", "id": rid,
+                 "error": {"code": -32601,
+                           "message": "method not found: " + method}}
 
 
 # ------------------------------------------------------------------
@@ -1245,6 +1504,13 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(raw)))
                 self.end_headers()
                 self.wfile.write(raw)
+        elif path == "/mcp":
+            self._json(200, {"name": "ai-pool MCP",
+                             "note": "POST JSON-RPC 2.0 here with your "
+                                     "account key in an Authorization: "
+                                     "Bearer header",
+                             "tools": ["pool_chat", "pool_status",
+                                       "pool_models", "pool_balance"]})
         elif path == "/health":
             self._json(200, {"status": "ok"})
         else:
@@ -1321,7 +1587,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path not in ("/enroll", "/register", "/link", "/v1/chat/completions"):
+        if parsed.path not in ("/enroll", "/register", "/link", "/v1/chat/completions", "/mcp"):
             self._send(404, "Not here")
             return
         length = int(self.headers.get("Content-Length") or 0)
@@ -1340,6 +1606,21 @@ class Handler(BaseHTTPRequestHandler):
             code, obj = create_enrollment(fields)
         elif parsed.path == "/register":
             code, obj = create_account(fields)
+        elif parsed.path == "/mcp":
+            acct = account_for_key(self._bearer())
+            if not acct:
+                self._json(403, {"jsonrpc": "2.0", "id": None,
+                                 "error": {"code": -32001,
+                                           "message": "bad or missing account key"}})
+            else:
+                code, obj = mcp_handle(acct, fields)
+                if obj is None:
+                    self.send_response(202)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                else:
+                    self._json(code, obj)
+            return
         elif parsed.path == "/link":
             acct = account_for_key(self._bearer())
             if not acct:
