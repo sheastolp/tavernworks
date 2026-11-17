@@ -676,14 +676,28 @@ function refreshBalance() {
       showAccount(res.j.name + " — status: " + res.j.status + " — balance: " + res.j.balance + " shares");
     }).catch(function () { showAccount("Could not reach the pool front door."); });
 }
+function persistKey(k) {
+  try { localStorage.setItem("poolkey", k); } catch (e) {}
+  try { sessionStorage.setItem("poolkey", k); } catch (e) {}
+  try { history.replaceState(null, "", "#k=" + encodeURIComponent(k)); } catch (e) {}
+}
+function storedKey() {
+  if (location.hash.indexOf("#k=") === 0) {
+    try { return decodeURIComponent(location.hash.slice(3)); } catch (e) {}
+  }
+  try { var v = localStorage.getItem("poolkey"); if (v) return v; } catch (e) {}
+  try { return sessionStorage.getItem("poolkey"); } catch (e) {}
+  return "";
+}
 el("savekey").addEventListener("click", function () {
   if (!key()) { showAccount("Paste your account key into the box first — it is shown once on the register page, when the account is created."); return; }
-  try { localStorage.setItem("poolkey", key()); } catch (e) {}
+  persistKey(key());
   showAccount("Key saved — checking…");
   refreshBalance();
 });
 el("check").addEventListener("click", refreshBalance);
-try { var saved = localStorage.getItem("poolkey"); if (saved) { el("key").value = saved; refreshBalance(); } } catch (e) {}
+var savedKey = storedKey();
+if (savedKey) { el("key").value = savedKey; refreshBalance(); }
 function addMsg(who, text) {
   var d = document.createElement("div");
   d.className = "msg " + who;
@@ -784,6 +798,7 @@ REGISTER_PAGE = r'''<!doctype html>
     <p><strong>Save this key now — it is shown once and cannot be recovered:</strong></p>
     <p class="key"><code id="newkey"></code></p>
     <p class="muted" id="nextsteps"></p>
+    <p><a id="gochat" href="/chat" style="display:none">Open the chat — your key goes with you</a></p>
   </div>
 </div>
 <script>
@@ -801,6 +816,9 @@ el("create").addEventListener("click", function () {
       el("newkey").textContent = res.j.key;
       el("nextsteps").textContent = "Status: " + res.j.status + ". Once the operator approves the account, paste the key into the chat page to check your balance and start. API door: POST /v1/chat/completions with header Authorization: Bearer <your key>.";
       el("result").style.display = "block";
+      var g = el("gochat");
+      g.href = "/chat#k=" + encodeURIComponent(res.j.key);
+      g.style.display = "inline";
       try { localStorage.setItem("poolkey", res.j.key); } catch (e) {}
     })
     .catch(function () { el("msg").textContent = "Could not reach the pool front door."; });

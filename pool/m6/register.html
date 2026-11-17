@@ -34,6 +34,7 @@
     <p><strong>Save this key now — it is shown once and cannot be recovered:</strong></p>
     <p class="key"><code id="newkey"></code></p>
     <p class="muted" id="nextsteps"></p>
+    <p><a id="gochat" href="/chat" style="display:none">Open the chat — your key goes with you</a></p>
   </div>
 </div>
 <script>
@@ -51,6 +52,9 @@ el("create").addEventListener("click", function () {
       el("newkey").textContent = res.j.key;
       el("nextsteps").textContent = "Status: " + res.j.status + ". Once the operator approves the account, paste the key into the chat page to check your balance and start. API door: POST /v1/chat/completions with header Authorization: Bearer <your key>.";
       el("result").style.display = "block";
+      var g = el("gochat");
+      g.href = "/chat#k=" + encodeURIComponent(res.j.key);
+      g.style.display = "inline";
       try { localStorage.setItem("poolkey", res.j.key); } catch (e) {}
     })
     .catch(function () { el("msg").textContent = "Could not reach the pool front door."; });
