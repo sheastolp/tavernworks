@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Wake in Verrowen narrator gate: a tiny server on the laptop that lets the
-// game page (tavernworks.dev/verrowen/) reach Ollama over Tailscale Funnel
-// without opening Ollama itself to the internet. Anyone can reach a funnel
-// address, and Ollama's own API can also download, copy and delete models,
+// game page (tavernworks.dev/verrowen/) reach the AI backend — Ollama, or
+// the AI Pool's llama-server; both are spoken to through their
+// OpenAI-shaped /v1 API — over Tailscale Funnel without opening the
+// backend itself to the internet. Anyone can reach a funnel address,
+// and a backend's own API can also download, copy and delete models,
 // so the funnel points here instead, and this only lets the game through.
 //
 //   GET  /health     { ok, model, ollama }
@@ -75,6 +77,9 @@ import zlib from "node:zlib";
 
 const PORT = Number(process.env.VERROWEN_PORT || 8792);
 const HOST = process.env.VERROWEN_HOST || "127.0.0.1";
+// The model backend's base address. Ollama by default; set OLLAMA_URL
+// to the AI Pool brain (http://100.100.40.72:8090) and the narrator
+// pick (narrator-model.txt) to the pool's model to run on the pool.
 const OLLAMA = (process.env.OLLAMA_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
 const DEFAULT_MODEL = process.env.VERROWEN_MODEL || "huihui_ai/phi4-mini-abliterated:3.8b";
 const ORIGINS = (process.env.VERROWEN_ORIGINS || "https://tavernworks.dev").split(",").map((s) => s.trim()).filter(Boolean);
@@ -128,9 +133,9 @@ function isOwner(req) {
   return got.length === want.length && crypto.timingSafeEqual(got, want);
 }
 async function installed() {
-  const r = await fetch(OLLAMA + "/api/tags", { signal: AbortSignal.timeout(8000) }).catch(() => null);
-  if (!r || !r.ok) throw Object.assign(new Error("Ollama isn't answering on the laptop"), { status: 502 });
-  return ((await r.json().catch(() => ({}))).models || []).map((m) => m.name);
+  const r = await fetch(OLLAMA + "/v1/models", { signal: AbortSignal.timeout(8000) }).catch(() => null);
+  if (!r || !r.ok) throw Object.assign(new Error("The AI backend isn't answering on the laptop"), { status: 502 });
+  return ((await r.json().catch(() => ({}))).data || []).map((m) => m.id).filter(Boolean);
 }
 
 // ── Small helpers ──
@@ -209,11 +214,14 @@ function ctxFor(chars) {
 let warming = null;
 async function warm(chars) {
   const ctx = ctxFor(chars);
-  const ps = await fetch(OLLAMA + "/api/ps", { signal: AbortSignal.timeout(3000) }).then((r) => r.json(), () => ({}));
-  const loaded = (ps.models || []).some((m) => m.name === MODEL || m.model === MODEL);
-  if (!warming) warming = fetch(OLLAMA + "/api/generate", {
+  const list = await fetch(OLLAMA + "/v1/models", { signal: AbortSignal.timeout(3000) }).then((r) => r.json(), () => ({}));
+  const loaded = (list.data || []).some((m) => m.id === MODEL);
+  // A one-token reply is the warm-up poke: it loads the model on
+  // backends that load on demand, and costs nothing on ones (the
+  // pool's llama-server) that keep the model resident.
+  if (!warming) warming = fetch(OLLAMA + "/v1/chat/completions", {
     method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, keep_alive: "30m", options: { num_ctx: ctx } }),
+    body: JSON.stringify({ model: MODEL, messages: [{ role: "user", content: "Warm up." }], max_tokens: 1, stream: false }),
     signal: AbortSignal.timeout(120000),
   }).then((r) => r.ok, () => false).finally(() => { warming = null; });
   // Already loaded: the refresh is instant. Loading: answer straight away
@@ -225,34 +233,34 @@ async function narrate(messages, left, opts = {}) {
   if (waiting >= MAX_WAITING) throw Object.assign(new Error("The narrator is busy with other players. Try again in a minute."), { status: 503 });
   waiting++;
   try {
-    // Small models sometimes get stuck saying the same token over and over,
-    // and Ollama stops them with "token repeat limit reached". A repeat
-    // penalty makes that rare; if it still happens, try once more with a
-    // stronger penalty and a cooler temperature before giving up.
-    // Room for the whole conversation plus the reply. A window too small
-    // cuts the start of the prompt (the rules and the lore) off silently,
-    // and a small model that loses its instructions is the one that loops.
-    const ctx = ctxFor(messages.reduce((n, m) => n + String(m.content || "").length, 0));
-    const ask = (options) => fetch(OLLAMA + "/api/chat", {
+    // Small models sometimes get stuck saying the same token over and
+    // over. A repeat penalty makes that rare; if the backend still
+    // reports a repeat failure, try once more with a stronger penalty
+    // and a cooler temperature before giving up.
+    // The backend's window is fixed on its side (the pool's server is
+    // launched with the full 16k; Ollama sizes its own), so nothing
+    // here asks for a context — the whole conversation goes as-is.
+    const ask = (options) => fetch(OLLAMA + "/v1/chat/completions", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages, stream: false, keep_alive: "30m", options: { ...(opts.maxTokens ? { num_predict: opts.maxTokens } : {}), num_ctx: ctx, top_p: 0.9, repeat_last_n: 256, ...options, ...(opts.temperature != null ? { temperature: opts.temperature } : {}) } }),
+      body: JSON.stringify({ model: MODEL, messages, stream: false, ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}), top_p: 0.9, ...options, ...(opts.temperature != null ? { temperature: opts.temperature } : {}) }),
       signal: left || undefined,
     });
+    const errText = (x) => (typeof x?.error === "string" ? x.error : x?.error?.message) || "";
     let r = await ask({ temperature: 0.9, repeat_penalty: 1.15 });
     let j = await r.json().catch(() => ({}));
-    if (!r.ok && /repeat/i.test(j.error || "")) {
+    if (!r.ok && /repeat/i.test(errText(j))) {
       r = await ask({ temperature: 0.7, repeat_penalty: 1.3, presence_penalty: 0.5 });
       j = await r.json().catch(() => ({}));
     }
-    if (!r.ok) throw Object.assign(new Error(/repeat/i.test(j.error || "") ? "The AI model got stuck repeating itself, even on a second try. A bigger model (Change AI model) fixes this best" : j.error ? `Ollama: ${j.error}` : `Ollama answered ${r.status}`), { status: 502 });
-    const text = stripThinking(j?.message?.content);
+    if (!r.ok) throw Object.assign(new Error(/repeat/i.test(errText(j)) ? "The AI model got stuck repeating itself, even on a second try. A bigger model (Change AI model) fixes this best" : errText(j) ? `AI backend: ${errText(j)}` : `The AI backend answered ${r.status}`), { status: 502 });
+    const text = stripThinking(j?.choices?.[0]?.message?.content);
     if (!text) throw Object.assign(new Error("The narrator returned nothing"), { status: 502 });
     return text;
   } catch (e) {
     if (e.status) throw e;
     if (left?.aborted) throw Object.assign(new Error("The player stopped waiting"), { status: 499, quiet: true });
-    throw Object.assign(new Error("Ollama isn't answering on the laptop"), { status: 502 });
+    throw Object.assign(new Error("The AI backend isn't answering on the laptop"), { status: 502 });
   } finally { waiting--; }
 }
 
@@ -2042,7 +2050,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "OPTIONS") return send(res, origin ? 204 : 403, {}, origin);
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
-      const up = await fetch(OLLAMA + "/api/version", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false);
+      const up = await fetch(OLLAMA + "/v1/models", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false);
       return send(res, 200, { ok: true, game: "Wake in Verrowen", model: MODEL, ollama: up, resting: rest.on, orreryStore: LOCAL_ON ? (localReady ? "local" : "github-fallback") : "github" }, origin);
     }
     // Browsers on other sites are turned away; scripts without an Origin header still hit the rate limits.
