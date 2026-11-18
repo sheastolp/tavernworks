@@ -48,24 +48,34 @@ cd ~/ai-pool/downloads
 curl -fL -o llama-b12359-vulkan-x64.tar.gz https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-ubuntu-vulkan-x64.tar.gz
 curl -fL -o llama-b12359-cpu-x64.tar.gz https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-ubuntu-x64.tar.gz
 curl -fsSL -H "Accept: application/vnd.github.raw" "https://api.github.com/repos/sheastolp/tavernworks/contents/pool/m5b/pool-worker.py" -o pool-worker.py
+curl -fsSL -H "Accept: application/vnd.github.raw" "https://api.github.com/repos/sheastolp/tavernworks/contents/pool/m5b/install-worker.sh" -o install-worker.sh
 curl -s http://127.0.0.1:8092/downloads/manifest.json
 ```
 
-The manifest should now list six components, every one ≤ 512 MB.
+The manifest should now list seven components, every one ≤ 512 MB.
 
-## A worker PC (Linux)
+## A worker PC (Linux) — the easy path
 
 ```
-mkdir -p ~/pool-worker && cd ~/pool-worker
-curl -fsSL https://pool.tavernworks.dev/downloads/pool-worker.py -o pool-worker.py
-python3 pool-worker.py --name my-pc --offered-mb 8192
+curl -fsSL https://pool.tavernworks.dev/downloads/install-worker.sh -o install-worker.sh
+bash install-worker.sh
 ```
 
-First run enrolls and waits. Approve the machine on the coordinator
+The installer fetches `pool-worker.py` from the shelf and starts
+it. First run enrolls this machine — the name defaults to its
+hostname and the offered memory to a conservative auto-size
+(override either with `--name` / `--offered-mb`) — and waits.
+Approve the machine on the coordinator
 (http://100.100.40.72:8091/ → Enrollments (public) → Approve). The
 worker then downloads its engine from the shelf, starts rpc-server
 on its own localhost, and connects the relay. Ctrl+C drains and
 exits.
+
+On approval the worker prints a personal
+`https://pool.tavernworks.dev/chat#link=…` URL: the contributor
+opens it, saves their account key on that page, and clicks Link
+machine — the form pre-fills from the fragment. That link is how
+the machine's earnings reach their account balance.
 
 - Backend: auto = CUDA when `nvidia-smi` exists, else Vulkan. Force
   one with `--backend cpu` (or `"backend"` in `~/pool-worker/config.json`).

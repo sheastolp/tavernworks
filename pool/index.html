@@ -121,15 +121,29 @@
 
   <h2>Join the pool</h2>
   <div class="card">
-    <p>Joining is open. Install the worker app from the
-    <a href="https://pool.tavernworks.dev/downloads/">download shelf</a>, tell it how much
-    memory you can offer, and wait for the operator's approval — every machine is approved
-    by hand. Your PC dials out to the pool; nothing about it is exposed to the internet.</p>
+    <p>Joining is open, and it's three steps:</p>
+    <ol>
+      <li><strong>Get an account.</strong> Register with the button below. The operator
+      approves accounts by hand; approval comes with 100 starter shares.</li>
+      <li><strong>Run the worker on the PC you're contributing</strong> (Linux with
+      Python 3 — that's the only requirement):
+      <br><code>curl -fsSL https://pool.tavernworks.dev/downloads/install-worker.sh -o install-worker.sh &amp;&amp; bash install-worker.sh</code>
+      <br>It downloads the worker from the pool's own
+      <a href="https://pool.tavernworks.dev/downloads/">download shelf</a>, enrolls your
+      machine with a sensible memory offer (override it with <code>--offered-mb</code> if
+      you like), and waits. The operator approves every machine by hand too — just leave
+      it running; it carries on by itself. Your PC dials out to the pool; nothing about
+      it is exposed to the internet.</li>
+      <li><strong>Link the machine to your account.</strong> Once approved, the worker
+      prints a personal link. Open it, save your account key on that page, and click
+      <em>Link machine</em> — the form fills itself in. From then on your PC earns
+      shares for your account whenever it's in the pool.</li>
+    </ol>
     <p>Contributors earn <strong>shares</strong> for the memory and hours their PC puts in,
     and spend shares to use the pool themselves — through the
-    <a href="https://pool.tavernworks.dev/chat">web chat</a> or a personal API key for the
-    pool's OpenAI-shaped endpoint, or through MCP — point a client at https://pool.tavernworks.dev/mcp with the same key. To use the pool you
-    need an account:</p>
+    <a href="https://pool.tavernworks.dev/chat">web chat</a>, a personal API key for the
+    pool's OpenAI-shaped endpoint, or MCP (point a client at
+    https://pool.tavernworks.dev/mcp with the same key).</p>
     <a class="btn" href="https://pool.tavernworks.dev/register">Get an account</a>
     <a class="btn" href="https://pool.tavernworks.dev/chat">Open the chat</a>
     <p class="fine" style="margin-top:.7rem">Downloads are versioned components, each verified against the published SHA-256 manifest before anything runs. Only ever download the worker from the shelf above — anyone offering you a “pool worker” download anywhere else isn't us.</p>

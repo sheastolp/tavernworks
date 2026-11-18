@@ -23,7 +23,13 @@
 #
 # Config lives in <worker dir>/config.json (worker dir: env
 # POOL_WORKER_DIR, else ~/pool-worker). First run creates it:
-#   python3 pool-worker.py --name my-pc --offered-mb 8192
+#   python3 pool-worker.py
+# The name defaults to this machine's hostname and the offered
+# memory to a conservative auto-size; override either with
+# --name / --offered-mb. Once the operator approves the machine,
+# the worker prints a personal link that ties the machine to
+# the owner's pool account — that link is how its earnings
+# reach their balance.
 # Test hooks: config keys pool_url, rpc_port, engine_dir,
 # rejoin_delay_sec, drain_grace_sec, temp_limit_c.
 import base64
@@ -68,6 +74,18 @@ DEFAULTS = {
 
 def log(msg):
     print("[pool-worker] " + msg, flush=True)
+
+
+def auto_offered_mb(vram_mb, ram_mb):
+    """The default share when the user offers nothing: half of
+    the GPU's VRAM (a CUDA worker holds its slice there) or half
+    of system RAM, rounded down to a 512 MB step and clamped to
+    [1024, 8192]. 4096 when nothing can be detected."""
+    base = vram_mb or ram_mb or 0
+    if base <= 0:
+        return 4096
+    half = (base // 2 // 512) * 512
+    return max(1024, min(8192, half))
 
 
 class Worker:
@@ -133,15 +151,54 @@ class Worker:
             pass
         return ""
 
+    def detect_vram_mb(self):
+        try:
+            out = subprocess.run(
+                ["nvidia-smi", "--query-gpu=memory.total",
+                 "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=10)
+            vals = out.stdout.strip().splitlines()
+            if out.returncode == 0 and vals:
+                return int(float(vals[0].strip()))
+        except Exception:
+            pass
+        return 0
+
+    def total_ram_mb(self):
+        try:
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("MemTotal:"):
+                        return int(line.split()[1]) // 1024
+        except Exception:
+            pass
+        try:
+            return (os.sysconf("SC_PHYS_PAGES") *
+                    os.sysconf("SC_PAGE_SIZE")) // (1024 * 1024)
+        except Exception:
+            return 0
+
     def ensure_enrolled(self):
         if self.cfg["enrollment_id"] and self.cfg["key"]:
             return
         name = self.cfg["name"]
+        if not name:
+            name = socket.gethostname() or "my-pc"
+            self.cfg["name"] = name
+            log("no name given — this machine enrolls as '" + name +
+                "' (change it any time with --name)")
         offered = int(self.cfg["offered_mb"] or 0)
-        if not name or offered < 512:
-            raise SystemExit(
-                "first run needs --name and --offered-mb (512 or more):\n"
-                "  python3 pool-worker.py --name my-pc --offered-mb 8192")
+        if offered < 512:
+            vram = self.detect_vram_mb()
+            ram = self.total_ram_mb()
+            offered = auto_offered_mb(vram, ram)
+            self.cfg["offered_mb"] = offered
+            base = vram or ram
+            log("no --offered-mb given — offering " + str(offered) +
+                " MB" + ((" (about half of this machine's " +
+                          str(base) + " MB)") if base else "") +
+                " (change it any time with --offered-mb)")
+        self.save_cfg()
         code, obj = self.http_json("POST", "/enroll", {
             "name": name, "offered_mb": offered,
             "gpu": self.detect_gpu() or "unknown",
@@ -151,8 +208,10 @@ class Worker:
         self.cfg["enrollment_id"] = obj["id"]
         self.cfg["key"] = obj["key"]
         self.save_cfg()
-        log("enrolled as " + obj["id"] + " — key saved to config. "
-            "Waiting for the operator to approve this machine.")
+        log("enrolled as " + obj["id"] + " — key saved to config.")
+        log("Next: the pool operator approves every machine by "
+            "hand. You don't need to do anything — just leave "
+            "this running and it will carry on by itself.")
 
     def poll_status(self):
         code, obj = self.http_json(
@@ -721,8 +780,11 @@ def main(argv):
     import argparse
     ap = argparse.ArgumentParser(description="AI Pool worker (M5b)")
     ap.add_argument("--config", default="")
-    ap.add_argument("--name", default="")
-    ap.add_argument("--offered-mb", type=int, default=0)
+    ap.add_argument("--name", default="",
+                    help="machine name (default: this PC's hostname)")
+    ap.add_argument("--offered-mb", type=int, default=0,
+                    help="memory to offer, MB (default: a "
+                         "conservative auto-size)")
     ap.add_argument("--backend", default="")
     ap.add_argument("--enroll-only", action="store_true")
     ap.add_argument("--check", action="store_true")
@@ -765,6 +827,12 @@ def main(argv):
         return 0
     if not w.wait_for_approval():
         return 0
+    log("approved! If you haven't already, link this machine to "
+        "your pool account so its earnings land in your balance:")
+    log("  " + w.cfg["pool_url"].rstrip("/") + "/chat#link=" +
+        w.cfg["enrollment_id"] + "." + w.cfg["key"])
+    log("(Open it, save your account key on that page, and click "
+        "'Link machine' — the form fills itself in.)")
     w.ensure_engine()
     log("serving — rpc stays on localhost; the relay is the only "
         "way in. Ctrl+C / SIGTERM drains and exits.")

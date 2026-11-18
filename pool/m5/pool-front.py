@@ -721,7 +721,7 @@ CHAT_PAGE = r'''<!doctype html>
 
   <div class="card">
     <div class="who">Link a machine you enrolled</div>
-    <p class="muted">Machines earn shares for the account they are linked to. You need the enrollment id and the enrollment key (shown once when the machine enrolled; the worker keeps both in its config file).</p>
+    <p class="muted">Machines earn shares for the account they are linked to. When the operator approves your machine, the worker prints a personal link — open it and this form fills itself in. (The enrollment id and key also live in the worker's config file.)</p>
     <input type="text" id="linkid" placeholder="Enrollment id">
     <input type="password" id="linkkey" placeholder="Enrollment key">
     <button id="link" type="button">Link machine</button>
@@ -765,6 +765,19 @@ el("savekey").addEventListener("click", function () {
 el("check").addEventListener("click", refreshBalance);
 var savedKey = storedKey();
 if (savedKey) { el("key").value = savedKey; refreshBalance(); }
+function linkFromFragment() {
+  if (location.hash.indexOf("#link=") !== 0) { return; }
+  var raw = location.hash.slice(6);
+  var dot = raw.indexOf(".");
+  if (dot < 1) { return; }
+  try {
+    el("linkid").value = decodeURIComponent(raw.slice(0, dot));
+    el("linkkey").value = decodeURIComponent(raw.slice(dot + 1));
+    el("linkmsg").textContent = "Your machine's details are filled in from its link — save your account key above, then click Link machine.";
+    el("linkid").scrollIntoView();
+  } catch (e) {}
+}
+linkFromFragment();
 function addMsg(who, text) {
   var d = document.createElement("div");
   d.className = "msg " + who;

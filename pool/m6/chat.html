@@ -36,18 +36,20 @@
       <button id="check" type="button">Check balance</button>
     </div>
     <p class="muted" id="account">No key saved yet. Keys are shown once, when the account is created.</p>
+    <p class="muted">API door: POST /v1/chat/completions · MCP door: POST /mcp — same key, in an Authorization: Bearer header.</p>
   </div>
 
   <div class="card">
     <div id="log"></div>
     <p class="muted" id="status"></p>
     <textarea id="input" placeholder="Say something to the pooled model…"></textarea>
+    <label class="muted" style="display:block;margin:6px 0"><input type="checkbox" id="usetools"> Let the model use registered tools (MCP)</label>
     <button id="send" type="button">Send</button>
   </div>
 
   <div class="card">
     <div class="who">Link a machine you enrolled</div>
-    <p class="muted">Machines earn shares for the account they are linked to. You need the enrollment id and the enrollment key (shown once when the machine enrolled; the worker keeps both in its config file).</p>
+    <p class="muted">Machines earn shares for the account they are linked to. When the operator approves your machine, the worker prints a personal link — open it and this form fills itself in. (The enrollment id and key also live in the worker's config file.)</p>
     <input type="text" id="linkid" placeholder="Enrollment id">
     <input type="password" id="linkkey" placeholder="Enrollment key">
     <button id="link" type="button">Link machine</button>
@@ -91,6 +93,19 @@ el("savekey").addEventListener("click", function () {
 el("check").addEventListener("click", refreshBalance);
 var savedKey = storedKey();
 if (savedKey) { el("key").value = savedKey; refreshBalance(); }
+function linkFromFragment() {
+  if (location.hash.indexOf("#link=") !== 0) { return; }
+  var raw = location.hash.slice(6);
+  var dot = raw.indexOf(".");
+  if (dot < 1) { return; }
+  try {
+    el("linkid").value = decodeURIComponent(raw.slice(0, dot));
+    el("linkkey").value = decodeURIComponent(raw.slice(dot + 1));
+    el("linkmsg").textContent = "Your machine's details are filled in from its link — save your account key above, then click Link machine.";
+    el("linkid").scrollIntoView();
+  } catch (e) {}
+}
+linkFromFragment();
 function addMsg(who, text) {
   var d = document.createElement("div");
   d.className = "msg " + who;
@@ -119,7 +134,7 @@ el("send").addEventListener("click", function () {
       else { el("status").textContent = "Generating…"; }
     }).catch(function () {});
   }, 2000);
-  fetch("/v1/chat/completions", { method: "POST", headers: headers(), body: JSON.stringify({ messages: chatHistory.slice(-20), max_tokens: 512 }) })
+  fetch("/v1/chat/completions", { method: "POST", headers: headers(), body: JSON.stringify({ messages: chatHistory.slice(-20), max_tokens: 512, mcp_tools: el("usetools").checked }) })
     .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
     .then(function (res) {
       clearInterval(poller);
