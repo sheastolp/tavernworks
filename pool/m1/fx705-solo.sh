@@ -8,13 +8,14 @@
 # Purpose: compare speed against the split (which measured 0.9 tok/s
 # on 2026-11-16 — the Yoga's share is the bottleneck). Foreground;
 # Ctrl-C ends it. Stop ai-pool-host first so the GPU is free.
-# Context is 16384 (not the split's 4096): the lore-keeper gate
-# sizes its window to the canon it sends, up to 16k, and this solo
-# brain is the one the gate talks to. The KV pool for 16k on this
-# model is ~2.6 GB — the FX705's RAM carries it easily alongside
-# the weights; Burn's small prompts are unaffected. The split host
-# keeps 4096: at 2,1 the card's share of a 16k KV would not fit
-# next to its weights (the M1 lesson).
+# Context is 16384: the lore-keeper gate sizes its window to the
+# canon it sends, up to 16k, and this solo brain is the one the
+# gate talks to. The KV pool for 16k on this model is ~2.6 GB —
+# the FX705's RAM carries it easily alongside the weights; Burn's
+# small prompts are unaffected. The split host also asks for
+# 16384 since 2026-11-17, with a one-time load fallback to 4096:
+# at 2,1 the card's share of a 16k KV is borderline next to its
+# weights (the M1 lesson), so the fallback earns its keep.
 set -euo pipefail
 
 POOL_DIR="${HOME:-/root}/ai-pool"
