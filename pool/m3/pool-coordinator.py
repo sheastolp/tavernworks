@@ -47,6 +47,19 @@ CONFIG_PATH = os.path.join(POOL_DIR, "pool-config.json")
 CURRENT_MODEL_PATH = os.path.join(POOL_DIR, "current-model.txt")
 SPLIT_PATH = os.path.join(POOL_DIR, "pool-split.txt")
 RPC_PATH = os.path.join(POOL_DIR, "pool-rpc.txt")
+LAST_SEEN_UP = {}   # worker endpoint -> epoch it last answered a probe
+WORKER_GRACE_SEC = 600  # seen up this recently = busy, not down, while
+                        # a split is loading or running
+
+
+def running_rpc_endpoints():
+    """The --rpc list the running split was started with — the file
+    the coordinator itself wrote at Start split."""
+    try:
+        with open(RPC_PATH) as f:
+            return [e.strip() for e in f.read().split(",") if e.strip()]
+    except Exception:
+        return []
 RELAY_STATE_PATH = os.path.join(POOL_DIR, "relay-state.json")
 MEMINFO_PATH = os.environ.get("POOL_MEMINFO", "/proc/meminfo")
 PORT = int(os.environ.get("POOL_PORT", "8091"))
@@ -361,6 +374,18 @@ def pool_state():
     gpu_total = gpu["total_mb"] if gpu else 0
     fx_share = min(int(cfg.get("fx705_gpu_cap_mb") or 3072), gpu_total or 3072)
 
+    # A ggml-rpc-server will not answer this page's side probe while
+    # a llama-server session is connected to it — that is, for the
+    # whole life of a split, loads included (proven live 2026-11-18:
+    # the roster read 'down', split capacity 3072 and 'tensor 1'
+    # while a healthy split was serving). So while a split runs,
+    # trust the device list it was started with; while one is
+    # starting, a worker seen up within the grace window is busy.
+    running_split = brain["up"] and host == "active" and solo != "active"
+    starting = (not brain["up"]) and (solo == "active" or host == "active")
+    trusted = running_rpc_endpoints() if running_split else []
+    now = time.time()
+
     machines = []
     total_offered = 0
     devices = []  # live RPC devices, in split order
@@ -368,10 +393,19 @@ def pool_state():
         entry = dict(m)
         if m.get("role") == "coordinator":
             entry["up"] = brain["up"] or solo == "active" or host == "active"
+            entry["state"] = "up" if entry["up"] else "down"
             entry["holds"] = "last layers (an end)"
             total_offered += gpu_total + mem["total_mb"]
         else:
-            entry["up"] = worker_up(m.get("ip", ""))
+            endpoint = str(m.get("ip", "")) + ":50052"
+            probed = worker_up(m.get("ip", ""))
+            if probed:
+                LAST_SEEN_UP[endpoint] = now
+            busy = (not probed) and (running_split or starting) and (
+                endpoint in trusted
+                or now - LAST_SEEN_UP.get(endpoint, 0) < WORKER_GRACE_SEC)
+            entry["up"] = probed or busy
+            entry["state"] = "up" if probed else ("busy" if busy else "down")
             entry["holds"] = "middle layers"
             total_offered += int(m.get("offered_mb") or 0)
             if entry["up"]:
@@ -379,7 +413,7 @@ def pool_state():
                     entry["holds"] = "first layers (an end)"
                 devices.append({
                     "name": m.get("name", "?"),
-                    "endpoint": str(m.get("ip", "")) + ":50052",
+                    "endpoint": endpoint,
                     "offered_mb": int(m.get("offered_mb") or 0),
                     "source": "tailnet",
                 })
@@ -394,7 +428,7 @@ def pool_state():
         machines.append({
             "name": rm["name"], "role": "worker (relay)",
             "ip": rm["rpc"], "offered_mb": rm["offered_mb"],
-            "up": True, "holds": "middle layers", "relayed": True,
+            "up": True, "state": "up", "holds": "middle layers", "relayed": True,
         })
         total_offered += rm["offered_mb"]
         devices.append({
@@ -698,6 +732,12 @@ def page(st, msg=""):
         cls = "dot" if up else ("dot idle" if idle else "dot off")
         return '<span class="' + cls + '"></span>'
 
+    def state_cell(m):
+        s = m.get("state") or ("up" if m.get("up") else "down")
+        if s == "busy":
+            return dot(False, idle=True) + "busy"
+        return dot(s == "up") + s
+
     rows = ""
     for m in st["machines"]:
         offered = "detected live" if m.get("role") == "coordinator" else (
@@ -712,7 +752,7 @@ def page(st, msg=""):
                  "<td>" + escape(str(m.get("role", ""))) + " · " + escape(str(m.get("ip", ""))) + "</td>"
                  "<td>" + offered + "</td>"
                  "<td>" + escape(str(m.get("holds", ""))) + "</td>"
-                 "<td>" + dot(bool(m.get("up"))) + ("up" if m.get("up") else "down") + "</td></tr>")
+                 "<td>" + state_cell(m) + "</td></tr>")
 
     mrows = ""
     for md in st["models"]:
