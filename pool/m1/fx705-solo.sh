@@ -12,10 +12,10 @@
 # canon it sends, up to 16k, and this solo brain is the one the
 # gate talks to. The KV pool for 16k on this model is ~2.6 GB —
 # the FX705's RAM carries it easily alongside the weights; Burn's
-# small prompts are unaffected. The split host also asks for
-# 16384 since 2026-11-17, with a one-time load fallback to 4096:
-# at 2,1 the card's share of a 16k KV is borderline next to its
-# weights (the M1 lesson), so the fallback earns its keep.
+# small prompts are unaffected. The split host asks for 8192
+# first (raised 2026-11-18 so typical lore-keeper prompts fit),
+# with a one-time load fallback to 4096; 16384 failed context
+# creation on the split twice, so the full window is solo-only.
 set -euo pipefail
 
 POOL_DIR="${HOME:-/root}/ai-pool"

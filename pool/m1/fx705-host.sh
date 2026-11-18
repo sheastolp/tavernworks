@@ -147,27 +147,31 @@ if [ -f "$POOL_DIR/pool-split.txt" ]; then
   case "$PS" in *","*) SPLIT="$PS" ;; esac
 fi
 echo ">> Tensor split: $SPLIT (shares follow the --rpc order; the last is this card's)"
-# Context: 4096 first (changed 2026-11-18, Shea's call). The
-# 16384 attempt failed at context creation on both live tries
-# (journals 2026-11-17 + 2026-11-18: 'failed to create context')
-# — the split's KV pool splits by layer share like the weights,
-# and at 2,1 the 16k pool does not fit this pairing; each doomed
-# attempt also cost ~3 minutes before the fallback. So the split
-# loads directly at the M1-proven 4096 (~200 MiB card KV share).
-# Solo is unaffected (its 16384 comes out of RAM). For different
-# hardware, POOL_SPLIT_TRY_16K=1 restores the 16k-first attempt
-# with the original fallback: if the brain dies DURING LOAD at
-# 16384, wait for every RPC worker to answer again (a load that
-# kills a worker leaves a dead endpoint for as long as that
-# machine's own restart takes), then retry ONCE at 4096. A brain
-# that loaded and ran past the load window is never retried —
-# its exit code passes through and systemd decides. Ctrl-C
-# (130/131) never retries.
-CTX_WANT=4096
-CTX_FALLBACK=""
+# Context: 8192 first (raised 2026-11-18, Shea's call). The
+# split's KV pool splits by layer share like the weights: at 2,1
+# a 16384 pool does not fit this pairing (failed at context
+# creation on both live tries, journals 2026-11-17 + 2026-11-18),
+# while 4096 is M1-proven but too small for the lore-keeper —
+# its canon prompt measured 5,931 tokens live, over a 4096
+# context. 8192 covers typical lore-keeper asks; the heaviest
+# canon loads (~10k tokens) still need solo's 16384. If the
+# brain dies DURING LOAD at 8192, wait for every RPC worker to
+# answer again (a failed load can leave a dead endpoint for as
+# long as that machine's own restart takes), then retry ONCE at
+# 4096. A brain that loaded and ran past the load window is
+# never retried — its exit code passes through and systemd
+# decides. Ctrl-C (130/131) never retries. Overrides:
+# POOL_SPLIT_CTX=<n> picks a different first try, and
+# POOL_SPLIT_TRY_16K=1 restores the 16384 attempt. Solo is
+# unaffected (its 16384 comes out of RAM).
+CTX_WANT="${POOL_SPLIT_CTX:-8192}"
+case "$CTX_WANT" in *[!0-9]*|"") CTX_WANT=8192 ;; esac
 if [ "${POOL_SPLIT_TRY_16K:-}" = "1" ]; then
   CTX_WANT=16384
-  CTX_FALLBACK=4096
+fi
+CTX_FALLBACK=4096
+if [ "$CTX_WANT" -le "$CTX_FALLBACK" ]; then
+  CTX_FALLBACK=""
 fi
 CTX_LOAD_WINDOW="${POOL_SPLIT_LOAD_WINDOW:-900}"
 run_brain() {
