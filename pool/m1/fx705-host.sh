@@ -147,22 +147,28 @@ if [ -f "$POOL_DIR/pool-split.txt" ]; then
   case "$PS" in *","*) SPLIT="$PS" ;; esac
 fi
 echo ">> Tensor split: $SPLIT (shares follow the --rpc order; the last is this card's)"
-# Context 16384 (2026-11-17, Shea's ask) so the lore-keeper's
-# canon prompt fits on the split too, not just on solo. The KV
-# pool splits by layer share like the weights: at 2,1 this card's
-# slice of a 16k KV pool is ~0.9 GB on top of its ~3.0 GB of
-# weights — borderline in 4 GB next to Whisper. So: if the brain
-# dies DURING LOAD at 16384, retry ONCE at 4096 (the M1-proven
-# size, ~200 MiB card KV share). A brain that loaded and ran past
-# the load window is not retried here — its exit code passes
-# through and systemd decides. Ctrl-C (130/131) never retries.
-# Before the retry, wait for every RPC worker to answer again:
-# a load that kills a worker (the 16k attempt can OOM the Yoga's
-# rpc-server) leaves a dead endpoint for as long as that machine's
-# own restart takes, and an instant retry would fail on the dead
-# endpoint even though 4096 itself is fine.
-CTX_WANT=16384
-CTX_FALLBACK=4096
+# Context: 4096 first (changed 2026-11-18, Shea's call). The
+# 16384 attempt failed at context creation on both live tries
+# (journals 2026-11-17 + 2026-11-18: 'failed to create context')
+# — the split's KV pool splits by layer share like the weights,
+# and at 2,1 the 16k pool does not fit this pairing; each doomed
+# attempt also cost ~3 minutes before the fallback. So the split
+# loads directly at the M1-proven 4096 (~200 MiB card KV share).
+# Solo is unaffected (its 16384 comes out of RAM). For different
+# hardware, POOL_SPLIT_TRY_16K=1 restores the 16k-first attempt
+# with the original fallback: if the brain dies DURING LOAD at
+# 16384, wait for every RPC worker to answer again (a load that
+# kills a worker leaves a dead endpoint for as long as that
+# machine's own restart takes), then retry ONCE at 4096. A brain
+# that loaded and ran past the load window is never retried —
+# its exit code passes through and systemd decides. Ctrl-C
+# (130/131) never retries.
+CTX_WANT=4096
+CTX_FALLBACK=""
+if [ "${POOL_SPLIT_TRY_16K:-}" = "1" ]; then
+  CTX_WANT=16384
+  CTX_FALLBACK=4096
+fi
 CTX_LOAD_WINDOW="${POOL_SPLIT_LOAD_WINDOW:-900}"
 run_brain() {
   "$SERVER" -m "$POOL_DIR/$MODEL" \
@@ -187,13 +193,13 @@ wait_for_workers() {
   done
   return 1
 }
-echo ">> Starting pooled $MODEL at http://$TS_IP:8090 (context $CTX_WANT; load fallback $CTX_FALLBACK)"
+echo ">> Starting pooled $MODEL at http://$TS_IP:8090 (context $CTX_WANT${CTX_FALLBACK:+; load fallback $CTX_FALLBACK})"
 echo ">> Watch the load log: it should list a CUDA device AND an RPC device,"
 echo ">> with layers offloaded to both. Leave this terminal open; Ctrl-C stops the pool."
 START=$SECONDS
 CODE=0
 run_brain "$CTX_WANT" || CODE=$?
-if [ "$CODE" -ne 0 ] && [ "$CODE" -ne 130 ] && [ "$CODE" -ne 131 ] && [ $((SECONDS - START)) -lt "$CTX_LOAD_WINDOW" ]; then
+if [ -n "$CTX_FALLBACK" ] && [ "$CODE" -ne 0 ] && [ "$CODE" -ne 130 ] && [ "$CODE" -ne 131 ] && [ $((SECONDS - START)) -lt "$CTX_LOAD_WINDOW" ]; then
   echo "!! Brain exited (code $CODE) during load at context $CTX_WANT — waiting for the RPC workers to answer again, then retrying once at $CTX_FALLBACK."
   if wait_for_workers "${POOL_SPLIT_WORKER_WAIT:-120}"; then
     echo ">> All RPC workers are answering again."
