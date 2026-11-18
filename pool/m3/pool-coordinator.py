@@ -24,6 +24,17 @@ import sys
 import time
 import urllib.request
 from datetime import datetime
+
+try:
+    from zoneinfo import ZoneInfo
+    CENTRAL = ZoneInfo("America/Chicago")
+except Exception:  # no tzdata on the box: a fixed CST offset beats crashing
+    from datetime import timezone as _tz, timedelta as _td
+    CENTRAL = _tz(_td(hours=-6), "CST")
+
+
+def now_central():
+    return datetime.now(CENTRAL)
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, urlparse
@@ -132,7 +143,7 @@ def save_mcp_servers(servers):
 
 
 def append_ledger(account_id, kind, shares, detail):
-    rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    rec = {"ts": now_central().isoformat(timespec="seconds"),
            "account": account_id, "kind": kind,
            "shares": round(float(shares), 4), "detail": str(detail)[:120]}
     with open(LEDGER_PATH, "a") as f:
@@ -435,7 +446,7 @@ def pool_state():
         "current_model": cur,
         "endpoint": "http://" + ip + ":8090/v1",
         "page_url": "http://" + ip + ":" + str(PORT) + "/",
-        "updated": datetime.now().strftime("%d %b %Y %H:%M"),
+        "updated": now_central().strftime("%d %b %Y %H:%M %Z"),
     }
 
 
@@ -454,7 +465,7 @@ def status_json():
         "split": "Active" if st["mode"] == "split" else "Standby — proven, currently off",
         "enrollment": "Open — worker app available; operator approves each machine",
         "speed": MEASURED_SPEED,
-        "updated": datetime.now().strftime("%d %b %Y"),
+        "updated": now_central().strftime("%d %b %Y %H:%M %Z"),
     }
 
 
@@ -524,7 +535,7 @@ def act(name, fields):
         for rec in data["enrollments"]:
             if rec.get("id") == eid:
                 rec["status"] = "approved" if name == "approve_enrollment" else "revoked"
-                rec["decided"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                rec["decided"] = now_central().isoformat(timespec="seconds")
                 save_enrollments(data)
                 return ("Enrollment approved: " + rec.get("name", "?") +
                         " — it can join once the worker relay (M5b) is live."
@@ -564,7 +575,7 @@ def act(name, fields):
         for rec in data["accounts"]:
             if rec.get("id") == aid:
                 rec["status"] = "approved" if name == "approve_account" else "revoked"
-                rec["decided"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                rec["decided"] = now_central().isoformat(timespec="seconds")
                 save_accounts(data)
                 if name == "approve_account" and not starter_credited(aid):
                     starter = float(load_shares_cfg()["starter"])

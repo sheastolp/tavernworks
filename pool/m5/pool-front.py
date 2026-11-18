@@ -64,6 +64,17 @@ import time
 import urllib.request
 import uuid
 from datetime import datetime, timezone
+
+try:
+    from zoneinfo import ZoneInfo
+    CENTRAL = ZoneInfo("America/Chicago")
+except Exception:  # no tzdata on the box: a fixed CST offset beats crashing
+    from datetime import timezone as _tz, timedelta as _td
+    CENTRAL = _tz(_td(hours=-6), "CST")
+
+
+def now_central():
+    return datetime.now(CENTRAL)
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
@@ -106,7 +117,7 @@ _status_cache = {"at": 0, "data": None}
 
 
 def now_iso():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(CENTRAL).isoformat(timespec="seconds")
 
 
 def sha256_file(path):
@@ -173,7 +184,7 @@ def pool_status():
             "split": "—",
             "enrollment": "Open — worker app available; operator approves each machine",
             "speed": "—",
-            "updated": datetime.now().strftime("%d %b %Y"),
+            "updated": datetime.now(CENTRAL).strftime("%d %b %Y %H:%M %Z"),
         }
 
 
