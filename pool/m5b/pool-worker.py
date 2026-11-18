@@ -18,8 +18,9 @@
 #      (relay closes first, rpc-server stops after a grace), and it
 #      rejoins only after a quiet delay.
 #
-# Python 3 standard library only. Linux is the proven platform;
-# the code avoids Unix-only calls where it can.
+# Python 3 standard library only. Windows and Linux are both
+# supported: the engine picking, archive extraction, battery
+# and memory probes are platform-aware.
 #
 # Config lives in <worker dir>/config.json (worker dir: env
 # POOL_WORKER_DIR, else ~/pool-worker). First run creates it:
@@ -37,6 +38,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import secrets
 import shutil
 import signal
@@ -86,6 +88,21 @@ def auto_offered_mb(vram_mb, ram_mb):
         return 4096
     half = (base // 2 // 512) * 512
     return max(1024, min(8192, half))
+
+
+def nvidia_smi_cmd():
+    """Path to nvidia-smi, or None. Windows drivers don't always
+    put it on PATH, so check their usual homes too."""
+    found = shutil.which("nvidia-smi")
+    if found:
+        return found
+    if platform.system() == "Windows":
+        for cand in (
+                r"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe",
+                r"C:\Windows\System32\nvidia-smi.exe"):
+            if os.path.isfile(cand):
+                return cand
+    return None
 
 
 class Worker:
@@ -140,9 +157,12 @@ class Worker:
 
     # ---------------------------------------------------------- enroll
     def detect_gpu(self):
+        smi = nvidia_smi_cmd()
+        if not smi:
+            return ""
         try:
             out = subprocess.run(
-                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                [smi, "--query-gpu=name", "--format=csv,noheader"],
                 capture_output=True, text=True, timeout=10)
             name = out.stdout.strip().splitlines()
             if out.returncode == 0 and name:
@@ -152,9 +172,12 @@ class Worker:
         return ""
 
     def detect_vram_mb(self):
+        smi = nvidia_smi_cmd()
+        if not smi:
+            return 0
         try:
             out = subprocess.run(
-                ["nvidia-smi", "--query-gpu=memory.total",
+                [smi, "--query-gpu=memory.total",
                  "--format=csv,noheader,nounits"],
                 capture_output=True, text=True, timeout=10)
             vals = out.stdout.strip().splitlines()
@@ -165,6 +188,29 @@ class Worker:
         return 0
 
     def total_ram_mb(self):
+        if platform.system() == "Windows":
+            try:
+                import ctypes
+
+                class MEMORYSTATUSEX(ctypes.Structure):
+                    _fields_ = [
+                        ("dwLength", ctypes.c_ulong),
+                        ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong),
+                        ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong),
+                        ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong),
+                        ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+                st = MEMORYSTATUSEX()
+                st.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+                if ctypes.windll.kernel32.GlobalMemoryStatusEx(
+                        ctypes.byref(st)):
+                    return int(st.ullTotalPhys // (1024 * 1024))
+            except Exception:
+                pass
+            return 0
         try:
             with open("/proc/meminfo") as f:
                 for line in f:
@@ -260,10 +306,14 @@ class Worker:
         except Exception:
             return -1
 
-    def pick_components(self, manifest, backend):
-        """Returns (pin, [component names in download order]).
-        Split components (…tar.gz.partNN) are grouped under their
-        base name and ordered by suffix."""
+    def pick_components(self, manifest, backend, plat=None):
+        """Returns (pin, [component names in download order],
+        by_name). Split components (…tar.gz.partNN) are grouped
+        under their base name and ordered by suffix. Only this
+        worker's platform is considered: Windows assets carry
+        '-win-' in the name, Linux ones don't."""
+        if plat is None:
+            plat = "win" if platform.system() == "Windows" else "linux"
         groups = {}
         for comp in manifest.get("components", []):
             name = comp["name"]
@@ -272,8 +322,12 @@ class Worker:
                 base, _, suffix = name.partition(".part")
                 part = suffix
             groups.setdefault(base, []).append((part, comp))
+        def for_plat(base):
+            return ("-win-" in base) == (plat == "win")
         engines, cudarts = {}, {}
         for base, parts in groups.items():
+            if "arm64" in base or not for_plat(base):
+                continue
             if base.startswith("llama-"):
                 engines[base] = parts
             elif base.startswith("cudart-"):
@@ -281,18 +335,36 @@ class Worker:
         cands = [b for b in engines
                  if ("-" + backend + "-") in b or
                  ("-" + backend + ".") in b or backend in b.split("-")]
+        if not cands and backend == "cpu":
+            # The plain build carries no backend keyword in its
+            # name (llama-b12359-bin-ubuntu-x64.tar.gz upstream).
+            others = ("cuda", "vulkan", "rocm", "sycl", "opencl",
+                      "openvino")
+            cands = [b for b in engines
+                     if not any(("-" + o + "-") in b for o in others)]
         if not cands:
             raise SystemExit("the shelf has no " + backend +
-                             " engine component — tell the operator")
+                             " engine component for this platform "
+                             "— tell the operator")
         cands.sort(key=lambda b: self._pin_of(b))
         engine_base = cands[-1]
         pin = self._pin_of(engine_base)
         chosen = [engine_base]
         if backend == "cuda":
-            cc = [b for b in cudarts if self._pin_of(b) == pin]
+            cc = [b for b in cudarts
+                  if pin > 0 and self._pin_of(b) == pin]
+            if not cc:
+                # The Windows cudart name carries no pin — match
+                # the engine's CUDA version instead.
+                m = re.search(r"cuda-(\d+\.\d+)", engine_base)
+                if m:
+                    cc = [b for b in cudarts
+                          if ("cuda-" + m.group(1)) in b]
+            if not cc and len(cudarts) == 1:
+                cc = list(cudarts)
             if not cc:
                 raise SystemExit("the shelf has no cudart component "
-                                 "for pin b" + str(pin))
+                                 "matching " + engine_base)
             chosen.append(cc[0])
         names = []
         by_name = {c["name"]: c for c in manifest["components"]}
@@ -340,7 +412,8 @@ class Worker:
     def ensure_engine(self):
         backend = self.detect_backend()
         manifest = self.fetch_manifest()
-        pin, names, by_name = self.pick_components(manifest, backend)
+        pin, names, by_name = self.pick_components(
+            manifest, backend, plat=self.cfg.get("platform") or None)
         stamp = os.path.join(self.engine_dir, ".pin")
         want_stamp = "b" + str(pin) + "-" + backend
         rpc = self.find_rpc()
@@ -377,11 +450,19 @@ class Worker:
             shutil.rmtree(self.engine_dir)
         os.makedirs(self.engine_dir)
         for arc in archives:
-            with tarfile.open(arc, "r:gz") as tf:
-                try:
-                    tf.extractall(self.engine_dir, filter="data")
-                except TypeError:  # older Python without PEP 706 filters
-                    tf.extractall(self.engine_dir)
+            if arc.endswith(".zip"):
+                import zipfile
+                # zipfile.extractall sanitizes absolute paths and
+                # '..' itself; the component is SHA-256-verified
+                # against the pool's own manifest either way.
+                with zipfile.ZipFile(arc) as zf:
+                    zf.extractall(self.engine_dir)
+            else:
+                with tarfile.open(arc, "r:gz") as tf:
+                    try:
+                        tf.extractall(self.engine_dir, filter="data")
+                    except TypeError:  # older Python without PEP 706 filters
+                        tf.extractall(self.engine_dir)
         with open(stamp, "w") as f:
             f.write(want_stamp)
         if not self.find_rpc():
@@ -400,12 +481,18 @@ class Worker:
 
     def engine_env(self):
         env = dict(os.environ)
+
+        def _is_lib(f):
+            return (f.startswith("libcudart.so") or
+                    f.startswith("libcublas.so") or
+                    f.startswith("libggml") or
+                    f.startswith("cudart64") or
+                    f.startswith("cublas64") or
+                    (f.startswith("ggml") and f.endswith(".dll")))
+
         lib_dirs = []
         for root, _dirs, files in os.walk(self.engine_dir):
-            if any(f.startswith("libcudart.so") or
-                   f.startswith("libcublas.so") for f in files):
-                lib_dirs.append(root)
-            if any(f.startswith("libggml") for f in files):
+            if any(_is_lib(f) for f in files):
                 lib_dirs.append(root)
         if lib_dirs:
             key = "LD_LIBRARY_PATH" if platform.system() != "Windows" \
@@ -495,6 +582,27 @@ class Worker:
     def on_battery(self):
         if not self.cfg["battery_yield"]:
             return False
+        if platform.system() == "Windows":
+            try:
+                import ctypes
+
+                class SYSTEM_POWER_STATUS(ctypes.Structure):
+                    _fields_ = [("ACLineStatus", ctypes.c_byte),
+                                ("BatteryFlag", ctypes.c_byte),
+                                ("BatteryLifePercent", ctypes.c_byte),
+                                ("SystemStatusFlag", ctypes.c_byte),
+                                ("BatteryLifeTime", ctypes.c_ulong),
+                                ("BatteryFullLifeTime", ctypes.c_ulong)]
+                sps = SYSTEM_POWER_STATUS()
+                if ctypes.windll.kernel32.GetSystemPowerStatus(
+                        ctypes.byref(sps)):
+                    # ACLineStatus 0 = running on battery. BatteryFlag
+                    # 128 = no battery at all (a desktop) — never yield.
+                    return (sps.ACLineStatus == 0 and
+                            sps.BatteryFlag != 128)
+            except Exception:
+                pass
+            return False
         base = "/sys/class/power_supply"
         try:
             for name in os.listdir(base):
@@ -510,9 +618,12 @@ class Worker:
         return False
 
     def gpu_temp(self):
+        smi = nvidia_smi_cmd()
+        if not smi:
+            return None
         try:
             out = subprocess.run(
-                ["nvidia-smi", "--query-gpu=temperature.gpu",
+                [smi, "--query-gpu=temperature.gpu",
                  "--format=csv,noheader,nounits"],
                 capture_output=True, text=True, timeout=10)
             if out.returncode == 0:

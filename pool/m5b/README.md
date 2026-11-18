@@ -49,10 +49,17 @@ curl -fL -o llama-b12359-vulkan-x64.tar.gz https://github.com/ggml-org/llama.cpp
 curl -fL -o llama-b12359-cpu-x64.tar.gz https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-ubuntu-x64.tar.gz
 curl -fsSL -H "Accept: application/vnd.github.raw" "https://api.github.com/repos/sheastolp/tavernworks/contents/pool/m5b/pool-worker.py" -o pool-worker.py
 curl -fsSL -H "Accept: application/vnd.github.raw" "https://api.github.com/repos/sheastolp/tavernworks/contents/pool/m5b/install-worker.sh" -o install-worker.sh
+curl -fsSL -H "Accept: application/vnd.github.raw" "https://api.github.com/repos/sheastolp/tavernworks/contents/pool/m5b/install-worker.bat" -o install-worker.bat
+curl -fL -o llama-b12359-bin-win-cuda-12.4-x64.zip https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-win-cuda-12.4-x64.zip
+curl -fL -o cudart-llama-bin-win-cuda-12.4-x64.zip https://github.com/ggml-org/llama.cpp/releases/download/b12359/cudart-llama-bin-win-cuda-12.4-x64.zip
+curl -fL -o llama-b12359-bin-win-vulkan-x64.zip https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-win-vulkan-x64.zip
+curl -fL -o llama-b12359-bin-win-cpu-x64.zip https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-win-cpu-x64.zip
 curl -s http://127.0.0.1:8092/downloads/manifest.json
 ```
 
-The manifest should now list seven components, every one ≤ 512 MB.
+Every component must be ≤ 512 MB. The Windows CUDA pair is the
+12.4 build on purpose: it runs on any NVIDIA driver from 551 up,
+where the 13.5 build would need 580+.
 
 ## A worker PC (Linux) — the easy path
 
@@ -76,6 +83,25 @@ On approval the worker prints a personal
 opens it, saves their account key on that page, and clicks Link
 machine — the form pre-fills from the fragment. That link is how
 the machine's earnings reach their account balance.
+
+## A worker PC (Windows) — the easy path
+
+```
+curl -fsSL https://pool.tavernworks.dev/downloads/install-worker.bat -o install-worker.bat
+install-worker.bat
+```
+
+(in Command Prompt.) The installer checks for Python 3 (via the
+`py` launcher, then `python`), downloads `pool-worker.py` into
+`%USERPROFILE%\pool-worker`, and starts it. Everything after
+that matches the Linux path: enroll (name = the PC's name,
+auto-sized offer), operator approval, engine download (the
+Windows CUDA / Vulkan / CPU zip from the shelf, picked
+automatically for the machine), relay, and the personal
+`#link=` URL on approval. Yield on battery and the GPU
+temperature guard work the same; the PAUSE file lives in
+`%USERPROFILE%\pool-worker`. There is no boot-service story
+on Windows yet — the worker runs in its console window.
 
 - Backend: auto = CUDA when `nvidia-smi` exists, else Vulkan. Force
   one with `--backend cpu` (or `"backend"` in `~/pool-worker/config.json`).
