@@ -531,6 +531,18 @@ def act(name, fields):
                         if rec["status"] == "approved" else
                         "Enrollment revoked: " + rec.get("name", "?") + ".")
         return "No enrollment with that id."
+    if name == "remove_enrollment":
+        eid = (fields.get("id") or [""])[0]
+        data = load_enrollments()
+        for rec in data["enrollments"]:
+            if rec.get("id") == eid:
+                if rec.get("status") != "revoked":
+                    return "Only a revoked enrollment can be removed — revoke it first."
+                data["enrollments"] = [r for r in data["enrollments"]
+                                       if r.get("id") != eid]
+                save_enrollments(data)
+                return "Enrollment removed: " + rec.get("name", "?") + "."
+        return "No enrollment with that id."
     if name == "join":
         mname = (fields.get("name") or [""])[0].strip()
         ip = (fields.get("ip") or [""])[0].strip()
@@ -560,6 +572,19 @@ def act(name, fields):
                     return ("Account approved: " + rec.get("name", "?") +
                             " — starter balance of " + str(starter) + " shares credited.")
                 return ("Account " + rec["status"] + ": " + rec.get("name", "?") + ".")
+        return "No account with that id."
+    if name == "remove_account":
+        aid = (fields.get("id") or [""])[0]
+        data = load_accounts()
+        for rec in data["accounts"]:
+            if rec.get("id") == aid:
+                if rec.get("status") != "revoked":
+                    return "Only a revoked account can be removed — revoke it first."
+                data["accounts"] = [r for r in data["accounts"]
+                                    if r.get("id") != aid]
+                save_accounts(data)
+                return ("Account removed: " + rec.get("name", "?") +
+                        ". Its ledger lines stay in the append-only log.")
         return "No account with that id."
     if name == "gift":
         aid = (fields.get("id") or [""])[0]
@@ -708,6 +733,11 @@ def page(st, msg=""):
                      '<input type="hidden" name="action" value="revoke_enrollment">'
                      '<input type="hidden" name="id" value="' + escape(str(rec.get("id", ""))) + '">'
                      '<button class="alt" type="submit">Revoke</button></form>')
+        if rec.get("status") == "revoked":
+            btns += ('<form class="inline" method="post" action="/action">'
+                     '<input type="hidden" name="action" value="remove_enrollment">'
+                     '<input type="hidden" name="id" value="' + escape(str(rec.get("id", ""))) + '">'
+                     '<button class="alt" type="submit">Remove</button></form>')
         erows += ("<tr><td><strong>" + escape(str(rec.get("name", "?"))) + "</strong></td>"
                   "<td>" + str(rec.get("offered_mb", 0)) + " MB</td>"
                   "<td>" + escape(str(rec.get("gpu", ""))) + " · " + escape(str(rec.get("os", ""))) + "</td>"
@@ -729,6 +759,11 @@ def page(st, msg=""):
                      '<input type="hidden" name="action" value="revoke_account">'
                      '<input type="hidden" name="id" value="' + escape(str(rec.get("id", ""))) + '">'
                      '<button class="alt" type="submit">Revoke</button></form> ')
+        if rec.get("status") == "revoked":
+            btns += ('<form class="inline" method="post" action="/action">'
+                     '<input type="hidden" name="action" value="remove_account">'
+                     '<input type="hidden" name="id" value="' + escape(str(rec.get("id", ""))) + '">'
+                     '<button class="alt" type="submit">Remove</button></form>')
         if rec.get("status") == "approved":
             btns += ('<form class="inline" method="post" action="/action">'
                      '<input type="hidden" name="action" value="gift">'
