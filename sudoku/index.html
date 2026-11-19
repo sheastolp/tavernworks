@@ -363,12 +363,9 @@
 
     <div class="redeem">
       <h3 style="font-family:Cinzel,serif;font-size:17px;color:var(--gold2)">Already bought the download?</h3>
-      <p style="color:var(--muted);font-size:14.5px">The download link is in your purchase email. To get a fresh one, enter your licence key:</p>
-      <div class="fields">
-        <label>Licence key<input type="text" id="dl-key" autocomplete="off" spellcheck="false"></label>
-        <button class="btn gold" type="button" id="dl-go" style="cursor:pointer">⬇ Download</button>
-      </div>
-      <p class="keystatus" id="dl-status"></p>
+      <p style="color:var(--muted);font-size:14.5px">Your licence key and download are in your purchase email. Your account page has your keys, and lets you free up a setup you no longer use (each browser or OBS where you enter the key counts as one).</p>
+    <div class="btnrow" style="margin-top:10px"><a class="btn" id="account-link" href="#" target="_blank" rel="noopener">Open my account</a></div>
+    <p class="keystatus" id="dl-status"></p>
     </div>
 
     <details class="more">
@@ -472,7 +469,8 @@
   <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Homebrewed by Stoned Sheamus<br><a href="/overlays/">Overlays</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
 </div>
 <script src="play/js/sudoku.js"></script>
-<script src="play/js/license.js"></script>
+<script src="play/js/vendor/nacl-fast.min.js"></script>
+    <script src="play/js/license.js"></script>
 <script src="play/js/cosmetics.js"></script>
 <script>
 (function () {
@@ -535,7 +533,7 @@
     if (!s.key.trim()) return show("★ looks need a Supporter licence key. Without one, the Game link shows the standard look.");
     const n = ++keySeq;
     show("Checking key…");
-    L.check(s.key).then((r) => {
+    L.lookup(s.key).then((r) => {
       if (n !== keySeq) return;
       if (r.unlocks.cosmetics) show("✓ Supporter key: every look is unlocked.", "ok");
       else if (r.status === "valid" || r.status === "cached") show("This key covers the offline download, not the ★ looks.", "bad");
@@ -599,15 +597,10 @@
     else { btn.textContent = "Coming soon"; btn.setAttribute("aria-disabled", "true"); btn.removeAttribute("href"); }
   });
 
-  // Re-download with a licence key.
-  $("dl-go").addEventListener("click", async () => {
-    const st = $("dl-status"), btn = $("dl-go");
-    st.dataset.state = ""; st.textContent = "Checking…"; btn.disabled = true;
-    const r = await L.downloadLink($("dl-key").value);
-    btn.disabled = false;
-    if (r.url) { st.dataset.state = "ok"; st.textContent = "✓ Your download is starting."; location.href = r.url; }
-    else { st.dataset.state = "bad"; st.textContent = r.error; }
-  });
+  // Customer account page on the licensing site.
+      const acct = $("account-link");
+      if (L.config.accountUrl) acct.href = L.config.accountUrl;
+      else { acct.textContent = "Accounts open soon"; acct.setAttribute("aria-disabled", "true"); acct.removeAttribute("href"); }
 })();
 </script>
 </body>

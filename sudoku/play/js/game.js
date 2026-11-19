@@ -57,7 +57,7 @@
       if (!key.trim()) return show(want ? '★ looks need a Supporter licence key, or they fall back to the standard look. Try them free with “Try demo”.' : '');
       const n = ++seq;
       show('Checking key…');
-      License.check(key).then((r) => {
+      License.lookup(key).then((r) => {
         if (n !== seq) return;
         if (r.unlocks.cosmetics) show('✓ Supporter key: every look is unlocked.', 'ok');
         else if (r.status === 'valid' || r.status === 'cached') show('This key covers the offline download, not the ★ looks.', 'bad');
