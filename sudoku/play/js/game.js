@@ -16,6 +16,12 @@
     transparent: params.get('bg') === 'transparent',
     notes: params.get('notes') !== '0', // viewers can pencil in notes, e.g. B7?35
     frame: params.get('frame') === '1', // fills the Sudoku window of GuildScribe's full stream theme
+    // Looks only (cosmetics.js). The non-default options need a Supporter licence key.
+    theme: params.get('theme') || '',
+    celebrate: params.get('celebrate') || '',
+    digits: params.get('digits') || '',
+    ink: params.get('ink') || '',
+    key: params.get('key') || '',
   };
 
   const POINTS = { correct: 10, unit: 5, finish: 10, wrong: -2 };
@@ -34,6 +40,33 @@
   const LS_PAUSED = NS + 'paused';
 
   function num(v, d) { const n = parseFloat(v); return Number.isFinite(n) ? n : d; }
+
+  // Setup screen: fill the Looks pickers and check the licence key as it's typed.
+  function setupLooks(form, update) {
+    for (const k of Cosmetics.KINDS) {
+      const sel = form[k];
+      for (const [id, o] of Object.entries(Cosmetics.CATALOG[k].options)) sel.append(new Option(o.name + (o.free ? '' : '  ★'), id));
+    }
+    const status = document.querySelector('#setup-key-status');
+    let timer = 0, seq = 0;
+    const show = (text, state) => { status.textContent = text; status.dataset.state = state || ''; };
+    const run = () => {
+      const want = Cosmetics.wantsPaid(Cosmetics.normalize(Object.fromEntries(new FormData(form))));
+      const key = form.key.value;
+      if (!License.enabled()) return show(want ? 'Supporter looks are coming soon. Try them now with “Try demo”.' : '');
+      if (!key.trim()) return show(want ? '★ looks need a Supporter licence key, or they fall back to the standard look. Try them free with “Try demo”.' : '');
+      const n = ++seq;
+      show('Checking key…');
+      License.check(key).then((r) => {
+        if (n !== seq) return;
+        if (r.unlocks.cosmetics) show('✓ Supporter key: every look is unlocked.', 'ok');
+        else if (r.status === 'valid' || r.status === 'cached') show('This key covers the offline download, not the ★ looks.', 'bad');
+        else show(r.message || "That key wasn't accepted.", 'bad');
+      });
+    };
+    form.addEventListener('input', (e) => { clearTimeout(timer); timer = setTimeout(run, e.target.name === 'key' ? 500 : 0); });
+    run();
+  }
   const $ = (s) => document.querySelector(s);
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
@@ -52,6 +85,8 @@
       if (!fd.get('bg')) u.searchParams.delete('bg');
 
       if (fd.get('notes')) u.searchParams.delete('notes'); else u.searchParams.set('notes', '0');
+      for (const k of Cosmetics.KINDS) if (fd.get(k) === Cosmetics.DEFAULTS[k]) u.searchParams.delete(k);
+      if (!Cosmetics.wantsPaid(Cosmetics.normalize(Object.fromEntries(fd)))) u.searchParams.delete('key');
       const lv = +form.difficulty.value, mode = fd.get('mode');
       $('#setup-level-lbl').textContent = mode === 'auto' ? 'Starting difficulty:' : 'Difficulty:';
       $('#setup-level').textContent = mode === 'rotate' ? `Cycles 1 → ${MAX}` : `${lv} · ${Sudoku.LEVELS[lv].name}`;
@@ -62,7 +97,12 @@
     form.addEventListener('input', update);
     form.addEventListener('submit', (e) => { e.preventDefault(); update(); location.href = out.value; });
     $('#setup-copy').addEventListener('click', () => { update(); out.select(); navigator.clipboard?.writeText(out.value); });
-    $('#setup-demo').addEventListener('click', () => { location.search = '?demo=1'; });
+    $('#setup-demo').addEventListener('click', () => {
+      const q = new URLSearchParams({ demo: '1' });
+      for (const k of Cosmetics.KINDS) if (form[k].value !== Cosmetics.DEFAULTS[k]) q.set(k, form[k].value);
+      location.search = '?' + q;
+    });
+    setupLooks(form, update);
     update();
     return;
   }
@@ -76,6 +116,15 @@
     font.href = 'https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap';
     document.head.append(font);
   }
+
+  // ---------- Cosmetics ----------
+  // Looks only: a theme, digit font/style and solve celebration. They never
+  // touch puzzles, moves, scoring or timers. Paid looks need a Supporter key;
+  // without one the free defaults show and the game plays exactly the same.
+  // The channel-less demo previews every look for free.
+  const wantLooks = Cosmetics.normalize(cfg);
+  let looks = Cosmetics.allowed(wantLooks, SANDBOX || License.cachedUnlocks(cfg.key).cosmetics);
+  Cosmetics.apply(looks, { framed: cfg.frame });
 
   // ---------- State ----------
   let state = null; // { puzzle, solution, grid, owners, scores, level, variant, tech, mixIndex, round, startedAt, lastProgress }
@@ -247,7 +296,7 @@
   // darker shade of the same hue so numbers stay high-contrast.
   function inkFor(color) {
     const m = /hsl\((\d+) (\d+)% (\d+)%\)/.exec(color || '');
-    if (!m) return color;
+    if (!m || document.body.classList.contains('dark-board')) return color;
     const h = +m[1];
     const l = h >= 40 && h <= 190 ? 30 : 38; // yellows/greens need to be darker to read on white
     return `hsl(${h} ${Math.min(+m[2], 90)}% ${l}%)`;
@@ -523,6 +572,7 @@
     $('#ov-adapt').dataset.dir = adapt ? Math.sign(adapt.delta) : 0;
     if (adapt) feed({ type: 'system', text: `Chat got ${adapt.why}: next puzzle level ${nl}` });
     $('#overlay').classList.add('show');
+    Cosmetics.celebrate(looks.celebrate, top.slice(0, 3).map((p) => p.color));
     let left = cfg.nextIn;
     $('#ov-next').textContent = left;
     nextTimer = setInterval(() => {
@@ -571,6 +621,7 @@
     n.style.color = owner && !owner.hint ? inkFor(owner.color) : '';
     who.textContent = owner ? (owner.hint ? 'hint' : owner.name) : '';
     who.style.color = owner && !owner.hint ? inkFor(owner.color) : '';
+    if (owner && !owner.hint) el.style.setProperty('--glow', owner.color); else el.style.removeProperty('--glow');
     const isExample = !v && i === state.example;
     const mask = v ? 0 : isExample ? candidates(i) : (state.notes && state.notes[i]) || 0;
     el.classList.toggle('example', isExample);
@@ -717,6 +768,22 @@
   }
   setInterval(tick, 250);
   tick();
+
+  // Paid looks: confirm the key with the licensing service. The game is
+  // already running with whatever the last check allowed; this only swaps looks.
+  if (!SANDBOX && Cosmetics.wantsPaid(wantLooks)) {
+    License.check(cfg.key).then((r) => {
+      const ok = r.unlocks.cosmetics;
+      looks = Cosmetics.allowed(wantLooks, ok);
+      Cosmetics.apply(looks, { framed: cfg.frame });
+      renderAll();
+      if (!ok) {
+        const why = { none: 'no licence key in the link', offline: "licensing isn't open yet", invalid: "the licence key wasn't accepted", error: "the licensing server couldn't be reached" }[r.status] || 'no licence';
+        console.warn('Sudoku on Stream: Supporter looks are off (' + why + ').', r.message || '');
+        feed({ type: 'system', text: `Supporter looks are off (${why}), so the standard look is showing` });
+      }
+    });
+  }
 
   document.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT') return;

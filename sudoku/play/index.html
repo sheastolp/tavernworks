@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sudoku on Stream</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/cosmetics.css">
 </head>
 <body>
   <!-- Setup screen: shown when no ?channel= is given -->
@@ -50,6 +51,18 @@
         </div>
         <label class="check"><input type="checkbox" name="notes" value="1" checked> Let viewers pencil in notes (e.g. B7?35)</label>
         <label class="check"><input type="checkbox" name="bg" value="transparent"> Transparent background</label>
+        <fieldset class="looks">
+          <legend>Looks</legend>
+          <p class="small">Looks only change how the board looks, never how the game plays. Options marked ★ come with the Supporter licence.</p>
+          <div class="row2">
+            <label>Board theme <select name="theme"></select></label>
+            <label>Solve celebration <select name="celebrate"></select></label>
+            <label>Digit font <select name="digits"></select></label>
+            <label>Digit style <select name="ink"></select></label>
+          </div>
+          <label>Supporter licence key <input name="key" placeholder="Only needed for ★ looks" autocomplete="off" spellcheck="false"></label>
+          <p id="setup-key-status" class="small key-status"></p>
+        </fieldset>
         <label>Browser Source URL <input id="setup-url" readonly></label>
         <div class="actions">
           <button type="button" id="setup-copy">Copy URL</button>
@@ -130,6 +143,8 @@
   </main>
 
   <script src="js/sudoku.js"></script>
+  <script src="js/license.js"></script>
+  <script src="js/cosmetics.js"></script>
   <script src="js/twitch.js"></script>
   <script src="js/game.js"></script>
 </body>

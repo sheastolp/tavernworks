@@ -180,6 +180,27 @@
   .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}
   .two h3{font-family:Cinzel,serif;font-size:17px;color:var(--gold2);margin-bottom:4px}
   .scroll ul{color:var(--muted);font-size:14.5px;margin:8px 0 0 20px;display:flex;flex-direction:column;gap:4px}
+
+  .looks{margin-top:14px;border:1px dashed var(--line);border-radius:12px;padding:12px 16px 14px}
+  .looks summary{cursor:pointer;color:var(--gold2);font-size:13.5px;font-weight:600}
+  .looks > p{color:var(--muted);font-size:13.5px;margin-top:8px}
+  .keystatus{font-size:13.5px;color:var(--muted);margin-top:10px}
+  .keystatus:empty{display:none}
+  .keystatus[data-state=ok]{color:var(--green)}
+  .keystatus[data-state=bad]{color:var(--ember)}
+  .free-note{margin-top:16px;padding:12px 16px;border-radius:12px;background:rgba(127,176,105,.08);border:1px solid rgba(127,176,105,.25);color:var(--muted);font-size:14.5px}
+  .free-note b{color:var(--green)}
+  .tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px;margin-top:16px}
+  .tier{display:flex;flex-direction:column;gap:10px;background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:22px}
+  .tier.best{border-color:var(--gold);box-shadow:0 0 28px rgba(224,168,74,.15)}
+  .tier h3{font-family:Cinzel,serif;font-size:19px;color:var(--gold2)}
+  .tier .price{font-size:26px;font-weight:600;color:var(--text)}
+  .tier .price:empty{display:none}
+  .tier ul{color:var(--muted);font-size:14.5px;margin-left:20px;display:flex;flex-direction:column;gap:4px;flex:1}
+  .tier .tag-best{align-self:flex-start;font-size:11px;font-weight:600;letter-spacing:.05em;padding:3px 10px;border-radius:999px;background:rgba(224,168,74,.18);color:var(--gold2)}
+  .redeem{margin-top:16px}
+  .redeem .fields{margin-top:8px}
+  .redeem input[type=text]{width:min(100%,320px)}
 </style>
 </head>
 <body>
@@ -194,6 +215,7 @@
     <p class="tag">A Sudoku your <b>Twitch chat solves together</b>. Viewers type a cell and a number, like <b>B7 4</b>. Right answers land on the board in their chat colour, and points go to a live leaderboard.</p>
     <div class="badges">
       <span class="pill beta">NEW</span>
+      <span class="pill live">FREE TO PLAY</span>
       <span class="pill plain">TWITCH CHAT</span>
       <span class="pill plain">OBS BROWSER SOURCE</span>
       <span class="pill plain">NO BOT · NO LOGIN</span>
@@ -252,6 +274,22 @@
         </div>
         <p style="margin-top:10px;color:var(--muted);font-size:13.5px">A prefix like <code>!</code> means chat types <code>!B7 4</code>. Use it if normal chat keeps setting off moves. Hint <code>0</code> turns automatic hints off.</p>
       </details>
+      <details class="looks" id="looks">
+        <summary>★ Looks: themes, celebrations, digit fonts</summary>
+        <p>Looks only change how the board looks, never how the game plays. Pick one and the demo at the top of the page shows it. Options marked ★ come with the <a href="#offline" style="color:var(--gold2)">Supporter bundle</a>.</p>
+        <div class="fields">
+          <label>Board theme<select id="theme"></select></label>
+          <label>Solve celebration<select id="celebrate"></select></label>
+        </div>
+        <div class="fields">
+          <label>Digit font<select id="digits"></select></label>
+          <label>Digit style<select id="ink"></select></label>
+        </div>
+        <div class="fields">
+          <label>Supporter licence key<input type="text" id="key" placeholder="Only needed for ★ looks" autocomplete="off" spellcheck="false"></label>
+        </div>
+        <p class="keystatus" id="key-status"></p>
+      </details>
 
       <span class="urllbl">🎮 Game (the board on stream)</span>
       <div class="copyrow"><code id="game-url">Type your channel name above</code><button class="copy" type="button" id="copy-game" disabled>Copy</button></div>
@@ -294,19 +332,54 @@
     </div>
   </div>
 
-  <div class="divider" id="download">RATHER RUN IT YOURSELF?</div>
+  <div class="divider" id="offline">EXTRAS FOR SUPPORTERS</div>
   <div class="scroll">
-    <p>The links above use the copy hosted here, which always has the latest version. If you'd rather run it from your own computer (it works with no internet apart from Twitch chat), download it instead:</p>
-    <div class="btnrow" style="margin-top:14px">
-      <a class="btn gold" href="sudoku-on-stream.zip" download>⬇ Download sudoku-on-stream.zip</a>
+    <p>Everything above is free: every puzzle type, all 20 levels, the control page and every option, hosted here with the latest version. If you'd like to support the tavern, there are two extras. Neither one changes how the game plays.</p>
+    <div class="tiers">
+      <div class="tier">
+        <h3>Offline download</h3>
+        <div class="price" id="price-offline"></div>
+        <ul>
+          <li>The whole game as a zip, to run from your own computer</li>
+          <li>Works with no internet apart from Twitch chat</li>
+          <li>Keeps working even if this site is down</li>
+        </ul>
+        <a class="btn" id="buy-offline" href="#" target="_blank" rel="noopener">Buy the download</a>
+      </div>
+      <div class="tier best">
+        <span class="tag-best">BEST VALUE</span>
+        <h3>Supporter bundle</h3>
+        <div class="price" id="price-supporter"></div>
+        <ul>
+          <li>The offline download</li>
+          <li>Every ★ look: 5 board themes, 3 solve celebrations, 4 digit fonts and 2 digit styles</li>
+          <li>Works on the hosted copy and your download</li>
+        </ul>
+        <a class="btn gold" id="buy-supporter" href="#" target="_blank" rel="noopener">Become a Supporter</a>
+      </div>
     </div>
-    <ol style="color:var(--muted);font-size:14.5px;margin:14px 0 0 20px;display:flex;flex-direction:column;gap:4px">
-      <li>Unzip it somewhere it can stay, like <b>Documents</b>.</li>
-      <li>Double-click <code>index.html</code>. The setup screen opens; fill it in and click <b>Copy URL</b>.</li>
-      <li>In OBS, add a <b>Browser</b> source, <b>untick Local file</b>, paste the URL and set 1920 × 1080.</li>
-      <li>For the control page, add <code>control.html</code> the same way, as a <code>file:///</code> URL from the same folder.</li>
-    </ol>
-    <p style="margin-top:12px">Scores and the puzzle in progress are saved inside OBS, separately for the hosted and downloaded copies, so pick one and stick with it.</p>
+    <p class="free-note"><b>No pay-to-win, ever.</b> Paying never changes puzzles, scoring, hints, difficulty or commands. Try every look free in the demo at the top of the page.</p>
+
+    <div class="redeem">
+      <h3 style="font-family:Cinzel,serif;font-size:17px;color:var(--gold2)">Already bought the download?</h3>
+      <p style="color:var(--muted);font-size:14.5px">The download link is in your purchase email. To get a fresh one, enter your licence key:</p>
+      <div class="fields">
+        <label>Licence key<input type="text" id="dl-key" autocomplete="off" spellcheck="false"></label>
+        <button class="btn gold" type="button" id="dl-go" style="cursor:pointer">⬇ Download</button>
+      </div>
+      <p class="keystatus" id="dl-status"></p>
+    </div>
+
+    <details class="more">
+      <summary>How to set up the download</summary>
+      <ol style="color:var(--muted);font-size:14.5px;margin:10px 0 0 20px;display:flex;flex-direction:column;gap:4px">
+        <li>Unzip it somewhere it can stay, like <b>Documents</b>.</li>
+        <li>Double-click <code>index.html</code>. The setup screen opens; fill it in (and your licence key, for ★ looks) and click <b>Copy URL</b>.</li>
+        <li>In OBS, add a <b>Browser</b> source, <b>untick Local file</b>, paste the URL and set 1920 × 1080.</li>
+        <li>For the control page, add <code>control.html</code> the same way, as a <code>file:///</code> URL from the same folder.</li>
+      </ol>
+      <p style="margin-top:10px;color:var(--muted);font-size:14.5px">Scores and the puzzle in progress are saved inside OBS, separately for the hosted and downloaded copies, so pick one and stick with it.</p>
+    </details>
   </div>
 
   <div class="divider">HOW CHAT PLAYS</div>
@@ -362,6 +435,14 @@
   <div class="divider">QUESTIONS AT THE BAR</div>
   <div class="scroll faq">
     <details>
+      <summary>Is it free?</summary>
+      <p>Yes. The full game is free to play, hosted here, with every puzzle type, level and option. The <a href="#offline" style="color:var(--gold2)">offline download</a> and the ★ looks are paid extras. They're there for people who want to support the tavern, and they never change how the game plays.</p>
+    </details>
+    <details>
+      <summary>Where do I put my Supporter licence key?</summary>
+      <p>Open <b>★ Looks</b> in step 1, pick your looks and paste your key; it's added to the Game link. On the download, paste it into the setup screen. If the key is missing or can't be checked, the board shows the standard look and the game carries on as normal.</p>
+    </details>
+    <details>
       <summary>Do I need a bot or to log in with Twitch?</summary>
       <p>No. The board reads your chat the same way twitch.tv shows it to logged-out viewers: anonymously and read-only. It never posts in chat and never asks for a password or token.</p>
     </details>
@@ -390,6 +471,8 @@
   <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Homebrewed by Stoned Sheamus<br><a href="/overlays/">Overlays</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
 </div>
 <script src="play/js/sudoku.js"></script>
+<script src="play/js/license.js"></script>
+<script src="play/js/cosmetics.js"></script>
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -415,7 +498,12 @@
   };
 
   // The link builder.
-  const ids = ["channel", "frame", "mode", "difficulty", "variant", "notes", "bg", "prefix", "hint", "cooldown", "next"];
+  // Looks pickers, filled from the game's own catalogue.
+  const C = window.Cosmetics, L = window.License;
+  C.KINDS.forEach((k) => {
+    for (const [id, o] of Object.entries(C.CATALOG[k].options)) $(k).append(new Option(o.name + (o.free ? "" : "  ★"), id));
+  });
+  const ids = ["channel", "frame", "mode", "difficulty", "variant", "notes", "bg", "prefix", "hint", "cooldown", "next", ...C.KINDS, "key"];
   const el = Object.fromEntries(ids.map((k) => [k, $(k)]));
   const saved = (() => { try { return JSON.parse(store.get("sudoku.setup")) || {}; } catch { return {}; } })();
   ids.forEach((k) => {
@@ -425,10 +513,42 @@
   const gameBox = $("game-url"), copyGame = $("copy-game"), tryLink = $("try-link");
   $("control-url").textContent = PLAY + "control.html";
 
-  function update() {
+  // The demo at the top shows the looks being picked.
+  let previewSig = "demo=1";
+  function updatePreview(s) {
+    const q = new URLSearchParams({ demo: "1" });
+    C.KINDS.forEach((k) => { if (s[k] !== C.DEFAULTS[k]) q.set(k, s[k]); });
+    if (s.frame) q.set("frame", "1");
+    const sig = q.toString();
+    if (sig !== previewSig) { previewSig = sig; frame.src = "play/?" + sig; }
+  }
+
+  // Licence key status for ★ looks.
+  let keyTimer = 0, keySeq = 0;
+  function keyStatus(s) {
+    const box = $("key-status");
+    const show = (t, st) => { box.textContent = t; box.dataset.state = st || ""; };
+    const want = C.wantsPaid(C.normalize(s));
+    if (!want) return show("");
+    if (!L.enabled()) return show("Supporter looks are coming soon. You can preview them in the demo above now; the Game link will show the standard look until then.");
+    if (!s.key.trim()) return show("★ looks need a Supporter licence key. Without one, the Game link shows the standard look.");
+    const n = ++keySeq;
+    show("Checking key…");
+    L.check(s.key).then((r) => {
+      if (n !== keySeq) return;
+      if (r.unlocks.cosmetics) show("✓ Supporter key: every look is unlocked.", "ok");
+      else if (r.status === "valid" || r.status === "cached") show("This key covers the offline download, not the ★ looks.", "bad");
+      else show(r.message || "That key wasn't accepted.", "bad");
+    });
+  }
+
+  function update(e) {
     const s = {};
     ids.forEach((k) => { s[k] = el[k].type === "checkbox" ? el[k].checked : el[k].value; });
     store.set("sudoku.setup", JSON.stringify(s));
+    updatePreview(s);
+    clearTimeout(keyTimer);
+    keyTimer = setTimeout(() => keyStatus(s), e && e.target === el.key ? 500 : 0);
 
     const lv = +s.difficulty, lvName = LEVELS[lv] ? " · " + LEVELS[lv].name : "";
     el.difficulty.disabled = s.mode === "rotate";
@@ -451,6 +571,9 @@
     if (!s.notes) q.set("notes", "0");
     if (s.bg) q.set("bg", "transparent");
     if (s.prefix.trim()) q.set("prefix", s.prefix.trim());
+    const looks = C.normalize(s);
+    C.KINDS.forEach((k) => { if (looks[k] !== C.DEFAULTS[k]) q.set(k, looks[k]); });
+    if (C.wantsPaid(looks) && L.cleanKey(s.key)) q.set("key", L.cleanKey(s.key));
     [["hint", 60], ["cooldown", 3], ["next", 45]].forEach(([k, d]) => {
       const v = s[k] === "" ? d : +s[k];
       if (Number.isFinite(v) && v !== d) q.set(k, Math.max(k === "next" ? 3 : 0, v));
@@ -464,7 +587,26 @@
   copyGame.addEventListener("click", () => copy(copyGame, copyGame.dataset.copy));
   $("copy-control").addEventListener("click", () => copy($("copy-control"), PLAY + "control.html"));
   $("copy-blurb").addEventListener("click", () => copy($("copy-blurb"), $("chat-blurb").textContent));
+  if (C.wantsPaid(C.normalize(saved))) $("looks").open = true;
   update();
+
+  // Paid extras: checkout links and prices come from the game's licence settings.
+  ["offline", "supporter"].forEach((p) => {
+    const cfg = L.config.store[p], btn = $("buy-" + p);
+    $("price-" + p).textContent = cfg.price || "";
+    if (cfg.url) btn.href = cfg.url;
+    else { btn.textContent = "Coming soon"; btn.setAttribute("aria-disabled", "true"); btn.removeAttribute("href"); }
+  });
+
+  // Re-download with a licence key.
+  $("dl-go").addEventListener("click", async () => {
+    const st = $("dl-status"), btn = $("dl-go");
+    st.dataset.state = ""; st.textContent = "Checking…"; btn.disabled = true;
+    const r = await L.downloadLink($("dl-key").value);
+    btn.disabled = false;
+    if (r.url) { st.dataset.state = "ok"; st.textContent = "✓ Your download is starting."; location.href = r.url; }
+    else { st.dataset.state = "bad"; st.textContent = r.error; }
+  });
 })();
 </script>
 </body>

@@ -57,7 +57,14 @@ body.setup-mode #game { display: none; }
   font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%;
 }
 .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-@media (max-width: 560px) { .row3 { grid-template-columns: 1fr; } }
+.row2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.looks { border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px 14px; margin: 0; display: grid; gap: 12px; min-width: 0; }
+.looks legend { padding: 0 6px; font-weight: 700; color: var(--text); }
+.setup-card .looks p.small { margin: 0; }
+.setup-card .key-status:empty { display: none; }
+.setup-card .key-status[data-state=ok] { color: var(--good); }
+.setup-card .key-status[data-state=bad] { color: var(--bad); }
+@media (max-width: 560px) { .row3, .row2 { grid-template-columns: 1fr; } }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 button { font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 10px 18px; background: var(--accent); color: #0f1020; cursor: pointer; }
 button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
