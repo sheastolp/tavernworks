@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sudoku Control</title>
+  <style>
+    :root {
+      --bg: #0f1020; --panel: #171a33; --line: #2e3463; --text: #eef0ff; --muted: #9aa0c8;
+      --accent: #8b93ff; --accent2: #ffcf5c; --good: #4ade80; --bad: #ff5c7a;
+      --font: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    /* Sized for a 1920x1080 OBS source. OBS's default custom CSS sets body { overflow: hidden },
+       so the page scrolls inside its own container instead of relying on the body. */
+    html { font-size: 16px; }
+    @media (min-width: 1280px) { html { font-size: 18px; } }
+    @media (min-width: 1600px) { html { font-size: 20px; } }
+    html, body { height: 100%; margin: 0; overflow: hidden !important; background: var(--bg); }
+    body { color: var(--text); font: 1rem/1.4 var(--font); }
+    .page { height: 100vh; overflow-y: auto; overscroll-behavior: contain; padding: 1.2rem 1.5rem 2rem; }
+    .page::-webkit-scrollbar { width: 0.75rem; }
+    .page::-webkit-scrollbar-track { background: var(--bg); }
+    .page::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; border: 3px solid var(--bg); }
+    .page::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+    h1 { margin: 0 0 0.25rem; font-size: 1.375rem; }
+    h1 span { color: var(--accent); }
+    h2 { margin: 0 0 0.625rem; font-size: 0.75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16.25rem, 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 0.75rem; padding: 0.875rem; }
+    .status { display: flex; flex-wrap: wrap; gap: 0.375rem 1rem; font-size: 0.875rem; color: var(--muted); }
+    .dot { font-weight: 700; }
+    .ok { color: var(--good); } .no { color: var(--bad); }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; text-align: center; }
+    .stats b { display: block; font-size: 1.375rem; }
+    .stats small { color: var(--muted); }
+    #diff { text-transform: capitalize; }
+    .bar { height: 0.5rem; background: var(--bg); border-radius: 6.1875rem; overflow: hidden; margin: 0.75rem 0 0.25rem; }
+    .bar div { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .3s; }
+    ol { margin: 0.625rem 0 0; padding: 0; list-style: none; display: grid; gap: 0.25rem; font-size: 0.875rem; }
+    ol li { display: flex; justify-content: space-between; gap: 0.5rem; background: rgba(255,255,255,.04); border-radius: 0.375rem; padding: 0.25rem 0.5rem; }
+    ol li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+    .btns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+    button { font: inherit; font-weight: 700; border: 0; border-radius: 0.5rem; padding: 0.75rem 0.625rem; background: var(--accent); color: #0f1020; cursor: pointer; }
+    button:active { transform: scale(.97); }
+    button.wide { grid-column: 1 / -1; }
+    .lvl { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.375rem; }
+    .lvl b { font-size: 1.375rem; color: var(--accent2); }
+    input[type=range] { width: 100%; padding: 0; accent-color: var(--accent); margin: 0.25rem 0; }
+    input[type=range]:disabled { opacity: .4; }
+    .ends { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.75rem; margin-bottom: 0.625rem; }
+    label.check input { flex: 0 0 auto; }
+    label.check { display: flex; gap: 0.5rem; align-items: center; font-size: 0.875rem; color: var(--muted); margin-bottom: 0.625rem; }
+    select { width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.625rem 0.75rem; margin-bottom: 0.625rem; }
+    #var { font-size: 1rem; }
+    .runbar { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.4rem; }
+    .runbar button { font-size: 1.15rem; padding: 0.9rem 0.6rem; }
+    button.go { background: var(--good); }
+    button.stop { background: var(--bad); }
+    .runbar button:disabled { opacity: 0.3; cursor: default; transform: none; }
+    .run-state { text-align: center; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.9rem; }
+    .run-state.on { color: var(--good); } .run-state.off { color: var(--bad); font-weight: 700; }
+    button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+    button.danger { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
+    button.danger.armed { background: var(--bad); color: #0f1020; }
+    form { display: flex; gap: 0.5rem; }
+    input { flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.625rem 0.75rem; }
+    .hint { color: var(--muted); font-size: 0.8125rem; margin: 0.5rem 0 0; }
+    #log { margin-top: 0.5rem; font-size: 0.8125rem; color: var(--accent2); min-height: 1.4em; }
+    @media (min-width: 1100px) {
+      .grid { grid-template-columns: 1fr 1.15fr 1fr; grid-template-areas: "cur next scores" "cur next chat"; grid-template-rows: auto 1fr; align-items: start; }
+      .grid > :nth-child(1) { grid-area: cur; } .grid > :nth-child(2) { grid-area: next; }
+      .grid > :nth-child(3) { grid-area: scores; } .grid > :nth-child(4) { grid-area: chat; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>Sudoku <span>Control</span></h1>
+  <div class="status">
+    <span>Game source: <span id="game-state" class="dot no">○ not found</span></span>
+    <span>Chat: <span id="chat-state">—</span></span>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Current puzzle</h2>
+      <div class="runbar">
+        <button id="btn-start" class="go" data-cmd="start">▶ Start</button>
+        <button id="btn-stop" class="stop" data-cmd="stop">■ Stop</button>
+      </div>
+      <div id="run-state" class="run-state">—</div>
+      <div class="stats">
+        <div><b id="round">—</b><small>Puzzle</small></div>
+        <div><b id="diff">—</b><small id="var">Difficulty</small></div>
+        <div><b id="left">—</b><small>Cells left</small></div>
+      </div>
+      <div class="bar"><div id="bar"></div></div>
+      <ol id="top"></ol>
+    </section>
+
+    <section class="card">
+      <h2>Next puzzles</h2>
+      <select id="mode">
+        <option value="auto">Adaptive: follows how chat answers</option>
+        <option value="fixed">Fixed level</option>
+        <option value="rotate">Cycle every level 1 → 20</option>
+      </select>
+      <div class="lvl"><span id="lvl-lbl">Difficulty</span><b id="lvl-out">7 · Medium</b></div>
+      <input id="lvl" type="range" min="1" max="20" step="1" value="7">
+      <div class="ends"><span>1 Beginner</span><span>20 Nightmare</span></div>
+      <select id="variant">
+        <option value="mix">Mix it up (classic between twists)</option>
+        <option value="classic">Classic only</option>
+        <option value="diagonal">Diagonal</option>
+        <option value="windoku">Windoku</option>
+        <option value="centerdot">Center Dot</option>
+        <option value="asterisk">Asterisk</option>
+      </select>
+      <div class="btns">
+        <button class="wide" id="new-now">Start new puzzle now</button>
+        <button class="ghost" data-cmd="hint">Reveal a hint</button>
+        <button class="ghost" data-cmd="clearnotes">Clear all notes</button>
+      </div>
+      <p class="hint">The slider and type apply to every puzzle after this one. "Start new puzzle now" skips the current one.</p>
+    </section>
+
+    <section class="card">
+      <h2>Scores</h2>
+      <div class="btns">
+        <button class="danger wide" data-cmd="resetround" data-confirm>Reset this puzzle's scores</button>
+        <button class="danger wide" data-cmd="resetscores" data-confirm>Reset ALL-TIME scores</button>
+      </div>
+      <p class="hint">Click once, then click again within 3 seconds to confirm.</p>
+    </section>
+
+    <section class="card">
+      <h2>Play as streamer</h2>
+      <form id="chat-form">
+        <input id="chat-text" placeholder="e.g. B7 4 or B7?35" autocomplete="off">
+        <button>Send</button>
+      </form>
+      <p class="hint">Counts as a move from you, without typing in Twitch chat.</p>
+    </section>
+  </div>
+  <div id="log"></div>
+
+</div>
+  <script src="js/sudoku.js"></script>
+  <script>
+    const LS_CMD = 'numbersonstream.cmd', LS_CUR = 'numbersonstream.current',
+          LS_STATUS = 'numbersonstream.status', LS_HEARTBEAT = 'numbersonstream.heartbeat',
+          LS_SETTINGS = 'numbersonstream.settings';
+    const LEVEL_NAMES = Sudoku.LEVELS.map((l) => (l ? l.name : ''));
+    const VARIANT_NAMES = { classic: 'Classic', diagonal: 'Diagonal', windoku: 'Windoku', centerdot: 'Center Dot', asterisk: 'Asterisk' };
+    const $ = (s) => document.querySelector(s);
+    const read = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+    let bc = null; try { bc = new BroadcastChannel('numbersonstream'); } catch {}
+
+    function send(cmd, arg, label) {
+      const c = { id: Math.random().toString(36).slice(2) + Date.now(), cmd, arg: arg || '', t: Date.now() };
+      try { localStorage.setItem(LS_CMD, JSON.stringify(c)); } catch {}
+      if (bc) bc.postMessage(c);
+      $('#log').textContent = `Sent: ${label}`;
+      setTimeout(refresh, 300);
+    }
+
+    document.querySelectorAll('button[data-cmd]').forEach((b) => {
+      let timer = null;
+      const original = b.textContent;
+      b.addEventListener('click', () => {
+        if (b.hasAttribute('data-confirm') && !b.classList.contains('armed')) {
+          b.classList.add('armed'); b.textContent = 'Click again to confirm';
+          timer = setTimeout(() => { b.classList.remove('armed'); b.textContent = original; }, 3000);
+          return;
+        }
+        clearTimeout(timer); b.classList.remove('armed'); b.textContent = original;
+        send(b.dataset.cmd, b.dataset.arg, original);
+      });
+    });
+
+    // ---- Difficulty slider / variant ----
+    const lvl = $('#lvl'), mode = $('#mode'), variant = $('#variant');
+    let touched = 0; // don't overwrite the controls right after the streamer changes them
+    function showLevel() {
+      lvl.disabled = mode.value === 'rotate';
+      $('#lvl-lbl').textContent = mode.value === 'auto' ? 'Next puzzle level (adjusts itself)' : 'Difficulty';
+      $('#lvl-out').textContent = mode.value === 'rotate' ? 'Cycling 1 → 20' : `${lvl.value} · ${LEVEL_NAMES[lvl.value]}`;
+    }
+    const levelCmd = () => mode.value === 'rotate' ? 'rotate' : `${mode.value} ${lvl.value}`;
+    lvl.addEventListener('input', () => { touched = Date.now(); showLevel(); });
+    lvl.addEventListener('change', () => { touched = Date.now(); send('level', levelCmd(), `Difficulty ${lvl.value} for next puzzles`); });
+    mode.addEventListener('change', () => { touched = Date.now(); showLevel(); send('level', levelCmd(), mode.selectedOptions[0].text); });
+    variant.addEventListener('change', () => { touched = Date.now(); send('variant', variant.value, `Puzzle type: ${variant.selectedOptions[0].text}`); });
+    $('#new-now').addEventListener('click', () => {
+      const v = variant.value === 'mix' ? '' : variant.value;
+      const l = mode.value === 'fixed' ? lvl.value : ''; // adaptive / cycle choose the level themselves
+      send('new', `${v} ${l}`.trim(), 'New puzzle');
+    });
+    function syncSettings() {
+      if (Date.now() - touched < 3000) return;
+      const st = read(LS_SETTINGS);
+      if (!st) return;
+      if (st.mode) mode.value = st.mode;
+      if (Number.isFinite(+st.level)) lvl.value = st.level;
+      if (st.variant) variant.value = st.variant;
+      showLevel();
+    }
+
+    $('#chat-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const t = $('#chat-text').value.trim();
+      if (!t) return;
+      send('chat', t, `"${t}"`);
+      $('#chat-text').value = '';
+    });
+
+    function refresh() {
+      const beat = +localStorage.getItem(LS_HEARTBEAT) || 0;
+      const live = Date.now() - beat < 4000;
+      const gs = $('#game-state');
+      gs.textContent = live ? '● running' : '○ not found — is the game source loaded with the same kind of URL?';
+      gs.className = 'dot ' + (live ? 'ok' : 'no');
+      syncSettings();
+      const pz = read('numbersonstream.paused');
+      const stopped = !!(pz && pz.paused);
+      $('#btn-start').disabled = !stopped;
+      $('#btn-stop').disabled = stopped;
+      const rs = $('#run-state');
+      rs.textContent = stopped ? '■ Stopped: chat is ignored and timers are frozen' : '▶ Running';
+      rs.className = 'run-state ' + (stopped ? 'off' : 'on');
+      const st = read(LS_STATUS);
+      $('#chat-state').textContent = st ? st.text : '—';
+      const s = read(LS_CUR);
+      if (!s || !s.grid) return;
+      const filled = s.grid.filter(Boolean).length;
+      $('#round').textContent = '#' + s.round;
+      const level = s.level || Sudoku.toLevel(s.difficulty);
+      $('#diff').textContent = `Lv ${level}`;
+      $('#var').textContent = `${VARIANT_NAMES[s.variant] || 'Classic'} · ${LEVEL_NAMES[level] || ''}`;
+      $('#left').textContent = 81 - filled;
+      $('#bar').style.width = (filled / 81 * 100) + '%';
+      const top = Object.values(s.scores || {}).sort((a, b) => b.points - a.points).slice(0, 10);
+      const ol = $('#top'); ol.replaceChildren();
+      for (const p of top) {
+        const li = document.createElement('li');
+        const n = document.createElement('span'); n.textContent = p.name; n.style.color = p.color;
+        const v = document.createElement('span'); v.textContent = p.points + ' pts';
+        li.append(n, v); ol.append(li);
+      }
+      if (!top.length) ol.append(Object.assign(document.createElement('li'), { textContent: 'No points yet' }));
+    }
+    setInterval(refresh, 1000);
+    refresh();
+  </script>
+</body>
+</html>

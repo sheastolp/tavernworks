@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="canonical" href="https://tavernworks.dev/sudoku/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sudoku on Stream · Tavernworks</title>
+<meta name="description" content="Sudoku on Stream: a free Sudoku your Twitch chat solves together, shown in OBS as a browser source. No bot, no login. Set it up in two minutes.">
+<meta property="og:title" content="Sudoku on Stream · Tavernworks">
+<meta property="og:description" content="A free Sudoku your Twitch chat solves together. Paste one link into OBS; no bot or login needed.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧩</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+    --ember:#c9572b; --green:#7fb069; --twitch:#9146ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,168,74,.18), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 50% 110%, rgba(201,87,43,.12), transparent 70%),
+      var(--bg);
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:960px;margin:0 auto;padding:0 16px}
+
+  nav{padding:22px 0 0}
+  .back{font-size:14px;color:var(--muted);transition:.15s}
+  .back:hover{color:var(--gold2)}
+
+  header{padding:48px 0 32px;text-align:center}
+  .orb{font-size:64px;line-height:1;filter:drop-shadow(0 0 24px rgba(224,168,74,.45))}
+  .sign{
+    display:inline-block;font-family:Cinzel,serif;font-size:13px;letter-spacing:.3em;
+    color:var(--gold);border:1px solid var(--line);padding:6px 16px;border-radius:999px;
+    background:rgba(0,0,0,.25);margin:20px 0 18px
+  }
+  h1{
+    font-family:Cinzel,serif;font-weight:800;font-size:clamp(34px,8.5vw,72px);line-height:1.05;
+    background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);
+    -webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .tag{margin:16px auto 0;color:var(--muted);font-size:18px;max-width:620px}
+  .tag b{color:var(--text);font-weight:600}
+  .badges{margin-top:22px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .pill{font-size:11px;font-weight:600;letter-spacing:.05em;padding:4px 11px;border-radius:999px;white-space:nowrap}
+  .live{background:rgba(127,176,105,.15);color:var(--green)}
+  .beta{background:rgba(88,101,242,.18);color:#a5adff}
+  .plain{background:rgba(255,255,255,.05);color:var(--muted)}
+
+  .divider{
+    display:flex;align-items:center;gap:14px;margin:52px 0 22px;
+    font-family:Cinzel,serif;color:var(--gold);letter-spacing:.15em;font-size:15px;text-align:center
+  }
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+
+  .board{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:14px}
+  .pad{
+    position:relative;text-align:left;font:inherit;color:inherit;cursor:pointer;
+    background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;
+    padding:18px;display:flex;flex-direction:column;gap:6px;transition:.15s;overflow:hidden
+  }
+  .pad:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .pad:focus-visible{outline:2px solid var(--gold2);outline-offset:2px}
+  .pad .icon{font-size:30px;line-height:1}
+  .pad h3{font-family:Cinzel,serif;font-size:17px;color:var(--gold2)}
+  .pad p{color:var(--muted);font-size:13.5px;flex:1}
+  .pad code{font-size:12.5px}
+  .pad .bar{position:absolute;left:0;bottom:0;height:3px;width:0;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+  .pad.playing{border-color:var(--gold2);box-shadow:0 0 0 1px var(--gold2),0 0 26px rgba(245,200,115,.25)}
+  .pad.playing .bar{animation:fill var(--len,1s) linear forwards}
+  @keyframes fill{to{width:100%}}
+  .boardnote{color:var(--muted);font-size:13.5px;margin-top:12px;text-align:center}
+
+  .scroll{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px}
+  .scroll > p{color:var(--muted)}
+  .scroll > p + p{margin-top:12px}
+  .scroll b{color:var(--text);font-weight:600}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:.92em;color:var(--gold2)}
+
+  .steps{display:flex;flex-direction:column;gap:16px}
+  .step{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:22px}
+  .step h3{font-family:Cinzel,serif;font-size:18px;color:var(--gold2);display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .step h3 .n{
+    width:30px;height:30px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:14px;
+    color:var(--bg);background:linear-gradient(180deg,var(--gold2),var(--gold))
+  }
+  .step > p{color:var(--muted);font-size:14.5px}
+  .step > p + p{margin-top:8px}
+  .step ol{color:var(--muted);font-size:14.5px;margin:8px 0 0 20px;display:flex;flex-direction:column;gap:4px}
+
+  .fields{display:flex;flex-wrap:wrap;gap:14px 20px;margin-top:14px;align-items:flex-end}
+  label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
+  label.check{flex-direction:row;align-items:center;gap:8px;padding-bottom:10px}
+  input[type=text]{
+    font:500 15px Inter,system-ui,sans-serif;color:var(--text);background:#0f0b08;border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;width:min(100%,260px)
+  }
+  input[type=text]:focus{outline:none;border-color:var(--gold)}
+  input[type=range]{accent-color:var(--gold);width:180px}
+  input[type=checkbox]{accent-color:var(--gold);width:16px;height:16px}
+
+  .copyrow{display:flex;gap:8px;align-items:stretch;margin-top:12px}
+  .copyrow code{
+    flex:1;min-width:0;font-size:13px;color:var(--text);background:#0f0b08;border:1px solid var(--line);
+    border-radius:8px;padding:9px 10px;overflow-wrap:anywhere
+  }
+  .copyrow code .k{color:var(--gold2)}
+  .copy{flex-shrink:0;font:600 13px Inter,system-ui,sans-serif;color:var(--text);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:0 12px;cursor:pointer;transition:.15s}
+  .copy:hover{border-color:var(--gold)}
+  .copy.done{border-color:var(--green);color:var(--green)}
+  .copy:disabled{opacity:.45;cursor:not-allowed}
+  .linkbtn{display:inline-block;margin-top:10px;font-size:13.5px;color:var(--gold2)}
+  .linkbtn:hover{text-decoration:underline}
+
+  .cmdlist{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+  .cmdlist .copyrow{margin-top:8px}
+  .cmdlist .copyrow .ic{flex-shrink:0;width:30px;display:grid;place-items:center;font-size:20px}
+
+  .faq details{border-bottom:1px solid var(--line);padding:14px 0}
+  .faq details:first-child{padding-top:0}
+  .faq details:last-child{border-bottom:0;padding-bottom:0}
+  .faq summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";color:var(--gold);font-weight:400;font-size:20px;line-height:1}
+  .faq details[open] summary::after{content:"−"}
+  .faq details p{color:var(--muted);font-size:14.5px;margin-top:8px}
+
+  [data-orrery-cast][hidden]{display:none}
+  .chat{display:flex;flex-direction:column;gap:10px;font-size:14.5px}
+  .chat div{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:10px;padding:10px 14px;color:var(--muted);overflow-wrap:anywhere}
+  .chat .u{color:#9b7bd8;font-weight:600}
+  .chat .b{color:var(--gold2);font-weight:600}
+  .chat .fx{border-style:dashed;text-align:center;color:var(--gold2)}
+
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
+  footer span{color:var(--gold)}
+  footer a:hover{color:var(--gold2)}
+
+  select{
+    font:500 15px Inter,system-ui,sans-serif;color:var(--text);background:#0f0b08;border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;width:min(100%,300px)
+  }
+  select:focus{outline:none;border-color:var(--gold)}
+  input[type=number]{
+    font:500 15px Inter,system-ui,sans-serif;color:var(--text);background:#0f0b08;border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;width:110px
+  }
+  .lvl{color:var(--gold2);font-weight:600}
+  input[type=range]:disabled{opacity:.4}
+  .more{margin-top:14px}
+  .more summary{cursor:pointer;color:var(--gold2);font-size:13.5px;font-weight:600}
+  .urllbl{display:block;margin-top:16px;font-size:13px;font-weight:600;color:var(--muted)}
+  .urllbl + .copyrow{margin-top:6px}
+  .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .btn{display:inline-block;font:600 14px Inter,system-ui,sans-serif;padding:10px 16px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);color:var(--text);transition:.15s}
+  .btn:hover{border-color:var(--gold)}
+  .btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--bg);border-color:transparent}
+  .btn.gold:hover{filter:brightness(1.08)}
+  .btn[aria-disabled=true]{opacity:.45;pointer-events:none}
+
+  .preview{position:relative;aspect-ratio:16/9;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#000}
+  .preview iframe{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0;pointer-events:none}
+  .boardnote a{color:var(--gold2)}
+  .boardnote a:hover{text-decoration:underline}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--gold);font-weight:600;font-size:12.5px;letter-spacing:.04em}
+  td{color:var(--muted)}
+  td:first-child{white-space:nowrap}
+  .tablewrap{overflow-x:auto}
+  .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}
+  .two h3{font-family:Cinzel,serif;font-size:17px;color:var(--gold2);margin-bottom:4px}
+  .scroll ul{color:var(--muted);font-size:14.5px;margin:8px 0 0 20px;display:flex;flex-direction:column;gap:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav><a class="back" href="/">← Back to the tavern</a></nav>
+
+  <header>
+    <div class="orb">🧩</div>
+    <div class="sign">STREAM GAME</div>
+    <h1>Sudoku on Stream</h1>
+    <p class="tag">A Sudoku your <b>Twitch chat solves together</b>. Viewers type a cell and a number, like <b>B7 4</b>. Right answers land on the board in their chat colour, and points go to a live leaderboard.</p>
+    <div class="badges">
+      <span class="pill beta">NEW</span>
+      <span class="pill plain">TWITCH CHAT</span>
+      <span class="pill plain">OBS BROWSER SOURCE</span>
+      <span class="pill plain">NO BOT · NO LOGIN</span>
+      <span class="pill plain">FREE</span>
+    </div>
+  </header>
+
+  <div class="divider">SEE IT PLAY</div>
+  <div class="preview" id="preview"><iframe src="play/?demo=1" title="Sudoku on Stream demo with pretend viewers" loading="lazy" tabindex="-1"></iframe></div>
+  <p class="boardnote">That's the real thing with pretend viewers playing. <a href="play/?demo=1" target="_blank" rel="noopener">Open the demo full size</a>.</p>
+
+  <div class="divider" id="setup">SET IT UP</div>
+  <div class="steps">
+    <div class="step">
+      <h3><span class="n">1</span>Get your link</h3>
+      <p>Type your Twitch channel name and pick how you want to play. The links update as you go. You can change all of this later, from chat or the control page.</p>
+      <div class="fields">
+        <label>Twitch channel<input type="text" id="channel" placeholder="yourchannel" autocomplete="off" spellcheck="false"></label>
+        <label>Layout
+          <select id="frame">
+            <option value="">Standard: fills the whole source</option>
+            <option value="1">GuildScribe theme window (1464 × 912)</option>
+          </select>
+        </label>
+      </div>
+      <div class="fields">
+        <label>Difficulty
+          <select id="mode">
+            <option value="auto">Adaptive: follows how chat is doing</option>
+            <option value="fixed">Fixed: always one level</option>
+            <option value="rotate">Cycle: every level, 1 → 20</option>
+          </select>
+        </label>
+        <label><span><span id="lvl-lbl">Starting level</span>: <span class="lvl" id="lvl-out">7 · Medium</span></span><input type="range" id="difficulty" min="1" max="20" step="1" value="7"></label>
+      </div>
+      <div class="fields">
+        <label>Puzzle type
+          <select id="variant">
+            <option value="mix">Mix: classic between twists</option>
+            <option value="classic">Classic only</option>
+            <option value="diagonal">Diagonal</option>
+            <option value="windoku">Windoku</option>
+            <option value="centerdot">Center Dot</option>
+            <option value="asterisk">Asterisk</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="notes" checked>Viewers can pencil in notes</label>
+        <label class="check"><input type="checkbox" id="bg">See-through background</label>
+      </div>
+      <details class="more">
+        <summary>More options</summary>
+        <div class="fields">
+          <label>Command prefix<input type="text" id="prefix" placeholder="none" autocomplete="off" spellcheck="false" style="width:120px"></label>
+          <label>Free hint after (s)<input type="number" id="hint" min="0" value="60"></label>
+          <label>Wrong-guess timeout (s)<input type="number" id="cooldown" min="0" value="3"></label>
+          <label>Next puzzle in (s)<input type="number" id="next" min="3" value="45"></label>
+        </div>
+        <p style="margin-top:10px;color:var(--muted);font-size:13.5px">A prefix like <code>!</code> means chat types <code>!B7 4</code>. Use it if normal chat keeps setting off moves. Hint <code>0</code> turns free hints off.</p>
+      </details>
+
+      <span class="urllbl">🎮 Game (the board on stream)</span>
+      <div class="copyrow"><code id="game-url">Type your channel name above</code><button class="copy" type="button" id="copy-game" disabled>Copy</button></div>
+      <span class="urllbl">🎛️ Control page (optional, for you only)</span>
+      <div class="copyrow"><code id="control-url"></code><button class="copy" type="button" id="copy-control">Copy</button></div>
+      <div class="btnrow">
+        <a class="btn gold" id="try-link" href="play/" target="_blank" rel="noopener" aria-disabled="true">▶ Test it in your browser</a>
+      </div>
+      <p style="margin-top:10px">The test opens a typing box at the bottom of the side panel, so you can play as chat yourself before going live.</p>
+    </div>
+
+    <div class="step">
+      <h3><span class="n">2</span>Add the game to OBS</h3>
+      <ol>
+        <li>In your scene, click <b>+</b> under Sources and pick <b>Browser</b>.</li>
+        <li>Paste the <b>Game</b> link into the <b>URL</b> box.</li>
+        <li>Set <b>Width 1920</b> and <b>Height 1080</b>, then click OK.</li>
+      </ol>
+      <p>That's it: the board shows <b>● reading #yourchannel</b> at the bottom once it's listening. Streamlabs Desktop works the same way (Browser Source).</p>
+    </div>
+
+    <div class="step">
+      <h3><span class="n">3</span>Add the control page <span style="font-family:Inter,sans-serif;font-size:13px;color:var(--muted);font-weight:500">(optional)</span></h3>
+      <p>Start / Stop, a difficulty slider, puzzle type, hints, new puzzle and score resets, all as buttons.</p>
+      <ol>
+        <li>Make a new scene called something like <b>Sudoku Control</b> that you never switch to on stream.</li>
+        <li>Add a <b>Browser</b> source there with the <b>Control page</b> link, size <b>1920 × 1080</b>.</li>
+        <li>Untick <b>Shutdown source when not visible</b>.</li>
+        <li>Right-click the source → <b>Interact</b> to use the buttons.</li>
+      </ol>
+      <p>Both sources must come from the same place (both from tavernworks.dev, or both from your download), so they can talk to each other.</p>
+    </div>
+
+    <div class="step">
+      <h3><span class="n">4</span>Tell chat how to play</h3>
+      <p>The side panel already explains it, but here's the short version for your <code>!sudoku</code> command:</p>
+      <div class="cmdlist">
+        <div class="copyrow"><code id="chat-blurb">Help solve the Sudoku! Type a cell then a number, like B7 4. Right answers +10, finish a row/column/box +5, wrong −2. Notes: B7?35 pencils in 3 and 5.</code><button class="copy" type="button" id="copy-blurb">Copy</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider" id="download">RATHER RUN IT YOURSELF?</div>
+  <div class="scroll">
+    <p>The links above use the copy hosted here, which always has the latest version. If you'd rather run it from your own computer (it works with no internet apart from Twitch chat), download it instead:</p>
+    <div class="btnrow" style="margin-top:14px">
+      <a class="btn gold" href="sudoku-on-stream.zip" download>⬇ Download sudoku-on-stream.zip</a>
+      <a class="btn" href="https://github.com/sheastolp/NumbersOnStream" target="_blank" rel="noopener">Source on GitHub</a>
+    </div>
+    <ol style="color:var(--muted);font-size:14.5px;margin:14px 0 0 20px;display:flex;flex-direction:column;gap:4px">
+      <li>Unzip it somewhere it can stay, like <b>Documents</b>.</li>
+      <li>Double-click <code>index.html</code>. The setup screen opens; fill it in and click <b>Copy URL</b>.</li>
+      <li>In OBS, add a <b>Browser</b> source, <b>untick Local file</b>, paste the URL and set 1920 × 1080.</li>
+      <li>For the control page, add <code>control.html</code> the same way, as a <code>file:///</code> URL from the same folder.</li>
+    </ol>
+    <p style="margin-top:12px">Scores and the puzzle in progress are saved inside OBS, separately for the hosted and downloaded copies, so pick one and stick with it.</p>
+  </div>
+
+  <div class="divider">HOW CHAT PLAYS</div>
+  <div class="two">
+    <div class="scroll">
+      <h3>Moves</h3>
+      <div class="tablewrap"><table>
+        <tr><th>CHAT TYPES</th><th>WHAT HAPPENS</th></tr>
+        <tr><td><code>B7 4</code></td><td>Puts a 4 in row B, column 7. <code>b7=4</code> and <code>B74</code> work too.</td></tr>
+        <tr><td><code>A1 5 C3 2</code></td><td>Up to 3 moves in one message</td></tr>
+        <tr><td><code>B7?35</code></td><td>Pencils small 3 and 5 into B7 (free, never scored)</td></tr>
+        <tr><td><code>B7?-3</code></td><td>Rubs out the 3</td></tr>
+        <tr><td><code>B7?x</code></td><td>Clears B7's notes</td></tr>
+      </table></div>
+    </div>
+    <div class="scroll">
+      <h3>Scoring</h3>
+      <div class="tablewrap"><table>
+        <tr><th>EVENT</th><th>POINTS</th></tr>
+        <tr><td>Right answer</td><td><b style="color:var(--green)">+10</b></td></tr>
+        <tr><td>Finish a row, column, box or extra region</td><td><b style="color:var(--green)">+5</b> each</td></tr>
+        <tr><td>Last cell of the puzzle</td><td><b style="color:var(--green)">+10</b></td></tr>
+        <tr><td>Wrong answer</td><td><b style="color:var(--ember)">−2</b> and a 3 s timeout</td></tr>
+      </table></div>
+      <p style="margin-top:10px;color:var(--muted);font-size:13.5px">No right answer for 60 s and a free cell is revealed; the bar under the title counts down to it. Solve it and an MVP screen shows before the next puzzle.</p>
+    </div>
+  </div>
+
+  <div class="divider">MOD COMMANDS</div>
+  <div class="scroll">
+    <p>Only the broadcaster and moderators can use these, typed in chat:</p>
+    <div class="tablewrap"><table>
+      <tr><th>COMMAND</th><th>WHAT IT DOES</th></tr>
+      <tr><td><code>!sudoku new</code></td><td>New puzzle now. Add a type and/or level: <code>!sudoku new windoku 9</code></td></tr>
+      <tr><td><code>!sudoku level 12</code></td><td>Fixed level (1–20) for upcoming puzzles</td></tr>
+      <tr><td><code>!sudoku level auto</code></td><td>Adaptive difficulty again (optionally <code>auto 8</code> to restart at 8)</td></tr>
+      <tr><td><code>!sudoku level rotate</code></td><td>Cycle through every level, 1 → 20</td></tr>
+      <tr><td><code>!sudoku variant diagonal</code></td><td>Puzzle type: <code>classic</code>, <code>diagonal</code>, <code>windoku</code>, <code>centerdot</code>, <code>asterisk</code> or <code>mix</code></td></tr>
+      <tr><td><code>!sudoku stop</code> / <code>start</code></td><td>Pause and resume; the clock and hint countdown freeze</td></tr>
+      <tr><td><code>!sudoku hint</code></td><td>Reveal one cell</td></tr>
+      <tr><td><code>!sudoku clearnotes</code></td><td>Wipe every viewer note</td></tr>
+      <tr><td><code>!sudoku resetscores</code></td><td>Wipe the all-time leaderboard</td></tr>
+    </table></div>
+  </div>
+
+  <div class="divider">DIFFICULTY</div>
+  <div class="scroll">
+    <p>There are <b>20 levels</b>, from Beginner to Nightmare. Every puzzle is graded by a solver that thinks like a person, so the level is about how hard it is to reason through, not just how many numbers are missing. Every puzzle has exactly one answer.</p>
+    <p><b>Adaptive</b> (the default) moves up after chat breezes through a puzzle with few wrong answers and no hints, and down after a struggle. The end screen says why, e.g. <i>“Next: level 12 · Hard+ — ▲ up 1 (86% right, 1 hint)”</i>.</p>
+    <p>Puzzle types: <b>Classic</b>, <b>Diagonal</b> (both diagonals have 1–9), <b>Windoku</b> (four extra shaded boxes), <b>Center Dot</b> (the nine box centres) and <b>Asterisk</b> (nine starred cells). <b>Mix</b> alternates classic with each twist.</p>
+  </div>
+
+  <div class="divider">QUESTIONS AT THE BAR</div>
+  <div class="scroll faq">
+    <details>
+      <summary>Do I need a bot or to log in with Twitch?</summary>
+      <p>No. The board reads your chat the same way twitch.tv shows it to logged-out viewers: anonymously and read-only. It never posts in chat and never asks for a password or token.</p>
+    </details>
+    <details>
+      <summary>Does it cost anything?</summary>
+      <p>No. It's free, the hosted copy and the download alike.</p>
+    </details>
+    <details>
+      <summary>I use GuildScribe's full stream theme. How do I fit it in?</summary>
+      <p>The theme has a <b>Sudoku on Stream</b> scene (<code>&amp;scene=sudoku</code> on the theme link, or pick it on GuildScribe's <code>!overlays</code> page). Pick <b>Layout: GuildScribe theme window</b> above, add the game <b>below</b> the theme in your sources, size it <b>1464 × 912</b> and place it at <b>X 40, Y 112</b>. The theme's torn edge overlaps it slightly; the layout leaves room for that.</p>
+    </details>
+    <details>
+      <summary>Normal chat keeps setting off moves.</summary>
+      <p>Open <b>More options</b> above and set a command prefix like <code>!</code>. Then only <code>!B7 4</code> counts.</p>
+    </details>
+    <details>
+      <summary>Will I lose the scores or the puzzle if OBS restarts?</summary>
+      <p>No. The puzzle in progress, this puzzle's scores and the all-time leaderboard are saved inside OBS's browser. A paused game stays paused after a reload too.</p>
+    </details>
+    <details>
+      <summary>The control page buttons do nothing.</summary>
+      <p>Check that both sources come from the same place: both links from this page, or both <code>file:///</code> paths from your download. Also make sure the game source is in a scene that's loaded, and that <b>Shutdown source when not visible</b> is unticked on the control page. The control page shows whether it can see the game.</p>
+    </details>
+    <details>
+      <summary>The board says “disconnected”.</summary>
+      <p>Check the channel name in the link (it's the name in your twitch.tv address). It reconnects by itself after a network blip. To check everything works without chat, use the <b>Test it in your browser</b> button above and type moves into the box.</p>
+    </details>
+  </div>
+
+  <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Homebrewed by Stoned Sheamus<br><a href="/overlays/">Overlays</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
+</div>
+<script src="play/js/sudoku.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+  const PLAY = new URL("play/", location.href).href;
+  const LEVELS = (window.Sudoku && Sudoku.LEVELS) || [];
+
+  // The demo preview: scale the 1920 × 1080 page to fit its box.
+  const preview = $("preview"), frame = preview.querySelector("iframe");
+  const fit = () => { frame.style.transform = "scale(" + preview.clientWidth / 1920 + ")"; };
+  new ResizeObserver(fit).observe(preview);
+
+  const copy = (btn, text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      const was = btn.textContent;
+      btn.textContent = "Copied";
+      btn.classList.add("done");
+      setTimeout(() => { btn.textContent = was; btn.classList.remove("done"); }, 1500);
+    });
+  };
+
+  // The link builder.
+  const ids = ["channel", "frame", "mode", "difficulty", "variant", "notes", "bg", "prefix", "hint", "cooldown", "next"];
+  const el = Object.fromEntries(ids.map((k) => [k, $(k)]));
+  const saved = (() => { try { return JSON.parse(store.get("sudoku.setup")) || {}; } catch { return {}; } })();
+  ids.forEach((k) => {
+    if (!(k in saved)) return;
+    if (el[k].type === "checkbox") el[k].checked = !!saved[k]; else el[k].value = saved[k];
+  });
+  const gameBox = $("game-url"), copyGame = $("copy-game"), tryLink = $("try-link");
+  $("control-url").textContent = PLAY + "control.html";
+
+  function update() {
+    const s = {};
+    ids.forEach((k) => { s[k] = el[k].type === "checkbox" ? el[k].checked : el[k].value; });
+    store.set("sudoku.setup", JSON.stringify(s));
+
+    const lv = +s.difficulty, lvName = LEVELS[lv] ? " · " + LEVELS[lv].name : "";
+    el.difficulty.disabled = s.mode === "rotate";
+    $("lvl-lbl").textContent = s.mode === "auto" ? "Starting level" : "Level";
+    $("lvl-out").textContent = s.mode === "rotate" ? "1 → 20" : lv + lvName;
+
+    const name = s.channel.trim().replace(/^.*twitch\.tv\//i, "").replace(/^[@#]/, "").replace(/[/?#].*$/, "").toLowerCase();
+    const ok = /^[a-z0-9_]{3,25}$/.test(name);
+    copyGame.disabled = !ok;
+    tryLink.setAttribute("aria-disabled", ok ? "false" : "true");
+    if (!ok) {
+      gameBox.textContent = name ? "That doesn't look like a Twitch channel name" : "Type your channel name above";
+      return;
+    }
+    const q = new URLSearchParams({ channel: name });
+    if (s.mode !== "auto") q.set("mode", s.mode);
+    if (s.mode !== "rotate" && lv !== 7) q.set("difficulty", lv);
+    if (s.variant !== "mix") q.set("variant", s.variant);
+    if (s.frame) q.set("frame", "1");
+    if (!s.notes) q.set("notes", "0");
+    if (s.bg) q.set("bg", "transparent");
+    if (s.prefix.trim()) q.set("prefix", s.prefix.trim());
+    [["hint", 60], ["cooldown", 3], ["next", 45]].forEach(([k, d]) => {
+      const v = s[k] === "" ? d : +s[k];
+      if (Number.isFinite(v) && v !== d) q.set(k, Math.max(k === "next" ? 3 : 0, v));
+    });
+    const url = PLAY + "?" + q;
+    gameBox.textContent = url;
+    copyGame.dataset.copy = url;
+    tryLink.href = url + "&test=1";
+  }
+  ids.forEach((k) => el[k].addEventListener("input", update));
+  copyGame.addEventListener("click", () => copy(copyGame, copyGame.dataset.copy));
+  $("copy-control").addEventListener("click", () => copy($("copy-control"), PLAY + "control.html"));
+  $("copy-blurb").addEventListener("click", () => copy($("copy-blurb"), $("chat-blurb").textContent));
+  update();
+})();
+</script>
+</body>
+</html>

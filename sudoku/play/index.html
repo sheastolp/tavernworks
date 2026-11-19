@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sudoku on Stream</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Setup screen: shown when no ?channel= is given -->
+  <section id="setup">
+    <div class="setup-card">
+      <h1>Sudoku <span>on Stream</span></h1>
+      <p>Your chat solves a Sudoku together. This page only <em>reads</em> chat anonymously — no bot account or login needed.</p>
+      <p class="small">Step-by-step OBS guide: <a href="https://tavernworks.dev/sudoku/" target="_blank" rel="noopener">tavernworks.dev/sudoku</a></p>
+      <form id="setup-form">
+        <label>Twitch channel <input name="channel" placeholder="yourchannel" required autocomplete="off"></label>
+        <label>Difficulty mode
+          <select name="mode">
+            <option value="auto">Adaptive: gets harder or easier based on chat's answers</option>
+            <option value="fixed">Fixed: always the level below</option>
+            <option value="rotate">Cycle: every level in turn, 1 → 20</option>
+          </select>
+        </label>
+        <label><span><span id="setup-level-lbl">Starting difficulty:</span> <b id="setup-level">7 · Medium</b></span>
+          <input type="range" name="difficulty" min="1" max="20" step="1" value="7">
+          <span class="range-ends"><span>1 Beginner</span><span>20 Nightmare</span></span>
+        </label>
+        <label>Puzzle type
+          <select name="variant">
+            <option value="mix">Mix it up (classic between twists)</option>
+            <option value="classic">Classic only</option>
+            <option value="diagonal">Diagonal: both diagonals have 1–9</option>
+            <option value="windoku">Windoku: 4 extra shaded boxes</option>
+            <option value="centerdot">Center Dot: box centers have 1–9</option>
+            <option value="asterisk">Asterisk: 9 starred cells have 1–9</option>
+          </select>
+        </label>
+        <label>Layout
+          <select name="frame">
+            <option value="">Standard: fills the whole Browser Source</option>
+            <option value="1">GuildScribe theme: fits the Sudoku on Stream scene's window (1464 × 912)</option>
+          </select>
+        </label>
+        <label>Command prefix <input name="prefix" placeholder="(none — just type B7 4)" autocomplete="off"></label>
+        <div class="row3">
+          <label>Hint after (s) <input name="hint" type="number" min="0" value="60"></label>
+          <label>Wrong-guess cooldown (s) <input name="cooldown" type="number" min="0" value="3"></label>
+          <label>Next puzzle in (s) <input name="next" type="number" min="3" value="45"></label>
+        </div>
+        <label class="check"><input type="checkbox" name="notes" value="1" checked> Let viewers pencil in notes (e.g. B7?35)</label>
+        <label class="check"><input type="checkbox" name="bg" value="transparent"> Transparent background</label>
+        <label>Browser Source URL <input id="setup-url" readonly></label>
+        <div class="actions">
+          <button type="button" id="setup-copy">Copy URL</button>
+          <button type="submit">Open</button>
+          <button type="button" id="setup-demo" class="ghost">Try demo</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Game screen -->
+  <main id="game">
+    <div class="board-wrap">
+      <div id="board"></div>
+    </div>
+    <aside class="panel">
+      <header>
+        <h1>Sudoku <span>on Stream</span></h1>
+        <div class="meta">
+          <span id="round-no"></span>
+          <span id="difficulty"></span>
+          <span id="variant" hidden></span>
+          <span id="timer">0:00</span>
+        </div>
+        <div class="progress"><div id="progress-bar"></div></div>
+        <div class="meta small"><span id="remaining"></span><span id="hint-in"></span></div>
+      </header>
+
+      <section class="how">
+        <h2>How to play</h2>
+        <p id="rule" class="rule" hidden></p>
+        <p>Type a <b>cell</b> then a <b>number</b> in chat:</p>
+        <div class="example"><span id="how-prefix"></span>B7 4</div>
+        <p class="small">Also works: <code><span id="how-prefix2"></span>b7=4</code>. Right answer <b>+10</b>, finish a row / column / box <b>+5</b> each, wrong <b>−2</b> and a short timeout.</p>
+        <div id="how-notes" class="notes-how">
+          <p class="small">✏️ <b>Notes:</b> put <b>?</b> after the cell, then the numbers. Free, no points.</p>
+          <p id="note-ex" class="note-ex" hidden><code id="note-ex-cmd"></code> <span id="note-ex-what"></span>, like the dashed cell <b id="note-ex-cell"></b>, which always shows what can still go there.</p>
+          <p class="small"><code><span class="how-prefix-n"></span>B7?-3</code> rubs out 3 · <code><span class="how-prefix-n"></span>B7?x</code> clears.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>This puzzle</h2>
+        <ol id="round-list" class="lb"></ol>
+      </section>
+
+      <section>
+        <h2>All-time</h2>
+        <ol id="all-list" class="lb"></ol>
+      </section>
+
+      <section class="feed-wrap">
+        <h2>Live</h2>
+        <ul id="feed"></ul>
+      </section>
+
+      <footer><span id="status" data-state="connecting">○ connecting…</span></footer>
+      <input id="test-input" placeholder="Test chat: type B7 4 or !sudoku new, then Enter" hidden>
+    </aside>
+
+    <div id="paused-card">
+      <div class="pc-icon">⏸</div>
+      <div class="pc-title">Paused</div>
+      <div class="pc-sub">Back in a moment — hold your answers!</div>
+    </div>
+
+    <div id="overlay">
+      <div class="ov-card">
+        <div class="ov-title">Solved!</div>
+        <div class="ov-mvp-lbl">MVP</div>
+        <div id="ov-mvp"></div>
+        <div id="ov-time"></div>
+        <ol id="ov-list" class="lb"></ol>
+        <div id="ov-adapt"></div>
+        <div class="ov-next">Next puzzle in <b id="ov-next"></b>s</div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/sudoku.js"></script>
+  <script src="js/twitch.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

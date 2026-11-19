@@ -81,6 +81,23 @@ window.TAVERN_PROJECTS = {
       }
     },
     {
+      "key": "sudoku",
+      "icon": "🧩",
+      "name": "Sudoku on Stream",
+      "href": "/sudoku/",
+      "dir": "sudoku",
+      "card": {
+        "section": "bots",
+        "title": "Sudoku on Stream",
+        "text": "A Sudoku your Twitch chat solves together. Viewers type <code>B7 4</code>, right answers land in their chat colour, and a live leaderboard keeps score. 20 adaptive levels and five puzzle types. One link in OBS; no bot or login.",
+        "href": "/sudoku/",
+        "url": "tavernworks.dev/sudoku",
+        "pill": "NEW",
+        "pillKind": "beta",
+        "links": []
+      }
+    },
+    {
       "key": "clerk",
       "icon": "🗝️",
       "name": "Wandering Clerk",
@@ -682,6 +699,7 @@ window.TAVERN_PROJECTS = {
     ["verrowen","2026-11-06","Wake in Verrowen is for making a character: names aren't known at the start, so the true-name picker is gone and the narrator reveals a name that fits the lore","/verrowen/"],
     ["verrowen","2026-11-06","Wake in Verrowen, the lore-keeper and the Terms work out from the model's name whether the laptop runs an abliterated or a standard AI model, and say so","/verrowen/"],
     ["crier","2026-11-06","Town Crier: GuildScribe's and UndercoverBurn's ad-break alerts become one bot of their own, for any channel","https://crier.tavernworks.dev/"],
-    ["home","2026-11-17","The home page opens on a rift: step through the portal into the tavern and the Orrery, with the worlds it links read from the Orrery","/"]
+    ["home","2026-11-17","The home page opens on a rift: step through the portal into the tavern and the Orrery, with the worlds it links read from the Orrery","/"],
+    ["sudoku","2026-11-19","Sudoku on Stream: a Sudoku Twitch chat solves together, with a setup guide, a hosted copy to paste into OBS and a download","/sudoku/"]
   ]
 };
