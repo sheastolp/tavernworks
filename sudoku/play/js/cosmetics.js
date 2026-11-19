@@ -2,7 +2,7 @@
 // timers or anything else about how the game plays.
 //
 // The default of every option is free. The other options come with the
-// Supporter licence (see license.js). Anyone can preview them in the demo.
+// Cosmetics bundle (see license.js). Anyone can preview them in the demo.
 (() => {
   const CATALOG = {
     // Board and panel colours. Ignored with the GuildScribe layout (frame=1),
