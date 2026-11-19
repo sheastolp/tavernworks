@@ -384,9 +384,14 @@
 
     <div class="redeem">
       <h3 style="font-family:Cinzel,serif;font-size:17px;color:var(--gold2)">Already bought something?</h3>
-      <p style="color:var(--muted);font-size:14.5px">Your licence key (and, for the offline download, the download) is in your purchase email. For ★ looks, use your Cosmetics or Supporter key (a download-only key doesn't include them). Your account page has your keys, and lets you free up a setup you no longer use (each browser or OBS where you enter the key counts as one).</p>
-    <div class="btnrow" style="margin-top:10px"><a class="btn" id="account-link" href="#" target="_blank" rel="noopener">Open my account</a></div>
+      <p style="color:var(--muted);font-size:14.5px">Your licence key is in your purchase email. For ★ looks, use it in the <b>★ Looks</b> box above (Cosmetics or Supporter key). To get the offline download (Supporter or Offline download key), enter it here:</p>
+    <div class="fields">
+      <label>Licence key<input type="text" id="dl-key" autocomplete="off" spellcheck="false"></label>
+      <button class="btn gold" type="button" id="dl-go" style="cursor:pointer">⬇ Download</button>
+    </div>
     <p class="keystatus" id="dl-status"></p>
+    <p style="color:var(--muted);font-size:14.5px;margin-top:12px">Your account page has your keys, and lets you free up a setup you no longer use (each browser or OBS where you enter the key counts as one).</p>
+    <div class="btnrow" style="margin-top:10px"><a class="btn" id="account-link" href="#" target="_blank" rel="noopener">Open my account</a></div>
     </div>
 
     <details class="more">
@@ -618,7 +623,21 @@
     else { btn.textContent = "Coming soon"; btn.setAttribute("aria-disabled", "true"); btn.removeAttribute("href"); }
   });
 
-  // Customer account page on the licensing site.
+  // Offline download: our Worker checks the key, then sends the zip.
+      $("dl-go").addEventListener("click", async () => {
+        const st = $("dl-status"), btn = $("dl-go");
+        st.dataset.state = ""; st.textContent = "Checking your key…"; btn.disabled = true;
+        const r = await L.download($("dl-key").value);
+        btn.disabled = false;
+        if (!r.blob) { st.dataset.state = "bad"; st.textContent = r.message; return; }
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(r.blob); a.download = r.filename;
+        document.body.append(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+        st.dataset.state = "ok"; st.textContent = "✓ Your download has started. Unzip it and open START HERE.txt.";
+      });
+    
+      // Customer account page on the licensing site.
       const acct = $("account-link");
       if (L.config.accountUrl) acct.href = L.config.accountUrl;
       else { acct.textContent = "Accounts open soon"; acct.setAttribute("aria-disabled", "true"); acct.removeAttribute("href"); }

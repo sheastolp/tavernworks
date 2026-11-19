@@ -36,7 +36,10 @@
           supporter: { url: '', price: '' },
     },
     // The customer account page (the [lsvc_account] shortcode): keys, machines, billing.
-    accountUrl: '',
+        accountUrl: '',
+        // Our download Worker (tavernworks cloudflare/sudoku-download-worker.js),
+        // e.g. "https://downloads.tavernworks.dev/sudoku". Empty = downloads not open yet.
+        downloadUrl: '',
   };
 
   const APP_VERSION = 'sudoku-on-stream-web/1.1.0';
@@ -246,7 +249,25 @@
     return result('valid', a.v.claims);
   }
 
-  // Frees this browser's activation (e.g. before moving to another PC).
+  // Gets the offline download from our download Worker, which checks the key
+      // with the licensing service. Resolves to { blob, filename } or { error, message }.
+      async function download(rawKey) {
+        const key = cleanKey(rawKey);
+        if (!LICENSE_CONFIG.downloadUrl) return { error: 'unavailable', message: "Downloads aren't open yet." };
+        if (!key) return { error: 'bad_request', message: 'Enter your licence key.' };
+        let res;
+        try {
+          res = await fetch(LICENSE_CONFIG.downloadUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) });
+        } catch {
+          return { error: 'network_error', message: "Couldn't reach the download server. Check your connection and try again." };
+        }
+        if (res.ok && (res.headers.get('Content-Type') || '').includes('zip')) return { blob: await res.blob(), filename: 'sudoku-on-stream.zip' };
+        let body = {};
+        try { body = await res.json(); } catch {}
+        return { error: body.code || 'server_error', message: body.message || 'The download server had a problem. Please try again later.' };
+      }
+    
+      // Frees this browser's activation (e.g. before moving to another PC).
   async function deactivate() {
     const saved = ls.get(LS_LICENSE);
     if (!saved || !saved.key || !LICENSE_CONFIG.api) return false;
@@ -264,6 +285,7 @@
     lookup,
     cachedUnlocks,
     deactivate,
-    verifyToken, // exposed for tests
+        download,
+        verifyToken, // exposed for tests
   };
 })();
