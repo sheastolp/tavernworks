@@ -190,7 +190,7 @@
   .keystatus[data-state=bad]{color:var(--ember)}
   .free-note{margin-top:16px;padding:12px 16px;border-radius:12px;background:rgba(127,176,105,.08);border:1px solid rgba(127,176,105,.25);color:var(--muted);font-size:14.5px}
   .free-note b{color:var(--green)}
-  .tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px;margin-top:16px}
+  .tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:16px;margin-top:16px}
   .tier{display:flex;flex-direction:column;gap:10px;background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:22px}
   .tier.best{border-color:var(--gold);box-shadow:0 0 28px rgba(224,168,74,.15)}
   .tier h3{font-family:Cinzel,serif;font-size:19px;color:var(--gold2)}
@@ -276,7 +276,7 @@
       </details>
       <details class="looks" id="looks">
         <summary>★ Looks: themes, celebrations, digit fonts</summary>
-        <p>Looks only change how the board looks, never how the game plays. Pick one and the demo at the top of the page shows it. Options marked ★ come with the <a href="#offline" style="color:var(--gold2)">Cosmetics bundle</a>.</p>
+        <p>Looks only change how the board looks, never how the game plays. Pick one and the demo at the top of the page shows it. Options marked ★ come with the <a href="#offline" style="color:var(--gold2)">Cosmetics</a> and <a href="#offline" style="color:var(--gold2)">Supporter</a> tiers.</p>
         <div class="fields">
           <label>Board theme<select id="theme"></select></label>
           <label>Solve celebration<select id="celebrate"></select></label>
@@ -286,7 +286,7 @@
           <label>Digit style<select id="ink"></select></label>
         </div>
         <div class="fields">
-          <label>Cosmetics bundle key<input type="text" id="key" placeholder="Only needed for ★ looks" autocomplete="off" spellcheck="false"></label>
+          <label>Cosmetics or Supporter key<input type="text" id="key" placeholder="Only needed for ★ looks" autocomplete="off" spellcheck="false"></label>
         </div>
         <p class="keystatus" id="key-status"></p>
       </details>
@@ -334,29 +334,49 @@
 
   <div class="divider" id="offline">OPTIONAL EXTRAS</div>
   <div class="scroll">
-    <p>Everything above is free: every puzzle type, all 20 levels, the control page and every option, hosted here with the latest version. If you'd like to support the tavern, there are two extras, sold separately. Neither one changes how the game plays.</p>
+    <p>Everything above is free: every puzzle type, all 20 levels, the control page and every option, hosted here with the latest version. If you'd like to support the tavern, there are three paid tiers. None of them changes how the game plays.</p>
     <div class="tiers">
+      <div class="tier">
+        <h3>Free</h3>
+        <div class="price">$0</div>
+        <ul>
+          <li>The full game, hosted here, always the latest version</li>
+          <li>Every puzzle type, all 20 levels, every option</li>
+          <li>The control page and mod commands</li>
+          <li>The standard look</li>
+        </ul>
+        <a class="btn" href="#setup">Set it up</a>
+      </div>
+      <div class="tier">
+        <h3>Cosmetics</h3>
+        <div class="price" id="price-cosmetics"></div>
+        <ul>
+          <li>Every ★ look: 5 board themes, 3 solve celebrations, 4 digit fonts and 2 digit styles</li>
+          <li>Works on the hosted copy, so no download needed</li>
+          <li>No offline download</li>
+        </ul>
+        <a class="btn" id="buy-cosmetics" href="#" target="_blank" rel="noopener">Get the looks</a>
+      </div>
+      <div class="tier best">
+        <span class="tag-best">BEST VALUE</span>
+        <h3>Supporter bundle</h3>
+        <div class="price" id="price-supporter"></div>
+        <ul>
+          <li>The offline download</li>
+          <li>Every ★ look, on the hosted copy and your download</li>
+          <li>The biggest thank-you to the tavern</li>
+        </ul>
+        <a class="btn gold" id="buy-supporter" href="#" target="_blank" rel="noopener">Become a Supporter</a>
+      </div>
       <div class="tier">
         <h3>Offline download</h3>
         <div class="price" id="price-offline"></div>
         <ul>
           <li>The whole game as a zip, to run from your own computer</li>
-          <li>Works with no internet apart from Twitch chat</li>
-          <li>Keeps working even if this site is down</li>
-    <li>The standard look only; ★ looks are the Cosmetics bundle</li>
+          <li>Works with no internet apart from Twitch chat, and if this site is down</li>
+          <li>The standard look only (no ★ looks)</li>
         </ul>
         <a class="btn" id="buy-offline" href="#" target="_blank" rel="noopener">Buy the download</a>
-      </div>
-      <div class="tier best">
-        <span class="tag-best">ALL THE LOOKS</span>
-        <h3>Cosmetics bundle</h3>
-        <div class="price" id="price-cosmetics"></div>
-        <ul>
-          <li>Every ★ look: 5 board themes, 3 solve celebrations, 4 digit fonts and 2 digit styles</li>
-    <li>Works on the hosted copy, so no download needed</li>
-    <li>Also works on the offline download, if you have it</li>
-        </ul>
-        <a class="btn gold" id="buy-cosmetics" href="#" target="_blank" rel="noopener">Get the looks</a>
       </div>
     </div>
     <p class="free-note"><b>No pay-to-win, ever.</b> Paying never changes puzzles, scoring, hints, difficulty or commands. Try every look free in the demo at the top of the page.</p>
@@ -364,7 +384,7 @@
 
     <div class="redeem">
       <h3 style="font-family:Cinzel,serif;font-size:17px;color:var(--gold2)">Already bought something?</h3>
-      <p style="color:var(--muted);font-size:14.5px">Your licence key (and, for the offline download, the download) is in your purchase email. Each purchase has its own key; for ★ looks, use the Cosmetics bundle key. Your account page has your keys, and lets you free up a setup you no longer use (each browser or OBS where you enter the key counts as one).</p>
+      <p style="color:var(--muted);font-size:14.5px">Your licence key (and, for the offline download, the download) is in your purchase email. For ★ looks, use your Cosmetics or Supporter key (a download-only key doesn't include them). Your account page has your keys, and lets you free up a setup you no longer use (each browser or OBS where you enter the key counts as one).</p>
     <div class="btnrow" style="margin-top:10px"><a class="btn" id="account-link" href="#" target="_blank" rel="noopener">Open my account</a></div>
     <p class="keystatus" id="dl-status"></p>
     </div>
@@ -438,7 +458,7 @@
       <p>Yes. The full game is free to play, hosted here, with every puzzle type, level and option. The <a href="#offline" style="color:var(--gold2)">offline download</a> and the ★ looks are paid extras. They're there for people who want to support the tavern, and they never change how the game plays.</p>
     </details>
     <details>
-      <summary>Where do I put my Cosmetics bundle key?</summary>
+      <summary>Where do I put my Cosmetics or Supporter key?</summary>
       <p>Open <b>★ Looks</b> in step 1, pick your looks and paste your key; it's added to the Game link. On the download, paste it into the setup screen. If the key is missing or can't be checked, the board shows the standard look and the game carries on as normal.</p>
     </details>
     <details>
@@ -531,13 +551,13 @@
     const want = C.wantsPaid(C.normalize(s));
     if (!want) return show("");
     if (!L.enabled()) return show("★ looks are coming soon. You can preview them in the demo above now; the Game link will show the standard look until then.");
-    if (!s.key.trim()) return show("★ looks need a Cosmetics bundle key. Without one, the Game link shows the standard look.");
+    if (!s.key.trim()) return show("★ looks need a Cosmetics or Supporter key. Without one, the Game link shows the standard look.");
     const n = ++keySeq;
     show("Checking key…");
     L.lookup(s.key).then((r) => {
       if (n !== keySeq) return;
-      if (r.unlocks.cosmetics) show("✓ Cosmetics bundle key: every look is unlocked.", "ok");
-      else if (r.status === "valid" || r.status === "cached") show("That's an offline download key. ★ looks need a Cosmetics bundle key.", "bad");
+      if (r.unlocks.cosmetics) show("✓ Every look is unlocked.", "ok");
+      else if (r.status === "valid" || r.status === "cached") show("That's an offline download key. ★ looks need a Cosmetics or Supporter key.", "bad");
       else show(r.message || "That key wasn't accepted.", "bad");
     });
   }
@@ -591,7 +611,7 @@
   update();
 
   // Paid extras: checkout links and prices come from the game's licence settings.
-  ["offline", "cosmetics"].forEach((p) => {
+  ["cosmetics", "supporter", "offline"].forEach((p) => {
     const cfg = L.config.store[p], btn = $("buy-" + p);
     $("price-" + p).textContent = cfg.price || "";
     if (cfg.url) btn.href = cfg.url;

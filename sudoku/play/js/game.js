@@ -16,7 +16,7 @@
     transparent: params.get('bg') === 'transparent',
     notes: params.get('notes') !== '0', // viewers can pencil in notes, e.g. B7?35
     frame: params.get('frame') === '1', // fills the Sudoku window of GuildScribe's full stream theme
-    // Looks only (cosmetics.js). The non-default options need a Cosmetics bundle key.
+    // Looks only (cosmetics.js). The non-default options need a Cosmetics or Supporter key.
     theme: params.get('theme') || '',
     celebrate: params.get('celebrate') || '',
     digits: params.get('digits') || '',
@@ -54,13 +54,13 @@
       const want = Cosmetics.wantsPaid(Cosmetics.normalize(Object.fromEntries(new FormData(form))));
       const key = form.key.value;
       if (!License.enabled()) return show(want ? '★ looks are coming soon. Try them now with “Try demo”.' : '');
-      if (!key.trim()) return show(want ? '★ looks need a Cosmetics bundle key, or they fall back to the standard look. Try them free with “Try demo”.' : '');
+      if (!key.trim()) return show(want ? '★ looks need a Cosmetics or Supporter key, or they fall back to the standard look. Try them free with “Try demo”.' : '');
       const n = ++seq;
       show('Checking key…');
       License.lookup(key).then((r) => {
         if (n !== seq) return;
-        if (r.unlocks.cosmetics) show('✓ Cosmetics bundle key: every look is unlocked.', 'ok');
-        else if (r.status === 'valid' || r.status === 'cached') show('That\'s an offline download key. ★ looks need a Cosmetics bundle key.', 'bad');
+        if (r.unlocks.cosmetics) show('✓ Every look is unlocked.', 'ok');
+        else if (r.status === 'valid' || r.status === 'cached') show('That\'s an offline download key. ★ looks need a Cosmetics or Supporter key.', 'bad');
         else show(r.message || "That key wasn't accepted.", 'bad');
       });
     };
@@ -119,7 +119,7 @@
 
   // ---------- Cosmetics ----------
   // Looks only: a theme, digit font/style and solve celebration. They never
-  // touch puzzles, moves, scoring or timers. Paid looks need a Cosmetics bundle key;
+  // touch puzzles, moves, scoring or timers. Paid looks need a Cosmetics or Supporter key;
   // without one the free defaults show and the game plays exactly the same.
   // The channel-less demo previews every look for free.
   const wantLooks = Cosmetics.normalize(cfg);

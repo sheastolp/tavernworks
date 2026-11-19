@@ -28,10 +28,12 @@
     publicKeys: {},
     // The site's host name, as in the tokens' "iss" claim (optional check).
     issuer: '',
-    // Where people buy each plan (offline = the download only, cosmetics = every ★ look, no download) (the page with the [lsvc_buy] button), and the price to show.
+    // Where people buy each plan: cosmetics = every ★ look (no download),
+        // supporter = the download + every ★ look, offline = the download only. (the page with the [lsvc_buy] button), and the price to show.
     store: {
       offline: { url: '', price: '' },
       cosmetics: { url: '', price: '' },
+          supporter: { url: '', price: '' },
     },
     // The customer account page (the [lsvc_account] shortcode): keys, machines, billing.
     accountUrl: '',
