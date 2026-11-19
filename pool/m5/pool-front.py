@@ -90,6 +90,7 @@ COORD_URL = os.environ.get("POOL_COORD_URL", "http://100.100.40.72:8091/status.j
 MAX_COMPONENT_MB = 512
 RELAY_STATE_PATH = os.path.join(POOL_DIR, "relay-state.json")
 RELAY_BASE_PORT = int(os.environ.get("POOL_RELAY_BASE_PORT", "51100"))
+RELAY_PORTS_PATH = os.path.join(POOL_DIR, "relay-ports.json")
 RELAY_PUBLIC_PATH = "/relay"
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 ACCOUNTS_PATH = os.path.join(POOL_DIR, "accounts.json")
@@ -1124,6 +1125,11 @@ def mcp_handle(account, req):
 # targets that port with --rpc and its bytes are carried down the
 # worker's WebSocket to the worker's local rpc-server (which listens
 # on the worker's own localhost only — nothing inbound, anywhere).
+# The port is STABLE per machine: assigned once, persisted in
+# relay-ports.json, and reused on every reconnect and front restart.
+# (Relay connections DO drop — tunnel edges cycle — so the design
+# tolerates drops instead of pretending they won't happen; what must
+# never change underneath llama-server is the port number.)
 # ------------------------------------------------------------------
 
 def ws_accept(key):
@@ -1250,6 +1256,7 @@ class RelayConn:
         ls.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         ls.bind(("127.0.0.1", port))
         ls.listen(16)
+        ls.settimeout(1.0)   # accept() must re-check alive: see close()
         self.listener = ls
         threading.Thread(target=self._accept_loop, daemon=True).start()
 
@@ -1257,6 +1264,8 @@ class RelayConn:
         while self.alive:
             try:
                 tcp, _ = self.listener.accept()
+            except socket.timeout:
+                continue
             except OSError:
                 return
             with self.streams_lock:
@@ -1299,13 +1308,17 @@ class RelayConn:
 
     def close(self):
         self.alive = False
-        for sid in list(self.streams):
-            self.close_stream(sid, notify=False)
         if self.listener:
+            try:
+                self.listener.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
             try:
                 self.listener.close()
             except OSError:
                 pass
+        for sid in list(self.streams):
+            self.close_stream(sid, notify=False)
         try:
             ws_send(self.sock, self.send_lock, 8, b"")
         except OSError:
@@ -1324,19 +1337,64 @@ class RelayHub:
     def __init__(self):
         self.conns = {}            # enrollment id -> RelayConn
         self.lock = threading.Lock()
+        self.ports = {}            # enrollment id -> stable relay port
+        self._load_ports()
 
-    def _free_port(self):
-        used = {c.port for c in self.conns.values() if c.port}
-        port = RELAY_BASE_PORT
-        while port in used or port < RELAY_BASE_PORT + 200:
-            if port not in used:
+    # -- stable per-machine ports --------------------------------------
+    def _load_ports(self):
+        try:
+            with open(RELAY_PORTS_PATH) as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    try:
+                        self.ports[str(k)] = int(v)
+                    except (TypeError, ValueError):
+                        pass
+        except (OSError, ValueError):
+            self.ports = {}
+
+    def _save_ports(self):
+        # Prune assignments whose enrollment no longer exists, so the
+        # file stays bounded; a live assignment is never pruned.
+        try:
+            live = {r["id"] for r in load_enrollments()["enrollments"]}
+            self.ports = {k: v for k, v in self.ports.items()
+                          if k in live}
+        except Exception:
+            pass
+        try:
+            tmp = RELAY_PORTS_PATH + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(self.ports, f, indent=1, sort_keys=True)
+            os.replace(tmp, RELAY_PORTS_PATH)
+        except OSError:
+            pass
+
+    def _alloc_port(self, eid):
+        """eid's stable port: its saved assignment when bindable, else
+        the first bindable port at or after it (persisted). The probe
+        sets SO_REUSEADDR exactly like the real listener — a port in
+        TIME_WAIT from the previous connection must NOT read as taken
+        (that mismatch is what made ports climb on every reconnect)."""
+        taken = {c.port for c in self.conns.values() if c.port}
+        assigned = {p for k, p in self.ports.items() if k != eid}
+        port = self.ports.get(eid, RELAY_BASE_PORT)
+        while port < RELAY_BASE_PORT + 400:
+            if port not in taken and port not in assigned:
                 probe = socket.socket()
+                probe.setsockopt(socket.SOL_SOCKET,
+                                 socket.SO_REUSEADDR, 1)
                 try:
                     probe.bind(("127.0.0.1", port))
                     probe.close()
-                    return port
                 except OSError:
-                    pass
+                    port += 1
+                    continue
+                if self.ports.get(eid) != port:
+                    self.ports[eid] = port
+                    self._save_ports()
+                return port
             port += 1
         raise RuntimeError("no relay port free")
 
@@ -1346,7 +1404,7 @@ class RelayHub:
             if old:
                 old.close()
             conn = RelayConn(self, rec, sock)
-            conn.port = self._free_port()
+            conn.port = self._alloc_port(rec["id"])
             self.conns[rec["id"]] = conn
         conn.start_listener(conn.port)
         self.write_state()
@@ -1435,7 +1493,7 @@ Downloads: <a href="/downloads/">/downloads/</a></p>
 <p><strong>Enroll a machine</strong> (early testers — the one-click worker app is
 still in development):</p>
 <p><code>curl -X POST https://pool.tavernworks.dev/enroll -H 'Content-Type: application/json'
--d '{{"name":"my-pc","offered_mb":8192,"gpu":"RTX 4070","os":"windows"}}'</code></p>
+-d '{"name":"my-pc","offered_mb":8192,"gpu":"RTX 4070","os":"windows"}'</code></p>
 <p class="fine">You get an enrollment id and a key (shown once — save it). The operator
 approves each machine by hand before it can hold any part of the model.</p>
 </div>
@@ -1470,10 +1528,19 @@ class Handler(BaseHTTPRequestHandler):
             self.handle_relay()
         elif path == "/":
             st = pool_status()
-            self._send(200, LANDING.format(
-                brain=escape(str(st.get("brain", "—"))),
-                model=escape(str(st.get("model", "—"))),
-                serving=escape(str(st.get("serving", "—")))))
+            # NOT str.format for the page below: LANDING's CSS is
+            # full of braces, format() reads '{font-family' as a
+            # field name and raises KeyError — which dropped the
+            # connection and surfaced as a Cloudflare 502 on every
+            # request since M5a (found live 2026-11-18).
+            page = (LANDING
+                    .replace("{brain}",
+                             escape(str(st.get("brain", "—"))))
+                    .replace("{model}",
+                             escape(str(st.get("model", "—"))))
+                    .replace("{serving}",
+                             escape(str(st.get("serving", "—")))))
+            self._send(200, page)
         elif path == "/status.json":
             self._json(200, pool_status())
         elif path == "/downloads/":
