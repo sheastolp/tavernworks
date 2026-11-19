@@ -5,9 +5,9 @@
 <link rel="canonical" href="https://tavernworks.dev/sudoku/">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sudoku on Stream · Tavernworks</title>
-<meta name="description" content="Sudoku on Stream: a free Sudoku your Twitch chat solves together, shown in OBS as a browser source. No bot, no login. Set it up in two minutes.">
+<meta name="description" content="Sudoku on Stream: a Sudoku your Twitch chat solves together, shown in OBS as a browser source. No bot, no login. Set it up in two minutes.">
 <meta property="og:title" content="Sudoku on Stream · Tavernworks">
-<meta property="og:description" content="A free Sudoku your Twitch chat solves together. Paste one link into OBS; no bot or login needed.">
+<meta property="og:description" content="A Sudoku your Twitch chat solves together. Paste one link into OBS; no bot or login needed.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧩</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -197,7 +197,6 @@
       <span class="pill plain">TWITCH CHAT</span>
       <span class="pill plain">OBS BROWSER SOURCE</span>
       <span class="pill plain">NO BOT · NO LOGIN</span>
-      <span class="pill plain">FREE</span>
     </div>
   </header>
 
@@ -247,11 +246,11 @@
         <summary>More options</summary>
         <div class="fields">
           <label>Command prefix<input type="text" id="prefix" placeholder="none" autocomplete="off" spellcheck="false" style="width:120px"></label>
-          <label>Free hint after (s)<input type="number" id="hint" min="0" value="60"></label>
+          <label>Hint after (s)<input type="number" id="hint" min="0" value="60"></label>
           <label>Wrong-guess timeout (s)<input type="number" id="cooldown" min="0" value="3"></label>
           <label>Next puzzle in (s)<input type="number" id="next" min="3" value="45"></label>
         </div>
-        <p style="margin-top:10px;color:var(--muted);font-size:13.5px">A prefix like <code>!</code> means chat types <code>!B7 4</code>. Use it if normal chat keeps setting off moves. Hint <code>0</code> turns free hints off.</p>
+        <p style="margin-top:10px;color:var(--muted);font-size:13.5px">A prefix like <code>!</code> means chat types <code>!B7 4</code>. Use it if normal chat keeps setting off moves. Hint <code>0</code> turns automatic hints off.</p>
       </details>
 
       <span class="urllbl">🎮 Game (the board on stream)</span>
@@ -319,7 +318,7 @@
         <tr><th>CHAT TYPES</th><th>WHAT HAPPENS</th></tr>
         <tr><td><code>B7 4</code></td><td>Puts a 4 in row B, column 7. <code>b7=4</code> and <code>B74</code> work too.</td></tr>
         <tr><td><code>A1 5 C3 2</code></td><td>Up to 3 moves in one message</td></tr>
-        <tr><td><code>B7?35</code></td><td>Pencils small 3 and 5 into B7 (free, never scored)</td></tr>
+        <tr><td><code>B7?35</code></td><td>Pencils small 3 and 5 into B7 (never scored)</td></tr>
         <tr><td><code>B7?-3</code></td><td>Rubs out the 3</td></tr>
         <tr><td><code>B7?x</code></td><td>Clears B7's notes</td></tr>
       </table></div>
@@ -333,7 +332,7 @@
         <tr><td>Last cell of the puzzle</td><td><b style="color:var(--green)">+10</b></td></tr>
         <tr><td>Wrong answer</td><td><b style="color:var(--ember)">−2</b> and a 3 s timeout</td></tr>
       </table></div>
-      <p style="margin-top:10px;color:var(--muted);font-size:13.5px">No right answer for 60 s and a free cell is revealed; the bar under the title counts down to it. Solve it and an MVP screen shows before the next puzzle.</p>
+      <p style="margin-top:10px;color:var(--muted);font-size:13.5px">No right answer for 60 s and a cell is revealed; the bar under the title counts down to it. Solve it and an MVP screen shows before the next puzzle.</p>
     </div>
   </div>
 
@@ -366,10 +365,6 @@
     <details>
       <summary>Do I need a bot or to log in with Twitch?</summary>
       <p>No. The board reads your chat the same way twitch.tv shows it to logged-out viewers: anonymously and read-only. It never posts in chat and never asks for a password or token.</p>
-    </details>
-    <details>
-      <summary>Does it cost anything?</summary>
-      <p>No. It's free, the hosted copy and the download alike.</p>
     </details>
     <details>
       <summary>I use GuildScribe's full stream theme. How do I fit it in?</summary>
