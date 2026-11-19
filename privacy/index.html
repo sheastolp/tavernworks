@@ -51,17 +51,18 @@
   <header>
     <a class="back" href="/">← Back to the tavern</a>
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated October 27, 2026</p>
+    <p class="updated">Last updated November 19, 2026</p>
   </header>
   <div class="doc">
     <h2>The short version</h2>
-    <p>Tavernworks (<b>tavernworks.dev</b> and its subdomains) is a one-person hobby workshop run by Stoned Sheamus. There are no ads, no analytics trackers and nothing is sold. Most of the tools keep your data in your own browser. The few things that are sent to us are listed below, along with how to have them removed.</p>
+    <p>Tavernworks (<b>tavernworks.dev</b> and its subdomains) is a one-person hobby workshop run by Stoned Sheamus. There are no ads, no analytics trackers and your data is never sold. Most of the tools keep your data in your own browser. The few things that are sent to us are listed below, along with how to have them removed.</p>
 
     <h2>Things that stay in your browser</h2>
     <p>These tools save to your browser's local storage or IndexedDB. That data never leaves your device unless you send it somewhere yourself, and clearing your browser's site data deletes it.</p>
     <ul>
       <li><b>Adventurer's Journal</b>: your projects, notes and attached images. The homepage also reads the journal's project list from your browser to show your recent projects; it isn't sent anywhere. If you turn on syncing, see <b>Adventurer's Journal sync</b> below.</li>
       <li><b>Sound Bytes</b>: your settings.</li>
+    <li><b>Sudoku on Stream</b>: the puzzle in progress, scores, settings and, if you use one, your licence key and the result of its last check (inside OBS's browser, or yours). The game reads Twitch chat anonymously and never sends chat, scores or your channel name to us. The setup page on tavernworks.dev also remembers the options you picked, including your licence key.</li>
       <li><b>Local AI chat</b>: your chats and connection settings. Messages go straight from your browser to the AI server you point it at.</li>
       <li><b>TwitchBotSandbox in the browser</b>, when you're not signed in: your projects.</li>
       <li><b>Game Assistants</b>: your notes, checklists and planners. If you link Steam, the Epic Games Launcher or GOG Galaxy, the list of installed games is read on your own PC and kept here, along with each game companion's goals, notes and play sessions. Steam games' cover art loads from Steam's image servers. If you turn on syncing, see <b>Game Assistants sync</b> below.</li>
@@ -86,23 +87,34 @@
     <p>Signing in with Google on the tip jar or suggestion box admin pages only works for an account the admin has linked. For a linked account we keep a one-way hash of its Google account ID, so we can recognize it next time, and nothing else. If an account that isn't linked tries to sign in, nothing about it is stored.</p>
     <h3>Twitch bots</h3>
     <p>GuildScribe, UndercoverBurn and The Wandering Clerk work in Twitch chat (and GuildScribe in Discord). To do their job they read chat messages in channels where they're enabled and store what they need: things like usernames, character sheets, game progress and channel settings. GuildScribe also remembers whether you asked for its replies by whisper or in chat, and reads whispers you send it so it can run them as commands. To decide when chat is busy enough to answer by whisper, it counts each channel's messages from the last minute in memory only, and never stores them for that. When a streamer connects a bot, Twitch asks them to approve the access it needs, and the bot keeps the token Twitch issues so it can keep working. GuildScribe lists the channels that run it on the homepage; a channel can leave that list with <code>!dndbot showcase off</code>.</p>
+    <h3>Purchases and licence keys (Sudoku on Stream)</h3>
+    <p>If you buy the Sudoku on Stream offline download or Supporter bundle:</p>
+    <ul>
+    <li><b>The payment provider</b> shown at checkout (for example Stripe or PayPal) collects your payment details, name, email address and billing country or address to take the payment, prevent fraud and work out tax. Your card number goes straight to them; Tavernworks never sees or stores it. Their privacy policy covers what they keep.</li>
+    <li><b>The Tavernworks licensing server</b> receives from the provider and stores your email address, name (if given), order number, what you bought, the price, currency and tax, the purchase date, your licence key, and whether the order was refunded or disputed. We use this to deliver and re-send your key and download, check keys, handle refunds and support, stop shared or misused keys, and keep the sales records the law requires.</li>
+    <li><b>Licence checks.</b> When the game or the setup page checks a key, or you ask for a fresh download link, your browser sends the key and which Sudoku on Stream products it's asking about to the licensing server. It doesn't send your channel name, chat or scores. The server records when each key was checked and briefly sees your IP address, which is used to rate-limit checks against guessing and, at most, as a rough count of how many places a key is used from to spot keys being shared. IP addresses aren't kept with your purchase record.</li>
+    </ul>
+    <p>We only email you about your Purchase (your receipt, key, download link, and replies to anything you ask). No marketing emails, and nothing is shared with anyone for advertising.</p>
+    <p><b>How long it's kept.</b> Purchase records are kept for as long as tax and accounting law requires, which is usually up to 7 years after the sale; after that they're deleted. Licence check timestamps are kept for up to 90 days. If you ask us to delete your data, we'll disable your key and delete everything we're not legally required to keep.</p>
     <h3>Server logs and rate limits</h3>
     <p>Like any website, the servers that handle requests see your IP address and browser details. We use IP addresses briefly, in memory, to rate-limit forms and sign-ins against spam and password guessing, and don't keep them with your suggestions or projects.</p>
 
     <h2>Where it's stored</h2>
-    <p>Suggestions, tip jar links and TwitchBotSandbox accounts are kept on a home server run by Tavernworks. GuildScribe and UndercoverBurn, and what they store, run on a home server run by Tavernworks too. The Wandering Clerk runs on <a href="https://www.val.town/" target="_blank" rel="noopener">Val Town</a> and GitHub, and the bots' subdomains are routed through <a href="https://www.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a>.</p>
+    <p>Suggestions, tip jar links and TwitchBotSandbox accounts are kept on a home server run by Tavernworks. GuildScribe and UndercoverBurn, and what they store, run on a home server run by Tavernworks too. The Wandering Clerk runs on <a href="https://www.val.town/" target="_blank" rel="noopener">Val Town</a> and GitHub, the Sudoku on Stream licensing server is a WordPress site run by Tavernworks, and the bots' subdomains are routed through <a href="https://www.cloudflare.com/" target="_blank" rel="noopener">Cloudflare</a>.</p>
 
     <h2>Third parties</h2>
-    <p>Pages load fonts from Google Fonts, and the Google sign-in button on TwitchBotSandbox and the admin pages loads from Google. Links and sign-ins with Twitch, Discord, Google, GitHub and the tip jar platforms take you to those services, and their own privacy policies apply there. We never sell or share your data with anyone for advertising.</p>
+    <p>Pages load fonts from Google Fonts, and the Google sign-in button on TwitchBotSandbox and the admin pages loads from Google. Links and sign-ins with Twitch, Discord, Google, GitHub, the tip jar platforms and the Sudoku on Stream checkout take you to those services, and their own privacy policies apply there. We never sell or share your data with anyone for advertising. Purchase details are shared only with the payment provider that handled the payment, and with authorities where the law requires it, such as tax records.</p>
+    <h2>Why we use it</h2>
+    <p>Where data protection law (like the GDPR or UK GDPR) asks for a reason: we use purchase data to deliver what you bought and support it (performing our contract with you), to keep sales and tax records (a legal obligation), and to prevent fraud and key sharing (our legitimate interest in protecting paid extras). Everything else on this page is used only to run the feature you chose to use. You can complain to your local data protection authority if you're unhappy with how we handle your data.</p>
 
     <h2>Cookies</h2>
-    <p>We don't set cookies of our own. Google's sign-in button may set its own cookies when you use it. Browser storage is used only for the features above, like keeping you signed in or saving your work.</p>
+    <p>We don't set cookies of our own. Google's sign-in button may set its own cookies when you use it, and so may the payment provider's checkout page. Browser storage is used only for the features above, like keeping you signed in or saving your work.</p>
 
     <h2>Children</h2>
     <p>Tavernworks isn't directed at children under 13, and we don't knowingly collect their personal information. If you think a child has sent us information, let us know and we'll delete it.</p>
 
     <h2>Your choices</h2>
-    <p>You can ask to see, correct or delete anything we hold about you. For TwitchBotSandbox, use <b>Delete my data</b> in the app. You can also remove Tavernworks' access to your Google account at any time in your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google account settings</a>. For anything else, including suggestions and bot data, ask on the <a href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">Tavernworks Discord</a> and we'll take care of it. Removing a bot from your Twitch channel or revoking its access in your Twitch connection settings stops it from collecting anything further.</p>
+    <p>You can ask to see, correct or delete anything we hold about you. For TwitchBotSandbox, use <b>Delete my data</b> in the app. For a Sudoku on Stream Purchase, ask on Discord with your order number or licence key; some records have to be kept for tax law (see above). You can also remove Tavernworks' access to your Google account at any time in your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google account settings</a>. For anything else, including suggestions and bot data, ask on the <a href="https://discord.gg/BmdDXCrAzK" target="_blank" rel="noopener">Tavernworks Discord</a> and we'll take care of it. Removing a bot from your Twitch channel or revoking its access in your Twitch connection settings stops it from collecting anything further.</p>
 
     <h2>Changes</h2>
     <p>If this policy changes, the new version will be posted here with a new date at the top.</p>
