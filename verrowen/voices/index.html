@@ -96,6 +96,21 @@
   .startbar .opts{display:flex;flex-wrap:wrap;gap:12px;align-items:center;flex:1;justify-content:flex-end}
   .startbar select{width:auto;max-width:260px}
   .startbar .check{margin:0}
+  .startbar .short{display:none}
+  /* Phones: two short rows, so the place, 18+ and Begin are always in reach. */
+  @media (max-width:600px){
+    .startbar{padding:8px 0 max(8px,env(safe-area-inset-bottom))}
+    .startbar .wrap{flex-direction:column;align-items:stretch;gap:6px}
+    .chosen{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+    .startbar .opts{flex-wrap:nowrap;gap:8px;justify-content:flex-end}
+    .startbar select{flex:1;min-width:0;max-width:none;font-size:15px;padding:8px}
+    .startbar .check{font-size:14px;gap:6px;white-space:nowrap;flex:none;align-items:center}
+    .startbar .check input{margin-top:0}
+    .startbar .long{display:none}
+    .startbar .short{display:inline}
+    .startbar button{flex:none;padding:10px 14px}
+    .setup{padding-bottom:100px}
+  }
 
   /* ── Play ── */
   .play{display:grid;grid-template-columns:300px 1fr;gap:18px;padding-bottom:30px}
@@ -249,7 +264,7 @@
     <div class="chosen" id="chosen"></div>
     <div class="opts">
       <select id="startPlace" aria-label="Where the story opens" hidden></select>
-      <label class="check"><input type="checkbox" id="grown"><span>Grown-up story (18+)</span></label>
+      <label class="check" title="Grown-up story (18+)"><input type="checkbox" id="grown"><span class="long">Grown-up story (18+)</span><span class="short">18+</span></label>
       <button type="button" class="primary" id="beginBtn" disabled>Begin</button>
     </div>
   </div>
@@ -524,7 +539,7 @@ function renderRoster(){
 }
 function renderPlaces(){
   const sel = $("startPlace"); sel.textContent = "";
-  const opts = [["", "Where it opens: storyteller's choice"], ["Stoutwell, the walled village", "Stoutwell"], ["The Wellhouse tavern in Stoutwell", "The Wellhouse tavern"]];
+  const opts = [["", "Opens: storyteller's choice"], ["Stoutwell, the walled village", "Stoutwell"], ["The Wellhouse tavern in Stoutwell", "The Wellhouse tavern"]];
   for (const p of world.places) opts.push([p.name + (p.where ? ` (${p.where})` : ""), p.name]);
   for (const [v, t] of opts){ const o = document.createElement("option"); o.value = v; o.textContent = t; sel.append(o); }
   const races = $("races"); races.textContent = "";
