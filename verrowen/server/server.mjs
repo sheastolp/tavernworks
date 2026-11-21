@@ -59,6 +59,10 @@
 //                    anyone: waits in the inbox above until the owner files it (always as a pitch)
 //   POST /narrate    { messages: [{ role, content }], temperature?, maxTokens? }  ->  { text }
 //                    (temperature 0–1.5 / maxTokens 50–8000 pass through to the model when given)
+//                    With { job: "<random id>" } the turn is a job: it finishes even if the page
+//                    hangs up (a phone switching tabs or apps), and its reply is kept for 15 minutes.
+//   GET  /narrate/job?id=<id>  ->  { state: "running" } | { state: "done", text } | { state: "error", error }
+//   POST /narrate/cancel  { job }  ->  { ok }   stops a job (the page's Stop button)
 //   POST /save       { playerId, playerName, characterName, seed, messages, profile, purpose, character }  ->  { ok }
 //
 //   node server.mjs           run the server (default port 8792)
@@ -262,6 +266,27 @@ async function narrate(messages, left, opts = {}) {
     if (left?.aborted) throw Object.assign(new Error("The player stopped waiting"), { status: 499, quiet: true });
     throw Object.assign(new Error("The AI backend isn't answering on the laptop"), { status: 502 });
   } finally { waiting--; }
+}
+
+// ── Turns that outlive the page ──
+// A phone that switches tabs or apps drops the page's connection, and a
+// plain /narrate turn is then cancelled to free the GPU. A turn sent with a
+// job id carries on instead and its reply waits here, so the page can pick
+// it up when it comes back (GET /narrate/job). Only Stop cancels it.
+const JOB_KEEP_MS = 15 * 60 * 1000, MAX_JOBS = 300;
+const jobs = new Map();
+const jobKey = (v) => (typeof v === "string" && /^[A-Za-z0-9-]{16,64}$/.test(v) ? v : null);
+function startJob(id, messages, opts) {
+  const old = jobs.get(id);
+  if (old) return old;
+  if (jobs.size >= MAX_JOBS) { for (const [k, j] of jobs) { if (j.state !== "running") { clearTimeout(j.timer); jobs.delete(k); } if (jobs.size < MAX_JOBS) break; } }
+  const job = { state: "running", text: "", error: "", status: 0, stop: new AbortController(), timer: null };
+  job.promise = narrate(messages, job.stop.signal, opts).then(
+    (text) => { job.state = "done"; job.text = text; return text; },
+    (e) => { job.state = "error"; job.error = e.message; job.status = e.status || 500; throw e; });
+  job.promise.catch(() => {}).finally(() => { job.timer = setTimeout(() => jobs.delete(id), JOB_KEEP_MS); job.timer.unref?.(); });
+  jobs.set(id, job);
+  return job;
 }
 
 // ── The local Orrery store ──────────────────────────────────────────────────
@@ -2235,6 +2260,18 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true, ...r }, origin);
       }
     }
+    if (req.method === "GET" && url.pathname === "/narrate/job") {
+      if (!allowed("job:" + clientIp(req), { n: 600, ms: PER_IP.ms })) return send(res, 429, { error: "Checking too often" }, origin);
+      const job = jobs.get(jobKey(url.searchParams.get("id")));
+      if (!job) return send(res, 404, { error: "No such turn (it may have expired)" }, origin);
+      return send(res, 200, job.state === "done" ? { state: "done", text: job.text } : job.state === "error" ? { state: "error", error: job.error, status: job.status } : { state: "running" }, origin);
+    }
+    if (req.method === "POST" && url.pathname === "/narrate/cancel") {
+      const b = await readJson(req).catch(() => ({}));
+      const job = jobs.get(jobKey(b.job));
+      if (job && job.state === "running") job.stop.abort();
+      return send(res, 200, { ok: true }, origin);
+    }
     if (req.method !== "POST" || !["/narrate", "/save", "/suggest"].includes(url.pathname)) return send(res, 404, { error: "Not here" }, origin);
     const body = await readJson(req);
     if (url.pathname === "/suggest") {
@@ -2249,8 +2286,18 @@ const server = http.createServer(async (req, res) => {
       await save(body);
       return send(res, 200, { ok: true }, origin);
     }
+    // A job asked for again (the page reconnecting) is the same turn: no new run, no new count.
+    const jobId = jobKey(body.job);
+    if (jobId && jobs.has(jobId)) {
+      const text = await jobs.get(jobId).promise;
+      return res.destroyed ? undefined : send(res, 200, { text }, origin);
+    }
     if (!allowed("ip:" + clientIp(req), PER_IP)) return send(res, 429, { error: "You're going fast. Wait a few minutes, then try again." }, origin);
     if (!allowed("all", ALL)) return send(res, 429, { error: "The narrator has had a busy night. Try again in a few minutes." }, origin);
+    if (jobId) {
+      const text = await startJob(jobId, cleanMessages(body.messages), narrateOpts(body)).promise;
+      return res.destroyed ? undefined : send(res, 200, { text }, origin);
+    }
     // If the browser goes away before the reply is sent, stop the model.
     const gone = new AbortController();
     res.on("close", () => { if (!res.writableFinished) gone.abort(); });

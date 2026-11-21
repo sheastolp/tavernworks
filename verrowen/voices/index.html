@@ -634,16 +634,70 @@ async function post(path, body, signal){
   return data.text;
 }
 
-async function narrate(){
+// ── Turns that keep going when the tab changes ──
+// Each turn is sent as a job (POST /narrate with a job id). If the phone
+// switches tabs or apps and the connection drops, the laptop finishes the
+// reply anyway and keeps it, and the page collects it (GET /narrate/job) as
+// soon as it's back, even after a reload. The job id is saved with the story.
+const newJob = () => crypto.randomUUID ? crypto.randomUUID() : [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, "0")).join("");
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const whenVisible = () => !document.hidden ? Promise.resolve() : new Promise(r => {
+  const f = () => { if (!document.hidden){ document.removeEventListener("visibilitychange", f); r(); } };
+  document.addEventListener("visibilitychange", f);
+});
+const dropped = e => e instanceof TypeError || e.name === "AbortError";
+
+async function ask(body, job, signal){
+  try { return await post("/narrate", {...body, job}, signal); }
+  catch (e) { if ((signal && signal.aborted) || !dropped(e)) throw e; }
+  return collect(job, signal);
+}
+async function collect(job, signal){
+  let misses = 0;
+  for (;;){
+    await whenVisible();
+    if (signal && signal.aborted) throw new DOMException("Stopped", "AbortError");
+    let r;
+    try { r = await fetch(NARRATOR + "/narrate/job?id=" + encodeURIComponent(job), {signal}); }
+    catch (e) {
+      if (signal && signal.aborted) throw e;
+      if (++misses >= 8) throw new TypeError("the laptop can't be reached");
+      await sleep(3000); continue;
+    }
+    misses = 0;
+    const j = await r.json().catch(() => ({}));
+    // 404: the turn isn't on the laptop (it expired, or the laptop's server is older than jobs).
+    if (r.status === 404) throw Object.assign(new Error("that turn was lost"), {lost: true});
+    if (r.ok && j.state === "done" && j.text) return j.text;
+    if (r.ok && j.state === "error") throw new Error(j.error || "the laptop couldn't finish");
+    await sleep(2500);
+  }
+}
+
+async function narrate(resume){
   setBusy(true); setStatus(""); showIdeas([]);
   const live = document.createElement("div");
-  live.className = "turn narrator writing"; live.textContent = "The storyteller is writing…";
+  live.className = "turn narrator writing"; live.textContent = resume ? "Picking up the storyteller's reply…" : "The storyteller is writing…";
   $("log").append(live); scrollDown();
-  const ctrl = stopper = new AbortController();
+  const ctrl = stopper = new AbortController(), forState = state;
+  let job = resume || newJob();
+  state.pending = job; save();
   try{
-    await loadWorld().catch(() => {});
-    if (!world.lore) throw new Error("couldn't read the Orrery");
-    const text = await post("/narrate", {messages: buildMessages(state)}, ctrl.signal);
+    let text = null;
+    if (resume) text = await collect(job, ctrl.signal).catch(e => { if (e.lost) return null; throw e; });
+    if (text === null){
+      await loadWorld().catch(() => {});
+      if (!world.lore) throw new Error("couldn't read the Orrery");
+      if (resume){ job = newJob(); state.pending = job; save(); live.textContent = "The storyteller is writing…"; }
+      text = await ask({messages: buildMessages(state)}, job, ctrl.signal).catch(async e => {
+        if (!e.lost) throw e;
+        // A laptop without jobs cancelled the turn when the page dropped: ask again now we're back.
+        await whenVisible();
+        return post("/narrate", {messages: buildMessages(state)}, ctrl.signal);
+      });
+    }
+    if (state !== forState) return;
+    delete state.pending;
     live.remove();
     state.turns.push({role: "assistant", content: text});
     save();
@@ -653,10 +707,16 @@ async function narrate(){
     remember();
   }catch(e){
     live.remove();
-    const stopped = e.name === "AbortError", offline = !stopped && e instanceof TypeError;
+    if (state !== forState) return;
+    const stopped = ctrl.signal.aborted, offline = !stopped && dropped(e);
+    if (stopped){
+      fetch(NARRATOR + "/narrate/cancel", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({job})}).catch(() => {});
+      delete state.pending;
+    } else if (!offline) delete state.pending;
+    save();
     if (offline) setNarrator(false);
     setStatus(stopped ? "Stopped. Press ↻ to try again."
-      : offline ? "The storyteller is asleep right now (the laptop is off). Try again later."
+      : offline ? "Can't reach the storyteller (the laptop may be off). Press ↻ to try again; if it already wrote the reply, ↻ picks it up."
       : "The storyteller got stuck (" + e.message + "). Press ↻ to try again.", !stopped);
   }finally{
     if (stopper === ctrl) stopper = null;
@@ -675,7 +735,7 @@ async function remember(){
   const forState = state;
   memBusy = true; $("memState").textContent = "Writing down what happened…";
   try{
-    const text = await post("/narrate", {messages: [{role: "user", content: memoryPrompt(forState, player, reply.content)}], temperature: 0.2, maxTokens: 500});
+    const text = await ask({messages: [{role: "user", content: memoryPrompt(forState, player, reply.content)}], temperature: 0.2, maxTokens: 500}, newJob());
     const m = parseMemory(text);
     if (m && state === forState){ state.memory = m; save(); renderMemory(); }
     $("memState").textContent = m ? "" : "Couldn't write that turn down. It'll try again next turn.";
@@ -696,6 +756,7 @@ function send(text){
 // that's what's last, and ask once more.
 $("resendBtn").onclick = () => {
   if (busy || !state) return;
+  if (state.pending) return narrate(state.pending);   // a reply the laptop may already have written
   if (state.turns.length && state.turns[state.turns.length - 1].role === "assistant"){ state.turns.pop(); save(); renderAll(); }
   narrate();
 };
@@ -709,6 +770,7 @@ $("newStory").onclick = () => { $("confirm").hidden = false; };
 $("confirmNo").onclick = () => { $("confirm").hidden = true; };
 $("confirmYes").onclick = () => {
   if (stopper) stopper.abort();
+  if (state && state.pending) fetch(NARRATOR + "/narrate/cancel", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({job: state.pending})}).catch(() => {});
   $("confirm").hidden = true; store.del(SAVE_KEY); state = null; pick = null;
   story = STORIES.find(s => s.id === "free");
   renderStories(); renderSuggest(); renderRoster(); updateBar(); showSetup();
@@ -744,9 +806,11 @@ fetch(NARRATOR + "/health").then(r => r.json()).then(j => {
 renderStories(); updateBar();
 try {
   const saved = JSON.parse(store.get(SAVE_KEY) || "null");
-  if (saved && saved.character && Array.isArray(saved.turns) && saved.turns.length){
+  if (saved && saved.character && Array.isArray(saved.turns) && (saved.turns.length || saved.pending)){
     saved.memory = saved.memory || emptyMemory(); saved.lorebook = saved.lorebook || [];
     state = saved; showPlay();
+    // The page was closed or reloaded while the storyteller was writing: collect that reply.
+    if (state.pending) narrate(state.pending);
   }
 } catch (e) {}
 loadWorld().then(() => { renderRoster(); renderSuggest(); renderPlaces(); updateBar(); })

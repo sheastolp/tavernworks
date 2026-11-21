@@ -44,6 +44,14 @@ delete models. This server only lets the game through:
 - If the browser hangs up before a reply is sent (the player pressed
   **Stop**, or closed the page), the server cancels it in Ollama, so the GPU
   is free at once for the next turn, such as a **Resend**.
+- **Turns that outlive the page.** A turn sent with a `job` id (Voices of
+  Verrowen sends every turn this way) isn't cancelled when the page hangs up,
+  as a phone does when you switch tabs or apps. The laptop finishes it and
+  keeps the reply for 15 minutes; the page collects it with
+  `GET /narrate/job?id=…` when it's back, even after a reload. Asking for the
+  same job again returns the same reply without running it twice. Only
+  `POST /narrate/cancel` (the page's **Stop**) cancels a job. Turns without
+  a `job` (Wake in Verrowen, the lore-keeper) behave as before.
 
 The [Orrery Explorer](https://tavernworks.dev/orrery/#chat)'s chat (the
 lore-keeper, which helps create and review characters and work out
