@@ -237,7 +237,7 @@
     renderAll();
     const geo = Sudoku.geometry(state.variant);
     const label = `${geo.key === 'classic' ? '' : geo.name + ' '}puzzle (level ${state.level} · ${Sudoku.LEVELS[state.level].name})`;
-    feed({ type: 'system', text: `New ${label}! Type a cell and a number, e.g. B7 4` });
+    feed({ type: 'system', text: `New ${label}! Type a cell and a number, e.g. B7 4 or B74` });
     if (geo.rule) feed({ type: 'system', text: `Twist: ${geo.rule}` });
   }
 
@@ -721,6 +721,7 @@
   buildBoard();
   $('#how-prefix').textContent = cfg.prefix;
   $('#how-prefix2').textContent = cfg.prefix;
+  $('#how-prefix3').textContent = cfg.prefix;
   document.querySelectorAll('.how-prefix-n').forEach((e) => { e.textContent = cfg.prefix; });
   $('#how-notes').hidden = !cfg.notes;
   const saved = store.get(LS_CUR, null);

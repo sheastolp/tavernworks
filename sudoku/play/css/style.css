@@ -126,6 +126,7 @@ button.ghost { background: transparent; color: var(--text); border: 1px solid va
 .cell.noted .notes { animation: noted 0.6s ease-out; }
 @keyframes noted { 0% { opacity: 0.2; transform: scale(0.85); } 100% { opacity: 1; transform: none; } }
 .how .notes-how { margin-top: 0.8vh; }
+.how p.get-it { margin-top: 1vh; padding-top: 0.8vh; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 .how .note-ex { color: var(--text); font-size: 1.8vh; }
 .how .note-ex code { font-size: 2.4vh; font-weight: 800; background: var(--bg); border-radius: 0.6vh; padding: 0.1vh 0.8vh; font-family: ui-monospace, Consolas, monospace; }
 /* The always-on notes example cell. */
