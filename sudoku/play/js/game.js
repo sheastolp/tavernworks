@@ -83,6 +83,7 @@
   const cooldowns = new Map();
   let roundOver = false;
   let nextTimer = null;
+  let nextElapsed = 0; // seconds the solved screen has been up (not counting time stopped)
 
   // ---------- Start / stop ----------
   // Stopped = chat moves and notes are ignored, and every timer (puzzle clock,
@@ -124,6 +125,23 @@
   })();
   function validVariant(v) { return v === 'mix' || !!Sudoku.VARIANTS[v]; }
   function saveSettings() { store.set(LS_SETTINGS, settings); }
+  // How long the solved screen shows: the control page / mods can override next=.
+  const SOLVED_MIN = 3, SOLVED_MAX = 600;
+  function clampSolved(n) { return Math.min(SOLVED_MAX, Math.max(SOLVED_MIN, Math.round(n))); }
+  settings.urlNextIn = cfg.nextIn; // lets the control page show the URL default
+  function solvedSecs() { return Number.isFinite(settings.nextIn) ? clampSolved(settings.nextIn) : cfg.nextIn; }
+  function setSolvedTime(arg) {
+    const a = String(arg).trim().toLowerCase();
+    if (a === 'default' || a === 'reset') delete settings.nextIn;
+    else {
+      const n = parseFloat(a);
+      if (!Number.isFinite(n)) return;
+      settings.nextIn = clampSolved(n);
+    }
+    saveSettings();
+    feed({ type: 'system', text: `Solved screen now shows for ${solvedSecs()}s` });
+    if (roundOver) updateNextCountdown(); // apply to the screen showing right now
+  }
   saveSettings();
 
   // Old saves stored 'easy'/'medium'/'hard'; map them onto the 1-20 scale.
@@ -354,6 +372,7 @@
     else if (sub === 'stop' || sub === 'pause') setPaused(true);
     else if (sub === 'start' || sub === 'resume') setPaused(false);
     else if (sub === 'hint') giveHint();
+    else if (sub === 'solvedtime') setSolvedTime(arg);
     else if (sub === 'resetscores') { allTime = {}; save(); renderBoards(); feed({ type: 'system', text: 'All-time scores reset' }); }
     else if (sub === 'clearnotes') { clearAllNotes(); feed({ type: 'system', text: 'All notes cleared' }); }
     else if (sub === 'resetround') {
@@ -523,14 +542,19 @@
     $('#ov-adapt').dataset.dir = adapt ? Math.sign(adapt.delta) : 0;
     if (adapt) feed({ type: 'system', text: `Chat got ${adapt.why}: next puzzle level ${nl}` });
     $('#overlay').classList.add('show');
-    let left = cfg.nextIn;
-    $('#ov-next').textContent = left;
+    nextElapsed = 0;
+    updateNextCountdown();
     nextTimer = setInterval(() => {
       if (paused) return;
-      left--;
-      $('#ov-next').textContent = Math.max(0, left);
-      if (left <= 0) newRound();
+      nextElapsed++;
+      updateNextCountdown();
     }, 1000);
+  }
+
+  function updateNextCountdown() {
+    const left = solvedSecs() - nextElapsed;
+    $('#ov-next').textContent = Math.max(0, left);
+    if (left <= 0) newRound();
   }
 
   // ---------- Rendering ----------

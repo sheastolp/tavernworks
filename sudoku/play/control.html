@@ -126,6 +126,21 @@
     </section>
 
     <section class="card">
+      <h2>Solved screen</h2>
+      <form id="solved-form">
+        <input id="solved-secs" type="number" min="3" max="600" step="1" placeholder="seconds" aria-label="Seconds the solved screen is shown">
+        <button>Set</button>
+      </form>
+      <div class="btns" style="margin-top:8px">
+        <button class="ghost" type="button" data-solved="10">10 s</button>
+        <button class="ghost" type="button" data-solved="30">30 s</button>
+        <button class="ghost" type="button" data-solved="60">60 s</button>
+        <button class="ghost" type="button" data-solved="default">URL default</button>
+      </div>
+      <p class="hint">How long the "Solved!" MVP screen stays up before the next puzzle (3–600 s). Now: <b id="solved-now">—</b>. Also changes a solved screen that's already showing.</p>
+    </section>
+
+    <section class="card">
       <h2>Scores</h2>
       <div class="btns">
         <button class="danger wide" data-cmd="resetround" data-confirm>Reset this puzzle's scores</button>
@@ -215,6 +230,18 @@
       $('#chat-text').value = '';
     });
 
+    function setSolved(v) {
+      send('solvedtime', String(v), v === 'default' ? 'Solved screen: URL default' : `Solved screen: ${v}s`);
+    }
+    $('#solved-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const n = Math.round(+$('#solved-secs').value);
+      if (!$('#solved-secs').value || !Number.isFinite(n) || n < 3 || n > 600) { $('#log').textContent = 'Enter a number of seconds from 3 to 600'; return; }
+      setSolved(n);
+      $('#solved-secs').value = '';
+    });
+    document.querySelectorAll('button[data-solved]').forEach((b) => b.addEventListener('click', () => setSolved(b.dataset.solved)));
+
     function refresh() {
       const beat = +localStorage.getItem(LS_HEARTBEAT) || 0;
       const live = Date.now() - beat < 4000;
@@ -231,6 +258,11 @@
       rs.className = 'run-state ' + (stopped ? 'off' : 'on');
       const st = read(LS_STATUS);
       $('#chat-state').textContent = st ? st.text : '—';
+      const cs = read(LS_SETTINGS);
+      if (cs && Number.isFinite(cs.urlNextIn)) {
+        const custom = Number.isFinite(cs.nextIn);
+        $('#solved-now').textContent = custom ? `${cs.nextIn}s (URL default ${cs.urlNextIn}s)` : `${cs.urlNextIn}s (URL default)`;
+      }
       const s = read(LS_CUR);
       if (!s || !s.grid) return;
       const filled = s.grid.filter(Boolean).length;
