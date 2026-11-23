@@ -5,11 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sudoku Control - Tavernworks</title>
   <link rel="icon" id="favicon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>try { if (localStorage.getItem('numbersonstream.controltheme') === 'indigo') document.documentElement.dataset.theme = 'indigo'; } catch {}</script>
   <style>
+    /* Tavernworks colours by default; View > Theme switches to the original indigo look. */
     :root {
+      --bg: #15100c; --panel: #241a13; --line: #3a2a1d; --text: #f1e6d6; --muted: #b9a68f;
+      --accent: #e0a84a; --accent2: #f5c873; --good: #7fb069; --bad: #d9663a; --on-accent: #15100c;
+      --chrome: #1e1611; --chrome2: #2e2219; --chrome-line: #3a2a1d; --chrome-edge: #0f0b08; --chrome-text: #e6d6bf;
+      --well: #0f0b08; --cell-focus: #33251a; --cell-x: #2c2018; --cell-x-focus: #3d2c1f; --grid-line: #4a3727; --box-line: #b9a68f;
+      --glow: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(224,168,74,.14), transparent 70%), radial-gradient(ellipse 60% 40% at 50% 110%, rgba(201,87,43,.10), transparent 70%);
+      --font: Inter, "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+      --display: Cinzel, Georgia, serif;
+    }
+    :root[data-theme=indigo] {
       --bg: #0f1020; --panel: #171a33; --line: #2e3463; --text: #eef0ff; --muted: #9aa0c8;
-      --accent: #8b93ff; --accent2: #ffcf5c; --good: #4ade80; --bad: #ff5c7a;
+      --accent: #8b93ff; --accent2: #ffcf5c; --good: #4ade80; --bad: #ff5c7a; --on-accent: #0f1020;
+      --chrome: #1b1e3a; --chrome2: #23274a; --chrome-line: #363c70; --chrome-edge: #12142a; --chrome-text: #cfd3f5;
+      --well: #0b0c1a; --cell-focus: #1d2148; --cell-x: #22264a; --cell-x-focus: #2a2f5c; --grid-line: #2e3463; --box-line: #9aa0c8;
+      --glow: none;
       --font: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+      --display: var(--font);
     }
     * { box-sizing: border-box; }
     /* Sized for a 1920x1080 OBS source. OBS's default custom CSS sets body { overflow: hidden },
@@ -20,13 +38,12 @@
     html, body { height: 100%; margin: 0; overflow: hidden !important; background: var(--bg); }
     body { color: var(--text); font: 1rem/1.4 var(--font); }
     /* ---- Window frame (title bar, menus, control bar), laid out like a desktop media player ---- */
-    :root { --chrome: #1b1e3a; --chrome2: #23274a; --chrome-line: #363c70; }
     .win { height: 100vh; display: flex; flex-direction: column; border: 1px solid var(--chrome-line); background: var(--bg); }
-    .titlebar { flex: none; display: flex; align-items: center; height: 2.1rem; background: var(--chrome); user-select: none; border-bottom: 1px solid #12142a; }
+    .titlebar { flex: none; display: flex; align-items: center; height: 2.1rem; background: var(--chrome); user-select: none; border-bottom: 1px solid var(--chrome-edge); }
     .tw-logo { width: 1.35rem; height: 1.35rem; flex: none; margin: 0 0.5rem 0 0.6rem; }
-    .titlebar .ttl { flex: 1; min-width: 0; font-size: 0.8125rem; color: #cfd3f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .titlebar .ttl { flex: 1; min-width: 0; font-size: 0.8125rem; color: var(--chrome-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .winbtns { display: flex; align-self: stretch; }
-    .winbtns button { width: 2.9rem; height: 100%; padding: 0; border-radius: 0; background: transparent; color: #cfd3f5; font-weight: 400; font-size: 0.9rem; line-height: 1; }
+    .winbtns button { width: 2.9rem; height: 100%; padding: 0; border-radius: 0; background: transparent; color: var(--chrome-text); font-weight: 400; font-size: 0.9rem; line-height: 1; }
     .winbtns button:hover { background: rgba(255,255,255,.08); }
     .winbtns button.x:hover { background: #c42b1c; color: #fff; }
     .winbtns button:active { transform: none; }
@@ -38,26 +55,27 @@
     .menu.open > button, .menu > button:hover { background: var(--chrome2); }
     .menu .drop { display: none; position: absolute; top: 100%; left: 0; min-width: 15rem; padding: 0.3rem 0; background: var(--chrome2); border: 1px solid var(--chrome-line); border-radius: 0.375rem; box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,.5); }
     .menu.open .drop { display: block; }
-    .drop button { display: flex; width: 100%; justify-content: space-between; gap: 1.5rem; background: transparent; color: var(--text); font-weight: 400; text-align: left; border-radius: 0; padding: 0.4rem 0.9rem 0.4rem 2rem; position: relative; }
-    .drop button:hover:not(:disabled) { background: var(--accent); color: #0f1020; }
+    .drop button { display: flex; width: 100%; white-space: nowrap; justify-content: space-between; gap: 1.5rem; background: transparent; color: var(--text); font-weight: 400; text-align: left; border-radius: 0; padding: 0.4rem 0.9rem 0.4rem 2rem; position: relative; }
+    .drop button:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
     .drop button:active { transform: none; }
     .drop button .ic { position: absolute; left: 0.6rem; width: 1rem; text-align: center; }
     .drop button kbd { font: inherit; color: var(--muted); }
     .drop button:hover kbd { color: inherit; }
     .drop hr { border: 0; border-top: 1px solid var(--chrome-line); margin: 0.3rem 0; }
+    .win { background: var(--glow), var(--bg); }
     .page { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1.2rem 1.5rem 2rem; }
     .win.rolled .page, .win.rolled .ctrlbar { display: none; }
     .win.rolled { height: auto; }
     .ctrlbar { flex: none; background: var(--chrome); border-top: 1px solid var(--chrome-line); padding: 0.35rem 0.75rem 0.45rem; user-select: none; }
     .seek { display: flex; align-items: center; gap: 0.75rem; font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-    .seek .track { flex: 1; height: 0.4rem; background: #0b0c1a; border-radius: 99px; position: relative; }
+    .seek .track { flex: 1; height: 0.4rem; background: var(--well); border-radius: 99px; position: relative; }
     .seek .fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 99px; background: linear-gradient(90deg, #e08700, #ffc24a); transition: width .3s; }
     .seek .knob { position: absolute; top: 50%; width: 0.85rem; height: 0.85rem; margin: -0.425rem 0 0 -0.425rem; border-radius: 50%; background: #fff8e7; box-shadow: 0 0 0 2px #e08700; left: 0; transition: left .3s; }
     .transport { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.35rem; }
     .transport button { background: transparent; color: var(--text); padding: 0.35rem 0.55rem; font-size: 1rem; line-height: 1; border-radius: 0.3rem; min-width: 2.2rem; }
     .transport button:hover:not(:disabled) { background: var(--chrome2); }
     .transport button.big { font-size: 1.3rem; background: var(--chrome2); border-radius: 50%; width: 2.5rem; height: 2.5rem; min-width: 0; }
-    .transport button.big:hover:not(:disabled) { background: var(--accent); color: #0f1020; }
+    .transport button.big:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
     .transport svg { width: 1.1rem; height: 1.1rem; display: block; margin: auto; fill: currentColor; }
     .transport button.big svg { width: 1.25rem; height: 1.25rem; }
     .transport .sep { width: 1px; align-self: stretch; background: var(--chrome-line); margin: 0.2rem 0.3rem; }
@@ -69,7 +87,7 @@
     .page::-webkit-scrollbar-track { background: var(--bg); }
     .page::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; border: 3px solid var(--bg); }
     .page::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-    h1 { margin: 0 0 0.25rem; font-size: 1.375rem; }
+    h1 { margin: 0 0 0.25rem; font-size: 1.375rem; font-family: var(--display); letter-spacing: .02em; }
     h1 span { color: var(--accent); }
     h2 { margin: 0 0 0.625rem; font-size: 0.75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16.25rem, 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
@@ -87,7 +105,7 @@
     ol li { display: flex; justify-content: space-between; gap: 0.5rem; background: rgba(255,255,255,.04); border-radius: 0.375rem; padding: 0.25rem 0.5rem; }
     ol li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
     .btns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
-    button { font: inherit; font-weight: 700; border: 0; border-radius: 0.5rem; padding: 0.75rem 0.625rem; background: var(--accent); color: #0f1020; cursor: pointer; }
+    button { font: inherit; font-weight: 700; border: 0; border-radius: 0.5rem; padding: 0.75rem 0.625rem; background: var(--accent); color: var(--on-accent); cursor: pointer; }
     button:active { transform: scale(.97); }
     button.wide { grid-column: 1 / -1; }
     .lvl { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.375rem; }
@@ -108,7 +126,7 @@
     .run-state.on { color: var(--good); } .run-state.off { color: var(--bad); font-weight: 700; }
     button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
     button.danger { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
-    button.danger.armed { background: var(--bad); color: #0f1020; }
+    button.danger.armed { background: var(--bad); color: var(--on-accent); }
     form { display: flex; gap: 0.5rem; }
     input { flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.625rem 0.75rem; }
     .hint { color: var(--muted); font-size: 0.8125rem; margin: 0.5rem 0 0; }
@@ -117,12 +135,13 @@
     .card.full { grid-column: 1 / -1; }
     .cp { display: grid; grid-template-columns: minmax(0, 26rem) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
     @media (max-width: 760px) { .cp { grid-template-columns: 1fr; } }
-    .cp-board { display: grid; grid-template-columns: repeat(9, 1fr); aspect-ratio: 1; border: 3px solid var(--muted); border-radius: 0.375rem; overflow: hidden; background: var(--line); gap: 1px; }
+    .cp-board { display: grid; grid-template-columns: repeat(9, 1fr); aspect-ratio: 1; border: 3px solid var(--muted); border-radius: 0.375rem; overflow: hidden; background: var(--grid-line); gap: 1px; }
     .cp-board input { flex: none; width: 100%; height: 100%; min-width: 0; border: 0; border-radius: 0; padding: 0; text-align: center; font-size: 1.5rem; font-weight: 700; color: var(--accent2); background: var(--bg); caret-color: transparent; cursor: pointer; }
-    .cp-board input:focus { outline: 2px solid var(--accent); outline-offset: -2px; background: #1d2148; }
-    .cp-board input.bx-r { margin-right: 2px; } .cp-board input.bx-b { margin-bottom: 2px; }
-    .cp-board input.x { background: #22264a; } .cp-board input.x:focus { background: #2a2f5c; }
-    .cp-board input.bad { color: #0f1020; background: var(--bad); }
+    .cp-board input:focus { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--cell-focus); }
+    .cp-board input.bx-r { box-shadow: inset -2px 0 0 var(--box-line); } .cp-board input.bx-b { box-shadow: inset 0 -2px 0 var(--box-line); }
+    .cp-board input.bx-r.bx-b { box-shadow: inset -2px -2px 0 var(--box-line); }
+    .cp-board input.x { background: var(--cell-x); } .cp-board input.x:focus { background: var(--cell-x-focus); }
+    .cp-board input.bad { color: var(--on-accent); background: var(--bad); }
     .cp-side { display: grid; gap: 0.625rem; }
     .cp-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 0.5rem; }
     .fld { display: grid; gap: 0.25rem; font-size: 0.8125rem; color: var(--muted); }
@@ -181,6 +200,12 @@
   </div></div>
   <div class="menu"><button type="button"><u>C</u>hat</button><div class="drop">
     <button type="button" data-go="play-card" data-focus="#chat-text"><span class="ic">💬</span>Play as streamer…<kbd></kbd></button>
+  </div></div>
+  <div class="menu"><button type="button"><u>V</u>iew</button><div class="drop">
+    <button type="button" data-theme-set="tavernworks"><span class="ic"></span>Theme: Tavernworks<kbd>default</kbd></button>
+    <button type="button" data-theme-set="indigo"><span class="ic"></span>Theme: Indigo<kbd></kbd></button>
+    <hr>
+    <button type="button" id="menu-roll"><span class="ic">—</span>Roll up window<kbd></kbd></button>
   </div></div>
   <div class="menu"><button type="button"><u>H</u>elp</button><div class="drop">
     <button type="button" data-href="https://tavernworks.dev/sudoku/"><span class="ic">?</span>Setup guide<kbd>tavernworks.dev/sudoku</kbd></button>
@@ -657,9 +682,17 @@
       start: () => send('start', '', '▶ Start'), stop: () => send('stop', '', '■ Stop'),
       new: () => $('#new-now').click(), hint: () => send('hint', '', 'Reveal a hint'), clearnotes: () => send('clearnotes', '', 'Clear all notes'),
     };
+    function setTheme(t) {
+      if (t === 'indigo') document.documentElement.dataset.theme = 'indigo'; else delete document.documentElement.dataset.theme;
+      try { localStorage.setItem('numbersonstream.controltheme', t); } catch {}
+      menubar.querySelectorAll('[data-theme-set]').forEach((b) => { b.querySelector('.ic').textContent = b.dataset.themeSet === t ? '✓' : ''; });
+    }
+    setTheme(document.documentElement.dataset.theme === 'indigo' ? 'indigo' : 'tavernworks');
+    $('#menu-roll').addEventListener('click', () => win.classList.toggle('rolled'));
     menubar.querySelectorAll('.drop button').forEach((b) => b.addEventListener('click', () => {
       closeMenus();
-      if (b.dataset.act) ACTS[b.dataset.act]();
+      if (b.dataset.themeSet) setTheme(b.dataset.themeSet);
+      else if (b.dataset.act) ACTS[b.dataset.act]();
       else if (b.dataset.go) goTo(b.dataset.go, b.dataset.focus);
       else if (b.dataset.href) window.open(b.dataset.href, '_blank', 'noopener');
     }));
