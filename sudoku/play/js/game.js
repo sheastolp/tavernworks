@@ -148,7 +148,8 @@
   function levelOf(s) { return s ? Sudoku.toLevel(s.level ?? s.difficulty) : 0; }
 
   function nextLevel() {
-    if (settings.mode === 'rotate') return (levelOf(state) % MAX) + 1;
+    // A custom puzzle doesn't move the cycle: carry on from the level before it.
+    if (settings.mode === 'rotate') return (levelOf(state && state.custom ? { level: state.baseLevel } : state) % MAX) + 1;
     return settings.level; // fixed, or auto (updated after every puzzle)
   }
 
@@ -172,7 +173,7 @@
   }
 
   function applyAdaptive(solved) {
-    if (settings.mode !== 'auto' || !state || !state.stats) return null;
+    if (settings.mode !== 'auto' || !state || !state.stats || state.custom) return null; // custom puzzles don't count
     // A level picked by the streamer during this puzzle wins over the automatic step.
     if ((settings.setAt || 0) > state.startedAt) return null;
     const step = adaptiveStep(state.stats, solved);
@@ -199,6 +200,45 @@
     return out;
   }
 
+  // ---------- Custom puzzles ----------
+  // Sent from the control page as JSON { puzzle, variant, name, when: 'now' | 'next' },
+  // or typed by a mod: "!sudoku custom [next] [diagonal] <81 digits, 0 or . for blanks>".
+  if (!Array.isArray(settings.queue)) settings.queue = [];
+  function readCustom(arg) {
+    const a = String(arg || '').trim();
+    if (a.startsWith('{')) { try { return JSON.parse(a); } catch { return null; } }
+    const out = { when: 'now', variant: 'classic', puzzle: '' };
+    for (const w of a.split(/\s+/).filter(Boolean)) {
+      const lw = w.toLowerCase();
+      if (lw === 'next' || lw === 'queue') out.when = 'next';
+      else if (lw === 'now') out.when = 'now';
+      else if (Sudoku.VARIANTS[lw] && !out.puzzle) out.variant = lw;
+      else out.puzzle += w;
+    }
+    return out;
+  }
+  function checkCustom(c) {
+    if (!c || typeof c !== 'object') return { error: 'Custom puzzle not understood' };
+    const variant = Sudoku.VARIANTS[c.variant] ? c.variant : 'classic';
+    const grid = Sudoku.parse(c.puzzle);
+    if (!grid) return { error: 'Custom puzzle needs 81 cells (1-9, with 0 or . for blanks)' };
+    const a = Sudoku.analyze(grid, variant);
+    if (!a.ok) return { error: `Custom puzzle not used: ${a.error}` };
+    const name = String(c.name || '').trim().slice(0, 40);
+    return { puzzle: Sudoku.stringify(grid), variant, name, a };
+  }
+  function customLabel(c) { return c.name ? `"${c.name}"` : 'custom puzzle'; }
+  function runCustom(arg) {
+    const raw = readCustom(arg);
+    const c = checkCustom(raw);
+    if (c.error) { feed({ type: 'system', text: c.error }); return; }
+    if (raw.when === 'next') {
+      settings.queue.push({ puzzle: c.puzzle, variant: c.variant, name: c.name, id: raw.id || String(Date.now()) });
+      saveSettings();
+      feed({ type: 'system', text: `Queued ${customLabel(c)} (${settings.queue.length} waiting)` });
+    } else newRound({ custom: c, skip: true });
+  }
+
   function newRound(opts = {}) {
     // Skipping an unsolved puzzle in adaptive mode counts as "too hard".
     if (opts.skip && !roundOver && state && state.stats && !opts.level) {
@@ -208,13 +248,26 @@
     clearInterval(nextTimer);
     roundOver = false;
     $('#overlay').classList.remove('show');
-    const level = opts.level || nextLevel();
-    let variant = opts.variant, mixIndex = state ? state.mixIndex : undefined;
-    if (!variant) {
-      const v = nextVariant();
-      if (typeof v === 'string') variant = v; else ({ variant, mixIndex } = v);
+    // Queued custom puzzles go first, unless a specific level or type was asked for.
+    let custom = opts.custom || null;
+    while (!custom && !opts.level && !opts.variant && settings.queue.length) {
+      const c = checkCustom(settings.queue.shift());
+      saveSettings();
+      if (c.error) feed({ type: 'system', text: c.error }); else custom = c;
     }
-    const p = Sudoku.generate(level, variant);
+    const baseLevel = state ? (state.custom ? state.baseLevel : state.level) : undefined;
+    let p, mixIndex = state ? state.mixIndex : undefined;
+    if (custom) {
+      p = { puzzle: custom.a.puzzle, solution: custom.a.solution, level: custom.a.level, variant: custom.variant, tech: custom.a.tech };
+    } else {
+      const level = opts.level || nextLevel();
+      let variant = opts.variant;
+      if (!variant) {
+        const v = nextVariant();
+        if (typeof v === 'string') variant = v; else ({ variant, mixIndex } = v);
+      }
+      p = Sudoku.generate(level, variant);
+    }
     state = {
       puzzle: p.puzzle, solution: p.solution,
       grid: p.puzzle.slice(),
@@ -226,6 +279,8 @@
       variant: p.variant,
       tech: p.tech,
       mixIndex,
+      custom: custom ? { name: custom.name } : null,
+      baseLevel,
       stats: { correct: 0, wrong: 0, hints: 0, toFill: p.puzzle.filter((v) => !v).length },
       round: (state ? state.round : 0) + 1,
       startedAt: Date.now(),
@@ -236,7 +291,9 @@
     save();
     renderAll();
     const geo = Sudoku.geometry(state.variant);
-    const label = `${geo.key === 'classic' ? '' : geo.name + ' '}puzzle (level ${state.level} · ${Sudoku.LEVELS[state.level].name})`;
+    const label = state.custom
+      ? `${state.custom.name ? `custom puzzle "${state.custom.name}"` : 'custom puzzle'}${geo.key === 'classic' ? '' : ` (${geo.name})`}, about level ${state.level}`
+      : `${geo.key === 'classic' ? '' : geo.name + ' '}puzzle (level ${state.level} · ${Sudoku.LEVELS[state.level].name})`;
     feed({ type: 'system', text: `New ${label}! Type a cell and a number, e.g. B7 4 or B74` });
     if (geo.rule) feed({ type: 'system', text: `Twist: ${geo.rule}` });
   }
@@ -371,6 +428,13 @@
     }
     else if (sub === 'stop' || sub === 'pause') setPaused(true);
     else if (sub === 'start' || sub === 'resume') setPaused(false);
+    else if (sub === 'custom') runCustom(arg);
+    else if (sub === 'clearqueue') { settings.queue = []; saveSettings(); feed({ type: 'system', text: 'Custom puzzle queue cleared' }); }
+    else if (sub === 'unqueue') {
+      const before = settings.queue.length;
+      settings.queue = settings.queue.filter((q) => q.id !== String(arg).trim());
+      if (settings.queue.length !== before) saveSettings();
+    }
     else if (sub === 'hint') giveHint();
     else if (sub === 'solvedtime') setSolvedTime(arg);
     else if (sub === 'resetscores') { allTime = {}; save(); renderBoards(); feed({ type: 'system', text: 'All-time scores reset' }); }
@@ -531,14 +595,16 @@
     renderBoards();
     const secs = Math.round((Date.now() - state.startedAt) / 1000);
     const geo = Sudoku.geometry(state.variant);
-    $('#ov-time').textContent = `${geo.name} · level ${state.level} — solved in ${fmtTime(secs)} by ${top.length} player${top.length === 1 ? '' : 's'}`;
+    const what = state.custom ? `${state.custom.name || 'Custom puzzle'}${geo.key === 'classic' ? '' : ` · ${geo.name}`}` : `${geo.name} · level ${state.level}`;
+    $('#ov-time').textContent = `${what} — solved in ${fmtTime(secs)} by ${top.length} player${top.length === 1 ? '' : 's'}`;
     const list = $('#ov-list'); list.replaceChildren();
     top.slice(0, 5).forEach((p, idx) => list.append(row(idx + 1, p.name, p.color, `${p.points} pts · ${p.cells} cells`)));
     $('#ov-mvp').textContent = top[0] ? top[0].name : 'Nobody — hints solved it!';
     $('#ov-mvp').style.color = top[0] ? top[0].color : '';
     const nl = nextLevel();
     const arrow = adapt ? (adapt.delta > 0 ? `▲ up ${adapt.delta}` : adapt.delta < 0 ? `▼ down ${-adapt.delta}` : '● same') : '';
-    $('#ov-adapt').textContent = `Next: level ${nl} · ${Sudoku.LEVELS[nl].name}` + (adapt ? ` — ${arrow} (${adapt.why})` : '');
+    const q = settings.queue[0];
+    $('#ov-adapt').textContent = q ? `Next: ${q.name ? `"${q.name}"` : 'a custom puzzle'}` : `Next: level ${nl} · ${Sudoku.LEVELS[nl].name}` + (adapt ? ` — ${arrow} (${adapt.why})` : '');
     $('#ov-adapt').dataset.dir = adapt ? Math.sign(adapt.delta) : 0;
     if (adapt) feed({ type: 'system', text: `Chat got ${adapt.why}: next puzzle level ${nl}` });
     $('#overlay').classList.add('show');
@@ -638,8 +704,8 @@
     cells.forEach((_, i) => renderCell(i));
     renderExample();
     $('#round-no').textContent = `Puzzle #${state.round}`;
-    $('#difficulty').textContent = `Lv ${state.level} · ${Sudoku.LEVELS[state.level].name}`;
-    $('#difficulty').dataset.level = tier(state.level);
+    $('#difficulty').textContent = state.custom ? `★ ${state.custom.name || 'Custom'} · ~Lv ${state.level}` : `Lv ${state.level} · ${Sudoku.LEVELS[state.level].name}`;
+    $('#difficulty').dataset.level = state.custom ? 'custom' : tier(state.level);
     $('#variant').textContent = geo.name;
     $('#variant').hidden = geo.key === 'classic';
     $('#rule').textContent = geo.rule;

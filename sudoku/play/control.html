@@ -67,6 +67,34 @@
     input { flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.625rem 0.75rem; }
     .hint { color: var(--muted); font-size: 0.8125rem; margin: 0.5rem 0 0; }
     #log { margin-top: 0.5rem; font-size: 0.8125rem; color: var(--accent2); min-height: 1.4em; }
+    /* Custom puzzle builder */
+    .card.full { grid-column: 1 / -1; }
+    .cp { display: grid; grid-template-columns: minmax(0, 26rem) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+    @media (max-width: 760px) { .cp { grid-template-columns: 1fr; } }
+    .cp-board { display: grid; grid-template-columns: repeat(9, 1fr); aspect-ratio: 1; border: 3px solid var(--muted); border-radius: 0.375rem; overflow: hidden; background: var(--line); gap: 1px; }
+    .cp-board input { flex: none; width: 100%; height: 100%; min-width: 0; border: 0; border-radius: 0; padding: 0; text-align: center; font-size: 1.5rem; font-weight: 700; color: var(--accent2); background: var(--bg); caret-color: transparent; cursor: pointer; }
+    .cp-board input:focus { outline: 2px solid var(--accent); outline-offset: -2px; background: #1d2148; }
+    .cp-board input.bx-r { margin-right: 2px; } .cp-board input.bx-b { margin-bottom: 2px; }
+    .cp-board input.x { background: #22264a; } .cp-board input.x:focus { background: #2a2f5c; }
+    .cp-board input.bad { color: #0f1020; background: var(--bad); }
+    .cp-side { display: grid; gap: 0.625rem; }
+    .cp-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 0.5rem; }
+    .fld { display: grid; gap: 0.25rem; font-size: 0.8125rem; color: var(--muted); }
+    .fld select { margin: 0; }
+    textarea { width: 100%; resize: vertical; font: 0.875rem/1.35 ui-monospace, Consolas, monospace; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.5rem 0.75rem; word-break: break-all; }
+    .cp-result { font-size: 0.9375rem; padding: 0.625rem 0.75rem; border-radius: 0.5rem; background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
+    .cp-result.ok { border-color: var(--good); color: var(--text); } .cp-result.ok b { color: var(--good); }
+    .cp-result.err { border-color: var(--bad); color: var(--bad); }
+    .btns3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+    button:disabled { opacity: 0.35; cursor: default; transform: none; }
+    h3 { margin: 0.5rem 0 0; font-size: 0.75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+    h3 button { font-size: 0.6875rem; padding: 0.25rem 0.5rem; letter-spacing: 0; text-transform: none; }
+    .cp-list { margin: 0; }
+    .cp-list li { align-items: center; }
+    .cp-list .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+    .cp-list .meta { color: var(--muted); font-size: 0.8125rem; white-space: nowrap; }
+    .cp-list button { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+    .cp-list .empty { color: var(--muted); font-style: italic; }
     @media (min-width: 1100px) {
       .grid { grid-template-columns: 1fr 1.15fr 1fr; grid-template-areas: "cur next scores" "cur next chat"; grid-template-rows: auto 1fr; align-items: start; }
       .grid > :nth-child(1) { grid-area: cur; } .grid > :nth-child(2) { grid-area: next; }
@@ -156,6 +184,48 @@
         <button>Send</button>
       </form>
       <p class="hint">Counts as a move from you, without typing in Twitch chat.</p>
+    </section>
+    <section class="card full" id="custom">
+      <h2>Custom puzzle</h2>
+      <div class="cp">
+        <div>
+          <div id="cp-board" class="cp-board" aria-label="Custom puzzle editor"></div>
+          <p class="hint">Click a cell and type 1–9. Backspace, 0 or Space clears it. Arrow keys move. You can also paste a whole puzzle code into any cell.</p>
+        </div>
+        <div class="cp-side">
+          <div class="cp-row">
+            <label class="fld">Name (optional) <input id="cp-name" maxlength="40" placeholder="e.g. Sunday Special" autocomplete="off"></label>
+            <label class="fld">Type
+              <select id="cp-variant">
+                <option value="classic">Classic</option>
+                <option value="diagonal">Diagonal</option>
+                <option value="windoku">Windoku</option>
+                <option value="centerdot">Center Dot</option>
+                <option value="asterisk">Asterisk</option>
+              </select>
+            </label>
+          </div>
+          <div id="cp-result" class="cp-result">Type the givens into the grid. It's checked as you go.</div>
+          <div class="btns3">
+            <button id="cp-now" class="go" disabled title="Replaces the puzzle chat is on now">Play now</button>
+            <button id="cp-next" disabled title="Plays after the current puzzle is solved">Play next</button>
+            <button id="cp-save" class="ghost" disabled>Save</button>
+          </div>
+          <label class="fld">Puzzle code: 81 digits, 0 or . for blanks
+            <textarea id="cp-code" rows="3" spellcheck="false" placeholder="53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79"></textarea>
+          </label>
+          <div class="btns3">
+            <button class="ghost" id="cp-load">Load code</button>
+            <button class="ghost" id="cp-copy">Copy code</button>
+            <button class="danger" id="cp-clear">Clear grid</button>
+          </div>
+          <h3>Up next <button class="ghost" id="cp-clearq" hidden>Clear queue</button></h3>
+          <ol id="cp-queue" class="cp-list"></ol>
+          <h3>Saved puzzles</h3>
+          <ol id="cp-saved" class="cp-list"></ol>
+          <p class="hint">"Play now" skips the current puzzle. "Play next" waits until it's solved (several can wait in line). Custom puzzles don't change the adaptive difficulty. Saved puzzles stay in this control page.</p>
+        </div>
+      </div>
     </section>
   </div>
   <div id="log"></div>
@@ -256,6 +326,8 @@
       const rs = $('#run-state');
       rs.textContent = stopped ? '■ Stopped: chat is ignored and timers are frozen' : '▶ Running';
       rs.className = 'run-state ' + (stopped ? 'off' : 'on');
+      const qs = read(LS_SETTINGS);
+      renderQueue(qs && Array.isArray(qs.queue) ? qs.queue : []);
       const st = read(LS_STATUS);
       $('#chat-state').textContent = st ? st.text : '—';
       const cs = read(LS_SETTINGS);
@@ -282,6 +354,167 @@
       }
       if (!top.length) ol.append(Object.assign(document.createElement('li'), { textContent: 'No points yet' }));
     }
+    // ---- Custom puzzle builder ----
+    const LS_LIB = 'numbersonstream.custompuzzles', LS_DRAFT = 'numbersonstream.customdraft';
+    const cpBoard = $('#cp-board'), cpVar = $('#cp-variant'), cpName = $('#cp-name'), cpCode = $('#cp-code');
+    const cpCells = [];
+    let cpGrid = new Array(81).fill(0), cpCheck = null, cpTimer = null;
+    const cpLabel = (p) => p.name ? `"${p.name}"` : 'custom puzzle';
+    for (let i = 0; i < 81; i++) {
+      const r = Math.floor(i / 9), c = i % 9;
+      const el = document.createElement('input');
+      el.inputMode = 'numeric'; el.autocomplete = 'off'; el.maxLength = 1;
+      el.setAttribute('aria-label', `${'ABCDEFGHI'[r]}${c + 1}`);
+      if (c === 2 || c === 5) el.classList.add('bx-r');
+      if (r === 2 || r === 5) el.classList.add('bx-b');
+      el.addEventListener('keydown', (e) => cpKey(e, i));
+      el.addEventListener('input', () => { const m = el.value.match(/[1-9]/g); cpSet(i, m ? +m[m.length - 1] : 0); if (m) cpMove(i, 1); });
+      el.addEventListener('paste', (e) => {
+        const g = Sudoku.parse(e.clipboardData.getData('text'));
+        if (!g) return;
+        e.preventDefault(); cpLoad(g);
+      });
+      cpCells.push(el); cpBoard.append(el);
+    }
+    function cpMove(i, d) { const j = i + d; if (j >= 0 && j < 81) cpCells[j].focus(); }
+    function cpKey(e, i) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = e.key;
+      if (/^[1-9]$/.test(k)) { cpSet(i, +k); cpMove(i, 1); }
+      else if (k === 'Backspace') { if (cpGrid[i]) cpSet(i, 0); else { cpMove(i, -1); cpSet(Math.max(0, i - 1), 0); } }
+      else if (k === 'Delete' || k === '0' || k === ' ' || k === '.') { cpSet(i, 0); if (k !== 'Delete') cpMove(i, 1); }
+      else if (k === 'ArrowLeft') cpMove(i, -1);
+      else if (k === 'ArrowRight') cpMove(i, 1);
+      else if (k === 'ArrowUp') cpMove(i, -9);
+      else if (k === 'ArrowDown') cpMove(i, 9);
+      else return;
+      e.preventDefault();
+    }
+    function cpSet(i, v) { cpGrid[i] = v; cpChanged(); }
+    function cpLoad(g, variant, name) {
+      cpGrid = g.slice();
+      if (variant) cpVar.value = variant;
+      if (name !== undefined) cpName.value = name;
+      cpChanged();
+    }
+    function cpRender(conflicts = []) {
+      const extra = new Set(Sudoku.geometry(cpVar.value).extra.flatMap((u) => u.cells));
+      const bad = new Set(conflicts);
+      cpCells.forEach((el, i) => {
+        el.value = cpGrid[i] || '';
+        el.classList.toggle('x', extra.has(i));
+        el.classList.toggle('bad', bad.has(i));
+      });
+    }
+    function cpChanged() {
+      cpCheck = null;
+      cpCode.value = cpGrid.some(Boolean) ? Sudoku.stringify(cpGrid) : '';
+      try { localStorage.setItem(LS_DRAFT, JSON.stringify({ grid: Sudoku.stringify(cpGrid), variant: cpVar.value, name: cpName.value })); } catch {}
+      cpRender();
+      cpButtons();
+      clearTimeout(cpTimer);
+      cpTimer = setTimeout(cpAnalyze, 250);
+    }
+    function cpAnalyze() {
+      const res = $('#cp-result');
+      const n = cpGrid.filter(Boolean).length;
+      if (!n) { res.className = 'cp-result'; res.textContent = "Type the givens into the grid. It's checked as you go."; cpRender(); return; }
+      const a = Sudoku.analyze(cpGrid, cpVar.value);
+      cpRender(a.conflicts);
+      if (a.ok) {
+        cpCheck = a;
+        res.className = 'cp-result ok';
+        res.innerHTML = '';
+        const b = document.createElement('b'); b.textContent = '✓ Ready to play. ';
+        res.append(b, `Exactly one solution · ${a.clues} givens · hardest step: ${Sudoku.TECH_NAMES[a.tech]} · about level ${a.level} (${LEVEL_NAMES[a.level]})`);
+      } else {
+        res.className = 'cp-result err';
+        res.textContent = `${a.error} (${n} given${n === 1 ? '' : 's'})`;
+      }
+      cpButtons();
+    }
+    function cpButtons() { ['#cp-now', '#cp-next', '#cp-save'].forEach((s) => { $(s).disabled = !cpCheck; }); }
+    function cpSend(p, when) {
+      send('custom', JSON.stringify({ puzzle: p.puzzle, variant: p.variant, name: p.name, when, id: Math.random().toString(36).slice(2) }),
+        when === 'now' ? `Play ${cpLabel(p)} now` : `Queue ${cpLabel(p)}`);
+    }
+    const cpCurrent = () => ({ puzzle: Sudoku.stringify(cpGrid), variant: cpVar.value, name: cpName.value.trim().slice(0, 40) });
+    cpVar.addEventListener('change', cpChanged);
+    cpName.addEventListener('input', () => { try { localStorage.setItem(LS_DRAFT, JSON.stringify({ grid: Sudoku.stringify(cpGrid), variant: cpVar.value, name: cpName.value })); } catch {} });
+    $('#cp-now').addEventListener('click', () => { if (cpCheck) cpSend(cpCurrent(), 'now'); });
+    $('#cp-next').addEventListener('click', () => { if (cpCheck) cpSend(cpCurrent(), 'next'); });
+    $('#cp-load').addEventListener('click', () => {
+      const g = Sudoku.parse(cpCode.value);
+      if (!g) { $('#log').textContent = 'The code needs exactly 81 cells: 1-9, with 0 or . for blanks'; return; }
+      cpLoad(g); $('#log').textContent = 'Puzzle code loaded';
+    });
+    $('#cp-copy').addEventListener('click', () => {
+      const t = Sudoku.stringify(cpGrid);
+      cpCode.value = t; cpCode.select();
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(
+        () => { $('#log').textContent = 'Puzzle code copied'; },
+        () => { try { document.execCommand('copy'); $('#log').textContent = 'Puzzle code copied'; } catch { $('#log').textContent = 'Select the code and copy it'; } });
+    });
+    armConfirm($('#cp-clear'), () => { cpLoad(new Array(81).fill(0), null, ''); $('#log').textContent = 'Grid cleared'; });
+
+    // Saved puzzles live in this page's storage.
+    const lib = () => { const l = read(LS_LIB); return Array.isArray(l) ? l : []; };
+    function setLib(l) { try { localStorage.setItem(LS_LIB, JSON.stringify(l)); } catch {} renderLib(); }
+    $('#cp-save').addEventListener('click', () => {
+      if (!cpCheck) return;
+      const p = { ...cpCurrent(), level: cpCheck.level, saved: Date.now() };
+      const l = lib().filter((x) => !(x.puzzle === p.puzzle && x.variant === p.variant));
+      setLib([p, ...l]);
+      $('#log').textContent = `Saved ${cpLabel(p)}`;
+    });
+    function smallBtn(text, cls, fn) { const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.textContent = text; b.addEventListener('click', fn); return b; }
+    function armConfirm(b, fn) {
+      let timer = null; const original = b.textContent;
+      b.addEventListener('click', () => {
+        if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Sure?'; timer = setTimeout(() => { b.classList.remove('armed'); b.textContent = original; }, 3000); return; }
+        clearTimeout(timer); b.classList.remove('armed'); b.textContent = original; fn();
+      });
+      return b;
+    }
+    function listItem(name, meta, buttons) {
+      const li = document.createElement('li');
+      const n = document.createElement('span'); n.className = 'nm'; n.textContent = name;
+      const m = document.createElement('span'); m.className = 'meta'; m.textContent = meta;
+      li.append(n, m, ...buttons);
+      return li;
+    }
+    const metaOf = (p) => `${VARIANT_NAMES[p.variant] || 'Classic'}${p.level ? ` · ~Lv ${p.level}` : ''}`;
+    function renderLib() {
+      const ol = $('#cp-saved'); ol.replaceChildren();
+      for (const p of lib()) {
+        ol.append(listItem(p.name || 'Untitled', metaOf(p), [
+          smallBtn('Play now', '', () => cpSend(p, 'now')),
+          smallBtn('Next', 'ghost', () => cpSend(p, 'next')),
+          smallBtn('Edit', 'ghost', () => { const g = Sudoku.parse(p.puzzle); if (g) { cpLoad(g, p.variant, p.name || ''); cpCells[0].focus(); } }),
+          armConfirm(smallBtn('✕', 'danger', () => {}), () => setLib(lib().filter((x) => !(x.puzzle === p.puzzle && x.variant === p.variant)))),
+        ]));
+      }
+      if (!ol.children.length) ol.append(Object.assign(document.createElement('li'), { className: 'empty', textContent: 'Nothing saved yet' }));
+    }
+    let queueSig = null;
+    function renderQueue(q) {
+      const sig = JSON.stringify(q);
+      if (sig === queueSig) return;
+      queueSig = sig;
+      const ol = $('#cp-queue'); ol.replaceChildren();
+      q.forEach((p, k) => ol.append(listItem(`${k + 1}. ${p.name || 'Custom puzzle'}`, VARIANT_NAMES[p.variant] || 'Classic', [
+        smallBtn('✕', 'ghost', () => send('unqueue', p.id, `Removed ${cpLabel(p)} from the queue`)),
+      ])));
+      if (!q.length) ol.append(Object.assign(document.createElement('li'), { className: 'empty', textContent: 'No custom puzzles waiting. Generated puzzles carry on as normal.' }));
+      $('#cp-clearq').hidden = q.length < 2;
+    }
+    $('#cp-clearq').addEventListener('click', () => send('clearqueue', '', 'Cleared the custom puzzle queue'));
+
+    const draft = read(LS_DRAFT);
+    if (draft && Sudoku.parse(draft.grid)) cpLoad(Sudoku.parse(draft.grid), Sudoku.VARIANTS[draft.variant] ? draft.variant : 'classic', draft.name || '');
+    else cpChanged();
+    renderLib();
+
     setInterval(refresh, 1000);
     refresh();
   </script>

@@ -340,7 +340,60 @@ window.Sudoku = (() => {
     return { ...best, level, variant: geo.key };
   }
 
-  const UNITS = { row: BASE.slice(0, 9).map((u) => u.cells), col: BASE.slice(9, 18).map((u) => u.cells), box: BASE.slice(18).map((u) => u.cells) };
+  // ---------- Custom puzzles ----------
+  // Puzzle text: 81 cells, 1-9 for givens and 0 or . for blanks. Spaces, line
+  // breaks and grid lines (| + -) are ignored, so a pasted grid works too.
+  function parse(text) {
+    const s = String(text || '').replace(/[\s|+\-_=]/g, '');
+    if (!/^[0-9.]{81}$/.test(s)) return null;
+    return [...s].map((ch) => (ch === '.' ? 0 : +ch));
+  }
+  const stringify = (g) => g.map((v) => v || '.').join('');
 
-  return { generate, grade, countSolutions, geometry, toLevel, LEVELS, MAX_LEVEL, VARIANTS, VARIANT_ORDER, TECH_NAMES, UNITS, row, col, box };
+  // Closest built-in level for a puzzle: the level band of its hardest technique,
+  // then the level in that band whose clue count is nearest.
+  function estimateLevel(tech, clues) {
+    let best = 1, gap = Infinity;
+    for (let l = 1; l <= MAX_LEVEL; l++) {
+      const L = LEVELS[l];
+      if (L.max !== Math.min(tech, 6)) continue;
+      const target = L.clues || 22 - (l - 17); // levels with no clue floor: ~21, 20, 19
+      const d = Math.abs(target - clues);
+      if (d < gap) { gap = d; best = l; }
+    }
+    return best;
+  }
+
+  // Checks a hand-made puzzle. Returns { ok, error, conflicts, puzzle, solution, clues, tech, level }.
+  function analyze(puzzle, variant = 'classic') {
+    const geo = geometry(variant);
+    const out = { ok: false, error: '', conflicts: [], puzzle, clues: 0 };
+    if (!Array.isArray(puzzle) || puzzle.length !== 81 || puzzle.some((v) => !Number.isInteger(v) || v < 0 || v > 9)) {
+      out.error = 'A puzzle needs 81 cells.';
+      return out;
+    }
+    const bad = new Set();
+    for (let i = 0; i < 81; i++) {
+      if (!puzzle[i]) continue;
+      out.clues++;
+      for (const p of geo.peers[i]) if (puzzle[p] === puzzle[i]) { bad.add(i); bad.add(p); }
+    }
+    out.conflicts = [...bad];
+    if (bad.size) { out.error = 'Some givens clash (same number twice in a row, column, box or shaded region).'; return out; }
+    if (out.clues === 81) { out.error = 'Every cell is filled in, so there is nothing to solve.'; return out; }
+    const n = countSolutions(puzzle.slice(), 2, geo);
+    if (n === 0) { out.error = 'This puzzle has no solution.'; return out; }
+    if (n > 1) { out.error = 'This puzzle has more than one solution. Add more givens.'; return out; }
+    const solution = puzzle.slice();
+    fillRandom(solution, geo);
+    out.solution = solution;
+    out.tech = grade(puzzle, geo, 5).tech;
+    out.level = estimateLevel(out.tech, out.clues);
+    out.ok = true;
+    return out;
+  }
+
+  const UNITS = { row:BASE.slice(0, 9).map((u) => u.cells), col: BASE.slice(9, 18).map((u) => u.cells), box: BASE.slice(18).map((u) => u.cells) };
+
+  return { generate, grade, countSolutions, geometry, toLevel, parse, stringify, analyze, estimateLevel, LEVELS, MAX_LEVEL, VARIANTS, VARIANT_ORDER, TECH_NAMES, UNITS, row, col, box };
 })();

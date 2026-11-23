@@ -161,6 +161,7 @@ h2 { margin: 0 0 0.8vh; font-size: 1.5vh; text-transform: uppercase; letter-spac
 #difficulty[data-level=medium] { background: #6a5520; }
 #difficulty[data-level=hard] { background: #7a2338; }
 #difficulty[data-level=expert] { background: #4b1f7a; }
+#difficulty[data-level=custom] { background: #1f4f6a; text-transform: none; }
 #variant { font-weight: 700; padding: 0.2vh 1vh; border-radius: 99px; background: #6a5520; color: var(--accent2); }
 .how p.rule { color: var(--accent2); font-weight: 700; background: rgba(255, 207, 92, 0.1); border-left: 0.4vh solid var(--accent2); padding: 0.6vh 1vh; border-radius: 0.6vh; margin-bottom: 1vh; }
 .progress { height: 1vh; background: var(--bg); border-radius: 99px; overflow: hidden; margin-top: 1.2vh; }
