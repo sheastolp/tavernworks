@@ -16,7 +16,15 @@
     transparent: params.get('bg') === 'transparent',
     notes: params.get('notes') !== '0', // viewers can pencil in notes, e.g. B7?35
     frame: params.get('frame') === '1', // fills the Sudoku window of GuildScribe's full stream theme
+    theme: (params.get('theme') || '').toLowerCase() === 'indigo' ? 'indigo' : 'tavernworks', // colours
+    window: params.get('window') !== '0', // media-player style window around the game
   };
+  // Tavernworks colours unless ?theme=indigo; GuildScribe's frame layout keeps its own look.
+  if (cfg.theme === 'tavernworks' && !cfg.frame) document.body.classList.add('tw');
+  try {
+    const logo = document.querySelector('.tw-logo');
+    if (logo) document.getElementById('favicon').href = 'data:image/svg+xml,' + encodeURIComponent(logo.outerHTML.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"'));
+  } catch {}
 
   const POINTS = { correct: 10, unit: 5, finish: 10, wrong: -2 };
   const MAX = Sudoku.MAX_LEVEL;
@@ -50,6 +58,10 @@
       const u = new URL(location.href.split('?')[0]);
       for (const [k, v] of fd.entries()) if (v !== '') u.searchParams.set(k, v);
       if (!fd.get('bg')) u.searchParams.delete('bg');
+      const look = fd.get('look') || '';
+      u.searchParams.delete('look');
+      if (look.startsWith('indigo')) u.searchParams.set('theme', 'indigo');
+      if (look.endsWith('plain')) u.searchParams.set('window', '0');
 
       if (fd.get('notes')) u.searchParams.delete('notes'); else u.searchParams.set('notes', '0');
       const lv = +form.difficulty.value, mode = fd.get('mode');
@@ -68,6 +80,7 @@
   }
 
   if (cfg.transparent) document.body.classList.add('transparent');
+  if (cfg.window && !cfg.frame) document.body.classList.add('windowed');
   if (cfg.frame) {
     // Parchment-and-wood look with the theme's fonts (Cinzel headings); the board keeps its plain, high-contrast digits.
     document.body.classList.add('framed');
@@ -730,12 +743,33 @@
 
   function fmtTime(s) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
 
+  // ---------- Window frame (title bar + player bar) ----------
+  function renderWindow() {
+    if (!state || !document.body.classList.contains('windowed')) return;
+    const filled = state.grid.filter(Boolean).length, pct = `${(filled / 81) * 100}%`;
+    $('#gw-fill').style.width = pct; $('#gw-knob').style.left = pct;
+    $('#gw-left').textContent = `${81 - filled} left`;
+    const geo = Sudoku.geometry(state.variant);
+    const what = state.custom ? `★ ${state.custom.name || 'Custom puzzle'}` : `Lv ${state.level} ${Sudoku.LEVELS[state.level].name}`;
+    $('#gw-title').textContent = `Puzzle #${state.round} - ${what}${geo.key === 'classic' ? '' : ` (${geo.name})`} - Sudoku on Stream - Tavernworks`;
+    const now = $('#gw-now'); now.replaceChildren();
+    const b = document.createElement('b'); b.textContent = `Puzzle #${state.round}`;
+    now.append(paused ? '■ Paused · ' : roundOver ? '✓ Solved · ' : '▶ Live · ', b, ` · ${geo.name} · ${what}`);
+    const play = $('#gw-play'), want = paused ? 'play' : 'pause';
+    if (play.dataset.showing !== want) {
+      play.dataset.showing = want;
+      play.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${want === 'play' ? 'M7 4.5v15l13-7.5z' : 'M6 4h4.5v16H6zM13.5 4H18v16h-4.5z'}"/></svg>`;
+    }
+  }
+
   let lastFrac = 1;
   function tick() {
+    renderWindow();
     if (!state || paused) return;
     if (!roundOver) {
       const secs = Math.floor((Date.now() - state.startedAt) / 1000);
       $('#timer').textContent = fmtTime(secs);
+      $('#gw-time').textContent = fmtTime(secs);
       const filled = state.grid.filter(Boolean).length;
       const bar = $('#progress-bar');
       $('#remaining').textContent = `${81 - filled} left`;
@@ -786,6 +820,7 @@
   document.body.classList.toggle('paused', paused);
   buildBoard();
   $('#how-prefix').textContent = cfg.prefix;
+  $('#gw-ex').textContent = `${cfg.prefix}B7 4`;
   $('#how-prefix2').textContent = cfg.prefix;
   $('#how-prefix3').textContent = cfg.prefix;
   document.querySelectorAll('.how-prefix-n').forEach((e) => { e.textContent = cfg.prefix; });

@@ -217,6 +217,14 @@
             <option value="1">GuildScribe theme window (1464 × 912)</option>
           </select>
         </label>
+        <label>Look
+          <select id="look">
+            <option value="">Tavernworks window (player-style frame)</option>
+            <option value="plain">Tavernworks colours, no frame</option>
+            <option value="indigo">Indigo window (player-style frame)</option>
+            <option value="indigo-plain">Indigo, no frame (the original look)</option>
+          </select>
+        </label>
       </div>
       <div class="fields">
         <label>Difficulty
@@ -415,7 +423,7 @@
   };
 
   // The link builder.
-  const ids = ["channel", "frame", "mode", "difficulty", "variant", "notes", "bg", "prefix", "hint", "cooldown", "next"];
+  const ids = ["channel", "frame", "look", "mode", "difficulty", "variant", "notes", "bg", "prefix", "hint", "cooldown", "next"];
   const el = Object.fromEntries(ids.map((k) => [k, $(k)]));
   const saved = (() => { try { return JSON.parse(store.get("sudoku.setup")) || {}; } catch { return {}; } })();
   ids.forEach((k) => {
@@ -448,6 +456,9 @@
     if (s.mode !== "rotate" && lv !== 7) q.set("difficulty", lv);
     if (s.variant !== "mix") q.set("variant", s.variant);
     if (s.frame) q.set("frame", "1");
+    el.look.disabled = !!s.frame; // the GuildScribe layout has its own look
+    if (!s.frame && s.look.startsWith("indigo")) q.set("theme", "indigo");
+    if (!s.frame && s.look.endsWith("plain")) q.set("window", "0");
     if (!s.notes) q.set("notes", "0");
     if (s.bg) q.set("bg", "transparent");
     if (s.prefix.trim()) q.set("prefix", s.prefix.trim());
