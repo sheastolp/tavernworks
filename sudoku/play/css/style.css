@@ -63,18 +63,18 @@ button { font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding
 button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
 
 /* ---------- Game layout ---------- */
-#game { display: flex; height: 100vh; padding: 2.5vh; gap: 2.5vh; }
-.board-wrap { flex: 0 0 auto; height: 95vh; aspect-ratio: 1; display: grid; place-items: center; }
+#game { display: flex; height: 100vh; padding: 0.8vh 2.5vh 0.8vh 0.8vh; gap: 2.5vh; }
+.board-wrap { flex: 0 0 auto; height: 98.4vh; aspect-ratio: 1; display: grid; place-items: center; }
 #board {
   width: 100%; height: 100%;
   display: grid;
-  grid-template-columns: 0.55fr repeat(9, 1fr);
-  grid-template-rows: 0.55fr repeat(9, 1fr);
+  grid-template-columns: 0.35fr repeat(9, 1fr);
+  grid-template-rows: 0.35fr repeat(9, 1fr);
   gap: 0;
 }
-.lbl { display: grid; place-items: center; color: var(--accent); font-weight: 800; font-size: 3.2vh; }
-.lbl.col { align-items: end; padding-bottom: 0.6vh; }
-.lbl.row { justify-items: end; padding-right: 1vh; }
+.lbl { display: grid; place-items: center; color: var(--accent); font-weight: 800; font-size: 2.7vh; }
+.lbl.col { align-items: end; padding-bottom: 0.3vh; }
+.lbl.row { justify-items: end; padding-right: 0.7vh; }
 
 .cell {
   position: relative;
@@ -93,7 +93,7 @@ button.ghost { background: transparent; color: var(--text); border: 1px solid va
 .cell.bb { border-bottom: 3px solid var(--b-line-strong); }
 
 .cell.empty { background: var(--b-empty); }
-.cell .num { font-size: 5.6vh; font-weight: 700; line-height: 1; }
+.cell .num { font-size: 6vh; font-weight: 700; line-height: 1; }
 .cell .num { color: var(--b-given); }
 .cell.given .num { color: var(--b-given); font-weight: 800; }
 .cell.given { background: var(--b-given-bg); }
