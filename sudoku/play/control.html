@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sudoku Control</title>
+  <title>Sudoku Control - Tavernworks</title>
+  <link rel="icon" id="favicon" href="data:,">
   <style>
     :root {
       --bg: #0f1020; --panel: #171a33; --line: #2e3463; --text: #eef0ff; --muted: #9aa0c8;
@@ -18,7 +19,52 @@
     @media (min-width: 1600px) { html { font-size: 20px; } }
     html, body { height: 100%; margin: 0; overflow: hidden !important; background: var(--bg); }
     body { color: var(--text); font: 1rem/1.4 var(--font); }
-    .page { height: 100vh; overflow-y: auto; overscroll-behavior: contain; padding: 1.2rem 1.5rem 2rem; }
+    /* ---- Window frame (title bar, menus, control bar), laid out like a desktop media player ---- */
+    :root { --chrome: #1b1e3a; --chrome2: #23274a; --chrome-line: #363c70; }
+    .win { height: 100vh; display: flex; flex-direction: column; border: 1px solid var(--chrome-line); background: var(--bg); }
+    .titlebar { flex: none; display: flex; align-items: center; height: 2.1rem; background: var(--chrome); user-select: none; border-bottom: 1px solid #12142a; }
+    .tw-logo { width: 1.35rem; height: 1.35rem; flex: none; margin: 0 0.5rem 0 0.6rem; }
+    .titlebar .ttl { flex: 1; min-width: 0; font-size: 0.8125rem; color: #cfd3f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .winbtns { display: flex; align-self: stretch; }
+    .winbtns button { width: 2.9rem; height: 100%; padding: 0; border-radius: 0; background: transparent; color: #cfd3f5; font-weight: 400; font-size: 0.9rem; line-height: 1; }
+    .winbtns button:hover { background: rgba(255,255,255,.08); }
+    .winbtns button.x:hover { background: #c42b1c; color: #fff; }
+    .winbtns button:active { transform: none; }
+    .menubar { flex: none; display: flex; gap: 0.1rem; padding: 0 0.3rem; background: var(--chrome); border-bottom: 1px solid var(--chrome-line); font-size: 0.8125rem; position: relative; z-index: 20; }
+    .menu { position: relative; }
+    .menu > button { background: transparent; color: var(--text); font-weight: 400; padding: 0.3rem 0.6rem; border-radius: 0.25rem; }
+    .menu > button:active { transform: none; }
+    .menu > button u { text-decoration: underline; text-underline-offset: 2px; }
+    .menu.open > button, .menu > button:hover { background: var(--chrome2); }
+    .menu .drop { display: none; position: absolute; top: 100%; left: 0; min-width: 15rem; padding: 0.3rem 0; background: var(--chrome2); border: 1px solid var(--chrome-line); border-radius: 0.375rem; box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,.5); }
+    .menu.open .drop { display: block; }
+    .drop button { display: flex; width: 100%; justify-content: space-between; gap: 1.5rem; background: transparent; color: var(--text); font-weight: 400; text-align: left; border-radius: 0; padding: 0.4rem 0.9rem 0.4rem 2rem; position: relative; }
+    .drop button:hover:not(:disabled) { background: var(--accent); color: #0f1020; }
+    .drop button:active { transform: none; }
+    .drop button .ic { position: absolute; left: 0.6rem; width: 1rem; text-align: center; }
+    .drop button kbd { font: inherit; color: var(--muted); }
+    .drop button:hover kbd { color: inherit; }
+    .drop hr { border: 0; border-top: 1px solid var(--chrome-line); margin: 0.3rem 0; }
+    .page { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1.2rem 1.5rem 2rem; }
+    .win.rolled .page, .win.rolled .ctrlbar { display: none; }
+    .win.rolled { height: auto; }
+    .ctrlbar { flex: none; background: var(--chrome); border-top: 1px solid var(--chrome-line); padding: 0.35rem 0.75rem 0.45rem; user-select: none; }
+    .seek { display: flex; align-items: center; gap: 0.75rem; font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .seek .track { flex: 1; height: 0.4rem; background: #0b0c1a; border-radius: 99px; position: relative; }
+    .seek .fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 99px; background: linear-gradient(90deg, #e08700, #ffc24a); transition: width .3s; }
+    .seek .knob { position: absolute; top: 50%; width: 0.85rem; height: 0.85rem; margin: -0.425rem 0 0 -0.425rem; border-radius: 50%; background: #fff8e7; box-shadow: 0 0 0 2px #e08700; left: 0; transition: left .3s; }
+    .transport { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.35rem; }
+    .transport button { background: transparent; color: var(--text); padding: 0.35rem 0.55rem; font-size: 1rem; line-height: 1; border-radius: 0.3rem; min-width: 2.2rem; }
+    .transport button:hover:not(:disabled) { background: var(--chrome2); }
+    .transport button.big { font-size: 1.3rem; background: var(--chrome2); border-radius: 50%; width: 2.5rem; height: 2.5rem; min-width: 0; }
+    .transport button.big:hover:not(:disabled) { background: var(--accent); color: #0f1020; }
+    .transport svg { width: 1.1rem; height: 1.1rem; display: block; margin: auto; fill: currentColor; }
+    .transport button.big svg { width: 1.25rem; height: 1.25rem; }
+    .transport .sep { width: 1px; align-self: stretch; background: var(--chrome-line); margin: 0.2rem 0.3rem; }
+    .transport .now { flex: 1; min-width: 0; text-align: right; font-size: 0.8125rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .transport .now b { color: var(--text); font-weight: 600; }
+    .card.flash { animation: flash 1.2s ease-out; }
+    @keyframes flash { 0%, 30% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
     .page::-webkit-scrollbar { width: 0.75rem; }
     .page::-webkit-scrollbar-track { background: var(--bg); }
     .page::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; border: 3px solid var(--bg); }
@@ -103,6 +149,44 @@
   </style>
 </head>
 <body>
+<div class="win" id="win">
+<div class="titlebar">
+  <svg class="tw-logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="tw-ale" x1="0" x2="1"><stop offset="0" stop-color="#ffc24a"/><stop offset="1" stop-color="#e08700"/></linearGradient></defs><path d="M22.5 13h3a3 3 0 0 1 3 3v5.5a3 3 0 0 1-3 3h-3" fill="none" stroke="#b9772a" stroke-width="3"/><rect x="5" y="9.5" width="18" height="20" rx="2.5" fill="url(#tw-ale)"/><rect x="5" y="9.5" width="18" height="20" rx="2.5" fill="none" stroke="#8a5216" stroke-opacity=".55"/><path d="M9.5 14v11.5M14 14v11.5M18.5 14v11.5" stroke="#ffe6a3" stroke-opacity=".55" stroke-width="1.6" stroke-linecap="round"/><path d="M4.2 12.4c-1.9-.6-2-3.7.4-4.4.2-2.5 3.2-3.6 5-2 1.6-2.4 5.4-2.4 7 0 1.8-1.3 4.6-.5 5.1 1.7 2.4.3 2.8 3.6.5 4.5-.7 1.3-2.5 1.4-3.4.4-1.1 1.2-3.1 1.2-4.1 0-1.1 1-3 1-4 0-1 1-2.9.9-3.7-.3-.9.6-2.1.6-2.8.1z" fill="#fff8e7" stroke="#e9dcc0" stroke-width=".6"/></svg>
+  <span class="ttl" id="win-title">Sudoku Control - Tavernworks</span>
+  <div class="winbtns">
+    <button type="button" id="win-min" title="Roll up / down">&#x2014;</button>
+    <button type="button" id="win-max" title="Scroll to the top">&#x2610;</button>
+    <button type="button" class="x" id="win-close" title="To close, remove or hide this Browser Source in OBS">&#x2715;</button>
+  </div>
+</div>
+<nav class="menubar" id="menubar">
+  <div class="menu"><button type="button"><u>G</u>ame</button><div class="drop">
+    <button type="button" data-act="start"><span class="ic">▶</span>Start<kbd></kbd></button>
+    <button type="button" data-act="stop"><span class="ic">■</span>Stop<kbd></kbd></button>
+    <hr>
+    <button type="button" data-act="new"><span class="ic">⏭</span>New puzzle now<kbd></kbd></button>
+    <button type="button" data-act="hint"><span class="ic">💡</span>Reveal a hint<kbd></kbd></button>
+    <button type="button" data-act="clearnotes"><span class="ic">✎</span>Clear all notes<kbd></kbd></button>
+  </div></div>
+  <div class="menu"><button type="button"><u>P</u>uzzle</button><div class="drop">
+    <button type="button" data-go="custom"><span class="ic">★</span>Make a custom puzzle…<kbd></kbd></button>
+    <button type="button" data-go="custom" data-focus="#cp-code"><span class="ic">📋</span>Load a puzzle code…<kbd></kbd></button>
+    <hr>
+    <button type="button" data-go="next-card"><span class="ic">⚙</span>Difficulty &amp; type…<kbd></kbd></button>
+    <button type="button" data-go="solved-card"><span class="ic">⏱</span>Solved screen time…<kbd></kbd></button>
+  </div></div>
+  <div class="menu"><button type="button"><u>S</u>cores</button><div class="drop">
+    <button type="button" data-go="cur-card"><span class="ic">🏆</span>This puzzle's top 10<kbd></kbd></button>
+    <button type="button" data-go="scores-card"><span class="ic">⚠</span>Reset scores…<kbd></kbd></button>
+  </div></div>
+  <div class="menu"><button type="button"><u>C</u>hat</button><div class="drop">
+    <button type="button" data-go="play-card" data-focus="#chat-text"><span class="ic">💬</span>Play as streamer…<kbd></kbd></button>
+  </div></div>
+  <div class="menu"><button type="button"><u>H</u>elp</button><div class="drop">
+    <button type="button" data-href="https://tavernworks.dev/sudoku/"><span class="ic">?</span>Setup guide<kbd>tavernworks.dev/sudoku</kbd></button>
+    <button type="button" data-href="https://tavernworks.dev/"><span class="ic">🍺</span>About Tavernworks<kbd></kbd></button>
+  </div></div>
+</nav>
 <div class="page">
   <h1>Sudoku <span>Control</span></h1>
   <div class="status">
@@ -111,7 +195,7 @@
   </div>
 
   <div class="grid">
-    <section class="card">
+    <section class="card" id="cur-card">
       <h2>Current puzzle</h2>
       <div class="runbar">
         <button id="btn-start" class="go" data-cmd="start">▶ Start</button>
@@ -127,7 +211,7 @@
       <ol id="top"></ol>
     </section>
 
-    <section class="card">
+    <section class="card" id="next-card">
       <h2>Next puzzles</h2>
       <select id="mode">
         <option value="auto">Adaptive: follows how chat answers</option>
@@ -153,7 +237,7 @@
       <p class="hint">The slider and type apply to every puzzle after this one. "Start new puzzle now" skips the current one.</p>
     </section>
 
-    <section class="card">
+    <section class="card" id="solved-card">
       <h2>Solved screen</h2>
       <form id="solved-form">
         <input id="solved-secs" type="number" min="3" max="600" step="1" placeholder="seconds" aria-label="Seconds the solved screen is shown">
@@ -168,7 +252,7 @@
       <p class="hint">How long the "Solved!" MVP screen stays up before the next puzzle (3–600 s). Now: <b id="solved-now">—</b>. Also changes a solved screen that's already showing.</p>
     </section>
 
-    <section class="card">
+    <section class="card" id="scores-card">
       <h2>Scores</h2>
       <div class="btns">
         <button class="danger wide" data-cmd="resetround" data-confirm>Reset this puzzle's scores</button>
@@ -177,7 +261,7 @@
       <p class="hint">Click once, then click again within 3 seconds to confirm.</p>
     </section>
 
-    <section class="card">
+    <section class="card" id="play-card">
       <h2>Play as streamer</h2>
       <form id="chat-form">
         <input id="chat-text" placeholder="e.g. B7 4 or B7?35" autocomplete="off">
@@ -230,6 +314,20 @@
   </div>
   <div id="log"></div>
 
+</div>
+<footer class="ctrlbar">
+  <div class="seek"><span id="cb-filled">0</span><div class="track"><div class="fill" id="cb-fill"></div><div class="knob" id="cb-knob"></div></div><span id="cb-left">— left</span></div>
+  <div class="transport">
+    <button type="button" class="big" id="cb-play" title="Start / Stop" data-icon="play"></button>
+    <button type="button" id="cb-stop" title="Stop" data-icon="stop"></button>
+    <span class="sep"></span>
+    <button type="button" id="cb-new" title="New puzzle now" data-icon="next"></button>
+    <button type="button" id="cb-hint" title="Reveal a hint" data-icon="hint"></button>
+    <button type="button" id="cb-notes" title="Clear all notes" data-icon="erase"></button>
+    <button type="button" id="cb-custom" title="Custom puzzle" data-icon="star"></button>
+    <span class="now" id="cb-now">—</span>
+  </div>
+</footer>
 </div>
   <script src="js/sudoku.js"></script>
   <script>
@@ -336,6 +434,7 @@
         $('#solved-now').textContent = custom ? `${cs.nextIn}s (URL default ${cs.urlNextIn}s)` : `${cs.urlNextIn}s (URL default)`;
       }
       const s = read(LS_CUR);
+      frame(stopped, live, s);
       if (!s || !s.grid) return;
       const filled = s.grid.filter(Boolean).length;
       $('#round').textContent = '#' + s.round;
@@ -514,6 +613,82 @@
     if (draft && Sudoku.parse(draft.grid)) cpLoad(Sudoku.parse(draft.grid), Sudoku.VARIANTS[draft.variant] ? draft.variant : 'classic', draft.name || '');
     else cpChanged();
     renderLib();
+
+    // ---- Window frame ----
+    const ICONS = {
+      play: '<path d="M7 4.5v15l13-7.5z"/>',
+      pause: '<path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/>',
+      stop: '<path d="M5.5 5.5h13v13h-13z"/>',
+      next: '<path d="M4 5v14l10.5-7zM15 5h3.5v14H15z"/>',
+      hint: '<path d="M12 2.5a6.5 6.5 0 0 0-3.9 11.7c.6.5.9 1.1.9 1.8v.5h6V16c0-.7.3-1.3.9-1.8A6.5 6.5 0 0 0 12 2.5zM9 18h6v1.5a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/>',
+      erase: '<path d="M15.6 3.6a2 2 0 0 1 2.8 0l2 2a2 2 0 0 1 0 2.8L11.8 17H20v2H8.6l-5-5a2 2 0 0 1 0-2.8zM5 12.6 9.4 17h-.1l-4.3-4.3z"/>',
+      star: '<path d="m12 2.8 2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z"/>',
+    };
+    const icon = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+    document.querySelectorAll('[data-icon]').forEach((b) => { b.innerHTML = icon(b.dataset.icon); });
+    $('#favicon').href = 'data:image/svg+xml,' + encodeURIComponent($('.tw-logo').outerHTML.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"'));
+    const win = $('#win'), menubar = $('#menubar');
+    $('#win-min').addEventListener('click', () => win.classList.toggle('rolled'));
+    $('#win-max').addEventListener('click', () => { win.classList.remove('rolled'); $('.page').scrollTo({ top: 0, behavior: 'smooth' }); });
+    $('#win-close').addEventListener('click', () => { $('#log').textContent = 'To close the control page, hide or remove its Browser Source in OBS.'; });
+    function closeMenus() { menubar.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open')); }
+    menubar.querySelectorAll('.menu').forEach((m) => {
+      const top = m.querySelector(':scope > button');
+      top.addEventListener('click', (e) => { e.stopPropagation(); const was = m.classList.contains('open'); closeMenus(); if (!was) m.classList.add('open'); });
+      top.addEventListener('mouseenter', () => { if (menubar.querySelector('.menu.open') && !m.classList.contains('open')) { closeMenus(); m.classList.add('open'); } });
+    });
+    document.addEventListener('click', closeMenus);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeMenus();
+      if (e.altKey && !e.ctrlKey) {
+        const m = [...menubar.querySelectorAll('.menu')].find((x) => x.querySelector('u').textContent.toLowerCase() === e.key.toLowerCase());
+        if (m) { e.preventDefault(); closeMenus(); m.classList.add('open'); }
+      }
+    });
+    function goTo(id, focus) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      win.classList.remove('rolled');
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+      if (focus) setTimeout(() => $(focus).focus({ preventScroll: true }), 350);
+    }
+    const ACTS = {
+      start: () => send('start', '', '▶ Start'), stop: () => send('stop', '', '■ Stop'),
+      new: () => $('#new-now').click(), hint: () => send('hint', '', 'Reveal a hint'), clearnotes: () => send('clearnotes', '', 'Clear all notes'),
+    };
+    menubar.querySelectorAll('.drop button').forEach((b) => b.addEventListener('click', () => {
+      closeMenus();
+      if (b.dataset.act) ACTS[b.dataset.act]();
+      else if (b.dataset.go) goTo(b.dataset.go, b.dataset.focus);
+      else if (b.dataset.href) window.open(b.dataset.href, '_blank', 'noopener');
+    }));
+    $('#cb-play').addEventListener('click', () => ($('#btn-start').disabled ? ACTS.stop : ACTS.start)());
+    $('#cb-stop').addEventListener('click', ACTS.stop);
+    $('#cb-new').addEventListener('click', ACTS.new);
+    $('#cb-hint').addEventListener('click', ACTS.hint);
+    $('#cb-notes').addEventListener('click', ACTS.clearnotes);
+    $('#cb-custom').addEventListener('click', () => goTo('custom'));
+    function frame(stopped, live, s) {
+      const playing = live && !stopped;
+      const want = playing ? 'pause' : 'play';
+      if ($('#cb-play').dataset.icon !== want) { $('#cb-play').dataset.icon = want; $('#cb-play').innerHTML = icon(want); }
+      $('#cb-play').title = playing ? 'Stop' : 'Start';
+      $('#cb-stop').disabled = stopped;
+      menubar.querySelector('[data-act=start]').disabled = !stopped;
+      menubar.querySelector('[data-act=stop]').disabled = stopped;
+      if (!s || !s.grid) { $('#win-title').textContent = 'Sudoku Control - Tavernworks'; $('#cb-now').textContent = live ? 'Waiting for a puzzle' : 'Game source not found'; return; }
+      const filled = s.grid.filter(Boolean).length, pct = (filled / 81 * 100) + '%';
+      $('#cb-fill').style.width = pct; $('#cb-knob').style.left = pct;
+      $('#cb-filled').textContent = `${filled}/81`;
+      $('#cb-left').textContent = `${81 - filled} left`;
+      const level = s.level || Sudoku.toLevel(s.difficulty);
+      const what = s.custom ? `★ ${s.custom.name || 'Custom puzzle'}` : `${VARIANT_NAMES[s.variant] || 'Classic'} · Lv ${level} ${LEVEL_NAMES[level] || ''}`;
+      $('#win-title').textContent = `Puzzle #${s.round} - ${s.custom ? (s.custom.name || 'Custom puzzle') : `Lv ${level}`} - Sudoku Control - Tavernworks`;
+      const nowEl = $('#cb-now'); nowEl.replaceChildren();
+      const b = document.createElement('b'); b.textContent = `Puzzle #${s.round}`;
+      nowEl.append(stopped ? '■ Stopped · ' : live ? '▶ Live · ' : '○ Game not found · ', b, ` · ${what}`);
+    }
 
     setInterval(refresh, 1000);
     refresh();
