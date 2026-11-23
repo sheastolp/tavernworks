@@ -373,3 +373,21 @@ body.windowed .how .note-ex { font-size: 1.65vh; }
 body.windowed .how .note-ex code { font-size: 2.1vh; }
 body.windowed #all-list li:nth-child(n + 4) { display: none; }
 body.windowed .feed-wrap { min-height: 10vh; }
+
+/* ---------- Working menus and player buttons in the game window (same as the control page) ---------- */
+.gw-menu { position: relative; z-index: 30; }
+.gw .menu { position: relative; }
+.gw button { font: inherit; font-weight: 400; color: inherit; background: transparent; border: 0; border-radius: 0.4vh; padding: 0; cursor: pointer; }
+.gw-menu .top { color: var(--text); padding: 0.3vh 1.1vh; }
+.gw-menu .menu.open > .top, .gw-menu .top:hover { background: var(--chrome2); }
+.gw-menu .drop { display: none; position: absolute; top: 100%; left: 0; min-width: 30vh; padding: 0.5vh 0; background: var(--chrome2); border: 1px solid var(--chrome-line); border-radius: 0.6vh; box-shadow: 0 1vh 3vh rgba(0, 0, 0, 0.5); }
+.gw-menu .menu.open .drop { display: block; }
+.gw-menu .drop button { display: block; width: 100%; text-align: left; white-space: nowrap; color: var(--text); border-radius: 0; padding: 0.6vh 1.6vh 0.6vh 3.6vh; position: relative; }
+.gw-menu .drop button:hover:not(:disabled) { background: var(--accent); color: var(--bg); }
+.gw-menu .drop button:disabled { opacity: 0.4; cursor: default; }
+.gw-menu .drop button.armed { background: var(--bad); color: var(--bg); }
+.gw-menu .drop .ic { position: absolute; left: 1.1vh; width: 1.8vh; text-align: center; }
+.gw-menu .drop hr { border: 0; border-top: 1px solid var(--chrome-line); margin: 0.5vh 0; }
+.gw-menu .drop .hd { padding: 0.5vh 1.6vh 0.2vh; font-size: 1.25vh; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.gw-trans button.ib:hover { background: var(--chrome2); opacity: 1; }
+.gw-trans button.ib.big:hover { background: var(--accent); color: var(--bg); }

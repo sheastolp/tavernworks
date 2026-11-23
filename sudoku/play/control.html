@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script>try { if (localStorage.getItem('numbersonstream.controltheme') === 'indigo') document.documentElement.dataset.theme = 'indigo'; } catch {}</script>
+  <script>try { if (localStorage.getItem('numbersonstream.theme') !== 'tavernworks') document.documentElement.dataset.theme = 'indigo'; } catch { document.documentElement.dataset.theme = 'indigo'; }</script>
   <style>
     /* Tavernworks colours by default; View > Theme switches to the original indigo look. */
     :root {
@@ -143,7 +143,13 @@
     .cp-board input.x { background: var(--cell-x); } .cp-board input.x:focus { background: var(--cell-x-focus); }
     .cp-board input.bad { color: var(--on-accent); background: var(--bad); }
     .cp-side { display: grid; gap: 0.625rem; }
-    .cp-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 0.5rem; }
+    .cp-row { display: grid; grid-template-columns: 1fr; gap: 0.5rem; }
+    /* Button rows instead of dropdowns: OBS's Interact window can't open a <select>'s pop-up list. */
+    .chips { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-bottom: 0.625rem; }
+    .fld .chips { margin: 0; }
+    .chips button { flex: 1 1 auto; background: transparent; color: var(--text); border: 1px solid var(--line); padding: 0.5rem 0.7rem; font-weight: 600; }
+    .chips button:hover { border-color: var(--accent); }
+    .chips button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
     .fld { display: grid; gap: 0.25rem; font-size: 0.8125rem; color: var(--muted); }
     .fld select { margin: 0; }
     textarea { width: 100%; resize: vertical; font: 0.875rem/1.35 ui-monospace, Consolas, monospace; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.5rem 0.75rem; word-break: break-all; }
@@ -202,8 +208,8 @@
     <button type="button" data-go="play-card" data-focus="#chat-text"><span class="ic">💬</span>Play as streamer…<kbd></kbd></button>
   </div></div>
   <div class="menu"><button type="button"><u>V</u>iew</button><div class="drop">
-    <button type="button" data-theme-set="tavernworks"><span class="ic"></span>Theme: Tavernworks<kbd>default</kbd></button>
-    <button type="button" data-theme-set="indigo"><span class="ic"></span>Theme: Indigo<kbd></kbd></button>
+    <button type="button" data-theme-set="indigo"><span class="ic"></span>Theme: Indigo<kbd>default</kbd></button>
+    <button type="button" data-theme-set="tavernworks"><span class="ic"></span>Theme: Tavernworks<kbd></kbd></button>
     <hr>
     <button type="button" id="menu-roll"><span class="ic">—</span>Roll up window<kbd></kbd></button>
   </div></div>
@@ -304,7 +310,8 @@
         <div class="cp-side">
           <div class="cp-row">
             <label class="fld">Name (optional) <input id="cp-name" maxlength="40" placeholder="e.g. Sunday Special" autocomplete="off"></label>
-            <label class="fld">Type
+          </div>
+          <div class="fld">Type
               <select id="cp-variant">
                 <option value="classic">Classic</option>
                 <option value="diagonal">Diagonal</option>
@@ -312,7 +319,6 @@
                 <option value="centerdot">Center Dot</option>
                 <option value="asterisk">Asterisk</option>
               </select>
-            </label>
           </div>
           <div id="cp-result" class="cp-result">Type the givens into the grid. It's checked as you go.</div>
           <div class="btns3">
@@ -442,6 +448,7 @@
       gs.textContent = live ? '● running' : '○ not found — is the game source loaded with the same kind of URL?';
       gs.className = 'dot ' + (live ? 'ok' : 'no');
       syncSettings();
+      repaintChips();
       const pz = read('numbersonstream.paused');
       const stopped = !!(pz && pz.paused);
       $('#btn-start').disabled = !stopped;
@@ -478,6 +485,28 @@
       }
       if (!top.length) ol.append(Object.assign(document.createElement('li'), { textContent: 'No points yet' }));
     }
+    // ---- Dropdowns as button rows (see .chips) ----
+    // The <select> stays as the value holder, so the code that reads and sets it is unchanged.
+    const chipPainters = [];
+    function chipify(sel, short) {
+      sel.hidden = true;
+      const row = document.createElement('div');
+      row.className = 'chips'; row.setAttribute('role', 'radiogroup');
+      const paint = () => row.querySelectorAll('button').forEach((b) => { const on = b.dataset.v === sel.value; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+      for (const o of sel.options) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.v = o.value; b.title = o.text;
+        b.textContent = (short && short[o.value]) || o.text;
+        b.addEventListener('click', () => { if (sel.value !== o.value) { sel.value = o.value; sel.dispatchEvent(new Event('change')); } paint(); });
+        row.append(b);
+      }
+      sel.after(row); paint(); chipPainters.push(paint);
+    }
+    const repaintChips = () => chipPainters.forEach((f) => f());
+    chipify(mode, { auto: 'Adaptive', fixed: 'Fixed level', rotate: 'Cycle 1 → 20' });
+    chipify(variant, { mix: 'Mix', classic: 'Classic' });
+    chipify($('#cp-variant'));
+
     // ---- Custom puzzle builder ----
     const LS_LIB = 'numbersonstream.custompuzzles', LS_DRAFT = 'numbersonstream.customdraft';
     const cpBoard = $('#cp-board'), cpVar = $('#cp-variant'), cpName = $('#cp-name'), cpCode = $('#cp-code');
@@ -536,6 +565,7 @@
       try { localStorage.setItem(LS_DRAFT, JSON.stringify({ grid: Sudoku.stringify(cpGrid), variant: cpVar.value, name: cpName.value })); } catch {}
       cpRender();
       cpButtons();
+      repaintChips();
       clearTimeout(cpTimer);
       cpTimer = setTimeout(cpAnalyze, 250);
     }
@@ -682,12 +712,16 @@
       start: () => send('start', '', '▶ Start'), stop: () => send('stop', '', '■ Stop'),
       new: () => $('#new-now').click(), hint: () => send('hint', '', 'Reveal a hint'), clearnotes: () => send('clearnotes', '', 'Clear all notes'),
     };
-    function setTheme(t) {
+    // The theme is shared with the game source: changing it here (or in the game's View menu) changes both.
+    function setTheme(t, save = true) {
+      t = t === 'tavernworks' ? 'tavernworks' : 'indigo';
       if (t === 'indigo') document.documentElement.dataset.theme = 'indigo'; else delete document.documentElement.dataset.theme;
-      try { localStorage.setItem('numbersonstream.controltheme', t); } catch {}
+      if (save) try { localStorage.setItem('numbersonstream.theme', t); } catch {}
+      if (save && bc) bc.postMessage({ theme: t });
       menubar.querySelectorAll('[data-theme-set]').forEach((b) => { b.querySelector('.ic').textContent = b.dataset.themeSet === t ? '✓' : ''; });
     }
-    setTheme(document.documentElement.dataset.theme === 'indigo' ? 'indigo' : 'tavernworks');
+    setTheme(document.documentElement.dataset.theme === 'indigo' ? 'indigo' : 'tavernworks', false);
+    window.addEventListener('storage', (e) => { if (e.key === 'numbersonstream.theme') setTheme(e.newValue, false); });
     $('#menu-roll').addEventListener('click', () => win.classList.toggle('rolled'));
     menubar.querySelectorAll('.drop button').forEach((b) => b.addEventListener('click', () => {
       closeMenus();

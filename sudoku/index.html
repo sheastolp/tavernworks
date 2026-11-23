@@ -217,12 +217,10 @@
             <option value="1">GuildScribe theme window (1464 × 912)</option>
           </select>
         </label>
-        <label>Look
+        <label>Window
           <select id="look">
-            <option value="">Tavernworks window (player-style frame)</option>
-            <option value="plain">Tavernworks colours, no frame</option>
-            <option value="indigo">Indigo window (player-style frame)</option>
-            <option value="indigo-plain">Indigo, no frame (the original look)</option>
+            <option value="">Player-style frame with menus</option>
+            <option value="plain">No frame</option>
           </select>
         </label>
       </div>
@@ -458,8 +456,7 @@
     if (s.variant !== "mix") q.set("variant", s.variant);
     if (s.frame) q.set("frame", "1");
     el.look.disabled = !!s.frame; // the GuildScribe layout has its own look
-    if (!s.frame && s.look.startsWith("indigo")) q.set("theme", "indigo");
-    if (!s.frame && s.look.endsWith("plain")) q.set("window", "0");
+    if (!s.frame && s.look === "plain") q.set("window", "0");
     if (!s.notes) q.set("notes", "0");
     if (s.bg) q.set("bg", "transparent");
     if (s.prefix.trim()) q.set("prefix", s.prefix.trim());

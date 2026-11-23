@@ -16,11 +16,19 @@
     transparent: params.get('bg') === 'transparent',
     notes: params.get('notes') !== '0', // viewers can pencil in notes, e.g. B7?35
     frame: params.get('frame') === '1', // fills the Sudoku window of GuildScribe's full stream theme
-    theme: (params.get('theme') || '').toLowerCase() === 'indigo' ? 'indigo' : 'tavernworks', // colours
+    theme: (params.get('theme') || '').toLowerCase(), // starting colours if none chosen yet: indigo (default) or tavernworks
     window: params.get('window') !== '0', // media-player style window around the game
   };
-  // Tavernworks colours unless ?theme=indigo; GuildScribe's frame layout keeps its own look.
-  if (cfg.theme === 'tavernworks' && !cfg.frame) document.body.classList.add('tw');
+  // Colours: Indigo by default. View > Theme (here or on the control page) picks one and both pages
+  // remember it; ?theme= in the link only sets the starting theme. GuildScribe's frame layout keeps its own look.
+  const LS_THEME = 'numbersonstream.theme';
+  let theme = (() => { try { return localStorage.getItem(LS_THEME); } catch { return null; } })() || cfg.theme;
+  function applyTheme(t) {
+    theme = t === 'tavernworks' ? 'tavernworks' : 'indigo';
+    document.body.classList.toggle('tw', theme === 'tavernworks' && !cfg.frame);
+  }
+  applyTheme(theme);
+  window.addEventListener('storage', (e) => { if (e.key === LS_THEME && e.newValue) applyTheme(e.newValue); });
   try {
     const logo = document.querySelector('.tw-logo');
     if (logo) document.getElementById('favicon').href = 'data:image/svg+xml,' + encodeURIComponent(logo.outerHTML.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"'));
@@ -60,8 +68,7 @@
       if (!fd.get('bg')) u.searchParams.delete('bg');
       const look = fd.get('look') || '';
       u.searchParams.delete('look');
-      if (look.startsWith('indigo')) u.searchParams.set('theme', 'indigo');
-      if (look.endsWith('plain')) u.searchParams.set('window', '0');
+      if (look === 'plain') u.searchParams.set('window', '0');
 
       if (fd.get('notes')) u.searchParams.delete('notes'); else u.searchParams.set('notes', '0');
       const lv = +form.difficulty.value, mode = fd.get('mode');
@@ -818,7 +825,11 @@
     else runCommand(c.cmd, c.arg || '');
   }
   window.addEventListener('storage', (e) => { if (e.key === LS_CMD && e.newValue) { try { onControl(JSON.parse(e.newValue)); } catch {} } });
-  if (!SANDBOX) try { new BroadcastChannel('numbersonstream').onmessage = (e) => onControl(e.data); } catch {}
+  if (!SANDBOX) try {
+    new BroadcastChannel('numbersonstream').onmessage = (e) => {
+      if (e.data && e.data.theme && !e.data.id) applyTheme(e.data.theme); else onControl(e.data);
+    };
+  } catch {}
   setInterval(() => store.set(LS_HEARTBEAT, Date.now()), 1000);
 
   // ---------- Boot ----------
@@ -849,7 +860,72 @@
   setInterval(tick, 250);
   tick();
 
+  // ---------- Window menus and player buttons (work like the control page's) ----------
+  const menubar = $('#gw-menubar');
+  function closeMenus() { menubar.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open')); }
+  function markMenus() {
+    const tick = (b, on) => { b.querySelector('.ic').textContent = on ? '✓' : ''; };
+    menubar.querySelectorAll('[data-act=variant]').forEach((b) => tick(b, b.dataset.arg === settings.variant));
+    menubar.querySelectorAll('[data-act=mode]').forEach((b) => tick(b, b.dataset.arg === settings.mode));
+    menubar.querySelectorAll('[data-act=theme]').forEach((b) => tick(b, b.dataset.arg === theme));
+    tick(menubar.querySelector('[data-act=testchat]'), !$('#test-input').hidden);
+    menubar.querySelector('[data-act=start]').disabled = !paused;
+    menubar.querySelector('[data-act=stop]').disabled = paused;
+    menubar.querySelector('[data-act=harder]').disabled = settings.mode === 'rotate' || settings.level >= MAX;
+    menubar.querySelector('[data-act=easier]').disabled = settings.mode === 'rotate' || settings.level <= 1;
+    $('#gm-level').textContent = settings.mode === 'rotate' ? '' : `· next: ${settings.level} ${Sudoku.LEVELS[settings.level].name}`;
+  }
+  function setTheme(t) {
+    applyTheme(t);
+    try { localStorage.setItem(LS_THEME, theme); } catch {}
+    if (!SANDBOX) try { new BroadcastChannel('numbersonstream').postMessage({ theme }); } catch {}
+  }
+  function stepLevel(d) {
+    const lv = Math.min(MAX, Math.max(1, settings.level + d));
+    runCommand('level', `${settings.mode === 'auto' ? 'auto' : 'fixed'} ${lv}`);
+  }
+  const ACTIONS = {
+    start: () => setPaused(false), stop: () => setPaused(true), playpause: () => setPaused(!paused),
+    new: () => newRound({ skip: true }), hint: () => giveHint(), clearnotes: () => runCommand('clearnotes', ''),
+    variant: (a) => runCommand('variant', a),
+    mode: (a) => runCommand('mode', a === 'fixed' ? `fixed ${settings.level}` : a),
+    harder: () => stepLevel(1), easier: () => stepLevel(-1),
+    resetround: () => runCommand('resetround', ''), resetscores: () => runCommand('resetscores', ''),
+    testchat: () => { const box = $('#test-input'); box.hidden = !box.hidden; if (!box.hidden) box.focus(); },
+    theme: (a) => setTheme(a),
+    href: (a) => window.open(a, '_blank', 'noopener'),
+    control: () => window.open('control.html', '_blank'),
+  };
+  menubar.querySelectorAll('.menu').forEach((m) => {
+    const top = m.querySelector('.top');
+    top.addEventListener('click', (e) => { e.stopPropagation(); const was = m.classList.contains('open'); closeMenus(); if (!was) { markMenus(); m.classList.add('open'); } });
+    top.addEventListener('mouseenter', () => { if (menubar.querySelector('.menu.open') && !m.classList.contains('open')) { closeMenus(); markMenus(); m.classList.add('open'); } });
+  });
+  document.querySelectorAll('#gwin [data-act]').forEach((b) => {
+    let armTimer = null; const label = b.lastChild && b.lastChild.nodeType === 3 ? b.lastChild : null, original = label && label.textContent;
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (b.hasAttribute('data-confirm') && !b.classList.contains('armed')) {
+        b.classList.add('armed'); label.textContent = 'Click again to confirm';
+        armTimer = setTimeout(() => { b.classList.remove('armed'); label.textContent = original; }, 3000);
+        return;
+      }
+      if (armTimer) { clearTimeout(armTimer); b.classList.remove('armed'); label.textContent = original; }
+      closeMenus();
+      ACTIONS[b.dataset.act](b.dataset.arg);
+      renderWindow();
+    });
+  });
+  document.addEventListener('click', closeMenus);
+
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMenus();
+    if (e.altKey && !e.ctrlKey && !e.metaKey && document.body.classList.contains('windowed')) {
+      const m = [...menubar.querySelectorAll('.menu')].find((x) => x.querySelector('u').textContent.toLowerCase() === e.key.toLowerCase());
+      if (m) { e.preventDefault(); closeMenus(); markMenus(); m.classList.add('open'); }
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) return;
     if (e.target.tagName === 'INPUT') return;
     if (e.key === 'n' || e.key === 'N') newRound({ skip: true });
     if (e.key === 'h' || e.key === 'H') giveHint();
@@ -883,9 +959,10 @@
     }, 900);
   }
 
-  if (cfg.test) {
+  {
+    // Test box: shown with ?test=1, or from the window's Chat menu.
     const box = $('#test-input');
-    box.hidden = false;
+    box.hidden = !cfg.test;
     box.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' || !box.value.trim()) return;
       handleChat({ user: 'streamer', displayName: 'Streamer', color: '#FFD700', isBroadcaster: true, isMod: true, text: box.value });
