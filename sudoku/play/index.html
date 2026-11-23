@@ -48,7 +48,7 @@
           <label>Wrong-guess cooldown (s) <input name="cooldown" type="number" min="0" value="3"></label>
           <label>Next puzzle in (s) <input name="next" type="number" min="3" value="45"></label>
         </div>
-        <label class="check"><input type="checkbox" name="notes" value="1" checked> Let viewers pencil in notes (e.g. B7?35)</label>
+        <label class="check"><input type="checkbox" name="notes" value="1" checked> Let viewers pencil in notes (e.g. B7?35 or A1A3?67)</label>
         <label class="check"><input type="checkbox" name="bg" value="transparent"> Transparent background</label>
         <label>Browser Source URL <input id="setup-url" readonly></label>
         <div class="actions">
@@ -85,7 +85,7 @@
         <div class="example"><span id="how-prefix"></span>B7 4</div>
         <p class="small">No space needed: <code><span id="how-prefix3"></span>B74</code> works too, and so does <code><span id="how-prefix2"></span>b7=4</code>. Right answer <b>+10</b>, finish a row / column / box <b>+5</b> each, wrong <b>−2</b> and a short timeout.</p>
         <div id="how-notes" class="notes-how">
-          <p class="small">✏️ <b>Notes:</b> put <b>?</b> after the cell, then the numbers. No points.</p>
+          <p class="small">✏️ <b>Notes:</b> put <b>?</b> after the cell, then the numbers. No points. More than one cell at once: <code><span class="how-prefix-n"></span>A1A3?67</code></p>
           <p id="note-ex" class="note-ex" hidden><code id="note-ex-cmd"></code> <span id="note-ex-what"></span>, like the dashed cell <b id="note-ex-cell"></b>, which always shows what can still go there.</p>
           <p class="small"><code><span class="how-prefix-n"></span>B7?-3</code> rubs out 3 · <code><span class="how-prefix-n"></span>B7?x</code> clears.</p>
         </div>

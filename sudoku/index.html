@@ -289,7 +289,7 @@
       <h3><span class="n">4</span>Tell chat how to play</h3>
       <p>The side panel already explains it, but here's the short version for your <code>!sudoku</code> command:</p>
       <div class="cmdlist">
-        <div class="copyrow"><code id="chat-blurb">Help solve the Sudoku! Type a cell then a number, like B7 4. Right answers +10, finish a row/column/box +5, wrong −2. Notes: B7?35 pencils in 3 and 5.</code><button class="copy" type="button" id="copy-blurb">Copy</button></div>
+        <div class="copyrow"><code id="chat-blurb">Help solve the Sudoku! Type a cell then a number, like B7 4. Right answers +10, finish a row/column/box +5, wrong −2. Notes: B7?35 pencils in 3 and 5, A1A3?678 does several cells at once.</code><button class="copy" type="button" id="copy-blurb">Copy</button></div>
       </div>
     </div>
   </div>
@@ -318,8 +318,9 @@
         <tr><td><code>B7 4</code></td><td>Puts a 4 in row B, column 7. <code>b7=4</code> and <code>B74</code> work too.</td></tr>
         <tr><td><code>A1 5 C3 2</code></td><td>Up to 3 moves in one message</td></tr>
         <tr><td><code>B7?35</code></td><td>Pencils small 3 and 5 into B7 (never scored)</td></tr>
+        <tr><td><code>A1A3?678</code></td><td>Pencils 6, 7 and 8 into A1 <em>and</em> A3. List up to 9 cells before the <code>?</code>; <code>A1 A3?678</code> works too.</td></tr>
         <tr><td><code>B7?-3</code></td><td>Rubs out the 3</td></tr>
-        <tr><td><code>B7?x</code></td><td>Clears B7's notes</td></tr>
+        <tr><td><code>B7?x</code></td><td>Clears B7's notes (<code>A1A3?x</code> clears both)</td></tr>
       </table></div>
     </div>
     <div class="scroll">
