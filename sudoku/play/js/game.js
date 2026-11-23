@@ -346,7 +346,9 @@
   const MOVE_RE = /(?:^|[^A-Za-z0-9])([A-Ia-i])([1-9])\s*[=:\-]?\s*([1-9])(?![0-9])/g;
 
   // Notes: "B7?35" pencils in 3 and 5, "B7?-3" rubs out 3, "B7?x" (or "B7?0") clears the cell.
-  const NOTE_RE = /(?:^|[^A-Za-z0-9])([A-Ia-i])([1-9])\s*\?\s*(-?)\s*([1-9](?:[\s,]*[1-9]){0,8}|[0xX])(?![0-9A-Za-z])/g;
+  // Several cells at once: "A1A3?678", "A1 A3?678" or "A1,A3?678" pencils 6, 7 and 8 into A1 and A3.
+  const NOTE_RE = /(?:^|[^A-Za-z0-9])([A-Ia-i][1-9](?:[\s,]*[A-Ia-i][1-9])*)\s*\?\s*(-?)\s*([1-9](?:[\s,]*[1-9]){0,8}|[0xX])(?![0-9A-Za-z])/g;
+  const NOTE_CELLS_MAX = 9; // cells per note group, e.g. a whole row
 
   function stripPrefix(text) {
     const t = text.trim();
@@ -358,11 +360,14 @@
     const t = stripPrefix(text);
     if (t === null || !cfg.notes) return [];
     const out = [];
+    let groups = 0;
     for (const m of t.matchAll(NOTE_RE)) {
-      const clear = /^[0x]$/i.test(m[4]);
-      const mask = clear ? 0 : [...m[4].replace(/[^1-9]/g, '')].reduce((a, d) => a | (1 << +d), 0);
-      out.push({ index: ROWS.indexOf(m[1].toUpperCase()) * 9 + (+m[2] - 1), op: clear ? 'clear' : m[3] ? 'remove' : 'add', mask });
-      if (out.length >= cfg.maxPerMsg) break;
+      const clear = /^[0x]$/i.test(m[3]);
+      const mask = clear ? 0 : [...m[3].replace(/[^1-9]/g, '')].reduce((a, d) => a | (1 << +d), 0);
+      const op = clear ? 'clear' : m[2] ? 'remove' : 'add';
+      const cells = [...new Set([...m[1].matchAll(/([A-Ia-i])([1-9])/g)].map((c) => ROWS.indexOf(c[1].toUpperCase()) * 9 + (+c[2] - 1)))];
+      for (const index of cells.slice(0, NOTE_CELLS_MAX)) out.push({ index, op, mask });
+      if (++groups >= cfg.maxPerMsg) break;
     }
     return out;
   }
