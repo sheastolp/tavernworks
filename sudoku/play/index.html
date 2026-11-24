@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sudoku on Stream</title>
+  <link rel="icon" id="favicon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -42,6 +46,12 @@
             <option value="1">GuildScribe theme: fits the Sudoku on Stream scene's window (1464 × 912)</option>
           </select>
         </label>
+        <label>Window
+          <select name="look">
+            <option value="">Player-style window frame, with menus (theme: View → Theme)</option>
+            <option value="plain">No window frame</option>
+          </select>
+        </label>
         <label>Command prefix <input name="prefix" placeholder="(none — just type B7 4)" autocomplete="off"></label>
         <div class="row3">
           <label>Hint after (s) <input name="hint" type="number" min="0" value="60"></label>
@@ -60,7 +70,57 @@
     </div>
   </section>
 
-  <!-- Game screen -->
+  <!-- Game screen, inside a media-player style window (?window=0 to drop the frame) -->
+  <div id="gwin">
+  <div class="gw gw-title">
+    <svg class="tw-logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="tw-ale" x1="0" x2="1"><stop offset="0" stop-color="#ffc24a"/><stop offset="1" stop-color="#e08700"/></linearGradient></defs><path d="M22.5 13h3a3 3 0 0 1 3 3v5.5a3 3 0 0 1-3 3h-3" fill="none" stroke="#b9772a" stroke-width="3"/><rect x="5" y="9.5" width="18" height="20" rx="2.5" fill="url(#tw-ale)"/><rect x="5" y="9.5" width="18" height="20" rx="2.5" fill="none" stroke="#8a5216" stroke-opacity=".55"/><path d="M9.5 14v11.5M14 14v11.5M18.5 14v11.5" stroke="#ffe6a3" stroke-opacity=".55" stroke-width="1.6" stroke-linecap="round"/><path d="M4.2 12.4c-1.9-.6-2-3.7.4-4.4.2-2.5 3.2-3.6 5-2 1.6-2.4 5.4-2.4 7 0 1.8-1.3 4.6-.5 5.1 1.7 2.4.3 2.8 3.6.5 4.5-.7 1.3-2.5 1.4-3.4.4-1.1 1.2-3.1 1.2-4.1 0-1.1 1-3 1-4 0-1 1-2.9.9-3.7-.3-.9.6-2.1.6-2.8.1z" fill="#fff8e7" stroke="#e9dcc0" stroke-width=".6"/></svg>
+    <span class="ttl" id="gw-title">Sudoku on Stream - Tavernworks</span>
+    <div class="gw-btns"><span>&#x2014;</span><span>&#x2610;</span><span>&#x2715;</span></div>
+  </div>
+  <div class="gw gw-menu" id="gw-menubar">
+    <div class="menu"><button type="button" class="top"><u>G</u>ame</button><div class="drop">
+      <button type="button" data-act="start"><span class="ic">▶</span>Start</button>
+      <button type="button" data-act="stop"><span class="ic">■</span>Stop</button>
+      <hr>
+      <button type="button" data-act="new"><span class="ic">⏭</span>New puzzle now</button>
+      <button type="button" data-act="hint"><span class="ic">💡</span>Reveal a hint</button>
+      <button type="button" data-act="clearnotes"><span class="ic">✎</span>Clear all notes</button>
+      <button type="button" data-act="autohints"><span class="ic"></span>Automatic hints</button>
+    </div></div>
+    <div class="menu"><button type="button" class="top"><u>P</u>uzzle</button><div class="drop">
+      <div class="hd">Type of the next puzzles</div>
+      <button type="button" data-act="variant" data-arg="mix"><span class="ic"></span>Mix it up</button>
+      <button type="button" data-act="variant" data-arg="classic"><span class="ic"></span>Classic</button>
+      <button type="button" data-act="variant" data-arg="diagonal"><span class="ic"></span>Diagonal</button>
+      <button type="button" data-act="variant" data-arg="windoku"><span class="ic"></span>Windoku</button>
+      <button type="button" data-act="variant" data-arg="centerdot"><span class="ic"></span>Center Dot</button>
+      <button type="button" data-act="variant" data-arg="asterisk"><span class="ic"></span>Asterisk</button>
+      <hr>
+      <div class="hd">Difficulty <span id="gm-level"></span></div>
+      <button type="button" data-act="mode" data-arg="auto"><span class="ic"></span>Adaptive: follows how chat answers</button>
+      <button type="button" data-act="mode" data-arg="fixed"><span class="ic"></span>Fixed level</button>
+      <button type="button" data-act="mode" data-arg="rotate"><span class="ic"></span>Cycle every level 1 → 20</button>
+      <button type="button" data-act="harder"><span class="ic">▲</span>Harder</button>
+      <button type="button" data-act="easier"><span class="ic">▼</span>Easier</button>
+    </div></div>
+    <div class="menu"><button type="button" class="top"><u>S</u>cores</button><div class="drop">
+      <button type="button" data-act="resetround" data-confirm><span class="ic">⚠</span>Reset this puzzle's scores</button>
+      <button type="button" data-act="resetscores" data-confirm><span class="ic">⚠</span>Reset ALL-TIME scores</button>
+    </div></div>
+    <div class="menu"><button type="button" class="top"><u>C</u>hat</button><div class="drop">
+      <button type="button" data-act="testchat"><span class="ic"></span>Type moves as the streamer (test box)</button>
+    </div></div>
+    <div class="menu"><button type="button" class="top"><u>V</u>iew</button><div class="drop">
+      <button type="button" data-act="theme" data-arg="indigo"><span class="ic"></span>Theme: Indigo</button>
+      <button type="button" data-act="theme" data-arg="tavernworks"><span class="ic"></span>Theme: Tavernworks</button>
+    </div></div>
+    <div class="menu"><button type="button" class="top"><u>H</u>elp</button><div class="drop">
+      <button type="button" data-act="href" data-arg="https://tavernworks.dev/sudoku/"><span class="ic">?</span>Setup guide</button>
+      <button type="button" data-act="control"><span class="ic">🎛</span>Open the control page</button>
+      <button type="button" data-act="href" data-arg="https://tavernworks.dev/"><span class="ic">🍺</span>About Tavernworks</button>
+    </div></div>
+    <span class="gw-tip">Play in chat: cell then number, like <b id="gw-ex">B7 4</b></span>
+  </div>
   <main id="game">
     <div class="board-wrap">
       <div id="board"></div>
@@ -129,6 +189,20 @@
       </div>
     </div>
   </main>
+  <div class="gw gw-bar">
+    <div class="gw-seek"><span id="gw-time">0:00</span><div class="track"><div class="fill" id="gw-fill"></div><div class="knob" id="gw-knob"></div></div><span id="gw-left">81 left</span></div>
+    <div class="gw-trans">
+      <button type="button" class="ib big" id="gw-play" data-act="playpause" title="Start / Stop"></button>
+      <button type="button" class="ib" data-act="stop" title="Stop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 5.5h13v13h-13z"/></svg></button>
+      <span class="sep"></span>
+      <button type="button" class="ib" data-act="new" title="New puzzle now"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5v14l10.5-7zM15 5h3.5v14H15z"/></svg></button>
+      <button type="button" class="ib" data-act="hint" title="Reveal a hint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5a6.5 6.5 0 0 0-3.9 11.7c.6.5.9 1.1.9 1.8v.5h6V16c0-.7.3-1.3.9-1.8A6.5 6.5 0 0 0 12 2.5zM9 18h6v1.5a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/></svg></button>
+      <button type="button" class="ib" data-act="clearnotes" title="Clear all notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.6 3.6a2 2 0 0 1 2.8 0l2 2a2 2 0 0 1 0 2.8L11.8 17H20v2H8.6l-5-5a2 2 0 0 1 0-2.8zM5 12.6 9.4 17h-.1l-4.3-4.3z"/></svg></button>
+      <button type="button" class="ib" data-act="control" title="Open the control page (custom puzzles and more)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z"/></svg></button>
+      <span class="now" id="gw-now"></span>
+    </div>
+  </div>
+  </div>
 
   <script src="js/sudoku.js"></script>
   <script src="js/twitch.js"></script>
