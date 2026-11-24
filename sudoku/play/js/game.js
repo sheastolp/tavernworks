@@ -13,6 +13,7 @@
     nextIn: num(params.get('next'), 45), // seconds between puzzles
     maxPerMsg: num(params.get('max'), 3), // moves accepted from a single chat message
     demo: params.get('demo') === '1',
+    pace: Math.max(0.3, num(params.get('pace'), 4)), // demo: average seconds between pretend viewers' messages
     test: params.get('test') === '1',
     transparent: params.get('bg') === 'transparent',
     notes: params.get('notes') !== '0', // viewers can pencil in notes, e.g. B7?35
@@ -1167,7 +1168,10 @@
     if (!cfg.channel) setStatus('demo');
     const bots = ['PixelPanda', 'grid_wizard', 'NineLives', 'boxbuster', 'Quokka42', 'ZenSolver', 'kettlecorn', 'MossyRock'];
     const colors = ['#FF4500', '#1E90FF', '#9ACD32', '#DAA520', '#8A2BE2', '#00FF7F', '#FF69B4', ''];
-    setInterval(() => {
+    // One pretend message every cfg.pace seconds on average, a little uneven like real chat.
+    const botTurn = () => { setTimeout(() => { botMove(); botTurn(); }, cfg.pace * 1000 * (0.7 + Math.random() * 0.6)); };
+    botTurn();
+    function botMove() {
       if (roundOver || paused) return;
       const k = Math.floor(Math.random() * bots.length);
       const empty = state.grid.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
@@ -1183,7 +1187,7 @@
       const v = good ? state.solution[i] : ((state.solution[i] + Math.floor(Math.random() * 8)) % 9) + 1;
       const variants = [`${ROWS[Sudoku.row(i)]}${Sudoku.col(i) + 1} ${v}`, `${ROWS[Sudoku.row(i)].toLowerCase()}${Sudoku.col(i) + 1}=${v}`, `ok ${ROWS[Sudoku.row(i)]}${Sudoku.col(i) + 1} ${v} i think`];
       handleChat({ user: bots[k].toLowerCase(), displayName: bots[k], color: colors[k], text: cfg.prefix + variants[Math.floor(Math.random() * variants.length)] });
-    }, 900);
+    }
   }
 
   {
