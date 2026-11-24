@@ -217,6 +217,13 @@
 
       <footer><span id="status" data-state="connecting">○ connecting…</span><span class="brand">Homebrewed by Stoned Sheamus</span></footer>
       <input id="test-input" placeholder="Test chat: type B7 4 or !sudoku new, then Enter" hidden>
+      <form id="try" hidden autocomplete="off">
+        <div class="try-row">
+          <input id="try-move" placeholder="Your move, like B7 4" aria-label="Your move, like B7 4" maxlength="40" spellcheck="false" autocapitalize="characters">
+          <button type="submit">Send</button>
+        </div>
+        <p id="try-said">Click an empty square to pick it, then add a number and press Send.</p>
+      </form>
     </aside>
 
     <div id="paused-card">

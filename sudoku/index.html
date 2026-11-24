@@ -486,20 +486,12 @@
   $("demo-try").addEventListener("submit", (e) => {
     e.preventDefault();
     const a = api(), text = moveBox.value.trim();
-    if (!a || !text) return;
-    if (a.paused) { say("The demo is paused. Press <b>Play</b> first."); return; }
-    const doc = gameDoc(), first = () => doc && doc.querySelector("#feed li");
-    const before = first();
-    a.handleChat({ user: "you", displayName: "You", color: "#3d7fd0", text });
-    const after = first();
-    if (after && after !== before && /^\s*You\b/.test(after.textContent)) {
-      const t = after.textContent.trim().replace(/^You\s*/, "");
-      const ok = /\+\d/.test(t) && !/≠/.test(t);
-      say((ok ? '<span class="good">Nice.</span> ' : /≠/.test(t) ? '<span class="bad">Not that one.</span> ' : "") + esc(t));
-      moveBox.value = "";
-    } else {
-      say("That didn't count. Pick an empty square and a number, like <b>B7 4</b>. After a wrong guess there's a short wait.");
-    }
+    if (!text) { say("Type a square and a number, like <b>B7 4</b>."); moveBox.focus(); return; }
+    if (!a || !a.tryMove) { say("The board is still loading. Try again in a moment."); return; }
+    // The game says what happened, including why a move didn't count, so Send never seems to do nothing.
+    const r = a.tryMove({ user: "you", displayName: "You", color: "#3d7fd0", text });
+    say(r.html);
+    if (!["cooldown", "paused", "loading", "unreadable"].includes(r.result)) moveBox.value = "";
   });
   // Tapping an empty square in the demo puts it in the box, ready for a number.
   frame.addEventListener("load", () => {

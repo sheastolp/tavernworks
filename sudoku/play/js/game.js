@@ -1201,5 +1201,69 @@
     });
   }
 
-  window.__sudokuOnStream = { handleChat, get state() { return state; }, get paused() { return paused; }, setPaused, parseMoves, parseNotes, newRound, giveHint };
+  // ---------- "Your move" for demo visitors ----------
+  // Plays one chat message as a viewer and says what happened, including why a
+  // move didn't count (paused, already filled, wrong-guess wait...), so a Send never seems to do nothing.
+  function tryMove(msg) {
+    const text = String(msg.text || '').trim();
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    const out = (result, html, extra) => ({ result, html, ...extra });
+    if (!state) return out('loading', 'The board is still loading. Try again in a moment.');
+    if (paused) return out('paused', 'The game is paused. Press <b>Play</b> first.');
+    if (roundOver) return out('over', 'That puzzle is solved. The next one starts in a moment.');
+    if (/^!hint$/i.test(text)) {
+      const now = Date.now();
+      if (now < chatHintReadyAt) return out('wait', `!hint is ready again in ${Math.ceil((chatHintReadyAt - now) / 1000)}s.`);
+      handleChat(msg);
+      return out('hint', 'A hint is on the board.');
+    }
+    const moves = parseMoves(text), notes = parseNotes(text);
+    if (!moves.length) {
+      if (notes.length) { handleChat(msg); return out('notes', 'Pencilled in. Notes never score.'); }
+      return out('unreadable', 'Type a square and a number, like <b>B7 4</b>.');
+    }
+    const wait = (cooldowns.get(msg.user) || 0) - Date.now();
+    if (wait > 0) return out('cooldown', `After a wrong guess there's a short wait. Try again in ${Math.ceil(wait / 1000)}s.`);
+    // Work out what the game will do with it (same order as handleChat), then play it.
+    const right = [], taken = [];
+    let miss = null;
+    for (const mv of moves) {
+      if (state.grid[mv.index]) { taken.push(mv); continue; }
+      if (state.solution[mv.index] === mv.value) right.push(mv); else { miss = mv; break; }
+    }
+    if (!right.length && !miss) {
+      const mv = taken[0];
+      return out('filled', `<b>${esc(mv.label)}</b> is already filled in. Pick an empty square.`);
+    }
+    handleChat(msg);
+    const parts = [];
+    if (right.length) parts.push(`<span class="good">Nice.</span> ${right.map((m) => `${esc(m.label)} = ${m.value}`).join(', ')}`);
+    if (miss) parts.push(`<span class="bad">Not that one.</span> ${esc(miss.label)} isn't ${miss.value}.${cfg.cooldown > 0 ? ` There's a ${cfg.cooldown}s wait before your next guess.` : ''}`);
+    if (roundOver) parts.push('That finished the puzzle!');
+    return out(miss ? 'wrong' : 'right', parts.join(' '));
+  }
+
+  // The full-size demo (no channel) gets the same move box as the website.
+  if (SANDBOX && !cfg.embed) {
+    const form = $('#try'), box = $('#try-move'), said = $('#try-said');
+    form.hidden = false;
+    document.body.classList.add('try-on');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!box.value.trim()) { box.focus(); return; }
+      const r = tryMove({ user: 'you', displayName: 'You', color: '#3d7fd0', text: box.value });
+      said.innerHTML = r.html;
+      if (!['cooldown', 'paused', 'loading', 'unreadable'].includes(r.result)) box.value = '';
+    });
+    $('#board').addEventListener('click', (e) => {
+      const cell = e.target.closest('.cell.empty');
+      const coord = cell && cell.querySelector('.coord');
+      if (!coord) return;
+      box.value = coord.textContent.trim() + ' ';
+      box.focus();
+      said.innerHTML = `Picked <b>${coord.textContent.trim()}</b>. Now add a number and press Send.`;
+    });
+  }
+
+  window.__sudokuOnStream = { handleChat, tryMove, get state() { return state; }, get paused() { return paused; }, setPaused, parseMoves, parseNotes, newRound, giveHint };
 })();
