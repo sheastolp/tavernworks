@@ -253,6 +253,7 @@
         <div class="fields">
           <label>Command prefix<input type="text" id="prefix" placeholder="none" autocomplete="off" spellcheck="false" style="width:120px"></label>
           <label>Hint after (s)<input type="number" id="hint" min="0" value="60"></label>
+          <label>!hint cooldown (s)<input type="number" id="hintcd" min="0" value="60"></label>
           <label>Wrong-guess timeout (s)<input type="number" id="cooldown" min="0" value="3"></label>
           <label>Next puzzle in (s)<input type="number" id="next" min="3" value="45"></label>
         </div>
@@ -295,7 +296,7 @@
       <h3><span class="n">4</span>Tell chat how to play</h3>
       <p>The side panel already explains it, but here's the short version for your <code>!sudoku</code> command:</p>
       <div class="cmdlist">
-        <div class="copyrow"><code id="chat-blurb">Help solve the Sudoku! Type a cell then a number, like B7 4. Right answers +10, finish a row/column/box +5, wrong −2. Notes: B7?35 pencils in 3 and 5, A1A3?678 does several cells at once.</code><button class="copy" type="button" id="copy-blurb">Copy</button></div>
+        <div class="copyrow"><code id="chat-blurb">Help solve the Sudoku! Type a cell then a number, like B7 4. Right answers +10, finish a row/column/box +5, wrong −2. Notes: B7?35 pencils in 3 and 5, A1A3?678 does several cells at once. Stuck? !hint reveals a cell (once a minute).</code><button class="copy" type="button" id="copy-blurb">Copy</button></div>
       </div>
     </div>
   </div>
@@ -327,6 +328,7 @@
         <tr><td><code>A1A3?678</code></td><td>Pencils 6, 7 and 8 into A1 <em>and</em> A3. List up to 9 cells before the <code>?</code>; <code>A1 A3?678</code> works too.</td></tr>
         <tr><td><code>B7?-3</code></td><td>Rubs out the 3</td></tr>
         <tr><td><code>B7?x</code></td><td>Clears B7's notes (<code>A1A3?x</code> clears both)</td></tr>
+        <tr><td><code>!hint</code></td><td>Reveals a cell for everyone. Then nobody can use it for 60 s (change it under More options)</td></tr>
       </table></div>
     </div>
     <div class="scroll">
@@ -423,7 +425,7 @@
   };
 
   // The link builder.
-  const ids = ["channel", "frame", "look", "mode", "difficulty", "variant", "notes", "bg", "prefix", "hint", "cooldown", "next"];
+  const ids = ["channel", "frame", "look", "mode", "difficulty", "variant", "notes", "bg", "prefix", "hint", "hintcd", "cooldown", "next"];
   const el = Object.fromEntries(ids.map((k) => [k, $(k)]));
   const saved = (() => { try { return JSON.parse(store.get("sudoku.setup")) || {}; } catch { return {}; } })();
   ids.forEach((k) => {
@@ -461,7 +463,7 @@
     if (!s.notes) q.set("notes", "0");
     if (s.bg) q.set("bg", "transparent");
     if (s.prefix.trim()) q.set("prefix", s.prefix.trim());
-    [["hint", 60], ["cooldown", 3], ["next", 45]].forEach(([k, d]) => {
+    [["hint", 60], ["hintcd", 60], ["cooldown", 3], ["next", 45]].forEach(([k, d]) => {
       const v = s[k] === "" ? d : +s[k];
       if (Number.isFinite(v) && v !== d) q.set(k, Math.max(k === "next" ? 3 : 0, v));
     });

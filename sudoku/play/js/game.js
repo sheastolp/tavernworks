@@ -9,6 +9,7 @@
     prefix: params.get('prefix') || '',
     hintAfter: num(params.get('hint'), 60), // seconds with no progress before a free cell is revealed (0 = off)
     cooldown: num(params.get('cooldown'), 3), // seconds a player waits after a wrong guess
+    hintCooldown: num(params.get('hintcd'), 60), // seconds between chat !hint requests (shared by everyone)
     nextIn: num(params.get('next'), 45), // seconds between puzzles
     maxPerMsg: num(params.get('max'), 3), // moves accepted from a single chat message
     demo: params.get('demo') === '1',
@@ -417,6 +418,7 @@
     const text = msg.text.trim();
     if (/^!sudoku\b/i.test(text)) return handleCommand(msg, text);
     if (roundOver || !state || paused) return;
+    if (/^!hint$/i.test(text)) return chatHint(msg);
     const notes = parseNotes(text);
     if (notes.length) applyNotes(notes);
     const moves = parseMoves(text);
@@ -616,10 +618,10 @@
     renderBoards();
   }
 
-  function giveHint() {
-    if (roundOver || !state) return;
+  function giveHint(askedBy) {
+    if (roundOver || !state) return false;
     const empty = state.grid.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
-    if (!empty.length) return;
+    if (!empty.length) return false;
     const i = empty[Math.floor(Math.random() * empty.length)];
     state.grid[i] = state.solution[i];
     state.owners[i] = { hint: true };
@@ -628,9 +630,28 @@
     cleanNotes(i);
     refreshExample();
     renderCell(i, 'pop');
-    feed({ type: 'system', text: `Hint: ${ROWS[Sudoku.row(i)]}${Sudoku.col(i) + 1} = ${state.solution[i]}` });
+    feed({ type: 'system', text: `${askedBy ? `${askedBy} used !hint: ` : 'Hint: '}${ROWS[Sudoku.row(i)]}${Sudoku.col(i) + 1} = ${state.solution[i]}` });
     save();
     if (state.grid.every(Boolean)) endRound();
+    return true;
+  }
+
+  // "!hint" from anyone in chat reveals a cell, then nobody can use it again for
+  // cfg.hintCooldown seconds. Asking during the cooldown gets one "ready in" reply per cooldown.
+  let chatHintReadyAt = 0, chatHintNagged = false;
+  function chatHint(msg) {
+    const now = Date.now();
+    if (now < chatHintReadyAt) {
+      if (!chatHintNagged) {
+        chatHintNagged = true;
+        feed({ type: 'system', text: `!hint is ready again in ${Math.ceil((chatHintReadyAt - now) / 1000)}s` });
+      }
+      return;
+    }
+    if (giveHint(msg.displayName || msg.user)) {
+      chatHintReadyAt = now + Math.max(0, cfg.hintCooldown) * 1000;
+      chatHintNagged = false;
+    }
   }
 
   function ranked(obj) { return Object.entries(obj).map(([user, s]) => ({ user, ...s })).sort((a, b) => b.points - a.points || b.cells - a.cells); }
@@ -866,6 +887,7 @@
   $('#gw-ex').textContent = `${cfg.prefix}B7 4`;
   $('#how-prefix2').textContent = cfg.prefix;
   $('#how-prefix3').textContent = cfg.prefix;
+  { const s = Math.max(0, cfg.hintCooldown); $('#how-hintcd').textContent = s === 60 ? 'once a minute' : s ? `once every ${s}s` : 'any time'; }
   document.querySelectorAll('.how-prefix-n').forEach((e) => { e.textContent = cfg.prefix; });
   $('#how-notes').hidden = !cfg.notes;
   const saved = store.get(LS_CUR, null);
