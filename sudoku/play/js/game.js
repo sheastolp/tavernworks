@@ -800,18 +800,13 @@
 
   function fmtTime(s) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
 
-  // ---------- Window frame (title bar + player bar) ----------
+  // ---------- Window frame (title bar + menu bar buttons) ----------
   function renderWindow() {
     if (!state || !document.body.classList.contains('windowed')) return;
-    const filled = state.grid.filter(Boolean).length, pct = `${(filled / 81) * 100}%`;
-    $('#gw-fill').style.width = pct; $('#gw-knob').style.left = pct;
-    $('#gw-left').textContent = `${81 - filled} left`;
     const geo = Sudoku.geometry(state.variant);
     const what = state.custom ? `★ ${state.custom.name || 'Custom puzzle'}` : `Lv ${state.level} ${Sudoku.LEVELS[state.level].name}`;
     $('#gw-title').textContent = `Puzzle #${state.round} - ${what}${geo.key === 'classic' ? '' : ` (${geo.name})`} - Sudoku on Stream - Tavernworks`;
-    const now = $('#gw-now'); now.replaceChildren();
-    const b = document.createElement('b'); b.textContent = `Puzzle #${state.round}`;
-    now.append(paused ? '■ Paused · ' : roundOver ? '✓ Solved · ' : '▶ Live · ', b, ` · ${geo.name} · ${what}`);
+    $('.gw-tools [data-act=stop]').disabled = paused;
     const play = $('#gw-play'), want = paused ? 'play' : 'pause';
     if (play.dataset.showing !== want) {
       play.dataset.showing = want;
@@ -826,7 +821,6 @@
     if (!roundOver) {
       const secs = Math.floor((Date.now() - state.startedAt) / 1000);
       $('#timer').textContent = fmtTime(secs);
-      $('#gw-time').textContent = fmtTime(secs);
       const filled = state.grid.filter(Boolean).length;
       const bar = $('#progress-bar');
       $('#remaining').textContent = `${81 - filled} left`;
