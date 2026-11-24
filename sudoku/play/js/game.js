@@ -19,8 +19,8 @@
     theme: (params.get('theme') || '').toLowerCase(), // starting colours if none chosen yet: indigo (default) or tavernworks
     window: params.get('window') !== '0', // media-player style window around the game
   };
-  // Colours: Indigo by default. View > Theme (here or on the control page) picks one and both pages
-  // remember it; ?theme= in the link only sets the starting theme. GuildScribe's frame layout keeps its own look.
+  // Colours: Indigo by default. View > Theme in the game window picks one and it's
+  // remembered (separately from the control page's theme); ?theme= in the link only sets the starting theme. GuildScribe's frame layout keeps its own look.
   const LS_THEME = 'numbersonstream.theme';
   let theme = (() => { try { return localStorage.getItem(LS_THEME); } catch { return null; } })() || cfg.theme;
   function applyTheme(t) {
@@ -827,7 +827,7 @@
   window.addEventListener('storage', (e) => { if (e.key === LS_CMD && e.newValue) { try { onControl(JSON.parse(e.newValue)); } catch {} } });
   if (!SANDBOX) try {
     new BroadcastChannel('numbersonstream').onmessage = (e) => {
-      if (e.data && e.data.theme && !e.data.id) applyTheme(e.data.theme); else onControl(e.data);
+      onControl(e.data);
     };
   } catch {}
   setInterval(() => store.set(LS_HEARTBEAT, Date.now()), 1000);
@@ -878,7 +878,6 @@
   function setTheme(t) {
     applyTheme(t);
     try { localStorage.setItem(LS_THEME, theme); } catch {}
-    if (!SANDBOX) try { new BroadcastChannel('numbersonstream').postMessage({ theme }); } catch {}
   }
   function stepLevel(d) {
     const lv = Math.min(MAX, Math.max(1, settings.level + d));

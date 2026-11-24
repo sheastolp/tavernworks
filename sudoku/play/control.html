@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script>try { if (localStorage.getItem('numbersonstream.theme') !== 'tavernworks') document.documentElement.dataset.theme = 'indigo'; } catch { document.documentElement.dataset.theme = 'indigo'; }</script>
+  <script>try { if (localStorage.getItem('numbersonstream.managertheme') === 'indigo') document.documentElement.dataset.theme = 'indigo'; } catch {}</script>
   <style>
     /* Tavernworks colours by default; View > Theme switches to the original indigo look. */
     :root {
@@ -208,8 +208,8 @@
     <button type="button" data-go="play-card" data-focus="#chat-text"><span class="ic">💬</span>Play as streamer…<kbd></kbd></button>
   </div></div>
   <div class="menu"><button type="button"><u>V</u>iew</button><div class="drop">
-    <button type="button" data-theme-set="indigo"><span class="ic"></span>Theme: Indigo<kbd>default</kbd></button>
-    <button type="button" data-theme-set="tavernworks"><span class="ic"></span>Theme: Tavernworks<kbd></kbd></button>
+    <button type="button" data-theme-set="tavernworks"><span class="ic"></span>Theme: Tavernworks<kbd>default</kbd></button>
+    <button type="button" data-theme-set="indigo"><span class="ic"></span>Theme: Indigo<kbd></kbd></button>
     <hr>
     <button type="button" id="menu-roll"><span class="ic">—</span>Roll up window<kbd></kbd></button>
   </div></div>
@@ -712,16 +712,15 @@
       start: () => send('start', '', '▶ Start'), stop: () => send('stop', '', '■ Stop'),
       new: () => $('#new-now').click(), hint: () => send('hint', '', 'Reveal a hint'), clearnotes: () => send('clearnotes', '', 'Clear all notes'),
     };
-    // The theme is shared with the game source: changing it here (or in the game's View menu) changes both.
+    // This page's own theme (Tavernworks by default). It's separate from the game's, which has its own View menu.
     function setTheme(t, save = true) {
       t = t === 'tavernworks' ? 'tavernworks' : 'indigo';
       if (t === 'indigo') document.documentElement.dataset.theme = 'indigo'; else delete document.documentElement.dataset.theme;
-      if (save) try { localStorage.setItem('numbersonstream.theme', t); } catch {}
-      if (save && bc) bc.postMessage({ theme: t });
+      if (save) try { localStorage.setItem('numbersonstream.managertheme', t); } catch {}
       menubar.querySelectorAll('[data-theme-set]').forEach((b) => { b.querySelector('.ic').textContent = b.dataset.themeSet === t ? '✓' : ''; });
     }
     setTheme(document.documentElement.dataset.theme === 'indigo' ? 'indigo' : 'tavernworks', false);
-    window.addEventListener('storage', (e) => { if (e.key === 'numbersonstream.theme') setTheme(e.newValue, false); });
+    window.addEventListener('storage', (e) => { if (e.key === 'numbersonstream.managertheme') setTheme(e.newValue, false); });
     $('#menu-roll').addEventListener('click', () => win.classList.toggle('rolled'));
     menubar.querySelectorAll('.drop button').forEach((b) => b.addEventListener('click', () => {
       closeMenus();
