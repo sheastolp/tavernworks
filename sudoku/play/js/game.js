@@ -21,6 +21,7 @@
     solo: params.get('solo') === '1' || window.SUDOKU_SOLO_ONLY === true,
     theme: (params.get('theme') || '').toLowerCase(), // starting colours if none chosen yet: indigo (the parchment board, default) or tavernworks
     window: params.get('window') !== '0', // media-player style window around the game
+    embed: params.get('embed') === '1', // the demo inside tavernworks.dev/sudoku: the page around it explains how to play
   };
   if (cfg.solo) {
     // Solo play never touches Twitch, the control page or the theme's web font, so it works fully offline.
@@ -102,6 +103,8 @@
 
   if (cfg.transparent) document.body.classList.add('transparent');
   if (cfg.window && !cfg.frame) document.body.classList.add('windowed');
+  if (!cfg.solo && !cfg.frame) document.body.classList.add('stream'); // the overlay; stacks on a phone
+  if (cfg.embed) document.body.classList.add('embed');
   if (cfg.frame) {
     // Parchment-and-wood look with the theme's fonts (Cinzel headings); the board keeps its plain, high-contrast digits.
     document.body.classList.add('framed');
@@ -1194,5 +1197,5 @@
     });
   }
 
-  window.__sudokuOnStream = { handleChat, get state() { return state; }, parseMoves, parseNotes, newRound, giveHint };
+  window.__sudokuOnStream = { handleChat, get state() { return state; }, get paused() { return paused; }, setPaused, parseMoves, parseNotes, newRound, giveHint };
 })();

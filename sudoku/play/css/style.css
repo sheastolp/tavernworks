@@ -413,6 +413,7 @@ button.tool small { font-weight: 400; opacity: 0.85; }
 }
 @media (hover: none) { .solo-keys { display: none !important; } }
 
+
 /* ---------- Window chrome colours, and the optional Tavernworks theme (View > Theme) ---------- */
 :root {
   --chrome: #241910; --chrome2: #3b2a1c; --chrome-line: #5c4129; --chrome-edge: #140f0b; --chrome-text: #e6d6bf; --well: #140f0b;
@@ -513,3 +514,48 @@ body.windowed .feed-wrap { min-height: 10vh; }
 .gw-menu .drop hr { border: 0; border-top: 1px solid var(--chrome-line); margin: 0.5vh 0; }
 .gw-menu .drop .hd { padding: 0.5vh 1.6vh 0.2vh; font-size: 1.25vh; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
 .gw-tools .ib.big:hover { background: var(--accent); color: var(--bg); }
+
+/* ---------- The stream page on a phone or any narrow window ----------
+   OBS always draws it at 1920 x 1080, so this only shows when someone opens the page
+   (or the demo) on a phone: the board fills the width and the panel stacks under it. */
+@media (max-aspect-ratio: 1/1), (max-width: 760px) {
+  body.stream { --bs: min(calc(100vw - 16px), 640px); overflow: auto; }
+  body.stream #gwin > .gw { display: none; }
+  body.stream #gwin { border: 0; height: auto; }
+  body.stream #game { flex-direction: column; align-items: center; height: auto; min-height: 0; padding: 8px; gap: 10px; }
+  body.stream .board-wrap {
+    height: var(--bs); width: var(--bs); flex: none;
+    padding: calc(var(--bs) * 0.003) calc(var(--bs) * 0.01) calc(var(--bs) * 0.01) calc(var(--bs) * 0.003);
+  }
+  body.stream .lbl { font-size: calc(var(--bs) * 0.0295); }
+  body.stream .cell .num { font-size: calc(var(--bs) * 0.063); }
+  body.stream .cell .coord { font-size: calc(var(--bs) * 0.0117); top: calc(var(--bs) * 0.003); left: calc(var(--bs) * 0.005); }
+  body.stream .cell .notes { inset: calc(var(--bs) * 0.014) calc(var(--bs) * 0.004) calc(var(--bs) * 0.004); }
+  body.stream .cell .notes span { font-size: calc(var(--bs) * 0.022); }
+  body.stream .cell .who { font-size: max(8px, calc(var(--bs) * 0.02)); bottom: calc(var(--bs) * 0.002); padding: 0 1px; }
+  body.stream .cell.x-dot::after, body.stream .cell.x-star::after { font-size: calc(var(--bs) * 0.016); }
+  body.stream .cell.wrong .num { text-decoration-thickness: 2px; }
+  body.stream .panel { width: min(100%, 640px); flex: none; overflow: visible; font-size: 15px; gap: 12px; padding: 14px; }
+  body.stream h1 { font-size: 26px; }
+  body.stream h2 { font-size: 15px; margin-bottom: 4px; }
+  body.stream .meta { font-size: 15px; gap: 10px; }
+  body.stream .meta.small { font-size: 13px; }
+  body.stream #timer { font-size: 20px; }
+  body.stream .progress { height: 6px; }
+  body.stream .how, body.stream .how p, body.stream footer { font-size: 14px; }
+  body.stream .example { font-size: 24px; }
+  body.stream .how .note-ex { font-size: 13px; }
+  body.stream .how .note-ex code { font-size: 16px; }
+  body.stream .lb { font-size: 15px; }
+  body.stream #feed { font-size: 14px; gap: 3px; }
+  body.stream .feed-wrap { flex: none; min-height: 0; max-height: 120px; }
+  body.stream .ov-card { min-width: 0; width: calc(100vw - 32px); max-width: 480px; padding: 24px; }
+  body.stream .ov-title, body.stream .pc-title { font-size: 48px; }
+  body.stream #ov-mvp { font-size: 28px; }
+  body.stream #ov-time, body.stream .ov-mvp-lbl, body.stream #ov-adapt, body.stream .ov-next, body.stream .pc-sub, body.stream #ov-list { font-size: 15px; }
+  /* The demo on tavernworks.dev/sudoku (?embed=1): the page around it explains how to play. */
+  body.embed h1, body.embed .how, body.embed .lb-all, body.embed footer { display: none; }
+}
+/* The website demo: tapping an empty cell picks it for the "try a move" box on the page. */
+.embed .gw { pointer-events: none; }
+.embed .cell.empty { cursor: pointer; }

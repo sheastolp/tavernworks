@@ -167,7 +167,22 @@
   .btn[aria-disabled=true]{opacity:.45;pointer-events:none}
 
   .preview{position:relative;aspect-ratio:16/9;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#000}
-  .preview iframe{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0;pointer-events:none}
+  .preview iframe{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0}
+  /* Phones: the demo lays itself out for the narrow width, so it isn't scaled down. */
+  .preview.phone{aspect-ratio:auto;background:#140f0b}
+  .preview.phone iframe{position:static;display:block;width:100%;height:760px;transform:none}
+  .demohead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;color:var(--muted);font-size:14.5px}
+  .demotag{font:700 12px Inter,system-ui,sans-serif;letter-spacing:.12em;color:var(--bg);background:linear-gradient(180deg,var(--gold2),var(--gold));padding:4px 10px;border-radius:999px}
+  .demobar{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;margin-top:12px}
+  .demobar .btn{font-size:16px;padding:12px 18px;cursor:pointer;min-width:120px}
+  .demobar .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+  .demobar .btn .ic{width:18px;height:18px;fill:currentColor;flex:none}
+  .demotry{display:flex;gap:8px;flex:1 1 260px;min-width:0}
+  .demotry input[type=text]{flex:1;min-width:0;font-size:16px;padding:12px 14px}
+  .demosaid{min-height:1.4em;margin-top:10px;color:var(--muted);font-size:14.5px}
+  .demosaid b{color:var(--text)}
+  .demosaid .good{color:#9cc47a}
+  .demosaid .bad{color:#e0705a}
   .boardnote a{color:var(--gold2)}
   .boardnote a:hover{text-decoration:underline}
 
@@ -200,9 +215,19 @@
     </div>
   </header>
 
-  <div class="divider">SEE IT PLAY</div>
-  <div class="preview" id="preview"><iframe src="play/?demo=1" title="Sudoku on Stream demo with pretend viewers" loading="lazy" tabindex="-1"></iframe></div>
-  <p class="boardnote">That's the real thing with pretend viewers playing. <a href="play/?demo=1" target="_blank" rel="noopener">Open the demo full size</a>.</p>
+  <div class="divider" id="demo">TRY THE DEMO</div>
+  <div class="demohead"><span class="demotag">DEMO</span><span>Pretend viewers are solving this board right now, the way your chat would. Pause them, clear the board, or play a move yourself.</span></div>
+  <div class="preview" id="preview"><iframe src="play/?demo=1&amp;embed=1" title="Sudoku on Stream demo with pretend viewers" loading="lazy" tabindex="-1"></iframe></div>
+  <div class="demobar">
+    <button type="button" class="btn" id="demo-pause"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>Pause</button>
+    <button type="button" class="btn" id="demo-clear"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 1-7.4 5h2.2A6 6 0 1 0 12 6v3L7.5 5 12 1z"/></svg>Clear board</button>
+    <form class="demotry" id="demo-try" autocomplete="off">
+      <input type="text" id="demo-move" placeholder="Your move, like B7 4" aria-label="Your move, like B7 4" maxlength="40" spellcheck="false" autocapitalize="characters">
+      <button type="submit" class="btn gold">Send</button>
+    </form>
+  </div>
+  <p class="demosaid" id="demo-said">Tap an empty square to pick it, then add a number and press Send. Your moves show up as <b>You</b>.</p>
+  <p class="boardnote"><a href="play/?demo=1" target="_blank" rel="noopener">Open the demo full size</a>.</p>
 
   <div class="divider" id="setup">SET IT UP</div>
   <div class="steps">
@@ -420,10 +445,78 @@
   const PLAY = new URL("play/", location.href).href;
   const LEVELS = (window.Sudoku && Sudoku.LEVELS) || [];
 
-  // The demo preview: scale the 1920 × 1080 page to fit its box.
+  // The demo preview. Wide screens: scale the 1920 × 1080 stream page to fit its box.
+  // Phones: the game stacks the board over its panel by itself, so show it at real size.
   const preview = $("preview"), frame = preview.querySelector("iframe");
-  const fit = () => { frame.style.transform = "scale(" + preview.clientWidth / 1920 + ")"; };
+  const phone = window.matchMedia("(max-width: 760px)");
+  const gameDoc = () => { try { return frame.contentDocument; } catch { return null; } };
+  const fit = () => {
+    preview.classList.toggle("phone", phone.matches);
+    if (!phone.matches) { frame.style.height = ""; frame.style.transform = "scale(" + preview.clientWidth / 1920 + ")"; return; }
+    frame.style.transform = "";
+    const g = gameDoc() && gameDoc().getElementById("game");
+    if (g && g.offsetHeight) frame.style.height = g.offsetHeight + "px";
+  };
   new ResizeObserver(fit).observe(preview);
+  phone.addEventListener("change", fit);
+
+  // Demo controls: they drive the game inside the frame (same site, so it can be reached directly).
+  const api = () => { try { return frame.contentWindow.__sudokuOnStream || null; } catch { return null; } };
+  const pauseBtn = $("demo-pause"), said = $("demo-said"), moveBox = $("demo-move");
+  const say = (html) => { said.innerHTML = html; };
+  const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  function showPaused() {
+    const a = api(), p = !!(a && a.paused);
+    pauseBtn.innerHTML = p ? "<svg class=\"ic\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M7 4.5v15l12.5-7.5z\"/></svg>Play" : "<svg class=\"ic\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M6 5h4v14H6zM14 5h4v14h-4z\"/></svg>Pause";
+    pauseBtn.classList.toggle("gold", p);
+    pauseBtn.setAttribute("aria-pressed", p);
+  }
+  pauseBtn.addEventListener("click", () => {
+    const a = api(); if (!a) return;
+    a.setPaused(!a.paused);
+    showPaused();
+    say(a.paused ? "Paused. The pretend viewers and the clock are stopped." : "Playing again.");
+  });
+  $("demo-clear").addEventListener("click", () => {
+    const a = api(); if (!a) return;
+    // Same level again: clearing the demo shouldn't count as "too hard" and lower the difficulty.
+    a.newRound({ skip: true, level: a.state && !a.state.custom ? a.state.level : undefined });
+    say("Fresh board. Tap an empty square to start.");
+  });
+  $("demo-try").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const a = api(), text = moveBox.value.trim();
+    if (!a || !text) return;
+    if (a.paused) { say("The demo is paused. Press <b>Play</b> first."); return; }
+    const doc = gameDoc(), first = () => doc && doc.querySelector("#feed li");
+    const before = first();
+    a.handleChat({ user: "you", displayName: "You", color: "#3d7fd0", text });
+    const after = first();
+    if (after && after !== before && /^\s*You\b/.test(after.textContent)) {
+      const t = after.textContent.trim().replace(/^You\s*/, "");
+      const ok = /\+\d/.test(t) && !/≠/.test(t);
+      say((ok ? '<span class="good">Nice.</span> ' : /≠/.test(t) ? '<span class="bad">Not that one.</span> ' : "") + esc(t));
+      moveBox.value = "";
+    } else {
+      say("That didn't count. Pick an empty square and a number, like <b>B7 4</b>. After a wrong guess there's a short wait.");
+    }
+  });
+  // Tapping an empty square in the demo puts it in the box, ready for a number.
+  frame.addEventListener("load", () => {
+    const doc = gameDoc(); if (!doc) return;
+    doc.addEventListener("click", (e) => {
+      const cell = e.target.closest && e.target.closest("#board .cell.empty");
+      const coord = cell && cell.querySelector(".coord");
+      if (!coord) return;
+      moveBox.value = coord.textContent.trim() + " ";
+      moveBox.focus();
+      say("Picked <b>" + esc(coord.textContent.trim()) + "</b>. Now type a number and press Send.");
+    });
+    const g = doc.getElementById("game");
+    if (g) new ResizeObserver(fit).observe(g);
+    fit(); showPaused();
+  });
+  setInterval(showPaused, 1000);
 
   const copy = (btn, text) => {
     navigator.clipboard.writeText(text).then(() => {
