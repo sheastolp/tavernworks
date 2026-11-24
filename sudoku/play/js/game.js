@@ -142,6 +142,29 @@
     feed({ type: 'system', text: `Solved screen now shows for ${solvedSecs()}s` });
     if (roundOver) updateNextCountdown(); // apply to the screen showing right now
   }
+  // Automatic hints (a free cell after a while with no progress): the control page and
+  // "!sudoku autohints on|off" can switch them. Unset = follow the URL's hint= value.
+  const HINT_DEFAULT = 60;
+  settings.urlHintAfter = cfg.hintAfter; // lets the control page show the URL default
+  function hintSecs() {
+    if (settings.autoHints === false) return 0;
+    if (settings.autoHints === true) return cfg.hintAfter > 0 ? cfg.hintAfter : HINT_DEFAULT;
+    return cfg.hintAfter;
+  }
+  function setAutoHints(arg) {
+    const a = String(arg).trim().toLowerCase();
+    const wasOn = hintSecs() > 0;
+    if (a === 'on' || a === '1' || a === 'true') settings.autoHints = true;
+    else if (a === 'off' || a === '0' || a === 'false') settings.autoHints = false;
+    else if (a === 'toggle' || a === '') settings.autoHints = !wasOn;
+    else if (a === 'default' || a === 'reset') delete settings.autoHints;
+    else return;
+    saveSettings();
+    const on = hintSecs() > 0;
+    if (on && !wasOn && state) { state.lastProgress = Date.now(); save(); } // start a fresh countdown
+    feed({ type: 'system', text: on ? `Automatic hints on (every ${hintSecs()}s without progress)` : 'Automatic hints off' });
+    tick();
+  }
   saveSettings();
 
   // Old saves stored 'easy'/'medium'/'hard'; map them onto the 1-20 scale.
@@ -442,6 +465,7 @@
     }
     else if (sub === 'hint') giveHint();
     else if (sub === 'solvedtime') setSolvedTime(arg);
+    else if (sub === 'autohints' || sub === 'hints') setAutoHints(arg);
     else if (sub === 'resetscores') { allTime = {}; save(); renderBoards(); feed({ type: 'system', text: 'All-time scores reset' }); }
     else if (sub === 'clearnotes') { clearAllNotes(); feed({ type: 'system', text: 'All notes cleared' }); }
     else if (sub === 'resetround') {
@@ -744,11 +768,12 @@
       const filled = state.grid.filter(Boolean).length;
       const bar = $('#progress-bar');
       $('#remaining').textContent = `${81 - filled} left`;
-      if (cfg.hintAfter > 0) {
+      const hintAfter = hintSecs();
+      if (hintAfter > 0) {
         // The bar is a countdown to the next free hint: full after a correct answer, empty when it drops.
         const idle = (Date.now() - state.lastProgress) / 1000;
-        const frac = Math.max(0, Math.min(1, 1 - idle / cfg.hintAfter));
-        const left = Math.ceil(cfg.hintAfter - idle);
+        const frac = Math.max(0, Math.min(1, 1 - idle / hintAfter));
+        const left = Math.ceil(hintAfter - idle);
         const refill = frac > lastFrac + 0.02; // jumped back up: snap rather than slide
         bar.classList.toggle('snap', refill);
         bar.style.width = `${frac * 100}%`;
@@ -758,6 +783,8 @@
         if (left <= 0) giveHint();
       } else {
         bar.style.width = `${(filled / 81) * 100}%`;
+        delete bar.dataset.level;
+        $('#hint-in').textContent = '';
       }
     }
   }

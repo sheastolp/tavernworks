@@ -250,7 +250,7 @@
           <label>Wrong-guess timeout (s)<input type="number" id="cooldown" min="0" value="3"></label>
           <label>Next puzzle in (s)<input type="number" id="next" min="3" value="45"></label>
         </div>
-        <p style="margin-top:10px;color:var(--muted);font-size:13.5px">A prefix like <code>!</code> means chat types <code>!B7 4</code>. Use it if normal chat keeps setting off moves. Hint <code>0</code> turns automatic hints off.</p>
+        <p style="margin-top:10px;color:var(--muted);font-size:13.5px">A prefix like <code>!</code> means chat types <code>!B7 4</code>. Use it if normal chat keeps setting off moves. Hint <code>0</code> starts with automatic hints off; you can switch them on or off any time from the control page.</p>
       </details>
 
       <span class="urllbl">🎮 Game (the board on stream)</span>
@@ -348,6 +348,7 @@
       <tr><td><code>!sudoku variant diagonal</code></td><td>Puzzle type: <code>classic</code>, <code>diagonal</code>, <code>windoku</code>, <code>centerdot</code>, <code>asterisk</code> or <code>mix</code></td></tr>
       <tr><td><code>!sudoku stop</code> / <code>start</code></td><td>Pause and resume; the clock and hint countdown freeze</td></tr>
       <tr><td><code>!sudoku hint</code></td><td>Reveal one cell</td></tr>
+      <tr><td><code>!sudoku autohints on</code> / <code>off</code></td><td>Turn automatic hints on or off (also a switch on the control page)</td></tr>
       <tr><td><code>!sudoku clearnotes</code></td><td>Wipe every viewer note</td></tr>
       <tr><td><code>!sudoku resetscores</code></td><td>Wipe the all-time leaderboard</td></tr>
     </table></div>

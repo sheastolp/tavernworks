@@ -186,6 +186,7 @@
     <button type="button" data-act="new"><span class="ic">⏭</span>New puzzle now<kbd></kbd></button>
     <button type="button" data-act="hint"><span class="ic">💡</span>Reveal a hint<kbd></kbd></button>
     <button type="button" data-act="clearnotes"><span class="ic">✎</span>Clear all notes<kbd></kbd></button>
+    <button type="button" data-act="autohints" id="menu-autohints"><span class="ic">⏲</span>Automatic hints: On<kbd></kbd></button>
   </div></div>
   <div class="menu"><button type="button"><u>P</u>uzzle</button><div class="drop">
     <button type="button" data-go="custom"><span class="ic">★</span>Make a custom puzzle…<kbd></kbd></button>
@@ -275,6 +276,12 @@
         <button class="ghost" type="button" data-solved="default">URL default</button>
       </div>
       <p class="hint">How long the "Solved!" MVP screen stays up before the next puzzle (3–600 s). Now: <b id="solved-now">—</b>. Also changes a solved screen that's already showing.</p>
+    </section>
+
+    <section class="card" id="hints-card">
+      <h2>Automatic hints</h2>
+      <label class="check"><input type="checkbox" id="autohints" checked> <span>Reveal a free cell when chat is stuck</span></label>
+      <p class="hint">When on, a cell is filled in for chat after <b id="autohints-secs">60</b> s with no right answers; the bar under the board counts down to it. Now: <b id="autohints-now">—</b>. "Reveal a hint" still works either way.</p>
     </section>
 
     <section class="card" id="scores-card">
@@ -435,6 +442,24 @@
     });
     document.querySelectorAll('button[data-solved]').forEach((b) => b.addEventListener('click', () => setSolved(b.dataset.solved)));
 
+    // ---- Automatic hints ----
+    let hintsTouched = 0;
+    function setAutoHints(on) {
+      hintsTouched = Date.now();
+      $('#autohints').checked = on;
+      send('autohints', on ? 'on' : 'off', on ? 'Automatic hints on' : 'Automatic hints off');
+    }
+    $('#autohints').addEventListener('change', () => setAutoHints($('#autohints').checked));
+    function syncAutoHints(cs) {
+      if (!cs || !Number.isFinite(cs.urlHintAfter)) return;
+      const secs = cs.urlHintAfter > 0 ? cs.urlHintAfter : 60;
+      const on = cs.autoHints === undefined ? cs.urlHintAfter > 0 : !!cs.autoHints;
+      if (Date.now() - hintsTouched > 3000) $('#autohints').checked = on;
+      $('#autohints-secs').textContent = secs;
+      $('#autohints-now').textContent = on ? `on, every ${secs}s` : 'off';
+      $('#menu-autohints').childNodes[1].textContent = `Automatic hints: ${on ? 'On' : 'Off'}`;
+    }
+
     function refresh() {
       const beat = +localStorage.getItem(LS_HEARTBEAT) || 0;
       const live = Date.now() - beat < 4000;
@@ -454,6 +479,7 @@
       const st = read(LS_STATUS);
       $('#chat-state').textContent = st ? st.text : '—';
       const cs = read(LS_SETTINGS);
+      syncAutoHints(cs);
       if (cs && Number.isFinite(cs.urlNextIn)) {
         const custom = Number.isFinite(cs.nextIn);
         $('#solved-now').textContent = custom ? `${cs.nextIn}s (URL default ${cs.urlNextIn}s)` : `${cs.urlNextIn}s (URL default)`;
@@ -681,6 +707,7 @@
     const ACTS = {
       start: () => send('start', '', '▶ Start'), stop: () => send('stop', '', '■ Stop'),
       new: () => $('#new-now').click(), hint: () => send('hint', '', 'Reveal a hint'), clearnotes: () => send('clearnotes', '', 'Clear all notes'),
+      autohints: () => setAutoHints(!$('#autohints').checked),
     };
     function setTheme(t) {
       if (t === 'indigo') document.documentElement.dataset.theme = 'indigo'; else delete document.documentElement.dataset.theme;
