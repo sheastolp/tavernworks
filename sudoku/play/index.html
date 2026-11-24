@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sudoku on Stream</title>
   <link rel="icon" id="favicon" href="data:,">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -17,6 +14,7 @@
       <h1>Sudoku <span>on Stream</span></h1>
       <p>Your chat solves a Sudoku together. This page only <em>reads</em> chat anonymously — no bot account or login needed.</p>
       <p class="small">Step-by-step OBS guide: <a href="https://tavernworks.dev/sudoku/" target="_blank" rel="noopener">tavernworks.dev/sudoku</a></p>
+      <p class="solo-cta">Just want to play? <a href="?solo=1">Play solo in this browser</a>. No Twitch or OBS needed, and it works offline.</p>
       <form id="setup-form">
         <label>Twitch channel <input name="channel" placeholder="yourchannel" required autocomplete="off"></label>
         <label>Difficulty mode
@@ -65,6 +63,7 @@
           <button type="button" id="setup-copy">Copy URL</button>
           <button type="submit">Open</button>
           <button type="button" id="setup-demo" class="ghost">Try demo</button>
+          <button type="button" id="setup-solo" class="ghost">Play solo</button>
         </div>
       </form>
     </div>
@@ -111,7 +110,7 @@
       <button type="button" data-act="testchat"><span class="ic"></span>Type moves as the streamer (test box)</button>
     </div></div>
     <div class="menu"><button type="button" class="top"><u>V</u>iew</button><div class="drop">
-      <button type="button" data-act="theme" data-arg="indigo"><span class="ic"></span>Theme: Indigo</button>
+      <button type="button" data-act="theme" data-arg="indigo"><span class="ic"></span>Theme: Parchment</button>
       <button type="button" data-act="theme" data-arg="tavernworks"><span class="ic"></span>Theme: Tavernworks</button>
     </div></div>
     <div class="menu"><button type="button" class="top"><u>H</u>elp</button><div class="drop">
@@ -154,20 +153,59 @@
         <div class="example"><span id="how-prefix"></span>B7 4</div>
         <p class="small">No space needed: <code><span id="how-prefix3"></span>B74</code> works too, and so does <code><span id="how-prefix2"></span>b7=4</code>. Right answer <b>+10</b>, finish a row / column / box <b>+5</b> each, wrong <b>−2</b> and a short timeout.</p>
         <div id="how-notes" class="notes-how">
-          <p class="small">✏️ <b>Notes:</b> put <b>?</b> after the cell, then the numbers. No points. More than one cell at once: <code><span class="how-prefix-n"></span>A1A3?67</code></p>
+          <p class="small"><b>Notes:</b> put <b>?</b> after the cell, then the numbers. No points. More than one cell at once: <code><span class="how-prefix-n"></span>A1A3?67</code></p>
           <p id="note-ex" class="note-ex" hidden><code id="note-ex-cmd"></code> <span id="note-ex-what"></span>, like the dashed cell <b id="note-ex-cell"></b>, which always shows what can still go there.</p>
           <p class="small"><code><span class="how-prefix-n"></span>B7?-3</code> rubs out 3 · <code><span class="how-prefix-n"></span>B7?x</code> clears.</p>
         </div>
-        <p class="small">💡 Stuck? Type <code>!hint</code> to reveal a cell (<span id="how-hintcd">once a minute</span> for the whole chat).</p>
+        <p class="small">Stuck? Type <code>!hint</code> to reveal a cell (<span id="how-hintcd">once a minute</span> for the whole chat).</p>
         <p class="small get-it">Get it for your stream: <b>tavernworks.dev/sudoku</b></p>
       </section>
 
-      <section>
+      <!-- Solo play (?solo=1): number pad and settings, in place of the chat instructions and leaderboards -->
+      <section id="solo" hidden>
+        <h2>Your move</h2>
+        <div id="pad" class="pad"></div>
+        <div class="pad-tools">
+          <button type="button" id="pad-notes" class="tool" aria-pressed="false">Notes <small>off</small></button>
+          <button type="button" id="pad-erase" class="tool">Erase notes</button>
+          <button type="button" id="pad-hint" class="tool">Hint</button>
+        </div>
+        <p class="solo-keys small">Pick a cell, then a number. Keys: <b>1–9</b> place, <b>arrows</b> move, <b>N</b> notes on/off (or hold <b>Shift</b>), <b>Backspace</b> clears notes, <b>H</b> hint, <b>P</b> pause.</p>
+        <div class="solo-stats">
+          <span>Mistakes <b id="solo-mistakes">0</b></span>
+          <span>Hints <b id="solo-hints">0</b></span>
+          <span>Best at this level <b id="solo-best">—</b></span>
+          <span>Solved <b id="solo-solved">0</b></span>
+        </div>
+      </section>
+
+      <section id="solo-next" hidden>
+        <h2>Next puzzle</h2>
+        <div class="solo-pick">
+          <label>Level <select id="solo-level"></select></label>
+          <label>Type
+            <select id="solo-variant">
+              <option value="mix">Mix it up</option>
+              <option value="classic">Classic</option>
+              <option value="diagonal">Diagonal</option>
+              <option value="windoku">Windoku</option>
+              <option value="centerdot">Center Dot</option>
+              <option value="asterisk">Asterisk</option>
+            </select>
+          </label>
+        </div>
+        <div class="pad-tools">
+          <button type="button" id="solo-new">New puzzle</button>
+          <button type="button" id="solo-pause" class="ghost">Pause</button>
+        </div>
+      </section>
+
+      <section class="lb-round">
         <h2>This puzzle</h2>
         <ol id="round-list" class="lb"></ol>
       </section>
 
-      <section>
+      <section class="lb-all">
         <h2>All-time</h2>
         <ol id="all-list" class="lb"></ol>
       </section>
@@ -177,14 +215,13 @@
         <ul id="feed"></ul>
       </section>
 
-      <footer><span id="status" data-state="connecting">○ connecting…</span></footer>
+      <footer><span id="status" data-state="connecting">○ connecting…</span><span class="brand">Homebrewed by Stoned Sheamus</span></footer>
       <input id="test-input" placeholder="Test chat: type B7 4 or !sudoku new, then Enter" hidden>
     </aside>
 
     <div id="paused-card">
-      <div class="pc-icon">⏸</div>
       <div class="pc-title">Paused</div>
-      <div class="pc-sub">Back in a moment — hold your answers!</div>
+      <div class="pc-sub" id="pc-sub">Back in a moment. Hold your answers.</div>
     </div>
 
     <div id="overlay">
@@ -194,7 +231,9 @@
         <div id="ov-mvp"></div>
         <div id="ov-time"></div>
         <ol id="ov-list" class="lb"></ol>
+        <div id="ov-solo"></div>
         <div id="ov-adapt"></div>
+        <button type="button" id="ov-again">Next puzzle</button>
         <div class="ov-next">Next puzzle in <b id="ov-next"></b>s</div>
       </div>
     </div>
