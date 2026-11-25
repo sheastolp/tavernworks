@@ -148,6 +148,33 @@ from the worker's disk. If the pinned build refuses the flag, the
 worker logs that and starts without it. Turn it off with
 `"rpc_cache": false` in `~/pool-worker/config.json`.
 
+### Pre-download: the worker fetches the model itself
+
+So a split doesn't have to push this machine's share over the
+FX705's upload, the worker downloads the pool's current model from
+Hugging Face in the background (low priority) and fills rpc-server's
+cache with it ahead of time. When a split starts, the host sends
+each large tensor's hash first, finds it already on the worker, and
+skips sending the bytes.
+
+- The front tells workers what to fetch at
+  `https://pool.tavernworks.dev/model.json` (the model in
+  `current-model.txt`, its size, and its download address). The two
+  Qwen 14Bs and the 1.5B test model are built in. For any other
+  model, add a line to `~/ai-pool/model-sources.json` on the FX705:
+  `{"Its-File.gguf": {"url": "https://huggingface.co/.../resolve/main/Its-File.gguf"}}`
+- The worker only downloads from Hugging Face over https, checks the
+  download is the same size as the pool's file (and its SHA-256 when
+  one is known), checks free disk first (about the model's size +
+  1 GB), resumes where it stopped, and re-checks every 10 minutes,
+  so a model change on the coordinator is picked up and the old
+  pre-download is removed.
+- Turn it off with `"predownload": false` in `config.json`.
+- After a split, the worker logs a warning if rpc-server cached
+  tensors the pre-download didn't cover (meaning the host sent them
+  after all). If you see that for most of the slice, tell the
+  operator: the pinned llama.cpp build's cache doesn't match.
+
 ### Logs
 
 - Worker console: `relay connected`, `split stream N opened`, and a

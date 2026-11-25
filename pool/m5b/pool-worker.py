@@ -83,6 +83,9 @@ DEFAULTS = {
     # this machine's slice over the network once; later loads of the
     # same model find it on disk instead of re-sending it.
     "rpc_cache": True,
+    # Pre-download: fill that cache from the model's public download
+    # (Hugging Face) ahead of time, so a split sends almost nothing.
+    "predownload": True,
 }
 
 
@@ -117,6 +120,190 @@ def nvidia_smi_cmd():
     return None
 
 
+# ------------------------------------------------------------------
+# Model pre-download ("seeding").
+#
+# llama.cpp RPC normally pushes every one of this machine's tensors
+# from the host at each split load. rpc-server's local cache (-c)
+# changes that: for each tensor over 10 MiB the host first sends only
+# a hash (64-bit FNV-1a of the tensor's bytes), and if rpc-server has
+# a file of that name in its cache directory it loads the bytes from
+# disk instead. Seeding fills that cache ahead of time straight from
+# the model's public download (Hugging Face), so the remote machine's
+# own download speed does the work and almost nothing crosses the
+# FX705's upload when a split starts.
+#
+# The worker seeds every large tensor in the model, not just its own
+# share: which layers land here depends on the split of the day.
+# Disk use is about the model's size; it is checked first.
+# ------------------------------------------------------------------
+
+SEED_MIN_BYTES = 10 * 1024 * 1024   # rpc-server hashes tensors larger than this
+SEED_CHECK_SEC = 600                # how often to re-check the pool's model
+SEED_SKIP_MAX = 64 * 1024 * 1024    # resume further than this with a Range request
+FNV_OFFSET = 0xcbf29ce484222325
+FNV_PRIME = 0x100000001b3
+FNV_MASK = (1 << 64) - 1
+
+# ggml type id -> (elements per block, bytes per block)
+GGML_BLOCKS = {
+    0: (1, 4), 1: (1, 2), 2: (32, 18), 3: (32, 20), 6: (32, 22),
+    7: (32, 24), 8: (32, 34), 9: (32, 36), 10: (256, 84),
+    11: (256, 110), 12: (256, 144), 13: (256, 176), 14: (256, 210),
+    15: (256, 292), 16: (256, 66), 17: (256, 74), 18: (256, 98),
+    19: (256, 50), 20: (32, 18), 21: (256, 110), 22: (256, 82),
+    23: (256, 136), 24: (1, 1), 25: (1, 2), 26: (1, 4), 27: (1, 8),
+    28: (1, 8), 29: (256, 56), 30: (1, 2), 34: (256, 54), 35: (256, 66),
+}
+
+
+def rpc_cache_dir():
+    """Where rpc-server -c keeps its cache: llama.cpp's cache
+    directory (LLAMA_CACHE, else the platform default) + rpc/."""
+    base = os.environ.get("LLAMA_CACHE")
+    if not base:
+        system = platform.system()
+        if system == "Windows":
+            base = os.path.join(os.environ.get("LOCALAPPDATA") or
+                                os.path.expanduser("~"), "llama.cpp")
+        elif system == "Darwin":
+            base = os.path.join(os.path.expanduser("~"), "Library",
+                                "Caches", "llama.cpp")
+        else:
+            base = os.path.join(os.environ.get("XDG_CACHE_HOME") or
+                                os.path.join(os.path.expanduser("~"),
+                                             ".cache"), "llama.cpp")
+    return os.path.join(base, "rpc")
+
+
+def fnv1a64_file(path):
+    """64-bit FNV-1a of a file — the hash rpc-server names cache files
+    by. Pure Python (~7 MB/s a core), so tensors hash in parallel."""
+    h = FNV_OFFSET
+    with open(path, "rb") as f:
+        while True:
+            block = f.read(1 << 22)
+            if not block:
+                break
+            for b in block:
+                h = ((h ^ b) * FNV_PRIME) & FNV_MASK
+    return h
+
+
+def seed_source_ok(url):
+    """Model bytes only ever come from Hugging Face over https."""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    return parsed.scheme == "https" and (
+        host == "huggingface.co" or host.endswith(".huggingface.co"))
+
+
+def _seed_hash_job(path):
+    return path, fnv1a64_file(path)
+
+
+def _seed_pool_init():
+    # Owner-first: hashing runs at low priority.
+    try:
+        os.nice(10)
+    except (AttributeError, OSError):
+        pass
+
+
+class _CountingReader:
+    def __init__(self, f):
+        self.f = f
+        self.pos = 0
+
+    def read(self, n):
+        out = b""
+        while len(out) < n:
+            chunk = self.f.read(n - len(out))
+            if not chunk:
+                raise ConnectionError("model download ended early")
+            out += chunk
+        self.pos += n
+        return out
+
+    def u32(self):
+        return struct.unpack("<I", self.read(4))[0]
+
+    def u64(self):
+        return struct.unpack("<Q", self.read(8))[0]
+
+    def string(self):
+        return self.read(self.u64())
+
+
+_GGUF_SCALAR = {0: 1, 1: 1, 2: 2, 3: 2, 4: 4, 5: 4, 6: 4, 7: 1,
+                10: 8, 11: 8, 12: 8}
+
+
+def _gguf_skip_value(r, vtype):
+    if vtype in _GGUF_SCALAR:
+        return r.read(_GGUF_SCALAR[vtype])
+    if vtype == 8:
+        return r.string()
+    if vtype == 9:
+        itype, count = r.u32(), r.u64()
+        if itype in _GGUF_SCALAR:
+            r.read(_GGUF_SCALAR[itype] * count)
+        else:
+            for _ in range(count):
+                _gguf_skip_value(r, itype)
+        return None
+    raise ValueError("unknown GGUF value type " + str(vtype))
+
+
+def gguf_read_header(stream):
+    """Parse a GGUF header from a byte stream. Returns
+    (tensors, data_start, reader): tensors is a list of
+    (name, offset_in_data, nbytes or None if the type is unknown),
+    sorted by offset; reader has consumed exactly the header."""
+    r = _CountingReader(stream)
+    if r.read(4) != b"GGUF":
+        raise ValueError("not a GGUF file")
+    version = r.u32()
+    if version < 2:
+        raise ValueError("GGUF v" + str(version) + " is too old")
+    n_tensors, n_kv = r.u64(), r.u64()
+    alignment = 32
+    for _ in range(n_kv):
+        key = r.string()
+        vtype = r.u32()
+        if key == b"general.alignment" and vtype == 4:
+            alignment = r.u32()
+        else:
+            _gguf_skip_value(r, vtype)
+    tensors = []
+    for _ in range(n_tensors):
+        name = r.string().decode("utf-8", "replace")
+        n_dims = r.u32()
+        n_el = 1
+        dims = [r.u64() for _ in range(n_dims)]
+        for d in dims:
+            n_el *= d
+        ttype = r.u32()
+        offset = r.u64()
+        nbytes = None
+        if ttype in GGML_BLOCKS:
+            per, size = GGML_BLOCKS[ttype]
+            if dims and dims[0] % per == 0:
+                nbytes = n_el // per * size
+        tensors.append((name, offset, nbytes))
+    tensors.sort(key=lambda t: t[1])
+    data_start = -(-r.pos // alignment) * alignment
+    # Sanity: a computed size must fit before the next tensor starts.
+    checked = []
+    for i, (name, off, nb) in enumerate(tensors):
+        if nb is not None and i + 1 < len(tensors) and \
+                off + nb > tensors[i + 1][1]:
+            nb = None
+        checked.append((name, off, nb))
+    return checked, data_start, r
+
+
+
 class Worker:
     def __init__(self, cfg_path):
         self.dir = os.path.dirname(cfg_path)
@@ -128,6 +315,10 @@ class Worker:
         self.stop_flag = threading.Event()
         self.rpc_proc = None
         self.relay = None
+        self.rpc_cache_on = False
+        self._seed_warned = ""
+        self._seed_extra_seen = 0
+        self._seed_thread = None
 
     # ---------------------------------------------------------- config
     def save_cfg(self):
@@ -600,6 +791,7 @@ class Worker:
                 try:
                     with socket.create_connection(("127.0.0.1", port),
                                                   timeout=1):
+                        self.rpc_cache_on = "-c" in cmd
                         return
                 except OSError:
                     time.sleep(0.2)
@@ -688,6 +880,273 @@ class Worker:
                 str(self.cfg["temp_limit_c"]) + "C)"
         return None
 
+    # ---------------------------------------------------------- pre-download
+    @property
+    def seed_path(self):
+        return os.path.join(self.dir, "seed.json")
+
+    def _seed_load(self):
+        try:
+            with open(self.seed_path) as f:
+                data = json.load(f)
+            if isinstance(data, dict) and isinstance(data.get("tensors"), dict):
+                return data
+        except (OSError, ValueError):
+            pass
+        return {"model": "", "size_bytes": 0, "tensors": {}, "complete": False}
+
+    def _seed_save(self, data):
+        tmp = self.seed_path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f, indent=1)
+        os.replace(tmp, self.seed_path)
+
+    def _seed_forget(self, data, cache):
+        """Delete the cache files an earlier seed wrote (a model change)."""
+        for hexname in set(data.get("tensors", {}).values()):
+            try:
+                os.remove(os.path.join(cache, hexname))
+            except OSError:
+                pass
+
+    def seed_loop(self):
+        while not self.stop_flag.is_set():
+            if self.cfg.get("predownload") and self.cfg.get("rpc_cache") \
+                    and self.rpc_cache_on:
+                try:
+                    self.seed_once()
+                except Exception as e:
+                    log("pre-download stopped: " +
+                        (str(e) or type(e).__name__) +
+                        " — trying again in " +
+                        str(SEED_CHECK_SEC // 60) + " min")
+                finally:
+                    self._seed_tmp_cleanup()
+            self.stop_flag.wait(SEED_CHECK_SEC)
+
+    def _seed_tmp_cleanup(self):
+        parts = os.path.join(rpc_cache_dir(), ".seed-parts")
+        shutil.rmtree(parts, ignore_errors=True)
+
+    def seed_once(self):
+        status, info = self.http_json("GET", "/model.json", timeout=20)
+        if status != 200 or not info.get("file"):
+            return
+        model, url = info["file"], info.get("url") or ""
+        size = int(info.get("size_bytes") or 0)
+        data = self._seed_load()
+        if data.get("complete") and data.get("model") == model and \
+                data.get("size_bytes") == size:
+            return
+        if not url:
+            if self._seed_warned != model:
+                log("pre-download: the pool has no download source for " +
+                    model + " yet (the operator adds it to "
+                    "model-sources.json on the FX705) — its slice will "
+                    "be sent over the network at the first split instead")
+                self._seed_warned = model
+            return
+        if not seed_source_ok(url):
+            log("pre-download: refusing a model source that is not "
+                "Hugging Face over https: " + url)
+            return
+        if not size:
+            log("pre-download: the pool did not say how big " + model +
+                " is — skipping")
+            return
+        cache = rpc_cache_dir()
+        os.makedirs(cache, exist_ok=True)
+        if data.get("model") != model or data.get("size_bytes") != size:
+            if data.get("tensors"):
+                log("pre-download: the pool's model changed — removing "
+                    "the old pre-download")
+                self._seed_forget(data, cache)
+            data = {"model": model, "size_bytes": size, "tensors": {},
+                    "complete": False}
+            self._seed_save(data)
+        free = shutil.disk_usage(cache).free
+        if free < size + 1024 ** 3:
+            log("pre-download: not enough free disk for " + model +
+                " (needs about " + str(round(size / 1024 ** 3, 1)) +
+                " GB + 1 GB spare in " + cache + ", has " +
+                str(round(free / 1024 ** 3, 1)) + " GB) — skipping")
+            return
+        self._seed_run(url, model, size, info.get("sha256") or "",
+                       data, cache)
+
+    def _seed_open(self, url, start, size):
+        headers = {"User-Agent": "pool-worker"}
+        if start:
+            headers["Range"] = "bytes=" + str(start) + "-"
+        resp = urllib.request.urlopen(
+            urllib.request.Request(url, headers=headers), timeout=60)
+        total = None
+        cr = resp.headers.get("Content-Range")
+        if start:
+            if resp.status != 206 or not cr:
+                resp.close()
+                raise ConnectionError("the model host ignored the resume")
+            total = int(cr.rsplit("/", 1)[1])
+        else:
+            total = int(resp.headers.get("Content-Length") or 0)
+        if total != size:
+            resp.close()
+            raise ValueError("the download is " + str(total) +
+                             " bytes but the pool's file is " + str(size) +
+                             " — not the same model file")
+        return resp
+
+    def _seed_run(self, url, model, size, want_sha, data, cache):
+        import concurrent.futures as cf
+        resp = self._seed_open(url, 0, size)
+        try:
+            tensors, data_start, reader = gguf_read_header(resp)
+        except Exception:
+            resp.close()
+            raise
+        todo = [(n, o, b) for (n, o, b) in tensors
+                if b is not None and b > SEED_MIN_BYTES
+                and n not in data["tensors"]]
+        total_big = sum(1 for (_n, _o, b) in tensors
+                        if b is not None and b > SEED_MIN_BYTES)
+        if not todo:
+            resp.close()
+            data["complete"] = True
+            self._seed_save(data)
+            return
+        log("pre-download: fetching " + model + " from Hugging Face so "
+            "a split needs almost nothing from the pool — " +
+            str(len(todo)) + " of " + str(total_big) + " large tensors "
+            "to go (background, low priority)")
+        fresh = len(todo) == total_big
+        # A whole-file SHA-256 check is only possible on a fresh,
+        # single-pass download (a resumed one never sees every byte).
+        sha = hashlib.sha256() if (want_sha and fresh) else None
+        # Re-open so the stream (and the optional SHA-256) starts cleanly
+        # at the first tensor that is still missing.
+        first = data_start + todo[0][1]
+        if sha is not None:
+            resp.close()
+            resp = self._seed_open(url, 0, size)
+            pos = 0
+        elif reader.pos <= first and first - reader.pos <= SEED_SKIP_MAX:
+            pos = reader.pos
+        else:
+            resp.close()
+            resp = self._seed_open(url, first, size)
+            pos = first
+        parts = os.path.join(cache, ".seed-parts")
+        os.makedirs(parts, exist_ok=True)
+        workers = max(1, (os.cpu_count() or 2) - 1)
+        pending = {}
+        done_since_save = 0
+
+        def collect(block):
+            nonlocal done_since_save
+            if not pending:
+                return
+            finished, _ = cf.wait(list(pending),
+                                  return_when=(cf.ALL_COMPLETED if block
+                                               else cf.FIRST_COMPLETED),
+                                  timeout=None if block else 0)
+            for fut in finished:
+                name, path = pending.pop(fut)
+                try:
+                    h = fut.result()[1]
+                except Exception:
+                    # No worker processes on this machine (some Python
+                    # builds can't spawn them): hash it here instead.
+                    h = fnv1a64_file(path)
+                hexname = "%016x" % h
+                dest = os.path.join(cache, hexname)
+                if os.path.exists(dest):
+                    os.remove(path)
+                else:
+                    os.replace(path, dest)
+                data["tensors"][name] = hexname
+                done_since_save += 1
+            if done_since_save >= 8:
+                self._seed_save(data)
+                done_since_save = 0
+
+        def skip_to(target):
+            nonlocal pos
+            while pos < target:
+                if self.stop_flag.is_set():
+                    raise ConnectionError("worker stopping")
+                chunk = resp.read(min(1 << 20, target - pos))
+                if not chunk:
+                    raise ConnectionError("model download ended early")
+                if sha is not None:
+                    sha.update(chunk)
+                pos += len(chunk)
+
+        started = time.time()
+        with cf.ProcessPoolExecutor(max_workers=workers,
+                                    initializer=_seed_pool_init) as pool:
+            try:
+                for i, (name, off, nb) in enumerate(todo):
+                    skip_to(data_start + off)
+                    part = os.path.join(parts, str(i) + ".part")
+                    left = nb
+                    with open(part, "wb") as f:
+                        while left:
+                            if self.stop_flag.is_set():
+                                raise ConnectionError("worker stopping")
+                            chunk = resp.read(min(1 << 20, left))
+                            if not chunk:
+                                raise ConnectionError(
+                                    "model download ended early")
+                            f.write(chunk)
+                            if sha is not None:
+                                sha.update(chunk)
+                            left -= len(chunk)
+                            pos += len(chunk)
+                    pending[pool.submit(_seed_hash_job, part)] = (name, part)
+                    collect(block=False)
+                    if (i + 1) % 50 == 0:
+                        log("pre-download: " + str(i + 1) + "/" +
+                            str(len(todo)) + " tensors downloaded")
+                if sha is not None:
+                    skip_to(size)
+                collect(block=True)
+            finally:
+                resp.close()
+                self._seed_save(data)
+        if sha is not None and sha.hexdigest() != want_sha.lower():
+            log("pre-download: SHA-256 mismatch for " + model +
+                " — discarding it (the split will send the slice instead)")
+            self._seed_forget(data, cache)
+            data["tensors"] = {}
+            self._seed_save(data)
+            return
+        data["complete"] = True
+        self._seed_save(data)
+        log("pre-download done: " + str(len(data["tensors"])) +
+            " tensors of " + model + " ready in " + cache + " (" +
+            str(round((time.time() - started) / 60, 1)) + " min)")
+
+    def seed_check(self):
+        """After a split stream ends: if rpc-server wrote cache files
+        the pre-download did not, the host sent those tensors itself —
+        say so, so a mismatch with the pinned build is visible."""
+        data = self._seed_load()
+        if not data.get("complete"):
+            return
+        ours = set(data["tensors"].values())
+        try:
+            extra = [n for n in os.listdir(rpc_cache_dir())
+                     if len(n) == 16 and n not in ours]
+        except OSError:
+            return
+        if extra and len(extra) != self._seed_extra_seen:
+            self._seed_extra_seen = len(extra)
+            log("pre-download check: rpc-server has cached " +
+                str(len(extra)) + " tensor(s) the pre-download did not "
+                "cover — those were sent over the network. If that is "
+                "most of this machine's slice, the pre-download does not "
+                "match this llama.cpp build; tell the operator.")
+
     # ---------------------------------------------------------- serve
     def _monitor(self, session, yield_flag):
         while session.alive and not self.stop_flag.is_set():
@@ -719,6 +1178,12 @@ class Worker:
                 continue
             if not self.rpc_proc or self.rpc_proc.poll() is not None:
                 self.start_rpc()
+            if self._seed_thread is None:
+                # After rpc-server is up: the pre-download only makes
+                # sense once we know its cache flag was accepted.
+                self._seed_thread = threading.Thread(target=self.seed_loop,
+                                                     daemon=True)
+                self._seed_thread.start()
             try:
                 ws = self.ws_connect()
             except ConnectionError as e:
@@ -939,6 +1404,10 @@ class RelaySession:
             if sid in self.streams:
                 log("split stream " + str(sid) + " closed: " + why)
             self._close(sid, notify=True)
+            try:
+                self.worker.seed_check()
+            except Exception:
+                pass
 
     def _close(self, sid, notify):
         with self.lock:

@@ -92,6 +92,30 @@ RELAY_STATE_PATH = os.path.join(POOL_DIR, "relay-state.json")
 RELAY_BASE_PORT = int(os.environ.get("POOL_RELAY_BASE_PORT", "51100"))
 RELAY_PORTS_PATH = os.path.join(POOL_DIR, "relay-ports.json")
 RELAY_PUBLIC_PATH = "/relay"
+# Model pre-download (served at /model.json): where workers fetch the
+# pool's current model from, so a split never has to push their
+# slice over this machine's upload. Add a line to
+# ~/ai-pool/model-sources.json for any other model, e.g.
+#   {"My-Model.Q4_K_M.gguf": {"url": "https://huggingface.co/.../resolve/main/My-Model.Q4_K_M.gguf"}}
+# The file name must be exactly the .gguf in ~/ai-pool, and the
+# download must be that same file (workers check its size).
+CURRENT_MODEL_PATH = os.path.join(POOL_DIR, "current-model.txt")
+MODEL_SOURCES_PATH = os.path.join(POOL_DIR, "model-sources.json")
+DEFAULT_MODEL = "Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf"
+BUILTIN_MODEL_SOURCES = {
+    # The pool's default (solo + split). Repo and exact file name as
+    # pinned in M1-RUNBOOK.md; workers also check the size matches.
+    "Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf": {
+        "url": "https://huggingface.co/mradermacher/Qwen2.5-14B-Instruct-abliterated-GGUF/resolve/main/Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf",
+    },
+    "huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf": {
+        "url": "https://huggingface.co/bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF/resolve/main/huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf",
+        "sha256": "d76889059a3bfab30bc565012a0184827ff2bdc10197f6babc24541b98451dbe",
+    },
+    "qwen2.5-1.5b-instruct-q4_k_m.gguf": {
+        "url": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+    },
+}
 # The front pings every relayed worker this often, so the WebSocket
 # never sits silent: a split's RPC link idles for minutes while the
 # host loads other machines' layers, and both the worker's watchdog
@@ -1141,6 +1165,40 @@ def relay_log(msg):
     print("[relay] " + now_iso() + " " + msg, flush=True)
 
 
+def current_model_info():
+    """What the pool runs now and where a worker can download it."""
+    name = ""
+    try:
+        with open(CURRENT_MODEL_PATH) as f:
+            name = f.read().strip()
+    except OSError:
+        pass
+    name = name or DEFAULT_MODEL
+    sources = dict(BUILTIN_MODEL_SOURCES)
+    try:
+        with open(MODEL_SOURCES_PATH) as f:
+            extra = json.load(f)
+        if isinstance(extra, dict):
+            sources.update({k: v for k, v in extra.items()
+                            if isinstance(v, dict)})
+    except (OSError, ValueError):
+        pass
+    src = sources.get(name, {})
+    url = str(src.get("url") or "")
+    if not url.startswith("https://huggingface.co/"):
+        url = ""
+    try:
+        size = os.path.getsize(os.path.join(POOL_DIR, name))
+    except OSError:
+        size = 0
+    out = {"file": name, "size_bytes": size, "url": url or None,
+           "sha256": str(src.get("sha256") or "") or None}
+    if not url:
+        out["note"] = ("no download source for this model yet — add it "
+                       "to model-sources.json on the pool host")
+    return out
+
+
 def ws_accept(key):
     return base64.b64encode(
         hashlib.sha1((key + WS_GUID).encode()).digest()).decode()
@@ -1587,6 +1645,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, page)
         elif path == "/status.json":
             self._json(200, pool_status())
+        elif path == "/model.json":
+            self._json(200, current_model_info())
         elif path == "/downloads/":
             rows = "".join(
                 "<tr><td><a href=\"/downloads/" + escape(c["name"]) + "\">" +
