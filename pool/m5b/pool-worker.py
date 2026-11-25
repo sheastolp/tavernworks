@@ -56,6 +56,14 @@ from urllib.parse import urlparse
 
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 CHUNK = 262144
+# The relay WebSocket's read/write backstop. The live checks are the
+# heartbeat below (ping every 30 s, drop after 90 s with nothing
+# received) and the front's own pings every 20 s; this only catches a
+# socket that hangs outright. It MUST stay well above both intervals:
+# the 30 s connect timeout used to stay on the socket for its whole
+# life and raced the 30 s ping cycle.
+RELAY_IO_TIMEOUT = 150
+RPC_LOG_MAX = 20 * 1024 * 1024
 
 DEFAULTS = {
     "pool_url": "https://pool.tavernworks.dev",
@@ -71,6 +79,10 @@ DEFAULTS = {
     "temp_limit_c": 85,
     "drain_grace_sec": 10,
     "rejoin_delay_sec": 600,
+    # rpc-server's local tensor cache: the first split load sends
+    # this machine's slice over the network once; later loads of the
+    # same model find it on disk instead of re-sending it.
+    "rpc_cache": True,
 }
 
 
@@ -545,27 +557,60 @@ class Worker:
             raw.close()
             raise ConnectionError("relay handshake: bad accept key "
                                   "(not the real pool front?)")
+        raw.settimeout(RELAY_IO_TIMEOUT)
         return WSConn(raw, rest)
 
     # ---------------------------------------------------------- rpc
+    @property
+    def rpc_log_path(self):
+        return os.path.join(self.dir, "rpc-server.log")
+
+    def _rpc_log(self):
+        path = self.rpc_log_path
+        try:
+            if os.path.getsize(path) > RPC_LOG_MAX:
+                os.replace(path, path + ".old")
+        except OSError:
+            pass
+        f = open(path, "ab")
+        f.write(("\n===== " + time.strftime("%Y-%m-%d %H:%M:%S") +
+                 " rpc-server start =====\n").encode())
+        f.flush()
+        return f
+
     def start_rpc(self):
         rpc = self.find_rpc()
         port = int(self.cfg["rpc_port"])
-        cmd = [rpc, "-H", "127.0.0.1", "-p", str(port)]
-        log("starting rpc-server on 127.0.0.1:" + str(port))
-        self.rpc_proc = subprocess.Popen(
-            cmd, env=self.engine_env(),
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(50):
-            if self.rpc_proc.poll() is not None:
-                raise SystemExit("rpc-server exited at startup")
+        base = [rpc, "-H", "127.0.0.1", "-p", str(port)]
+        tries = [base + ["-c"], base] if self.cfg.get("rpc_cache") else [base]
+        for cmd in tries:
+            log("starting rpc-server on 127.0.0.1:" + str(port) +
+                (" with its local tensor cache" if "-c" in cmd else "") +
+                " (output: " + self.rpc_log_path + ")")
+            logf = self._rpc_log()
             try:
-                with socket.create_connection(("127.0.0.1", port),
-                                              timeout=1):
-                    return
-            except OSError:
-                time.sleep(0.2)
-        raise SystemExit("rpc-server did not open its port")
+                self.rpc_proc = subprocess.Popen(
+                    cmd, env=self.engine_env(),
+                    stdout=logf, stderr=subprocess.STDOUT)
+            finally:
+                logf.close()
+            for _ in range(50):
+                if self.rpc_proc.poll() is not None:
+                    break
+                try:
+                    with socket.create_connection(("127.0.0.1", port),
+                                                  timeout=1):
+                        return
+                except OSError:
+                    time.sleep(0.2)
+            else:
+                raise SystemExit("rpc-server did not open its port — see " +
+                                 self.rpc_log_path)
+            if "-c" in cmd:
+                log("rpc-server refused the cache flag — starting it "
+                    "without the cache (see " + self.rpc_log_path + ")")
+        raise SystemExit("rpc-server exited at startup — see " +
+                         self.rpc_log_path)
 
     def stop_rpc(self):
         if self.rpc_proc and self.rpc_proc.poll() is None:
@@ -776,6 +821,12 @@ class WSConn:
             self.send_frame(8, b"")
         except OSError:
             pass
+        # shutdown before close: a recv blocked in another thread only
+        # wakes on shutdown (close alone can leave it hanging).
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
         try:
             self.sock.close()
         except OSError:
@@ -823,9 +874,14 @@ class RelaySession:
                             except OSError:
                                 self._close(sid, notify=True)
                     elif typ == 3:
+                        if sid in self.streams:
+                            log("split stream " + str(sid) +
+                                " closed by the host")
                         self._close(sid, notify=False)
-        except (ConnectionError, OSError):
-            pass
+        except (ConnectionError, OSError) as e:
+            if not self.worker.stop_flag.is_set():
+                log("relay dropped: " + (str(e) or type(e).__name__) +
+                    " — reconnecting")
         finally:
             self.alive = False
             for sid in list(self.streams):
@@ -838,6 +894,7 @@ class RelaySession:
             if not self.alive:
                 return
             if time.time() - self.ws.last_rx > 90:
+                log("relay silent for 90s — reconnecting")
                 self.ws.close()   # forces read_frame to raise -> reconnect
                 return
             try:
@@ -849,25 +906,38 @@ class RelaySession:
         try:
             local = socket.create_connection(
                 ("127.0.0.1", int(self.worker.cfg["rpc_port"])), timeout=10)
-        except OSError:
+        except OSError as e:
+            log("split stream " + str(sid) + ": cannot reach the local "
+                "rpc-server (" + str(e) + ")")
             self.send_stream(sid, 3)
             return
+        # The 10 s was for connecting only. An RPC link sits silent for
+        # minutes in a split (while the host loads the other machines'
+        # layers, and between requests); a timeout left on this socket
+        # cut the stream after 10 quiet seconds and killed the split.
+        local.settimeout(None)
+        log("split stream " + str(sid) + " opened (the host connected)")
         with self.lock:
             self.streams[sid] = local
         threading.Thread(target=self._pump, args=(sid, local),
                          daemon=True).start()
 
     def _pump(self, sid, local):
+        why = "the relay closed"
         try:
             while self.alive:
                 data = local.recv(CHUNK)
                 if not data:
+                    why = "rpc-server closed it"
                     break
                 if not self.send_stream(sid, 2, data):
+                    why = "sending to the relay failed"
                     break
-        except OSError:
-            pass
+        except OSError as e:
+            why = "rpc-server socket error: " + (str(e) or type(e).__name__)
         finally:
+            if sid in self.streams:
+                log("split stream " + str(sid) + " closed: " + why)
             self._close(sid, notify=True)
 
     def _close(self, sid, notify):

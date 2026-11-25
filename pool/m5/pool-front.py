@@ -92,6 +92,11 @@ RELAY_STATE_PATH = os.path.join(POOL_DIR, "relay-state.json")
 RELAY_BASE_PORT = int(os.environ.get("POOL_RELAY_BASE_PORT", "51100"))
 RELAY_PORTS_PATH = os.path.join(POOL_DIR, "relay-ports.json")
 RELAY_PUBLIC_PATH = "/relay"
+# The front pings every relayed worker this often, so the WebSocket
+# never sits silent: a split's RPC link idles for minutes while the
+# host loads other machines' layers, and both the worker's watchdog
+# and Cloudflare's idle cut-off treat a silent socket as dead.
+RELAY_PING_SEC = float(os.environ.get("POOL_RELAY_PING_SEC", "20"))
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 ACCOUNTS_PATH = os.path.join(POOL_DIR, "accounts.json")
 LEDGER_PATH = os.path.join(POOL_DIR, "ledger.jsonl")
@@ -1132,6 +1137,10 @@ def mcp_handle(account, req):
 # never change underneath llama-server is the port number.)
 # ------------------------------------------------------------------
 
+def relay_log(msg):
+    print("[relay] " + now_iso() + " " + msg, flush=True)
+
+
 def ws_accept(key):
     return base64.b64encode(
         hashlib.sha1((key + WS_GUID).encode()).digest()).decode()
@@ -1212,8 +1221,21 @@ class RelayConn:
         self.alive = True
         self.since = now_iso()
 
+    # -- keepalive --------------------------------------------------
+    def _ping_loop(self):
+        while self.alive:
+            time.sleep(RELAY_PING_SEC)
+            if not self.alive:
+                return
+            try:
+                ws_send(self.sock, self.send_lock, 9, b"")
+            except OSError:
+                return
+
     # -- worker -> front ------------------------------------------------
     def run(self):
+        why = "worker closed the relay"
+        threading.Thread(target=self._ping_loop, daemon=True).start()
         try:
             while self.alive:
                 op, payload = self.reader.read_frame()
@@ -1233,11 +1255,14 @@ class RelayConn:
                             except OSError:
                                 self.close_stream(sid, notify=True)
                     elif typ == 3:  # CLOSE
+                        if sid in self.streams:
+                            relay_log(self.name + ": split stream " +
+                                      str(sid) + " closed by the worker")
                         self.close_stream(sid, notify=False)
-        except (ConnectionError, OSError):
-            pass
+        except (ConnectionError, OSError) as e:
+            why = str(e) or type(e).__name__
         finally:
-            self.hub.drop(self.id)
+            self.hub.drop(self.id, conn=self, why=why)
 
     def send_stream(self, sid, typ, data=b""):
         if not self.alive:
@@ -1268,10 +1293,13 @@ class RelayConn:
                 continue
             except OSError:
                 return
+            tcp.settimeout(None)
             with self.streams_lock:
                 self.next_sid += 1
                 sid = self.next_sid
                 self.streams[sid] = tcp
+            relay_log(self.name + ": split stream " + str(sid) +
+                      " opened on 127.0.0.1:" + str(self.port))
             if not self.send_stream(sid, 1):
                 self.close_stream(sid, notify=False)
                 continue
@@ -1279,16 +1307,21 @@ class RelayConn:
                              daemon=True).start()
 
     def _pump_tcp(self, sid, tcp):
+        why = "llama-server closed it"
         try:
             while self.alive:
                 data = tcp.recv(262144)
                 if not data:
                     break
                 if not self.send_stream(sid, 2, data):
+                    why = "sending to the worker failed"
                     break
-        except OSError:
-            pass
+        except OSError as e:
+            why = "llama-server socket error: " + (str(e) or type(e).__name__)
         finally:
+            if sid in self.streams:
+                relay_log(self.name + ": split stream " + str(sid) +
+                          " closed: " + why)
             self.close_stream(sid, notify=True)
 
     def close_stream(self, sid, notify):
@@ -1402,19 +1435,30 @@ class RelayHub:
         with self.lock:
             old = self.conns.pop(rec["id"], None)
             if old:
+                relay_log(rec["name"] + ": reconnected — replacing the "
+                          "previous relay (any split stream on it ends)")
                 old.close()
             conn = RelayConn(self, rec, sock)
             conn.port = self._alloc_port(rec["id"])
             self.conns[rec["id"]] = conn
         conn.start_listener(conn.port)
+        relay_log(rec["name"] + ": relay connected on 127.0.0.1:" +
+                  str(conn.port))
         self.write_state()
         return conn
 
-    def drop(self, eid):
+    def drop(self, eid, conn=None, why=""):
         with self.lock:
-            conn = self.conns.pop(eid, None)
-        if conn:
-            conn.close()
+            cur = self.conns.get(eid)
+            # A replaced connection's reader exits late; it must not
+            # tear down the NEW connection that replaced it.
+            if conn is not None and cur is not conn:
+                return
+            self.conns.pop(eid, None)
+        if cur:
+            relay_log(cur.name + ": relay dropped" +
+                      (" (" + why + ")" if why else ""))
+            cur.close()
             self.write_state()
 
     def write_state(self):

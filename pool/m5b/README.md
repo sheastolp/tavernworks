@@ -121,3 +121,41 @@ sudo systemctl daemon-reload && sudo systemctl enable --now pool-worker
 - On the FX705, `cat ~/ai-pool/relay-state.json` lists the machine
   with its `127.0.0.1:<port>` rpc address. M5c teaches the host to
   build its `--rpc` list from exactly this file.
+
+## Split keeps failing on a relayed worker? (fixed 2026-11-24)
+
+Two relay bugs broke every split that used a public worker:
+
+- **The worker cut its own RPC link after 10 quiet seconds.** The
+  socket to the local rpc-server kept its 10 s connect timeout for
+  life. In a split the link sits silent for minutes (while the host
+  loads the other machines' layers, and between requests), so the
+  stream closed mid-load and llama-server lost the device. The relay
+  WebSocket had the same problem with its 30 s connect timeout racing
+  the 30 s ping cycle. Both now drop the timeout after connecting,
+  and the front pings every worker every 20 s.
+- **A reconnect knocked the machine offline.** When a worker
+  reconnected, the old connection's reader exited late and removed
+  the NEW connection from the hub, so the machine vanished from
+  `relay-state.json` until the next reconnect (the same churn behind
+  the old 51103 → 51190 port climb). The hub now only drops the
+  connection that actually ended.
+
+The worker also starts rpc-server with its **local tensor cache**
+(`-c`) by default: the first split load sends this machine's slice
+over the network once, and later loads of the same model read it
+from the worker's disk. If the pinned build refuses the flag, the
+worker logs that and starts without it. Turn it off with
+`"rpc_cache": false` in `~/pool-worker/config.json`.
+
+### Logs
+
+- Worker console: `relay connected`, `split stream N opened`, and a
+  reason whenever a stream or the relay ends.
+- Worker rpc-server output: `~/pool-worker/rpc-server.log`
+  (Windows: `%USERPROFILE%\pool-worker\rpc-server.log`). It used to
+  be thrown away.
+- FX705 front: `journalctl -u pool-front -f` shows `[relay]` lines
+  (connect, drop with reason, each split stream).
+- FX705 brain: `journalctl -u ai-pool-host -f` shows the model load
+  across the devices.
