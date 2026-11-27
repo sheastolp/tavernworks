@@ -129,7 +129,8 @@
   const PACES = { often: [1, 3], sometimes: [2, 6], rarely: [8, 20] };   // minutes of quiet before Rosin speaks up
   const chatterWait = () => { const [a, b] = PACES[S.chatterPace] || PACES.sometimes; return (a + Math.random() * (b - a)) * 60000; };
   let chatterAt = Date.now() + chatterWait(), chatting = false, lastTopic = -1;
-  function heardFrom() { chatterAt = Date.now() + chatterWait(); }
+  let lastHeardAt = Date.now(), lastTurnAt = 0;   // any activity; the last time someone actually said something
+  function heardFrom() { chatterAt = Date.now() + chatterWait(); lastHeardAt = Date.now(); }
   const KA = window.KeepAwake;
   const tick = (ms, fn) => { if (KA) return KA.ticker(ms, fn); const t = setInterval(fn, ms); return () => clearInterval(t); };
   const later = (ms, fn) => { if (KA) return KA.after(ms, fn); const t = setTimeout(fn, ms); return () => clearTimeout(t); };
@@ -501,7 +502,10 @@
     const idle = !!opts.idle;   // Rosin speaking up on its own: text is the hidden cue, never shown or kept
     if (busy) { if (opts.fromChat || idle) return false; stop(); }
     if (idle && (!online || locked || !S.model)) return false;
-    if (!idle) { heardFrom(); if (!opts.fromChat) nudgeMood(moodFromWords(text), 0.25); }
+    if (!idle) {
+      heardFrom(); if (!opts.fromChat) nudgeMood(moodFromWords(text), 0.25);
+      if (!opts.fromChat) { lastTurnAt = Date.now(); window.dispatchEvent(new CustomEvent("rosin-turn", { detail: { text } })); }   // the mood compass listens
+    }
     if (!online) await checkLaptop();
     if (locked) { R.status(window.GateKey?.get() ? "That laptop key is wrong. Check it under ⋯." : LOCKED_MSG); return false; }
     if (!online || !S.model) { R.status("Can't reach the AI laptop right now. It may be asleep."); return false; }
@@ -819,14 +823,17 @@
     R.status("On a call with Rosin. Just talk; it sends when you stop. Tap Hang up to end it.");
     callListen();
   }
+  // Closes the mic without sending what it heard.
+  function earCancel() {
+    clearTimeout(ear.quiet);
+    if (!ear.on) return;
+    const m = ear.mode; ear.on = false;
+    try { if (m === "browser") { ear.rec?.abort ? ear.rec.abort() : ear.rec?.stop(); } else { ear.discard = true; laptopStop(); } } catch {}
+    R.micLive(false); $("subs").classList.remove("listening"); showSubs("");
+  }
   function endCall(why) {
     if (!callMode.on) return;
-    callMode.on = false; stopMonitor(); clearTimeout(ear.quiet);
-    if (ear.on) {
-      const m = ear.mode; ear.on = false;
-      try { if (m === "browser") { ear.rec?.abort ? ear.rec.abort() : ear.rec?.stop(); } else { ear.discard = true; laptopStop(); } } catch {}
-      R.micLive(false); $("subs").classList.remove("listening"); showSubs("");
-    }
+    callMode.on = false; stopMonitor(); earCancel();
     document.body.classList.remove("in-call"); callPill.hidden = true;
     callBtn.textContent = "📞 Call"; callBtn.classList.remove("hangup"); callBtn.setAttribute("aria-pressed", "false");
     R.status(why || "Call ended.");
@@ -1029,10 +1036,14 @@
     return `Nobody has said anything for a bit, so ${topics[i]}. ${size}, starting with a face tag.` +
       (before.length ? ` Say something new, not like these: ${before.join(" ")}` : "");
   }
-  async function chatterNow() {
-    if (chatting || busy || say.playing || ear.on) return false;
+  async function chatterNow() { return speakUp(chatterCue()); }
+  // Rosin says something nobody asked for (idle chatter, the mood compass). On a call, it may cut in while the mic is
+  // open but hasn't heard any words yet; the call goes back to listening afterwards.
+  async function speakUp(cue, opts = {}) {
+    if (chatting || busy || say.playing) return false;
+    if (ear.on) { if (!(opts.onCall && callMode.on && !ear.heard)) return false; earCancel(); }
     chatting = true;
-    try { return await ask(chatterCue(), { idle: true }); }
+    try { return await ask(cue, { idle: true }); }
     finally { chatting = false; heardFrom(); }
   }
   tick(5000, () => {
@@ -1172,12 +1183,13 @@
   $("controls").insertBefore(log, $("say"));
   const logBtn = Object.assign(document.createElement("button"), { type: "button", id: "btn-log", textContent: "Chat" });
   logBtn.setAttribute("aria-expanded", "false"); logBtn.setAttribute("aria-controls", "log");
-  // The main row keeps only Talk, Call and ⋯. Chat history, faces and blink move to the top of ⋯.
+  // The main row is Talk, Chat, Call and ⋯. Faces and blink move to the top of ⋯.
+  $("mic")?.after(logBtn);
   const quick = Object.assign(document.createElement("div"), { className: "quick" });
-  quick.append(logBtn, $("btn-faces"), $("btn-blink"));
+  quick.append($("btn-faces"), $("btn-blink"));
   more.prepend(quick);
   const hintEl = document.querySelector("#controls .hint");
-  if (hintEl) hintEl.innerHTML = "<b>🎙 Talk</b> sends one message, <b>📞 Call</b> keeps talking · Chat history, faces and settings are under <b>⋯</b> · Hold <b>Space</b> to talk";
+  if (hintEl) hintEl.innerHTML = "<b>🎙 Talk</b> sends one message, <b>📞 Call</b> keeps talking, <b>Chat</b> shows what you've said · Faces, Compass and settings are under <b>⋯</b> · Hold <b>Space</b> to talk";
   logBtn.addEventListener("click", () => {
     const open = log.hidden; log.hidden = !open; logBtn.setAttribute("aria-expanded", String(open));
     if (open) { drawLog(); log.scrollTop = log.scrollHeight; }
@@ -1212,7 +1224,20 @@
   });
 
   if (S.twitchOn && S.channel) twitchConnect();
-  window.RosinBrain = { say: (t) => { unlock(); ask(t); }, micStart, micStop, stop, ask, chatterNow, settings: S,
+  // What the mood compass (rosin-compass.js) builds on.
+  const hooks = {
+    store, field, check, more, quick, fit: () => R.fit(), GATE, gopts, timeout, tick, later,
+    mood: () => curMood(), moodAuto: () => S.moodAuto,
+    busy: () => !!busy || say.playing || chatting || ear.on,
+    ready: () => online && !locked && !!S.model,
+    onCall: () => callMode.on,
+    quietFor: () => Date.now() - lastHeardAt, lastTurnAt: () => lastTurnAt,
+    // Nothing private where an audience can hear: OBS, or while Rosin answers a Twitch chat.
+    onAir: () => deviceNow() === "obs" || R.OBS || !!(S.twitchOn && S.channel),
+    deviceLen: () => deviceInfo().len, name: () => S.name.trim(),
+    speakUp,
+  };
+  window.RosinBrain = { say: (t) => { unlock(); ask(t); }, micStart, micStop, stop, ask, chatterNow, settings: S, _hooks: hooks,
     // The apps can switch this as they go, e.g. "android-widget" while a reply is for the home screen widget.
     get device() { return deviceNow(); },
     setDevice(kind) { kind = String(kind || "").toLowerCase(); forcedDevice = !!DEVICES[kind]; device = DEVICES[kind] ? kind : detectDevice(); return device; } };

@@ -20,6 +20,11 @@ delete models. This server only lets the chat through:
   in the same speaches server as Whisper (`TTS_URL`, `TTS_MODEL`). Text is
   capped at 1,000 characters a request, and only Kokoro's English voices are
   allowed. Setup: tavernworks.dev/local-ai/#voices
+- `GET /api/ics?url=…` reads a calendar's iCal link (https or webcal) for
+  Rosin's mood compass, since most calendars don't let a web page read them
+  directly. Only public internet addresses: nothing on the laptop, the home
+  network or the tailnet. Up to 4 redirects, 3 MB, and it must be a calendar.
+  It counts against the search limit.
 - Everything except `/health` needs the laptop key, sent as an `X-Gate-Key`
   header. With no key set up, the gate turns every chat away. 20 wrong keys
   from one address lock that address out for 10 minutes.

@@ -17,6 +17,8 @@
 //   POST /api/speak       { text, voice, speed }  ->  mp3 of Rosin saying it, from the same speaches server
 //   GET  /search?q=…&n=5  passed to the web search server
 //   GET  /fetch?url=…     passed to the web search server
+//   GET  /api/ics?url=…   a calendar's iCal feed (https or webcal), for Rosin's mood compass; browsers can't read most
+//                         feeds themselves (no CORS), so the gate fetches it. Only public https hosts, at most 3 MB.
 //   GET  /api/reply?id=…&from=N   the rest of a reply the browser lost hold of
 //   POST /api/stop?id=…           stop that reply
 //
@@ -35,6 +37,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { execFileSync } from "node:child_process";
+import { lookup } from "node:dns/promises";
 
 const PORT = Number(process.env.GATE_PORT || 8793);
 const HOST = process.env.GATE_HOST || "127.0.0.1";
@@ -447,6 +450,38 @@ async function transcribe(req, res, origin) {
   return send(res, 200, { text: String(j.text || "").trim() }, origin);
 }
 
+// ── Calendar feeds (Rosin's mood compass) ──
+const MAX_ICS = 3 * 1024 * 1024;
+const PRIVATE_HOST = /^(localhost|.*\.local|.*\.internal|.*\.ts\.net|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.|\[|::1)/i;
+async function icsFeed(url, res, origin) {
+  let target;
+  try { target = new URL(String(url.searchParams.get("url") || "").trim().replace(/^webcal:/i, "https:")); } catch { throw fail(400, "That isn't a calendar link."); }
+  const okHost = (u) => u.protocol === "https:" && !PRIVATE_HOST.test(u.hostname) && !/^[\d.]+$/.test(u.hostname);
+  // A public name can still point at the home network or the tailnet, so check where it really goes.
+  const PRIVATE_IP = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|::1$|::$|f[cd]|fe[89ab]|::ffff:(127|10|192\.168|169\.254)\.)/i;
+  const okAddress = async (host) => {
+    const all = await lookup(host, { all: true }).catch(() => []);
+    return all.length > 0 && all.every((a) => !PRIVATE_IP.test(a.address));
+  };
+  let r = null;
+  for (let hop = 0; hop < 4; hop++) {   // follows redirects by hand, so none can lead to the laptop's own network
+    if (!okHost(target) || !(await okAddress(target.hostname))) throw fail(400, "Use the calendar's https (or webcal) link.");
+    r = await fetch(target, { redirect: "manual", signal: AbortSignal.timeout(20000), headers: { accept: "text/calendar, */*" } }).catch(() => null);
+    if (!r) throw fail(502, "Couldn't reach that calendar.");
+    if (r.status >= 300 && r.status < 400 && r.headers.get("location")) { target = new URL(r.headers.get("location"), target); continue; }
+    break;
+  }
+  if (!r.ok) throw fail(502, `The calendar answered ${r.status}. Check the link.`);
+  const len = Number(r.headers.get("content-length") || 0);
+  if (len > MAX_ICS) throw fail(413, "That calendar is too big.");
+  const chunks = []; let size = 0;
+  for await (const c of r.body) { size += c.length; if (size > MAX_ICS) throw fail(413, "That calendar is too big."); chunks.push(c); }
+  const text = Buffer.concat(chunks).toString("utf8");
+  if (!/BEGIN:VCALENDAR/i.test(text.slice(0, 2000))) throw fail(422, "That link isn't an iCal calendar. Use the iCal (.ics) address.");
+  res.writeHead(200, { "content-type": "text/calendar; charset=utf-8", "cache-control": "no-store", vary: "Origin", ...cors(origin) });
+  res.end(text);
+}
+
 // ── Text to speech ──
 let ttsCache = { at: 0, ok: false };
 async function ttsReady() {
@@ -527,6 +562,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && (url.pathname === "/search" || url.pathname === "/fetch")) {
       if (!allowed("search:" + clientIp(req), SEARCH_PER_IP)) return send(res, 429, { error: "Too many searches. Wait a few minutes." }, origin);
       return await search(url, res, origin);
+    }
+    if (req.method === "GET" && url.pathname === "/api/ics") {
+      if (!allowed("ics:" + clientIp(req), SEARCH_PER_IP)) return send(res, 429, { error: "Too many calendar checks. Wait a few minutes." }, origin);
+      return await icsFeed(url, res, origin);
     }
     if (req.method === "GET" && url.pathname === "/api/reply") return await resume(url, req, res, origin);
     if (req.method === "POST" && url.pathname === "/api/transcribe") {

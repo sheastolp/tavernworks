@@ -205,3 +205,30 @@ body.obs #callpill, html.buddy #callpill { display: none !important; }
 /* the top of ⋯: chat history, faces and blink (kept off the main row) */
 #more .quick { display: flex; gap: 8px; flex: 1 1 100%; }
 #more .quick button { flex: 1 1 0; }
+
+/* mood compass (rosin-compass.js): ⋯ → Compass */
+#compass { flex-direction: column; flex-wrap: nowrap; align-items: stretch; max-height: 52vh; overflow-y: auto; overflow-x: hidden;
+           overscroll-behavior: contain; background: rgba(12, 10, 6, 0.92); border: 1px solid #3b2414; border-radius: 12px; padding: 10px 12px; }
+#compass > * { min-width: 0; }
+#compass p, #compass ul { margin: 0; font-size: 15px; line-height: 1.4; }
+#compass .cmp-now { font-weight: 600; color: #ffb36b; }
+#compass .cmp-tips { padding-left: 18px; }
+#compass .cmp-tips li { margin: 2px 0; }
+#compass .cmp-chart { display: flex; gap: 12px; flex-wrap: wrap; }
+#compass .cmp-bars { flex: 1 1 200px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+#compass .cmp-bars b, #compass .cmp-soon b { font-size: 13px; opacity: 0.85; font-weight: 600; }
+#compass .cmp-row { display: flex; gap: 4px; align-items: flex-end; height: 72px; }
+#compass .cmp-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; min-width: 0; }
+#compass .cmp-col i { display: block; width: 100%; max-width: 30px; border-radius: 6px 6px 2px 2px; background: linear-gradient(#ff9a4a, #b4441c); }
+#compass .cmp-col i.empty { background: #3b2414; }
+#compass .cmp-col span { font-size: 11px; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+#compass .cmp-soon { display: flex; flex-direction: column; gap: 2px; font-size: 14px; overflow-wrap: anywhere; }
+#compass .cmp-dim { opacity: 0.7; font-size: 13px; }
+#compass .cmp-note { color: #ffcf8a; font-size: 13px; }
+#compass .field { flex: 0 0 auto; }
+#compass textarea, #compass input[type="url"] {
+  min-height: 44px; padding: 8px 10px; border-radius: 12px; border: 1px solid #6b3b1f; box-sizing: border-box;
+  background: rgba(20, 14, 8, 0.95); color: inherit; font: inherit; font-size: 16px; width: 100%; resize: vertical;
+}
+#compass button { min-height: 44px; }
+html.buddy #compass, body.obs #compass { display: none !important; }
