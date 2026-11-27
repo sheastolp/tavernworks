@@ -291,7 +291,7 @@
   let bridgeOk = false;     // Claude Code bridge answered /health
   const CC = "cc:";         // model values starting with this go to Claude Code
   const isCC = (model) => String(model || "").startsWith(CC);
-  const modelLabel = (model) => !isCC(model) ? model : "Claude Code" + (model.length > CC.length ? " · " + model.slice(CC.length) : "");
+  const modelLabel = (model) => model === "pool" ? "AI Pool" : !isCC(model) ? model : "Claude Code" + (model.length > CC.length ? " · " + model.slice(CC.length) : "");
   let chats = store.get(CHATS_KEY, []);
   let current = null;       // id of the open chat
   let busy = null;          // AbortController while a reply streams
@@ -556,7 +556,7 @@
     const res = await fetch(base + "/api/tags", gopts({ signal: AbortSignal.timeout(8000) }));
     if (!res.ok) { let d = ""; try { d = (await res.json()).error || ""; } catch {} throw new Error(`HTTP ${res.status}${d ? ": " + d : ""}`); }
     const data = await res.json();
-    return (data.models || []).map((m) => ({ name: m.name, size: m.size, params: m.details?.parameter_size }));
+    return (data.models || []).map((m) => ({ name: m.name, size: m.size, params: m.details?.parameter_size, pool: m.pool }));
   }
   async function checkBridge(base, token) {
     const res = await fetch(base + "/health", { headers: { Authorization: "Bearer " + token }, signal: AbortSignal.timeout(8000) });
@@ -573,7 +573,14 @@
     sel.innerHTML = "";
     const group = (label) => { const g = document.createElement("optgroup"); g.label = label; sel.appendChild(g); return g; };
     const add = (parent, value, text) => { const o = document.createElement("option"); o.value = value; o.textContent = text; parent.appendChild(o); };
-    const models = ollama.status === "fulfilled" ? ollama.value : [];
+    const all = ollama.status === "fulfilled" ? ollama.value : [];
+    const poolM = all.find((m) => m.pool), models = all.filter((m) => !m.pool);
+    if (poolM) {
+      // One bigger model spread over Sheamus's machines. When it's off or loading, an Ollama model answers instead.
+      const g = group("AI Pool · your machines together");
+      const st = poolM.pool.state === "up" ? "" : poolM.pool.state === "loading" ? " · loading" : " · off, Ollama stands in";
+      add(g, "pool", `AI Pool · ${poolM.pool.label}${poolM.params && !poolM.pool.label.includes(poolM.params) ? " · " + poolM.params : ""}${st}`);
+    }
     if (models.length) {
       const g = group("Ollama · on the laptop");
       for (const m of models) add(g, m.name, m.name + (m.params ? ` · ${m.params}` : ""));
@@ -592,8 +599,9 @@
     const parts = [];
     const lockedOut = ollama.status === "rejected" && /^HTTP (401|429)/.test(ollama.reason?.message || "");
     parts.push(ollama.status === "fulfilled" ? `${models.length} model${models.length === 1 ? "" : "s"}` : lockedOut ? "Laptop locked: enter the key in ⚙ Settings" : "Laptop offline");
+    if (poolM) parts.push(poolM.pool.state === "up" ? "AI Pool ✓" : poolM.pool.state === "loading" ? "AI Pool loading" : "AI Pool off");
     if (settings.bridge) parts.push(bridgeOk ? "Claude Code ✓" : "Claude Code offline");
-    const anyOk = models.length > 0 || bridgeOk;
+    const anyOk = models.length > 0 || bridgeOk || poolM?.pool.state === "up";
     setStatus(anyOk ? "ok" : "bad", (anyOk ? "Connected · " : "") + parts.join(" · "));
   }
 
@@ -702,6 +710,7 @@
         const tps = last.eval_count / (last.eval_duration / 1e9);
         reply.stats = `${tps.toFixed(1)} tokens/s · ${((performance.now() - started) / 1000).toFixed(1)}s`;
       }
+      if (reply.notes) { notes.push(...reply.notes); delete reply.notes; }
       if (notes.length) reply.stats = [reply.stats, ...notes].filter(Boolean).join(" · ");
       const est = estTokens(history);
       if (est > 32768) reply.stats = (reply.stats ? reply.stats + " · " : "") + `⚠ this chat is about ${Math.round(est / 1000)}k tokens, past the 32k the model was given, so it only saw part of it. Attach fewer files, or start a new chat.`;
@@ -747,6 +756,7 @@
       let chunk;
       try { chunk = JSON.parse(lineText); } catch { return; }
       if (chunk.error) throw new Error(typeof chunk.error === "string" ? chunk.error : chunk.error.message || "Ollama error");
+      if (chunk.note) { (reply.notes ||= []).includes(chunk.note) || reply.notes.push(chunk.note); return; }   // e.g. the AI Pool was off, so an Ollama model answered
       const msg = chunk.message || chunk.choices?.[0]?.delta || chunk.choices?.[0]?.message || {};
       const thinkPart = msg.thinking ?? msg.reasoning_content ?? chunk.thinking;
       const textPart = msg.content ?? chunk.response;

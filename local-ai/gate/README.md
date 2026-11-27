@@ -139,6 +139,8 @@ Environment variables, set with `Environment=` in the service file:
 | `GATE_PORT` | `8793` | Port to listen on |
 | `GATE_HOST` | `127.0.0.1` | Address to listen on |
 | `GATE_KEY_FILE` | (none) | Read the key from this file instead of the systemd credential |
+| `GATE_POOL_URL` | found from `tailscale ip -4`, port 8090 | Where the AI Pool's brain is; `off` hides the pool |
+| `GATE_POOL_FALLBACK` | a qwen3 model, else the first | The Ollama model that answers when the pool can't |
 | `GATE_ORIGINS` | `https://tavernworks.dev` | Websites allowed to use it, comma-separated |
 | `OLLAMA_URL` | `http://127.0.0.1:11434` | Where Ollama is |
 | `SEARCH_URL` | `http://127.0.0.1:8791` | Where the web search server is |
@@ -147,6 +149,14 @@ Ollama doesn't need `OLLAMA_ORIGINS` for this: the browser talks to the gate,
 and the gate talks to Ollama on the laptop itself.
 
 ## Good to know
+
+- **The AI Pool is a model too.** The model lists on the chat and Rosin show
+  "AI Pool" (the pool's brain from `pool/m1`, solo or split, on this laptop's
+  tailnet address, port 8090). The gate turns the chat into the brain's
+  OpenAI-style request and its reply back into Ollama's, web search included.
+  If the brain is off, still loading, can't fit the chat or doesn't start
+  answering within 3 minutes, an Ollama model answers instead and the reply
+  says so. The pool can't see images, so it only gets the text.
 
 - **The laptop has to be awake.** The chat says "Can't reach the laptop" when
   it can't reach the gate.

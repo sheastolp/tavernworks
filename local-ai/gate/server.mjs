@@ -7,8 +7,11 @@
 // lets the chat through.
 //
 //   GET  /health          { ok, ollama, search }
-//   GET  /api/tags        the installed models (names and sizes only)
+//   GET  /api/tags        the installed models (names and sizes only), plus "pool", the AI Pool
 //   POST /api/chat        { model, messages, tools?, options? }  ->  Ollama's NDJSON stream
+//                         model "pool" goes to the AI Pool's brain (llama-server on :8090), turned
+//                         into the same NDJSON; if the pool is off or fails, an Ollama model answers
+//                         instead and the stream starts with a { note } line saying so
 //   GET  /search?q=…&n=5  passed to the web search server
 //   GET  /fetch?url=…     passed to the web search server
 //   GET  /api/reply?id=…&from=N   the rest of a reply the browser lost hold of
@@ -28,6 +31,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Readable } from "node:stream";
+import { execFileSync } from "node:child_process";
 
 const PORT = Number(process.env.GATE_PORT || 8793);
 const HOST = process.env.GATE_HOST || "127.0.0.1";
@@ -36,6 +40,12 @@ const SEARCH = (process.env.SEARCH_URL || "http://127.0.0.1:8791").replace(/\/$/
 const ORIGINS = (process.env.GATE_ORIGINS || "https://tavernworks.dev").split(",").map((s) => s.trim()).filter(Boolean);
 // Only these models, if set (comma-separated). Otherwise every installed model.
 const ONLY = (process.env.GATE_MODELS || "").split(",").map((s) => s.trim()).filter(Boolean);
+// The AI Pool's brain (pool/m1 on tavernworks: llama-server, solo or split, on this laptop's tailnet
+// address, port 8090). GATE_POOL_URL sets it, "off" turns the pool option off; otherwise it's found
+// from `tailscale ip -4`. GATE_POOL_FALLBACK names the Ollama model that answers when the pool can't.
+const POOL_SETTING = String(process.env.GATE_POOL_URL || "").trim();
+const POOL_FALLBACK = String(process.env.GATE_POOL_FALLBACK || "").trim();
+const POOL_WAIT_MS = 180000;          // how long the pool may take to start answering before Ollama steps in
 
 const MAX_BODY = 32 * 1024 * 1024;   // bytes per chat request (images ride along as base64)
 const MAX_MESSAGES = 200;
@@ -119,10 +129,66 @@ async function models() {
   return list;
 }
 
+// ── The AI Pool ──
+let poolBase = null, poolLookedAt = 0;
+function poolUrl() {
+  if (/^(off|no|false|0)$/i.test(POOL_SETTING)) return null;
+  if (POOL_SETTING) return POOL_SETTING.replace(/\/+$/, "").replace(/\/v1$/, "");
+  if (!poolBase && Date.now() - poolLookedAt > 60000) {
+    poolLookedAt = Date.now();
+    try {
+      const ip = execFileSync("tailscale", ["ip", "-4"], { timeout: 3000, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).split("\n")[0].trim();
+      if (/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) poolBase = `http://${ip}:8090`;
+    } catch {}
+  }
+  return poolBase;
+}
+// What the pool's brain is doing: "up", "loading" (llama-server answers 503 while it loads) or "off".
+let poolCache = { at: 0, s: null };
+async function pool(fresh = false) {
+  const base = poolUrl();
+  if (!base) return null;
+  if (!fresh && poolCache.s && Date.now() - poolCache.at < 10000) return poolCache.s;
+  const h = await fetch(base + "/health", { signal: AbortSignal.timeout(2500) }).catch(() => null);
+  const state = !h ? "off" : h.ok ? "up" : h.status === 503 ? "loading" : "off";
+  let file = poolCache.s?.file || "";
+  if (state === "up") {
+    const j = await fetch(base + "/v1/models", { signal: AbortSignal.timeout(2500) }).then((r) => r.json()).catch(() => null);
+    file = String(j?.data?.[0]?.id || file).replace(/^.*[\\/]/, "");
+  }
+  const name = file.replace(/\.gguf$/i, "");
+  const short = name.replace(/^[\w.-]+?_(?=[A-Za-z])/, "").replace(/[-_.](I?Q\d\w*|F16|BF16|F32)$/i, "");
+  const params = (name.match(/(?:^|[-_.])(\d+(?:\.\d+)?)B(?![a-z])/i) || [])[1];
+  poolCache = { at: Date.now(), s: { base, state, file, label: short || "the pool's model", params: params ? params + "B" : "" } };
+  return poolCache.s;
+}
+// The Ollama model that answers when the pool can't.
+async function poolFallback() {
+  const names = (await models()).map((m) => m.name).filter((n) => !/embed|bge|nomic/i.test(n));
+  if (POOL_FALLBACK && names.includes(POOL_FALLBACK)) return POOL_FALLBACK;
+  for (const re of [/^qwen3(?!.*(instruct|coder))/i, /qwen3/i, /gemma3/i, /llama3/i]) { const hit = names.find((n) => re.test(n)); if (hit) return hit; }
+  return names[0] || null;
+}
+// Ollama's chat body, in the OpenAI shape llama-server takes. The pool has no eyes, so images stay behind.
+function toOpenAI(o) {
+  let n = 0; const open = [];
+  const messages = o.messages.map((m) => {
+    if (m.role === "assistant" && m.tool_calls) {
+      const tool_calls = m.tool_calls.map((t) => { const id = "call_" + n++; open.push(id); const a = t.function.arguments; return { id, type: "function", function: { name: t.function.name, arguments: typeof a === "string" ? a : JSON.stringify(a ?? {}) } }; });
+      return { role: "assistant", content: m.content || "", tool_calls };
+    }
+    if (m.role === "tool") return { role: "tool", tool_call_id: open.shift() || "call_" + n++, content: m.content };
+    return { role: m.role, content: m.content };
+  });
+  const out = { model: "pool", messages, stream: true, max_tokens: MAX_REPLY_TOKENS };
+  if (o.tools) out.tools = o.tools;
+  return out;
+}
+
 // ── Checking a chat request ──
 async function cleanChat(b) {
   const model = String(b.model || "");
-  if (!(await models()).some((m) => m.name === model)) throw fail(400, `There's no model called ${model || "(none)"} here.`);
+  if (model === "pool" ? !poolUrl() : !(await models()).some((m) => m.name === model)) throw fail(400, `There's no model called ${model || "(none)"} here.`);
   if (!Array.isArray(b.messages) || !b.messages.length) throw fail(400, "No messages");
   if (b.messages.length > MAX_MESSAGES) throw fail(413, "This chat is too long. Start a new chat.");
   let text = 0, images = 0;
@@ -171,7 +237,8 @@ setInterval(() => {
 }, 60000).unref();
 
 let waiting = 0;
-function startReply(body, id) {
+// `tries` is a list of { kind: "ollama" | "pool", body, note? }: the first that starts answering wins.
+function startReply(tries, id) {
   const r = { lines: [], done: false, stop: new AbortController(), listeners: new Set(), at: Date.now() };
   if (id) {
     REPLIES.set(id, r);
@@ -184,36 +251,88 @@ function startReply(body, id) {
   const finish = () => { r.done = true; r.at = Date.now(); for (const fn of r.listeners) fn(); };
   waiting++;
   r.ready = (async () => {
-    let res;
-    try {
-      res = await fetch(OLLAMA + "/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: r.stop.signal });
-    } catch (e) {
-      waiting--; finish();
-      if (r.stop.signal.aborted) return { status: 499 };
-      return { status: 502, error: "Ollama isn't answering on the laptop" };
-    }
-    if (!res.ok || !res.body) {
-      const j = await res.json().catch(() => ({}));
-      waiting--; finish();
-      return { status: res.status >= 400 && res.status < 500 ? res.status : 502, error: j.error || `Ollama answered ${res.status}` };
-    }
-    // From here the reply streams; pump it into r.lines whether or not anyone is listening.
-    (async () => {
-      const dec = new TextDecoder(); let buf = "";
+    let res, why = "", last = null;
+    for (let i = 0; i < tries.length; i++) {
+      const t = typeof tries[i] === "function" ? await tries[i](why) : tries[i];
+      if (!t) continue;
+      const isPool = t.kind === "pool";
+      // The pool gets POOL_WAIT_MS to start answering (a big prompt on a split model is slow to read).
+      const ac = new AbortController(), onStop = () => ac.abort();
+      r.stop.signal.addEventListener("abort", onStop, { once: true });
+      const timer = isPool ? setTimeout(() => ac.abort(), POOL_WAIT_MS) : null;
       try {
-        for await (const chunk of Readable.fromWeb(res.body)) {
-          buf += dec.decode(chunk, { stream: true });
-          let nl;
-          while ((nl = buf.indexOf("\n")) !== -1) { const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1); if (line) push(line); }
-        }
-        const rest = (buf + dec.decode()).trim(); if (rest) push(rest);
-      } catch {
-        if (!r.stop.signal.aborted) push(JSON.stringify({ error: "The laptop lost the reply partway through." }));
-      } finally { waiting--; finish(); }
-    })();
-    return { status: 200 };
+        res = isPool
+          ? await fetch(t.base + "/v1/chat/completions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(toOpenAI(t.body)), signal: ac.signal })
+          : await fetch(OLLAMA + "/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(t.body), signal: ac.signal });
+      } catch (e) {
+        res = null;
+        if (r.stop.signal.aborted) { waiting--; finish(); return { status: 499 }; }
+        why = isPool ? (ac.signal.aborted ? "took too long to start" : "isn't answering") : "";
+        last = { status: 502, error: isPool ? "The AI Pool isn't answering." : "Ollama isn't answering on the laptop" };
+        continue;
+      } finally { clearTimeout(timer); }
+      if (!res.ok || !res.body) {
+        const j = await res.json().catch(() => ({}));
+        const msg = typeof j.error === "string" ? j.error : j.error?.message || "";
+        why = isPool ? (/context|too long|exceed/i.test(msg) ? "can't fit this chat" : `answered ${res.status}`) : "";
+        last = { status: res.status >= 400 && res.status < 500 ? res.status : 502, error: msg || `${isPool ? "The AI Pool" : "Ollama"} answered ${res.status}` };
+        res = null; continue;
+      }
+      if (t.note) push(JSON.stringify({ note: t.note, model: t.body.model }));
+      // From here the reply streams; pump it into r.lines whether or not anyone is listening.
+      (isPool ? pumpPool : pumpOllama)(res, push, r.stop.signal).finally(() => { r.stop.signal.removeEventListener("abort", onStop); waiting--; finish(); });
+      return { status: 200 };
+    }
+    waiting--; finish();
+    return last || { status: 502, error: "Nothing on the laptop could answer." };
   })();
   return r;
+}
+async function* lines(res) {
+  const dec = new TextDecoder(); let buf = "";
+  for await (const chunk of Readable.fromWeb(res.body)) {
+    buf += dec.decode(chunk, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf("\n")) !== -1) { const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1); if (line) yield line; }
+  }
+  const rest = (buf + dec.decode()).trim(); if (rest) yield rest;
+}
+async function pumpOllama(res, push, stop) {
+  try { for await (const line of lines(res)) push(line); }
+  catch { if (!stop.aborted) push(JSON.stringify({ error: "The laptop lost the reply partway through." })); }
+}
+// llama-server's OpenAI stream ("data: {...}" lines), turned into Ollama's NDJSON so the pages need nothing new.
+async function pumpPool(res, push, stop) {
+  const calls = [];
+  let timings = null, ended = false;
+  const msg = (m) => push(JSON.stringify({ model: "pool", message: { role: "assistant", content: "", ...m }, done: false }));
+  try {
+    for await (const raw of lines(res)) {
+      const line = raw.replace(/^data:\s*/, "");
+      if (!line || line.startsWith(":")) continue;
+      if (line === "[DONE]") break;
+      let c; try { c = JSON.parse(line); } catch { continue; }
+      if (c.error) { push(JSON.stringify({ error: "The AI Pool: " + (c.error.message || c.error) })); ended = true; break; }
+      if (c.timings) timings = c.timings;
+      const d = c.choices?.[0]?.delta || {};
+      if (d.reasoning_content) msg({ thinking: d.reasoning_content });
+      if (d.content) msg({ content: d.content });
+      for (const t of d.tool_calls || []) {
+        const k = t.index ?? calls.length;
+        calls[k] ||= { name: "", args: "" };
+        if (t.function?.name) calls[k].name += t.function.name;
+        if (t.function?.arguments) calls[k].args += t.function.arguments;
+      }
+    }
+  } catch {
+    if (!stop.aborted) { push(JSON.stringify({ error: "The AI Pool lost the reply partway through." })); ended = true; }
+  }
+  if (ended || stop.aborted) return;
+  const tool_calls = calls.filter((t) => t && t.name).map((t) => { let a = {}; try { a = JSON.parse(t.args || "{}"); } catch {} return { function: { name: t.name, arguments: a } }; });
+  if (tool_calls.length) msg({ tool_calls });
+  const done = { model: "pool", message: { role: "assistant", content: "" }, done: true };
+  if (timings?.predicted_n && timings?.predicted_ms) { done.eval_count = timings.predicted_n; done.eval_duration = Math.round(timings.predicted_ms * 1e6); }
+  push(JSON.stringify(done));
 }
 // Sends a reply's lines from `from` on, and keeps following it until it's done or the browser hangs up.
 function follow(r, from, req, res, origin, onHangUp) {
@@ -235,11 +354,27 @@ async function chat(req, res, origin) {
   const id = replyId(req.headers["x-reply-id"]);
   if (id && REPLIES.has(id)) throw fail(409, "That reply id is already in use.");
   if (waiting >= MAX_WAITING) throw fail(503, "The laptop is busy with other people's chats. Try again in a minute.");
-  const r = startReply(body, id);
+  const r = startReply(await plan(body), id);
   const first = await r.ready;
   if (first.status !== 200) { if (id) REPLIES.delete(id); if (first.status === 499) return res.end(); throw fail(first.status, first.error); }
   // With an id the reply carries on if the browser leaves; without one, hanging up stops it.
   await follow(r, 0, req, res, origin, id ? null : () => r.stop.abort());
+}
+// Which backends to try, in order. For the pool: the pool if it's up, then an Ollama model with a note.
+async function plan(body) {
+  if (body.model !== "pool") return [{ kind: "ollama", body }];
+  const p = await pool(true);
+  const images = body.messages.some((m) => m.images?.length);
+  const backup = async (why) => {
+    const name = await poolFallback().catch(() => null);
+    if (!name) return null;
+    const b = { ...body, model: name };
+    if (/^qwen3(?!.*(instruct|coder))/i.test(name)) b.think = false;   // the pool doesn't think out loud, so its stand-in doesn't either
+    return { kind: "ollama", body: b, note: `The AI Pool ${why || "isn't answering"}, so ${name} answered instead.` };
+  };
+  if (!p || p.state !== "up") return [() => backup(p?.state === "loading" ? "is still loading its model" : "is off")];
+  const poolBody = { ...body, messages: body.messages.map(({ images, ...m }) => m) };
+  return [{ kind: "pool", base: p.base, body: poolBody, note: images ? "The AI Pool can't see images, so it only read the text." : "" }, backup];
 }
 async function resume(url, req, res, origin) {
   const r = REPLIES.get(replyId(url.searchParams.get("id")) || "");
@@ -278,7 +413,7 @@ const server = http.createServer(async (req, res) => {
         fetch(OLLAMA + "/api/version", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false),
         fetch(SEARCH + "/health", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false),
       ]);
-      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search }, origin);
+      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search, pool: !!poolUrl() }, origin);
     }
     // Everything past here needs the key.
     if (!KEY_HASH) return send(res, 503, { error: "The laptop's gate has no key set up yet, so it's closed. See the gate's README to add one.", locked: true }, origin);
@@ -289,7 +424,14 @@ const server = http.createServer(async (req, res) => {
       if (req.headers["x-gate-key"]) allowed(badKey, BAD_KEY_PER_IP);
       return send(res, 401, { error: req.headers["x-gate-key"] ? "That laptop key is wrong." : "This laptop is locked. Enter its key on this device.", locked: true }, origin);
     }
-    if (req.method === "GET" && url.pathname === "/api/tags") return send(res, 200, { models: await models() }, origin);
+    if (req.method === "GET" && url.pathname === "/api/tags") {
+      const [list, p] = await Promise.all([models().catch((e) => e), pool()]);
+      if (list instanceof Error && !p) throw list;
+      const out = list instanceof Error ? [] : list.slice();
+      // The pool is listed even when it's off, so a page that picked it keeps it; the gate falls back to Ollama.
+      if (p) out.unshift({ name: "pool", size: 0, details: { parameter_size: p.params }, pool: { state: p.state, label: p.label, file: p.file } });
+      return send(res, 200, { models: out, ollama: !(list instanceof Error) }, origin);
+    }
     if (req.method === "GET" && (url.pathname === "/search" || url.pathname === "/fetch")) {
       if (!allowed("search:" + clientIp(req), SEARCH_PER_IP)) return send(res, 429, { error: "Too many searches. Wait a few minutes." }, origin);
       return await search(url, res, origin);
@@ -310,4 +452,4 @@ const server = http.createServer(async (req, res) => {
 });
 server.requestTimeout = 0;   // long replies stream for minutes
 
-server.listen(PORT, HOST, () => console.log(`Local AI gate on http://${HOST}:${PORT} (Ollama ${OLLAMA}, search ${SEARCH}, allowing ${ORIGINS.join(", ")}, ${KEY_HASH ? "locked with a key" : "NO KEY SET UP: every chat is turned away"})`));
+server.listen(PORT, HOST, () => console.log(`Local AI gate on http://${HOST}:${PORT} (Ollama ${OLLAMA}, search ${SEARCH}, allowing ${ORIGINS.join(", ")}, AI Pool ${poolUrl() || "off"}, ${KEY_HASH ? "locked with a key" : "NO KEY SET UP: every chat is turned away"})`));

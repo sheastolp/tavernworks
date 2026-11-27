@@ -78,7 +78,11 @@
   }
 
   // ---------- talking to the laptop ----------
-  let models = [], online = false, locked = false;
+  let models = [], online = false, locked = false, lastNote = "";
+  // "pool" is the AI Pool (one big model spread over Sheamus's machines). When it's off, the gate has an Ollama model stand in.
+  const labelOf = (m) => !m ? "" : !m.pool ? m.name
+    : `AI Pool · ${m.pool.label}${m.pool.state === "up" ? "" : m.pool.state === "loading" ? " (loading)" : " (off, Ollama stands in)"}`;
+  const modelName = () => labelOf(models.find((m) => m.name === S.model)) || S.model;
   function pickModel(list) {
     const names = list.map((m) => m.name).filter((n) => !/embed|vision|llava|bge|nomic/i.test(n));
     if (S.model && names.includes(S.model)) return S.model;
@@ -109,7 +113,7 @@
       const chosen = pickModel(models);
       if (chosen !== S.model) { S.model = chosen; save("model"); }
       fillModels();
-      if (!busy) R.status(online ? `Ready · ${S.model}` : "The AI laptop has no models installed");
+      if (!busy) R.status(online ? `Ready · ${modelName()}` : "The AI laptop has no models installed");
     } catch (e) {
       online = false;
       if (!busy) R.status("Can't reach the AI laptop right now. It may be asleep; I'll keep trying.");
@@ -140,6 +144,7 @@
     const take = (line) => {
       let c; try { c = JSON.parse(line); } catch { return; }
       if (c.error) throw new Error(String(c.error.message || c.error));
+      if (c.note) lastNote = String(c.note);
       const m = c.message || {};
       if (m.content) { content += m.content; onText(m.content); }
       if (Array.isArray(m.tool_calls)) calls.push(...m.tool_calls.filter((t) => t.function?.name));
@@ -272,7 +277,8 @@
     const ctl = new AbortController(); busy = ctl;
     history.push({ role: "user", content: text, who: opts.who || S.name || "You", at: Date.now() });
     saveHistory(); drawLog();
-    R.thinking(true); R.status("Rosin is thinking…");
+    R.thinking(true); R.status(S.model === "pool" ? "Rosin is thinking (the AI Pool is bigger, so it's slower)…" : "Rosin is thinking…");
+    lastNote = "";
     say.streamDone = false;
     let raw = "", spoken = 0;
     const visible = () => {
@@ -309,7 +315,7 @@
       if (!answer) throw new Error("Rosin went quiet (the model sent back nothing). Try again.");
       history.push({ role: "assistant", content: answer, at: Date.now() });
       saveHistory(); drawLog();
-      R.status(`Ready · ${S.model}`);
+      R.status(lastNote || `Ready · ${modelName()}`);
     } catch (e) {
       R.thinking(false);
       if (e.name === "AbortError") { R.status("Stopped"); }
@@ -488,7 +494,7 @@
   more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field("Model", modelSel), voiceChk, field("Rosin's voice", voiceSel), webChk,
                field("Twitch channel", chanIn), twChk, awakeChk, newBtn);
   function fillModels() {
-    modelSel.replaceChildren(...(models.length ? models : [{ name: "" }]).map((m) => new Option(m.name || "No models (laptop asleep?)", m.name)));
+    modelSel.replaceChildren(...(models.length ? models : [{ name: "" }]).map((m) => new Option(labelOf(m) || "No models (laptop asleep?)", m.name)));
     modelSel.value = S.model;
   }
   function fillVoices() {
@@ -508,7 +514,7 @@
   });
   window.addEventListener("gatekeychange", () => { keyIn.value = window.GateKey?.get() || ""; locked = false; R.status("Checking the key…"); lastCheck = Date.now(); checkLaptop(); });
   nameIn.addEventListener("change", () => { S.name = nameIn.value.trim(); save("name"); });
-  modelSel.addEventListener("change", () => { S.model = modelSel.value; save("model"); R.status(`Ready · ${S.model}`); });
+  modelSel.addEventListener("change", () => { S.model = modelSel.value; save("model"); R.status(`Ready · ${modelName()}`); });
   voiceSel.addEventListener("change", () => { S.voice = voiceSel.value; save("voice"); unlock(); hush(); speakLine("[happy] Hey, it's me. Rosin."); });
   voiceBox.addEventListener("change", () => { S.voiceOn = voiceBox.checked; save("voiceOn"); if (!S.voiceOn) hush(); });
   webBox.addEventListener("change", () => { S.web = webBox.checked; save("web"); });
@@ -516,7 +522,7 @@
   if (!KA?.screenSupported()) awakeChk.hidden = true;
   else KA.screen(S.awake);
   chanIn.addEventListener("change", () => { S.channel = chanIn.value.trim().replace(/^#/, "").toLowerCase(); save("channel"); twitchConnect(); });
-  twBox.addEventListener("change", () => { S.twitchOn = twBox.checked; save("twitchOn"); if (S.twitchOn && !S.channel) chanIn.focus(); twitchConnect(); if (!S.twitchOn) R.status(`Ready · ${S.model}`); });
+  twBox.addEventListener("change", () => { S.twitchOn = twBox.checked; save("twitchOn"); if (S.twitchOn && !S.channel) chanIn.focus(); twitchConnect(); if (!S.twitchOn) R.status(`Ready · ${modelName()}`); });
   newBtn.addEventListener("click", () => { stop(); history = []; saveHistory(); drawLog(); R.subs(""); R.status("New chat. Rosin forgot everything. Mostly."); });
 
   // History tray and its button, next to the faces button.
