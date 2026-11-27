@@ -201,8 +201,10 @@ body.obs #callpill, html.buddy #callpill { display: none !important; }
 @media (prefers-reduced-motion: reduce) { #callpill::before { animation: none; } }
 
 /* the top of ⋯: chat history, faces and blink (kept off the main row) */
-#more .quick { display: flex; gap: 8px; flex: 1 1 100%; }
-#more .quick button { flex: 1 1 0; }
+#more .quick { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 100%; }
+/* each button is as wide as its label and grows to fill the row; one that won't fit starts a new row (never squeezed, so big
+   text on the phone or a long label can't spill out) */
+#more .quick button { flex: 1 0 auto; max-width: 100%; white-space: nowrap; padding-left: 12px; padding-right: 12px; }
 
 /* mood compass (rosin-compass.js): ⋯ → Compass */
 #compass { flex-direction: column; flex-wrap: nowrap; align-items: stretch; max-height: 52vh; overflow-y: auto; overflow-x: hidden;
@@ -258,8 +260,6 @@ html.buddy #compass, body.obs #compass { display: none !important; }
 #changes .chg-diff .del { color: #ff9a8a; background: rgba(160, 50, 40, 0.18); }
 #changes .chg-diff .meta { color: #c9a26b; opacity: 0.8; }
 html.buddy #changes, body.obs #changes, html.buddy #btn-changes, body.obs #btn-changes { display: none !important; }
-#more .quick { flex-wrap: wrap; }
-#more .quick button { min-width: 72px; white-space: nowrap; }
 
 /* photos for Rosin (rosin-eyes.js): 📷 by the chat box, and the photos waiting to go with your next message */
 #controls #pic-btn, #controls #vid-btn { flex: 0 0 auto; padding: 8px 10px; font-size: 20px; }

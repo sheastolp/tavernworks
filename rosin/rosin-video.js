@@ -11,7 +11,7 @@
  * a short video to save or share. Nothing is posted anywhere: saving and sharing only happen on a tap. The
  * player and the clip button are hidden in OBS, and Drive videos are never shown while on air.
  *
- * 🪄 Make a video under ⋯ is the slot for making new videos with AI. The FX705's GTX 1650 can't run a video model, so
+ * 🪄 AI video under ⋯ is the slot for making new videos with AI. The FX705's GTX 1650 can't run a video model, so
  * it waits for the AI Pool split: until the laptop's gate has a video backend (GATE_VIDEO_URL), it says so and does
  * nothing else. Once one is connected, it takes a description and shows the finished video to save.
  */
@@ -349,8 +349,8 @@
 
   // ---------- 🪄 Make a video: AI video, once the AI Pool split has a video backend ----------
   const NEEDS_SPLIT = "Making videos with AI needs the AI Pool split, and it isn't connected yet. Rosin can still watch your videos and show ones it finds.";
-  const makeBtn = el("button", "", "🪄 Make a video"); makeBtn.type = "button"; makeBtn.id = "btn-make-video";
-  makeBtn.setAttribute("aria-label", "Make a video with AI");
+  const makeBtn = el("button", "", "🪄 AI video"); makeBtn.type = "button"; makeBtn.id = "btn-make-video";
+  makeBtn.setAttribute("aria-label", "Make an AI video");
   let making = false;
   async function videoReady() {
     try {
@@ -399,7 +399,7 @@
   H.quick.append(makeBtn);
 
   // What Rosin knows about videos. Fixed per setting, so the laptop's cache still holds.
-  H.extraPrompt?.push(() => H.onAir() ? "" : "To show a video, end your reply with [video: link], with the link exactly as it appeared in this turn's search or Drive results or in what the person said (a Drive file is [video: drive:FILE_ID]). The app plays it in a player, and only if the link really came from there, so never make one up: if you didn't find one, say so. When someone sends you a video, the app hands you frames from it and what's said in it. You can't make new videos with AI yet: that waits for the AI Pool split, and then 🪄 Make a video under ⋯ will do it.");
+  H.extraPrompt?.push(() => H.onAir() ? "" : "To show a video, end your reply with [video: link], with the link exactly as it appeared in this turn's search or Drive results or in what the person said (a Drive file is [video: drive:FILE_ID]). The app plays it in a player, and only if the link really came from there, so never make one up: if you didn't find one, say so. When someone sends you a video, the app hands you frames from it and what's said in it. You can't make new videos with AI yet: that waits for the AI Pool split, and then 🪄 AI video under ⋯ will do it.");
 
   B.video = { check, watch, describe, show, close: closeCard, startClip, stopClip, recording: () => !!rec, ready: videoReady, make };
 })();
