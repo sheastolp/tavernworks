@@ -216,12 +216,12 @@
         </div>
       </div>
     </div>
-    <p class="note" style="margin-top:14px">The <b>browser chat</b> on this site reaches the laptop through the <b>gate</b>, on Tailscale Funnel port 10000. The gate only lets chats, model lists and web searches through, never the rest of Ollama. Ollama itself, Open WebUI (port 8080) and the Claude Code bridge stay on the tailnet.</p>
+    <p class="note" style="margin-top:14px">The <b>browser chat</b> on this site reaches the laptop through the <b>gate</b>, on Tailscale Funnel port 10000. The gate only lets chats, model lists and web searches through, never the rest of Ollama, and only for devices that have the <b>laptop key</b>. The same gate and key serve <a href="/rosin/" style="color:var(--gold2)">Rosin</a>. Ollama itself, Open WebUI (port 8080) and the Claude Code bridge stay on the tailnet.</p>
   </div>
 
   <div class="divider">CHAT FROM THE BROWSER</div>
   <div class="scroll">
-    <p>The <a href="/local-ai/chat/" style="color:var(--gold2)">browser chat</a> is a lightweight, Open WebUI-style client that only talks to the FX705. The page loads from this site, then your browser talks to the laptop's gate directly; chats are kept in your own browser. There's nothing to set up on the visitor's side: no addresses, no Tailscale.</p>
+    <p>The <a href="/local-ai/chat/" style="color:var(--gold2)">browser chat</a> is a lightweight, Open WebUI-style client that only talks to the FX705. The page loads from this site, then your browser talks to the laptop's gate directly; chats are kept in your own browser. It's locked to my own devices with the laptop key; no addresses or Tailscale needed on them. Replies keep going on the laptop if a phone locks or a tab goes to sleep, and the page picks them back up.</p>
     <ol class="steps" style="margin-top:18px">
       <li>
         <h4>Run the web search server</h4>
@@ -235,6 +235,16 @@
         <h4>Put the gate on the funnel</h4>
 <pre>sudo tailscale funnel --bg --https=10000 http://127.0.0.1:8793
 tailscale funnel status</pre>
+      </li>
+      <li>
+        <h4>Make the laptop key and put it on your devices</h4>
+<pre>sudo install -d -m 700 /etc/local-ai-gate
+openssl rand -base64 18 | tr '+/' '-_' | sudo tee /etc/local-ai-gate/key &gt;/dev/null
+sudo chmod 600 /etc/local-ai-gate/key
+sudo mkdir -p /etc/systemd/system/local-ai-gate.service.d
+printf '[Service]\nLoadCredential=gate-key:/etc/local-ai-gate/key\n' | sudo tee /etc/systemd/system/local-ai-gate.service.d/key.conf
+sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart local-ai-gate</pre>
+        <p class="note">Then <code>sudo cat /etc/local-ai-gate/key</code> and paste it into the chat's <b>⚙ Settings → Laptop key</b> (or Rosin's <b>⋯ → Laptop key</b>). For a phone, use ⚙ Settings → Show QR code with "Include the laptop key" ticked on a device that has it. More ways in the gate's README.</p>
         <p class="note">Check from any device, even one off the tailnet: <code>https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:10000/health</code> should say <code>"ollama":true</code>. The chat has this address built in.</p>
       </li>
       <li>

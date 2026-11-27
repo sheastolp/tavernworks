@@ -5,6 +5,9 @@
  * - Picks Rosin's face from the [tags] in each reply, pulses the eye while talking, shows subtitles and a chat history.
  * - Optional: reads a Twitch channel's chat (anonymous, read-only) and answers it with rate limits and spam filters.
  * - Chats and settings stay in this browser (localStorage). Nothing is stored on the laptop.
+ * - The laptop's gate only answers devices with its key (/gate-key.js, shared with the Local AI chat).
+ * - Keeps going with the tab in the background (/keep-awake.js): unthrottled timers, Twitch reconnects and
+ *   heartbeats, a re-check of the laptop as soon as the tab comes back, and the screen kept on while it shows.
  *
  * URL options (on top of rosin.js's): ?channel=stonedsheamus  read that Twitch chat (also in ⋯ > Twitch)
  *                                    ?voice=0                  no voice, subtitles only
@@ -34,8 +37,15 @@
     web: store.get("web", false),
     channel: (q.get("channel") || store.get("channel", "")).replace(/^#/, "").toLowerCase(),
     twitchOn: q.get("channel") ? true : store.get("twitchOn", false),
+    awake: store.get("awake", true),
   };
   const save = (k) => store.set(k, S[k]);
+  const KA = window.KeepAwake;
+  const tick = (ms, fn) => (KA ? KA.ticker(ms, fn) : (setInterval(fn, ms), () => {}));
+  const later = (ms, fn) => { if (KA) return KA.after(ms, fn); const t = setTimeout(fn, ms); return () => clearTimeout(t); };
+  KA?.hold("rosin");      // so Chrome doesn't freeze or discard the tab while Rosin's open
+  const gopts = (o = {}) => (window.GateKey ? window.GateKey.opts(o) : o);
+  const LOCKED_MSG = "Rosin only talks on Sheamus's devices. Enter the laptop key under ⋯.";
   const timeout = (ms) => { if (AbortSignal.timeout) return AbortSignal.timeout(ms); const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; };
   let history = store.get("history", []);
   const saveHistory = () => { history = history.slice(-200); store.set("history", history); };
@@ -68,7 +78,7 @@
   }
 
   // ---------- talking to the laptop ----------
-  let models = [], online = false;
+  let models = [], online = false, locked = false;
   function pickModel(list) {
     const names = list.map((m) => m.name).filter((n) => !/embed|vision|llava|bge|nomic/i.test(n));
     if (S.model && names.includes(S.model)) return S.model;
@@ -78,7 +88,21 @@
   }
   async function checkLaptop() {
     try {
-      const r = await fetch(GATE + "/api/tags", { signal: timeout(8000) });
+      // A gate from before the key and resume update can't take this page's requests: say so plainly.
+      const h = await fetch(GATE + "/health", { signal: timeout(8000), cache: "no-store" }).then((x) => x.json()).catch(() => null);
+      if (h && h.ok && h.locked === undefined) {
+        online = false; models = []; fillModels();
+        if (!busy) R.status("The AI laptop's gate needs its update before Rosin can talk. Steps: tavernworks.dev/local-ai/");
+        return;
+      }
+      const r = await fetch(GATE + "/api/tags", gopts({ signal: timeout(8000) }));
+      locked = r.status === 401 || r.status === 429 || r.status === 503;
+      if (locked) {
+        online = false; models = []; fillModels();
+        const j = await r.json().catch(() => ({}));
+        if (!busy) R.status(r.status === 401 ? (window.GateKey?.get() ? "That laptop key is wrong. Check it under ⋯." : LOCKED_MSG) : (j.error || "The laptop's gate is closed."));
+        return;
+      }
       if (!r.ok) throw new Error("HTTP " + r.status);
       models = (await r.json()).models || [];
       online = models.length > 0;
@@ -93,10 +117,14 @@
   }
   checkLaptop();
   let lastCheck = Date.now();
-  setInterval(() => {   // every 30 s while the laptop is unreachable, every 2 minutes once it answers
-    if (busy || Date.now() - lastCheck < (online ? 120000 : 30000) || document.visibilityState === "hidden") return;
+  tick(5000, () => {   // every 30 s while the laptop is unreachable, every 2 minutes once it answers, tab hidden or not
+    if (busy || locked || Date.now() - lastCheck < (online ? 120000 : 30000)) return;
     lastCheck = Date.now(); checkLaptop();
-  }, 5000);
+  });
+  KA?.onWake(() => {    // back in front, back online or restored: check right away instead of waiting
+    if (!busy && !locked) { lastCheck = Date.now(); checkLaptop(); }
+    if (S.twitchOn && S.channel && (!tw.ws || tw.ws.readyState > 1)) twitchConnect();
+  });
 
   const WEB_TOOLS = [
     { type: "function", function: { name: "web_search", description: "Search the web with DuckDuckGo. Returns titles, links and short snippets of the top results.", parameters: { type: "object", properties: { query: { type: "string", description: "What to search for" } }, required: ["query"] } } },
@@ -107,37 +135,30 @@
   async function streamChat(messages, tools, signal, onText) {
     const body = { model: S.model, messages, stream: true, options: { num_ctx: tools ? 8192 : 4096 } };
     if (tools) body.tools = tools;
-    const res = await fetch(GATE + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal });
-    if (!res.ok || !res.body) {
-      let detail = ""; try { detail = (await res.json()).error || ""; } catch {}
-      throw new Error(detail || "The laptop answered " + res.status);
-    }
-    const reader = res.body.getReader(), dec = new TextDecoder();
-    let buf = "", content = "";
+    let content = "";
     const calls = [];
     const take = (line) => {
-      line = line.trim(); if (!line) return;
       let c; try { c = JSON.parse(line); } catch { return; }
       if (c.error) throw new Error(String(c.error.message || c.error));
       const m = c.message || {};
       if (m.content) { content += m.content; onText(m.content); }
       if (Array.isArray(m.tool_calls)) calls.push(...m.tool_calls.filter((t) => t.function?.name));
     };
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (signal.aborted) { try { reader.cancel(); } catch {} throw new DOMException("Stopped", "AbortError"); }
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      let nl; while ((nl = buf.indexOf("\n")) !== -1) { take(buf.slice(0, nl)); buf = buf.slice(nl + 1); }
+    try {
+      await window.GateKey.stream(GATE, body, { signal, onLine: take });   // picks the reply back up if the connection drops
+    } catch (e) {
+      const m = /^HTTP (\d+)(?:: (.*))?$/s.exec(e.message || "");
+      if (!m) throw e;
+      if (m[1] === "401") { locked = true; online = false; throw new Error(LOCKED_MSG); }
+      throw new Error(m[2] || "The laptop answered " + m[1]);
     }
-    take(buf + dec.decode());
     return { content, calls };
   }
   async function runTool(call, signal) {
     let args = call.function?.arguments || {};
     if (typeof args === "string") { try { args = JSON.parse(args); } catch { args = {}; } }
     const get = async (path) => {
-      const r = await fetch(GATE + path, { signal: AbortSignal.any ? AbortSignal.any([signal, timeout(30000)]) : signal });
+      const r = await fetch(GATE + path, gopts({ signal: AbortSignal.any ? AbortSignal.any([signal, timeout(30000)]) : signal }));
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || "HTTP " + r.status);
       return j;
@@ -218,18 +239,19 @@
     R.subs(item.text);
     R.talking(true);
     const fallbackMs = 600 + item.text.length * 75;
-    if (!S.voiceOn || !SYN || R.MUTE) { setTimeout(nextLine, Math.min(7000, fallbackMs)); return; }
+    if (!S.voiceOn || !SYN || R.MUTE) { say.cancelTimer = later(Math.min(7000, fallbackMs), nextLine); return; }
     const u = new SpeechSynthesisUtterance(item.text);
     const v = chosenVoice(); if (v) { u.voice = v; u.lang = v.lang; }
     u.rate = 1.02; u.pitch = 0.9;
     let finished = false;
-    const done = () => { if (finished) return; finished = true; clearTimeout(guard); nextLine(); };
-    const guard = setTimeout(done, fallbackMs * 2 + 4000);   // some browsers never fire onend
+    const done = () => { if (finished) return; finished = true; cancelGuard(); nextLine(); };
+    const cancelGuard = later(fallbackMs * 2 + 4000, done);   // some browsers never fire onend
     u.onend = done; u.onerror = done;
     u.onboundary = () => R.pulse(1);
     SYN.speak(u);
   }
   function hush() {
+    say.cancelTimer?.(); say.cancelTimer = null;
     say.queue.length = 0; say.onIdle = null; say.streamDone = true;
     if (SYN) SYN.cancel();
     say.playing = false; R.talking(false);
@@ -244,6 +266,7 @@
     if (!text) return false;
     if (busy) { if (opts.fromChat) return false; stop(); }
     if (!online) await checkLaptop();
+    if (locked) { R.status(window.GateKey?.get() ? "That laptop key is wrong. Check it under ⋯." : LOCKED_MSG); return false; }
     if (!online || !S.model) { R.status("Can't reach the AI laptop right now. It may be asleep."); return false; }
     hush();
     const ctl = new AbortController(); busy = ctl;
@@ -348,7 +371,7 @@
   if (!SR) { const m = $("mic"); if (m) m.title = "Talking needs Chrome, Edge or Safari"; }
 
   // ---------- Twitch chat (optional, anonymous and read-only) ----------
-  const tw = { ws: null, pending: [], recent: [], lastUser: new Map(), lastSent: 0, cooldown: 20000, userCooldown: 90000 };
+  const tw = { ws: null, backoff: 2000, lastData: 0, pending: [], recent: [], lastUser: new Map(), lastSent: 0, cooldown: 20000, userCooldown: 90000 };
   const BOTS = new Set(["streamelements", "nightbot", "moobot", "streamlabs", "fossabot", "sery_bot", "soundalerts", "wizebot", "undercoverburn", "guildscribe", "towncrier"]);
   const MENTION = /(^!rosin\b|@?\brosin\b)/i;
   function twitchSkip(login, msg, tags) {
@@ -375,14 +398,16 @@
   function twitchConnect() {
     twitchDisconnect();
     if (!S.twitchOn || !S.channel) return;
-    const ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443"); tw.ws = ws;
+    const ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443"); tw.ws = ws; tw.lastData = Date.now();
     ws.onopen = () => {
+      tw.backoff = 2000;
       ws.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
       ws.send("PASS SCHMOOPIIE"); ws.send("NICK justinfan" + Math.floor(10000 + Math.random() * 89999));
       ws.send("JOIN #" + S.channel);
       R.status(`Reading #${S.channel} chat`);
     };
     ws.onmessage = (ev) => {
+      tw.lastData = Date.now();
       for (const line of String(ev.data).split("\r\n")) {
         if (!line) continue;
         if (line.startsWith("PING")) { ws.send("PONG :tmi.twitch.tv"); continue; }
@@ -414,10 +439,24 @@
         if (cm) { const id = (cm[1].match(/target-msg-id=([^;]+)/) || [])[1]; tw.pending = tw.pending.filter((p) => p.id !== id); }
       }
     };
-    ws.onclose = () => { if (tw.ws === ws) { tw.ws = null; setTimeout(twitchConnect, 5000); } };
+    ws.onclose = () => {      // dropped: try again after 2 s, then 4, 8 … up to a minute
+      if (tw.ws !== ws) return;
+      tw.ws = null;
+      if (!S.twitchOn) return;
+      R.status(`Lost #${S.channel} chat; reconnecting…`);
+      setTimeout(() => { if (!tw.ws && S.twitchOn) twitchConnect(); }, tw.backoff);
+      tw.backoff = Math.min(60000, tw.backoff * 2);
+    };
   }
   function twitchDisconnect() { const ws = tw.ws; tw.ws = null; if (ws) try { ws.close(); } catch {} tw.pending = []; }
-  setInterval(async () => {       // answer one chat line at a time, never while Rosin is busy
+  tick(60000, () => {             // heartbeat: Twitch pings about every 5 minutes; if it goes quiet, poke it, then reconnect
+    const ws = tw.ws;
+    if (!ws || ws.readyState !== 1) return;
+    const quiet = Date.now() - tw.lastData;
+    if (quiet > 7 * 60000) { try { ws.close(); } catch {} ws.onclose?.(); }
+    else if (quiet > 4 * 60000) { try { ws.send("PING :tmi.twitch.tv"); } catch {} }
+  });
+  tick(1000, async () => {        // answer one chat line at a time, never while Rosin is busy
     if (!S.twitchOn || busy || say.playing || rec) return;
     const now = Date.now();
     if (now - tw.lastSent < tw.cooldown) return;
@@ -430,22 +469,24 @@
     await ask(`[Twitch chat] ${best.user}: ${best.text}`, { fromChat: true, who: best.user + " (Twitch)" });
     await whenQuiet();
     tw.lastSent = Date.now();     // the wait starts when Rosin stops talking
-  }, 1000);
+  });
 
   // ---------- settings menu and chat history ----------
   const more = $("more");
   const field = (label, el) => { const w = document.createElement("label"); w.className = "field"; const s = document.createElement("span"); s.textContent = label; w.append(s, el); return w; };
   const check = (label) => { const w = document.createElement("label"); w.className = "chk"; const i = document.createElement("input"); i.type = "checkbox"; w.append(i, " " + label); return [w, i]; };
+  const keyIn = Object.assign(document.createElement("input"), { type: "password", placeholder: "only on Sheamus's devices", value: window.GateKey?.get() || "", autocomplete: "off", spellcheck: false, autocapitalize: "off" });
   const nameIn = Object.assign(document.createElement("input"), { type: "text", placeholder: "so Rosin knows who's talking", value: S.name, maxLength: 40, autocomplete: "nickname" });
   const modelSel = document.createElement("select");
   const voiceSel = document.createElement("select");
   const chanIn = Object.assign(document.createElement("input"), { type: "text", placeholder: "channel name", value: S.channel, maxLength: 25, autocapitalize: "off" });
   const [voiceChk, voiceBox] = check("Voice");
   const [webChk, webBox] = check("Web search");
+  const [awakeChk, awakeBox] = check("Keep screen on");
   const [twChk, twBox] = check("Answer this Twitch chat");
   const newBtn = Object.assign(document.createElement("button"), { type: "button", textContent: "New chat" });
-  more.prepend(field("Your name", nameIn), field("Model", modelSel), voiceChk, field("Rosin's voice", voiceSel), webChk,
-               field("Twitch channel", chanIn), twChk, newBtn);
+  more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field("Model", modelSel), voiceChk, field("Rosin's voice", voiceSel), webChk,
+               field("Twitch channel", chanIn), twChk, awakeChk, newBtn);
   function fillModels() {
     modelSel.replaceChildren(...(models.length ? models : [{ name: "" }]).map((m) => new Option(m.name || "No models (laptop asleep?)", m.name)));
     modelSel.value = S.model;
@@ -455,16 +496,25 @@
     voiceSel.value = voices.some((v) => v.name === S.voice) ? S.voice : "";
     voiceSel.closest(".field").hidden = !SYN || !voices.length;
   }
-  function syncSettings() { voiceBox.checked = S.voiceOn; webBox.checked = S.web; twBox.checked = S.twitchOn; }
+  function syncSettings() { voiceBox.checked = S.voiceOn; webBox.checked = S.web; twBox.checked = S.twitchOn; awakeBox.checked = S.awake; }
   menuReady = true;
   if (SYN) { loadVoices(); SYN.addEventListener?.("voiceschanged", loadVoices); }
   fillModels(); fillVoices(); syncSettings();
   if (!SYN) voiceChk.hidden = true;
+  keyIn.addEventListener("change", () => {
+    const k = keyIn.value.trim();
+    if (k && !window.GateKey?.valid(k)) { R.status("That doesn't look like a laptop key."); return; }
+    window.GateKey?.set(k);
+  });
+  window.addEventListener("gatekeychange", () => { keyIn.value = window.GateKey?.get() || ""; locked = false; R.status("Checking the key…"); lastCheck = Date.now(); checkLaptop(); });
   nameIn.addEventListener("change", () => { S.name = nameIn.value.trim(); save("name"); });
   modelSel.addEventListener("change", () => { S.model = modelSel.value; save("model"); R.status(`Ready · ${S.model}`); });
   voiceSel.addEventListener("change", () => { S.voice = voiceSel.value; save("voice"); unlock(); hush(); speakLine("[happy] Hey, it's me. Rosin."); });
   voiceBox.addEventListener("change", () => { S.voiceOn = voiceBox.checked; save("voiceOn"); if (!S.voiceOn) hush(); });
   webBox.addEventListener("change", () => { S.web = webBox.checked; save("web"); });
+  awakeBox.addEventListener("change", () => { S.awake = awakeBox.checked; save("awake"); KA?.screen(S.awake); });
+  if (!KA?.screenSupported()) awakeChk.hidden = true;
+  else KA.screen(S.awake);
   chanIn.addEventListener("change", () => { S.channel = chanIn.value.trim().replace(/^#/, "").toLowerCase(); save("channel"); twitchConnect(); });
   twBox.addEventListener("change", () => { S.twitchOn = twBox.checked; save("twitchOn"); if (S.twitchOn && !S.channel) chanIn.focus(); twitchConnect(); if (!S.twitchOn) R.status(`Ready · ${S.model}`); });
   newBtn.addEventListener("click", () => { stop(); history = []; saveHistory(); drawLog(); R.subs(""); R.status("New chat. Rosin forgot everything. Mostly."); });

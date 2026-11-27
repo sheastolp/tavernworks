@@ -11,12 +11,22 @@
 //   POST /api/chat        { model, messages, tools?, options? }  ->  Ollama's NDJSON stream
 //   GET  /search?q=…&n=5  passed to the web search server
 //   GET  /fetch?url=…     passed to the web search server
+//   GET  /api/reply?id=…&from=N   the rest of a reply the browser lost hold of
+//   POST /api/stop?id=…           stop that reply
+//
+// Everything but /health needs the laptop's key in an X-Gate-Key header, so
+// only Sheamus's own devices can use it. The key is read at start from the
+// systemd credential "gate-key" (see README.md), or GATE_KEY_FILE, or GATE_KEY.
+// With no key set up, the gate turns every chat away.
 //
 //   node server.mjs       run the gate (default port 8793)
 //
 // No dependencies, Node 18 or newer. See README.md for the full setup.
 
 import http from "node:http";
+import { createHash, timingSafeEqual } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { Readable } from "node:stream";
 
 const PORT = Number(process.env.GATE_PORT || 8793);
@@ -35,6 +45,21 @@ const MAX_IMAGE = 8 * 1024 * 1024;    // characters of base64 per image
 const MAX_CTX = Number(process.env.GATE_MAX_CTX || 32768);
 const MAX_REPLY_TOKENS = 4096;
 const MAX_WAITING = 4;                // the GPU writes one reply at a time; past this many, say busy
+// The key. Never logged or sent anywhere; only compared.
+function loadKey() {
+  const files = [process.env.CREDENTIALS_DIRECTORY && join(process.env.CREDENTIALS_DIRECTORY, "gate-key"), process.env.GATE_KEY_FILE].filter(Boolean);
+  for (const f of files) { try { const k = readFileSync(f, "utf8").trim(); if (k) return k; } catch {} }
+  return String(process.env.GATE_KEY || "").trim();
+}
+const KEY = loadKey();
+const KEY_HASH = KEY ? createHash("sha256").update(KEY).digest() : null;
+function keyOk(req) {
+  const given = String(req.headers["x-gate-key"] || "").trim();
+  if (!KEY_HASH || !given) return false;
+  return timingSafeEqual(createHash("sha256").update(given).digest(), KEY_HASH);
+}
+const BAD_KEY_PER_IP = { n: 20, ms: 10 * 60 * 1000 };
+
 const CHAT_PER_IP = { n: 60, ms: 10 * 60 * 1000 };
 const CHAT_ALL = { n: 400, ms: 10 * 60 * 1000 };
 const SEARCH_PER_IP = { n: 120, ms: 10 * 60 * 1000 };
@@ -62,7 +87,7 @@ function clientIp(req) {
   return fwd || req.socket.remoteAddress || "?";
 }
 function cors(origin) {
-  return origin ? { "access-control-allow-origin": origin, "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "content-type", "access-control-max-age": "600" } : {};
+  return origin ? { "access-control-allow-origin": origin, "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "content-type, x-gate-key, x-reply-id", "access-control-max-age": "600" } : {};
 }
 function send(res, status, body, origin) {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", vary: "Origin", ...cors(origin) });
@@ -131,34 +156,100 @@ async function cleanChat(b) {
 }
 
 // ── Chatting ──
+// A chat that sends an X-Reply-Id keeps going on the laptop even if the browser
+// drops off (a phone locking, a tab being put to sleep, Wi-Fi blinking). Every
+// line of the reply is kept here for 10 minutes after it ends, and
+// GET /api/reply?id=…&from=N sends the rest from line N, then follows it live.
+// POST /api/stop?id=… stops it. Without an id, hanging up stops the reply, as before.
+const REPLIES = new Map();          // id -> { lines, done, stop, listeners, at }
+const KEEP_REPLY_MS = 10 * 60 * 1000;
+const MAX_REPLIES = 50;
+const replyId = (v) => (/^[A-Za-z0-9_-]{8,64}$/.test(String(v || "")) ? String(v) : null);
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, r] of REPLIES) if (r.done && now - r.at > KEEP_REPLY_MS) REPLIES.delete(id);
+}, 60000).unref();
+
 let waiting = 0;
+function startReply(body, id) {
+  const r = { lines: [], done: false, stop: new AbortController(), listeners: new Set(), at: Date.now() };
+  if (id) {
+    REPLIES.set(id, r);
+    while (REPLIES.size > MAX_REPLIES) {
+      const old = [...REPLIES].find(([, x]) => x.done) || REPLIES.entries().next().value;
+      REPLIES.delete(old[0]);
+    }
+  }
+  const push = (line) => { r.lines.push(line); for (const fn of r.listeners) fn(); };
+  const finish = () => { r.done = true; r.at = Date.now(); for (const fn of r.listeners) fn(); };
+  waiting++;
+  r.ready = (async () => {
+    let res;
+    try {
+      res = await fetch(OLLAMA + "/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: r.stop.signal });
+    } catch (e) {
+      waiting--; finish();
+      if (r.stop.signal.aborted) return { status: 499 };
+      return { status: 502, error: "Ollama isn't answering on the laptop" };
+    }
+    if (!res.ok || !res.body) {
+      const j = await res.json().catch(() => ({}));
+      waiting--; finish();
+      return { status: res.status >= 400 && res.status < 500 ? res.status : 502, error: j.error || `Ollama answered ${res.status}` };
+    }
+    // From here the reply streams; pump it into r.lines whether or not anyone is listening.
+    (async () => {
+      const dec = new TextDecoder(); let buf = "";
+      try {
+        for await (const chunk of Readable.fromWeb(res.body)) {
+          buf += dec.decode(chunk, { stream: true });
+          let nl;
+          while ((nl = buf.indexOf("\n")) !== -1) { const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1); if (line) push(line); }
+        }
+        const rest = (buf + dec.decode()).trim(); if (rest) push(rest);
+      } catch {
+        if (!r.stop.signal.aborted) push(JSON.stringify({ error: "The laptop lost the reply partway through." }));
+      } finally { waiting--; finish(); }
+    })();
+    return { status: 200 };
+  })();
+  return r;
+}
+// Sends a reply's lines from `from` on, and keeps following it until it's done or the browser hangs up.
+function follow(r, from, req, res, origin, onHangUp) {
+  res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-accel-buffering": "no", vary: "Origin", ...cors(origin) });
+  let sent = Math.max(0, Math.min(from, r.lines.length));
+  return new Promise((done) => {
+    const pump = () => {
+      while (sent < r.lines.length) res.write(r.lines[sent++] + "\n");
+      if (r.done) { cleanup(); res.end(); done(); }
+    };
+    const cleanup = () => r.listeners.delete(pump);
+    res.on("close", () => { cleanup(); if (!r.done && onHangUp) onHangUp(); done(); });
+    r.listeners.add(pump);
+    pump();
+  });
+}
 async function chat(req, res, origin) {
   const body = await cleanChat(await readJson(req));
+  const id = replyId(req.headers["x-reply-id"]);
+  if (id && REPLIES.has(id)) throw fail(409, "That reply id is already in use.");
   if (waiting >= MAX_WAITING) throw fail(503, "The laptop is busy with other people's chats. Try again in a minute.");
-  waiting++;
-  const stop = new AbortController();
-  res.on("close", () => stop.abort());   // the browser hung up or pressed stop
-  try {
-    let r;
-    try {
-      r = await fetch(OLLAMA + "/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: stop.signal });
-    } catch (e) {
-      if (stop.signal.aborted) return;
-      throw fail(502, "Ollama isn't answering on the laptop");
-    }
-    if (!r.ok || !r.body) {
-      const j = await r.json().catch(() => ({}));
-      throw fail(r.status >= 400 && r.status < 500 ? r.status : 502, j.error || `Ollama answered ${r.status}`);
-    }
-    res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-accel-buffering": "no", vary: "Origin", ...cors(origin) });
-    await new Promise((done) => {
-      const s = Readable.fromWeb(r.body);
-      s.on("error", () => { res.end(); done(); });
-      s.on("end", done);
-      res.on("close", done);
-      s.pipe(res);
-    });
-  } finally { waiting--; }
+  const r = startReply(body, id);
+  const first = await r.ready;
+  if (first.status !== 200) { if (id) REPLIES.delete(id); if (first.status === 499) return res.end(); throw fail(first.status, first.error); }
+  // With an id the reply carries on if the browser leaves; without one, hanging up stops it.
+  await follow(r, 0, req, res, origin, id ? null : () => r.stop.abort());
+}
+async function resume(url, req, res, origin) {
+  const r = REPLIES.get(replyId(url.searchParams.get("id")) || "");
+  if (!r) throw fail(404, "The laptop doesn't have that reply any more.");
+  await follow(r, Number(url.searchParams.get("from")) || 0, req, res, origin, null);
+}
+function stopReply(url, res, origin) {
+  const r = REPLIES.get(replyId(url.searchParams.get("id")) || "");
+  if (r && !r.done) r.stop.abort();
+  return send(res, 200, { ok: true, stopped: !!r }, origin);
 }
 
 // ── Web search ──
@@ -187,13 +278,24 @@ const server = http.createServer(async (req, res) => {
         fetch(OLLAMA + "/api/version", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false),
         fetch(SEARCH + "/health", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false),
       ]);
-      return send(res, 200, { ok: true, gate: "Local AI", ollama, search }, origin);
+      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search }, origin);
+    }
+    // Everything past here needs the key.
+    if (!KEY_HASH) return send(res, 503, { error: "The laptop's gate has no key set up yet, so it's closed. See the gate's README to add one.", locked: true }, origin);
+    const badKey = "badkey:" + clientIp(req);
+    const recentBad = (hits.get(badKey) || []).filter((t) => Date.now() - t < BAD_KEY_PER_IP.ms).length;
+    if (recentBad >= BAD_KEY_PER_IP.n) return send(res, 429, { error: "Too many wrong keys from here. Wait ten minutes.", locked: true }, origin);
+    if (!keyOk(req)) {
+      if (req.headers["x-gate-key"]) allowed(badKey, BAD_KEY_PER_IP);
+      return send(res, 401, { error: req.headers["x-gate-key"] ? "That laptop key is wrong." : "This laptop is locked. Enter its key on this device.", locked: true }, origin);
     }
     if (req.method === "GET" && url.pathname === "/api/tags") return send(res, 200, { models: await models() }, origin);
     if (req.method === "GET" && (url.pathname === "/search" || url.pathname === "/fetch")) {
       if (!allowed("search:" + clientIp(req), SEARCH_PER_IP)) return send(res, 429, { error: "Too many searches. Wait a few minutes." }, origin);
       return await search(url, res, origin);
     }
+    if (req.method === "GET" && url.pathname === "/api/reply") return await resume(url, req, res, origin);
+    if (req.method === "POST" && url.pathname === "/api/stop") return stopReply(url, res, origin);
     if (req.method === "POST" && url.pathname === "/api/chat") {
       if (!allowed("chat:" + clientIp(req), CHAT_PER_IP)) return send(res, 429, { error: "You're going fast. Wait a few minutes, then try again." }, origin);
       if (!allowed("all", CHAT_ALL)) return send(res, 429, { error: "The laptop has had a busy night. Try again in a few minutes." }, origin);
@@ -208,4 +310,4 @@ const server = http.createServer(async (req, res) => {
 });
 server.requestTimeout = 0;   // long replies stream for minutes
 
-server.listen(PORT, HOST, () => console.log(`Local AI gate on http://${HOST}:${PORT} (Ollama ${OLLAMA}, search ${SEARCH}, allowing ${ORIGINS.join(", ")})`));
+server.listen(PORT, HOST, () => console.log(`Local AI gate on http://${HOST}:${PORT} (Ollama ${OLLAMA}, search ${SEARCH}, allowing ${ORIGINS.join(", ")}, ${KEY_HASH ? "locked with a key" : "NO KEY SET UP: every chat is turned away"})`));

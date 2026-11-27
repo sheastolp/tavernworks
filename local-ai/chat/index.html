@@ -221,7 +221,14 @@
 <dialog id="settings">
   <form method="dialog" id="settingsForm">
     <h2>Settings</h2>
-    <p>The chat always talks to the FX705 laptop, through its public gate. There's nothing to connect. Saved in this browser only.</p>
+    <p>The chat always talks to the FX705 laptop, through its gate. Saved in this browser only.</p>
+    <fieldset class="cc">
+      <legend>Laptop key <small>(the gate only answers devices that have it; the same key unlocks <a href="/rosin/">Rosin</a>)</small></legend>
+      <label>Key <small>On the laptop: <code>sudo cat /etc/local-ai-gate/key</code>. Or open a key link or setup link from a device that has it.</small>
+        <input id="gateKey" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="paste or type the key">
+      </label>
+      <label class="check"><input type="checkbox" id="showKey"><span>Show the key</span></label>
+    </fieldset>
     <fieldset class="cc">
       <legend>Claude Code <small>(for the laptop's owner only; needs this device on Sheamus's tailnet; setup in the bridge's <a href="https://github.com/sheastolp/tavernworks/tree/main/local-ai/claude-bridge" target="_blank" rel="noopener">README</a>)</small></legend>
       <label>Bridge token <small>On the laptop: <code>sudo -u claude-bridge node /opt/claude-bridge/server.mjs token</code>. Leave it empty if you're not Sheamus.</small>
@@ -234,6 +241,7 @@
     <fieldset class="cc">
       <legend>Use on another device</legend>
       <p class="small">Makes a setup link with these settings. Open it on your phone or another PC and the chat there is set up the same way. The settings ride after the <code>#</code> in the link, which browsers never send to tavernworks.dev.</p>
+      <label class="check"><input type="checkbox" id="shareKey" checked><span>Include the laptop key <small>Anyone with the link could chat with the laptop and talk to Rosin. Share it only with your own devices.</small></span></label>
       <label class="check"><input type="checkbox" id="shareToken" checked><span>Include the Claude Code token <small>Anyone with the link and access to the tailnet could use Claude Code. Share it only with your own devices.</small></span></label>
       <div class="row left">
         <button type="button" id="copyLink">Copy setup link</button>
@@ -254,6 +262,8 @@
   </form>
 </dialog>
 
+<script src="/gate-key.js"></script>
+<script src="/keep-awake.js"></script>
 <script src="/voice-input.js"></script>
 <script>
 (function () {
@@ -270,6 +280,9 @@
   // the tailnet, for the laptop's owner, and is only used with a token.
   const LAPTOP = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net";
   const GATE = LAPTOP + ":10000", BRIDGE = LAPTOP + ":8445";
+  // The laptop key (see /gate-key.js). keyTry lets Test connection try a key before it's saved.
+  let keyTry = null;
+  const gopts = (o = {}) => { const k = keyTry ?? window.GateKey?.get() ?? ""; return k ? { ...o, headers: { ...(o.headers || {}), "X-Gate-Key": k } } : o; };
   const withAddresses = (s) => Object.assign(s, { api: GATE, search: GATE, bridge: s.bridgeToken ? BRIDGE : "" });
   const saved0 = store.get(SETTINGS_KEY, {});
   let settings = withAddresses({ system: typeof saved0.system === "string" ? saved0.system : "", bridgeToken: typeof saved0.bridgeToken === "string" ? saved0.bridgeToken : "" });
@@ -532,12 +545,15 @@
   const GARBLED = "⚠ The model only sent question marks, which means it misfired on the laptop. Resend; if it keeps happening, restart Ollama there (`sudo systemctl restart ollama`) or pick a smaller model.";
   async function diagnose(err) {
     if (err && /^HTTP 403/.test(err.message)) return "The laptop's gate doesn't allow this website.";
+    if (err && /^HTTP 401/.test(err.message)) return /wrong/i.test(err.message) ? "That laptop key is wrong. Check it in ⚙ Settings." : "The laptop is locked to Sheamus's devices. Enter the laptop key in ⚙ Settings.";
     if (err && /^HTTP \d+: /.test(err.message)) return err.message.replace(/^HTTP \d+: /, "");
     if (err && /^HTTP \d/.test(err.message)) return `The laptop answered with an error (${err.message}).`;
+    const h = await fetch(GATE + "/health", { cache: "no-store", signal: AbortSignal.timeout(6000) }).then((r) => r.json()).catch(() => null);
+    if (h && h.ok && h.locked === undefined) return "The laptop's gate needs its update (the laptop key and picking replies back up). Steps: tavernworks.dev/local-ai/.";
     return "Can't reach the laptop. It may be asleep or off; try again in a while. (If you use a browser VPN, like Opera's, try turning it off.)";
   }
   async function loadModels(base) {
-    const res = await fetch(base + "/api/tags", { signal: AbortSignal.timeout(8000) });
+    const res = await fetch(base + "/api/tags", gopts({ signal: AbortSignal.timeout(8000) }));
     if (!res.ok) { let d = ""; try { d = (await res.json()).error || ""; } catch {} throw new Error(`HTTP ${res.status}${d ? ": " + d : ""}`); }
     const data = await res.json();
     return (data.models || []).map((m) => ({ name: m.name, size: m.size, params: m.details?.parameter_size }));
@@ -574,7 +590,8 @@
     if ([...sel.options].some((o) => o.value === saved && o.value)) sel.value = saved;
     if (ollama.status === "rejected" && ollama.reason) { lastError = ollama.reason; console.warn(ollama.reason); }
     const parts = [];
-    parts.push(ollama.status === "fulfilled" ? `${models.length} model${models.length === 1 ? "" : "s"}` : "Laptop offline");
+    const lockedOut = ollama.status === "rejected" && /^HTTP (401|429)/.test(ollama.reason?.message || "");
+    parts.push(ollama.status === "fulfilled" ? `${models.length} model${models.length === 1 ? "" : "s"}` : lockedOut ? "Laptop locked: enter the key in ⚙ Settings" : "Laptop offline");
     if (settings.bridge) parts.push(bridgeOk ? "Claude Code ✓" : "Claude Code offline");
     const anyOk = models.length > 0 || bridgeOk;
     setStatus(anyOk ? "ok" : "bad", (anyOk ? "Connected · " : "") + parts.join(" · "));
@@ -646,6 +663,7 @@
 
     busy = new AbortController();
     setSending(true);
+    window.KeepAwake?.screen(true);   // don't let the screen sleep (and the phone pause the tab) mid-reply
     const started = performance.now();
     try {
       if (isCC(reply.model)) { await streamClaude(c, reply, el, started); return; }
@@ -703,6 +721,7 @@
       }
     } finally {
       busy = null;
+      window.KeepAwake?.screen(false);
       setSending(false);
       fillMessage(el, reply, false);
       save();
@@ -715,21 +734,10 @@
     const body = { model: reply.model, messages, stream: true };
     if (tools) body.tools = tools;
     Object.assign(body, ctxOptions(messages, tools ? 8192 : 0));
-    const res = await fetch(settings.api + "/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: busy.signal,
-    });
-    if (!res.ok || !res.body) {
-      let detail = "";
-      try { detail = (await res.json()).error || ""; } catch {}
-      throw new Error(`HTTP ${res.status}${detail ? ": " + detail : ""}`);
-    }
-    const reader = res.body.getReader();
-    const dec = new TextDecoder();
+    // GateKey.stream picks the reply back up if the connection drops (phone locked, tab asleep):
+    // the laptop keeps writing it meanwhile. Each line is drawn as it comes, tab in front or not.
     const from = reply.content.length, calls = [];
-    let buf = "", last = null;
+    let last = null, drawn = 0;
     // One line of the stream. Ollama sends NDJSON; also accept a single
     // non-streamed JSON body and OpenAI-style "data: {...}" lines, so a
     // proxy in between can't leave the reply blank.
@@ -747,19 +755,15 @@
       if (Array.isArray(msg.tool_calls)) calls.push(...msg.tool_calls.filter((t) => t.function?.name));
       if (chunk.done) last = chunk;
     };
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      let nl;
-      while ((nl = buf.indexOf("\n")) !== -1) {
-        take(buf.slice(0, nl));
-        buf = buf.slice(nl + 1);
-      }
-      fillMessage(el, reply, true);
-      scrollDown();
-    }
-    take(buf + dec.decode());
+    await window.GateKey.stream(settings.api, body, {
+      signal: busy.signal,
+      onLine: (line) => {
+        take(line);
+        const now = Date.now();
+        if (now - drawn > 60) { drawn = now; fillMessage(el, reply, true); scrollDown(); }   // a redraw per ~60 ms, not per word
+      },
+    });
+    fillMessage(el, reply, true);
     return { content: reply.content.slice(from), calls, last };
   }
 
@@ -778,7 +782,7 @@
   }
   async function searchApi(path) {
     const signal = AbortSignal.any ? AbortSignal.any([busy.signal, AbortSignal.timeout(30000)]) : busy.signal;
-    const res = await fetch(settings.search + path, { signal });
+    const res = await fetch(settings.search + path, gopts({ signal }));
     let data = {};
     try { data = await res.json(); } catch {}
     if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
@@ -1241,6 +1245,7 @@
   // ── Settings dialog ──
   function openSettings() {
     $("system").value = settings.system; $("bridgeToken").value = settings.bridgeToken;
+    $("gateKey").value = window.GateKey?.get() || ""; $("gateKey").type = "password"; $("showKey").checked = false;
     $("testResult").textContent = "";
     $("settings").showModal();
     closeMenu();
@@ -1251,6 +1256,7 @@
     out.textContent = "Testing…"; out.style.color = "";
     const lines = [];
     let good = true;
+    keyTry = $("gateKey").value.trim();
     try {
       const models = await loadModels(GATE);
       lines.push(`✔ The laptop: ${models.length} model${models.length === 1 ? "" : "s"}${models.length ? " (" + models.map((m) => m.name).join(", ") + ")" : ""}`);
@@ -1258,6 +1264,7 @@
       if (h.search) lines.push("✔ Web search: ready");
       else { good = false; lines.push("✘ Web search: the laptop's search server isn't answering"); }
     } catch (e) { good = false; lines.push("✘ The laptop: " + await diagnose(e)); }
+    keyTry = null;
     if (token) {
       const saved = settings; settings = withAddresses(Object.assign({}, settings, { bridgeToken: token }));
       try {
@@ -1274,8 +1281,10 @@
     if (e.submitter?.value !== "save") return;
     settings = formSettings();
     store.set(SETTINGS_KEY, { system: settings.system, bridgeToken: settings.bridgeToken });
+    window.GateKey?.set($("gateKey").value);
     showWeb(); connect(); renderThread();
   });
+  $("showKey").addEventListener("change", () => { $("gateKey").type = $("showKey").checked ? "text" : "password"; });
 
   // ── Wiring ──
   function autosize() { const t = $("input"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }
@@ -1326,6 +1335,8 @@
     const f = formSettings();
     const data = { v: 1, system: f.system, model: $("model").value || store.get(MODEL_KEY, "") };
     if ($("shareToken").checked && f.bridgeToken) data.token = f.bridgeToken;
+    const key = $("gateKey").value.trim() || window.GateKey?.get() || "";
+    if ($("shareKey").checked && key) data.key = key;
     for (const k of Object.keys(data)) if (data[k] === "" || data[k] == null) delete data[k];
     return location.origin + location.pathname + "#setup=" + b64e(JSON.stringify(data));
   }
@@ -1335,17 +1346,18 @@
     if (!m) throw new Error("That isn't a setup link.");
     const d = JSON.parse(b64d(m[1]));
     if (!d || d.v !== 1) throw new Error("That setup link is from a different version.");
-    return { bridgeToken: typeof d.token === "string" ? d.token : "", system: typeof d.system === "string" ? d.system : "", model: typeof d.model === "string" ? d.model : "" };
+    return { gateKey: typeof d.key === "string" ? d.key : "", bridgeToken: typeof d.token === "string" ? d.token : "", system: typeof d.system === "string" ? d.system : "", model: typeof d.model === "string" ? d.model : "" };
   }
   function applySetup(d) {
     settings = withAddresses({ system: d.system, bridgeToken: d.bridgeToken || settings.bridgeToken || "" });
     store.set(SETTINGS_KEY, { system: settings.system, bridgeToken: settings.bridgeToken });
     if (d.model) store.set(MODEL_KEY, d.model);
+    if (d.gateKey && window.GateKey?.valid(d.gateKey)) window.GateKey.set(d.gateKey);
     showWeb(); connect(); renderThread();
   }
   function confirmSetup(d) {
     return confirm("Set up this chat with these settings?\n\n" +
-      `System prompt: ${d.system ? d.system.slice(0, 80) + (d.system.length > 80 ? "…" : "") : "(none)"}\nModel: ${d.model || "(not set)"}\nClaude Code token: ${d.bridgeToken ? "included" : "(none)"}\n\n` +
+      `System prompt: ${d.system ? d.system.slice(0, 80) + (d.system.length > 80 ? "…" : "") : "(none)"}\nModel: ${d.model || "(not set)"}\nLaptop key: ${d.gateKey ? "included" : "(none)"}\nClaude Code token: ${d.bridgeToken ? "included" : "(none)"}\n\n` +
       "Only accept a link you made yourself.");
   }
   const flash = (btn, text) => { const old = btn.textContent; btn.textContent = text; setTimeout(() => (btn.textContent = old), 1800); };
@@ -1378,6 +1390,7 @@
       if (!confirmSetup(d)) return;
       applySetup(d);
       $("system").value = settings.system; $("bridgeToken").value = settings.bridgeToken; $("importLink").value = "";
+      $("gateKey").value = window.GateKey?.get() || "";
       $("testResult").textContent = "✔ Settings imported. Hit Test connection to check them.";
       $("testResult").style.color = "var(--green)";
     } catch (e) {
@@ -1400,6 +1413,10 @@
   renderThread();
   if (new URLSearchParams(location.search).has("settings")) openSettings();
   connect();
+  // Keep the tab from being frozen, and reconnect as soon as it's back in front or back online.
+  window.KeepAwake?.hold("local-ai-chat");
+  window.KeepAwake?.onWake(() => { if (!busy && !$("dot").classList.contains("ok")) connect(); });
+  window.addEventListener("gatekeychange", () => { if (!busy) connect(); });
 })();
 </script>
 </body>

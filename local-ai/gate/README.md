@@ -1,9 +1,9 @@
 # Local AI gate
 
-Lets the [browser chat](https://tavernworks.dev/local-ai/chat/) reach the
-FX705 from any device, through Tailscale Funnel. Visitors don't need
-Tailscale, and there's nothing to set up in the chat: it always talks to this
-gate.
+Lets the [browser chat](https://tavernworks.dev/local-ai/chat/) and
+[Rosin](https://tavernworks.dev/rosin/) reach the FX705 from any device,
+through Tailscale Funnel. The devices don't need Tailscale, but they do need
+**the laptop key**: the gate only answers browsers that have it (step 4).
 
 The funnel points at this small server, not at Ollama itself. Anyone can
 reach a funnel address, and Ollama's own API can also download, copy and
@@ -16,6 +16,13 @@ delete models. This server only lets the chat through:
 - `GET /search` and `GET /fetch` go to the [web search server](../web-search/)
   on the laptop, so 🌐 works too.
 - `GET /health` tells the chat whether Ollama and search are up.
+- Everything except `/health` needs the laptop key, sent as an `X-Gate-Key`
+  header. With no key set up, the gate turns every chat away. 20 wrong keys
+  from one address lock that address out for 10 minutes.
+- Replies keep going on the laptop if the browser drops off (a phone locking,
+  a tab put to sleep). The page picks the reply back up with
+  `GET /api/reply?id=…&from=N` once it's back; `POST /api/stop?id=…` stops one.
+  Replies are kept in memory for 10 minutes after they end.
 - Only tavernworks.dev is allowed in from a browser. Each address gets 60
   replies per 10 minutes (400 for everyone together) and 120 searches; at
   most 4 replies wait for the GPU at once.
@@ -46,6 +53,7 @@ Wants=network-online.target
 [Service]
 ExecStart=/usr/bin/node /opt/local-ai-gate/server.mjs
 DynamicUser=yes
+LoadCredential=gate-key:/etc/local-ai-gate/key
 Restart=on-failure
 
 [Install]
@@ -58,8 +66,9 @@ systemctl enable --now local-ai-gate
 curl http://127.0.0.1:8793/health
 ```
 
-It should say `"ollama":true`, and `"search":true` if the web search server
-is running. It listens on `127.0.0.1:8793` only.
+It should say `"ollama":true`, `"keySet":true` (after step 4), and
+`"search":true` if the web search server is running. It listens on
+`127.0.0.1:8793` only.
 
 ## 3. Put it on the funnel
 
@@ -80,6 +89,45 @@ curl https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:10000/health
 The chat has that address built in (`LAPTOP` near the top of its script). If
 the laptop's name ever changes, update it there.
 
+## 4. The laptop key
+
+Make the key once. It's a random 24-character password that only lives in this
+file and in the browsers you put it in:
+
+```sh
+install -d -m 700 /etc/local-ai-gate
+openssl rand -base64 18 | tr '+/' '-_' > /etc/local-ai-gate/key
+chmod 600 /etc/local-ai-gate/key
+```
+
+If the service was set up before the key existed, add the credential line to it
+with a drop-in, then restart:
+
+```sh
+mkdir -p /etc/systemd/system/local-ai-gate.service.d
+printf '[Service]\nLoadCredential=gate-key:/etc/local-ai-gate/key\n' > /etc/systemd/system/local-ai-gate.service.d/key.conf
+systemctl daemon-reload
+systemctl restart local-ai-gate
+curl -s http://127.0.0.1:8793/health      # "keySet":true
+```
+
+Put the key on a device, one of these ways (one device per browser; the chat
+and Rosin share it):
+
+- **Type it:** `cat /etc/local-ai-gate/key` shows it. Paste it into the chat's
+  ⚙ Settings, Laptop key, or Rosin's ⋯ menu, Laptop key.
+- **Key link:** `echo "https://tavernworks.dev/rosin/#key=$(cat /etc/local-ai-gate/key)"`
+  and open that link on the device. The key rides after the `#`, which
+  browsers never send to tavernworks.dev; the page asks first, saves it, and
+  clears it from the address bar.
+- **Phone, by QR code:** on a device that already has the key, open the chat's
+  ⚙ Settings, tick "Include the laptop key", then Show QR code, and scan it
+  with the phone.
+
+To change the key (say a device is lost): run the `openssl` line again,
+`systemctl restart local-ai-gate`, and put the new key on your devices.
+Anyone with the key can chat with the laptop, so keep it to your own devices.
+
 ## Settings
 
 Environment variables, set with `Environment=` in the service file:
@@ -90,6 +138,7 @@ Environment variables, set with `Environment=` in the service file:
 | `GATE_MAX_CTX` | `32768` | Largest context window a chat may ask for |
 | `GATE_PORT` | `8793` | Port to listen on |
 | `GATE_HOST` | `127.0.0.1` | Address to listen on |
+| `GATE_KEY_FILE` | (none) | Read the key from this file instead of the systemd credential |
 | `GATE_ORIGINS` | `https://tavernworks.dev` | Websites allowed to use it, comma-separated |
 | `OLLAMA_URL` | `http://127.0.0.1:11434` | Where Ollama is |
 | `SEARCH_URL` | `http://127.0.0.1:8791` | Where the web search server is |
@@ -104,4 +153,6 @@ and the gate talks to Ollama on the laptop itself.
 - **Big models are slow for everyone.** The GPU writes one reply at a time.
   `GATE_MODELS` keeps the list to the ones that run well.
 - **Updating:** run step 1's `curl` again, then `systemctl restart local-ai-gate`.
+  The pages need this version of the gate: an older gate makes them say it
+  "needs its update".
 - Logs: `journalctl -u local-ai-gate`.
