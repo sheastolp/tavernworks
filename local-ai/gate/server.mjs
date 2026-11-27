@@ -190,6 +190,10 @@ function toOpenAI(o) {
     return { role: m.role, content: m.content };
   });
   const out = { model: "pool", messages, stream: true, max_tokens: MAX_REPLY_TOKENS };
+  const opt = o.options || {};
+  if (opt.temperature !== undefined) out.temperature = opt.temperature;
+  if (opt.repeat_penalty !== undefined) out.repeat_penalty = opt.repeat_penalty;   // llama-server takes it as is
+  if (opt.stop) out.stop = opt.stop;
   if (o.tools) out.tools = o.tools;
   return out;
 }
@@ -225,6 +229,15 @@ async function cleanChat(b) {
   const numCtx = Math.round(Number(b.options?.num_ctx) || 0);
   const options = { num_predict: MAX_REPLY_TOKENS };
   if (numCtx) options.num_ctx = Math.min(Math.max(numCtx, 2048), MAX_CTX);
+  // A few sampling settings the pages may set, kept within sane bounds.
+  const num = (v, lo, hi) => (Number.isFinite(+v) && v !== null && v !== "" ? Math.min(hi, Math.max(lo, +v)) : undefined);
+  const temperature = num(b.options?.temperature, 0, 1.5), repeat = num(b.options?.repeat_penalty, 1, 1.5);
+  if (temperature !== undefined) options.temperature = temperature;
+  if (repeat !== undefined) options.repeat_penalty = repeat;
+  if (Array.isArray(b.options?.stop)) {
+    const stop = b.options.stop.filter((x) => typeof x === "string" && x && x.length <= 40).slice(0, 6);
+    if (stop.length) options.stop = stop;
+  }
   const out = { model, messages, stream: true, keep_alive: "30m", options };
   // Qwen3 thinks out loud by default and can spend the whole turn on it, which reads as no answer at all.
   if (/^qwen3(?!.*(instruct|coder))/i.test(model)) out.think = false;
