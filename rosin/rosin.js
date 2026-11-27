@@ -475,8 +475,8 @@
       gr.addColorStop(0, inner); gr.addColorStop(0.45, outer); gr.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return c;
     };
-    const DEEP = puff("rgba(150, 28, 14, 0.55)", "rgba(96, 16, 10, 0.22)");
-    const LIT = puff("rgba(235, 92, 34, 0.42)", "rgba(150, 34, 14, 0.16)");
+    const DEEP = puff("rgba(190, 46, 22, 0.8)", "rgba(120, 22, 12, 0.35)");
+    const LIT = puff("rgba(255, 120, 52, 0.65)", "rgba(170, 40, 16, 0.25)");
     let W = 0, H = 0;
     function size() {
       W = Math.ceil(innerWidth * SCALE); H = Math.ceil(innerHeight * SCALE);
@@ -493,7 +493,7 @@
       const a = Math.PI * (0.05 + Math.random() * 0.9), rr = o.r * (front ? 0.95 + Math.random() * 0.35 : 0.85 + Math.random() * 0.45);
       const dir = Math.random() < 0.5 ? 1 : -1;
       l.parts.push({ a, rr, dir, rise: 0, life: 0, max: (front ? 5 : 7) + Math.random() * 5,
-                     s: o.r * (front ? 0.22 : 0.32) * (0.7 + Math.random() * 0.6), spin: (Math.random() - 0.5) * 0.6,
+                     s: o.r * (front ? 0.28 : 0.4) * (0.7 + Math.random() * 0.6), spin: (Math.random() - 0.5) * 0.6,
                      lit: Math.random() < (front ? 0.35 : 0.2), seed: Math.random() * 100 });
     }
     let last = performance.now(), acc = 0;
@@ -518,10 +518,10 @@
           const wob = Math.sin(t * 0.7 + p.seed) * o.r * 0.06 + Math.sin(t * 1.9 + p.seed * 2) * o.r * 0.025;
           const x = o.x + Math.cos(p.a) * p.rr + wob + (isFront ? Math.sin(t * 0.3) * o.r * 0.04 : 0);
           const y = o.y + Math.sin(p.a) * p.rr * 0.8 - p.rise;
-          const fade = Math.min(1, k * 4) * (1 - k) * (1 - k);
+          const fade = Math.min(1, k * 4) * (1 - k);
           const sz = p.s * (0.7 + k * 1.4);
           g.save();
-          g.globalAlpha = fade * (isFront ? 0.5 : 0.85);
+          g.globalAlpha = fade * (isFront ? 0.6 : 1);
           g.translate(x, y); g.rotate(p.a + p.spin * p.life + Math.PI / 2);
           g.scale(1.7, 0.75);   // stretched along the way it's moving: wisps, not balls
           g.drawImage(p.lit ? LIT : DEEP, -sz, -sz, sz * 2, sz * 2);
