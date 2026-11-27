@@ -37,7 +37,9 @@
     // Picks saved before Nov 27 (Ollama's Qwen3 4B) give way once to the AI Pool, Sheamus's llama.cpp Qwen2.5 14B.
     model: store.get("modelv", 0) >= 2 ? store.get("model", "") : "",
     voiceOn: q.get("voice") === "0" ? false : store.get("voiceOn", !R.MUTE),
-    voice: store.get("voice", ""),
+    voice: store.get("voice", ""),           // "" automatic, a device voice's name, or "laptop:<kokoro voice>"
+    rate: store.get("rate", 1.02),            // speaking speed, 0.6 to 1.6
+    pitch: store.get("pitch", 0.9),           // device voices only (the laptop's voices keep their own pitch)
     web: store.get("web", false),
     channel: (q.get("channel") || store.get("channel", "")).replace(/^#/, "").toLowerCase(),
     twitchOn: q.get("channel") ? true : store.get("twitchOn", false),
@@ -192,6 +194,7 @@
       if (chosen !== S.model) { S.model = chosen; save("model"); }
       if (chosen === "pool") store.set("modelv", 2);
       fillModels();
+      if (online) loadLaptopVoices();
       if (!busy) R.status(online ? `Ready · ${modelName()}` : "The AI laptop has no models installed");
     } catch (e) {
       online = false;
@@ -288,7 +291,9 @@
   let voices = [];
   function loadVoices() {
     if (!SYN) return;
-    voices = SYN.getVoices().filter((v) => /^en/i.test(v.lang));
+    // Every voice this device offers, English ones first (the others still work, with an accent).
+    const all = SYN.getVoices().slice(), en = (v) => /^en/i.test(v.lang);
+    voices = [...all.filter(en), ...all.filter((v) => !en(v))];
     if (menuReady) fillVoices();
   }
   let menuReady = false;
@@ -296,9 +301,39 @@
     if (!voices.length) return null;
     const byName = voices.find((v) => v.name === S.voice);
     if (byName) return byName;
+    const en = voices.filter((v) => /^en/i.test(v.lang)), pool = en.length ? en : voices;
     const prefs = [/Guy|Ryan|Brian|Andrew|Christopher/i, /UK English Male/i, /Daniel|Arthur|Aaron|Alex|Fred/i, /Google US English/i];
-    for (const re of prefs) { const v = voices.find((x) => re.test(x.name)); if (v) return v; }
-    return voices[0];
+    for (const re of prefs) { const v = pool.find((x) => re.test(x.name)); if (v) return v; }
+    return pool[0];
+  }
+
+  // The laptop's natural voices: Kokoro, through the gate (/api/speak), if it's set up there. Much nicer than most
+  // device voices. Each sentence is fetched as soon as it's written, so the next one is ready when the last one ends.
+  let laptopVoices = { ready: false, voices: [] };
+  const KOKORO_KIND = { am: "US, male", af: "US, female", bm: "UK, male", bf: "UK, female" };
+  const kokoroLabel = (v) => `${v.slice(3, 4).toUpperCase()}${v.slice(4)} (${KOKORO_KIND[v.slice(0, 2)] || "laptop"})`;
+  let clipDownUntil = 0;   // after a failed line, use this device's voice for a minute instead of waiting on the laptop each time
+  const laptopVoice = () => S.voice.startsWith("laptop:") && laptopVoices.ready && Date.now() > clipDownUntil ? S.voice.slice(7) : "";
+  async function loadLaptopVoices() {
+    try {
+      const r = await fetch(GATE + "/api/voices", gopts({ signal: timeout(8000), cache: "no-store" }));
+      const j = r.ok ? await r.json() : {};
+      laptopVoices = { ready: !!j.ready, voices: Array.isArray(j.voices) ? j.voices.filter((v) => /^[ab][fm]_[a-z]+$/.test(v)) : [] };
+    } catch { laptopVoices = { ready: false, voices: [] }; }
+    if (menuReady) fillVoices();
+  }
+  let clipWarnedAt = 0;
+  async function fetchClip(text, voice) {
+    try {
+      const r = await fetch(GATE + "/api/speak", gopts({ method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voice, speed: S.rate }), signal: timeout(25000) }));
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || "HTTP " + r.status); }
+      return await R.audio().decodeAudioData(await r.arrayBuffer());
+    } catch (e) {
+      clipDownUntil = Date.now() + 60000;
+      if (Date.now() - clipWarnedAt > 60000) { clipWarnedAt = Date.now(); R.status("The laptop's voice didn't answer, so Rosin used this device's voice for now."); }
+      return null;
+    }
   }
   let unlocked = false;
   function unlock() {          // phones only let a page talk after a tap; a silent line on the first tap opens it up
@@ -323,12 +358,15 @@
     return text.replace(/\[[^\]]*\]/g, " ").replace(/<[^>]+>/g, " ").replace(/https?:\/\/\S+/g, "a link")
       .replace(/[*_#`~>|]+/g, "").replace(/\s+/g, " ").trim();
   }
-  const say = { queue: [], playing: false, streamDone: true, onIdle: null };
+  const say = { queue: [], playing: false, streamDone: true, onIdle: null, gen: 0, src: null };
   function speakLine(raw) {
     const face = [...raw.matchAll(TAG_RE)].map((m) => m[1].toLowerCase()).find((t) => KNOWN.includes(t));
     const text = forSpeech(raw);
     if (!text && !face) return;
-    say.queue.push({ text, face });
+    const item = { text, face };
+    const lv = text && S.voiceOn && !R.MUTE ? laptopVoice() : "";
+    if (lv) item.clip = fetchClip(text, lv);   // start fetching now, while earlier lines are still playing
+    say.queue.push(item);
     if (!say.playing) nextLine();
   }
   function nextLine() {
@@ -345,11 +383,29 @@
     if (!item.text) { nextLine(); return; }
     R.subs(item.text);
     R.talking(true);
-    const fallbackMs = 600 + item.text.length * 75;
+    const fallbackMs = (600 + item.text.length * 75) / Math.max(0.5, S.rate);
+    if (item.clip && S.voiceOn && !R.MUTE) { playClip(item, fallbackMs); return; }
+    speakDevice(item, fallbackMs);
+  }
+  // A line in the laptop's voice; if that fails, this device's voice says it instead.
+  async function playClip(item, fallbackMs) {
+    const gen = say.gen, buf = await item.clip;
+    if (gen !== say.gen) return;   // hushed while it was on its way
+    if (!buf) { speakDevice(item, fallbackMs); return; }
+    const ctx = R.audio(), src = ctx.createBufferSource();
+    src.buffer = buf; src.connect(ctx.destination); say.src = src;
+    let finished = false;
+    const beat = tick(160, () => R.pulse(0.5 + Math.random() * 0.5));   // the eye flickers while it talks
+    const done = () => { if (finished) return; finished = true; beat(); cancelGuard(); if (say.src === src) say.src = null; if (gen === say.gen) nextLine(); };
+    const cancelGuard = later(buf.duration * 1000 + 3000, done);
+    src.onended = done;
+    try { src.start(); } catch { done(); }
+  }
+  function speakDevice(item, fallbackMs) {
     if (!S.voiceOn || !SYN || R.MUTE) { say.cancelTimer = later(Math.min(7000, fallbackMs), nextLine); return; }
     const u = new SpeechSynthesisUtterance(item.text);
     const v = chosenVoice(); if (v) { u.voice = v; u.lang = v.lang; }
-    u.rate = 1.02; u.pitch = 0.9;
+    u.rate = S.rate; u.pitch = S.pitch;
     let finished = false;
     const done = () => { if (finished) return; finished = true; cancelGuard(); nextLine(); };
     const cancelGuard = later(fallbackMs * 2 + 4000, done);   // some browsers never fire onend
@@ -359,6 +415,7 @@
   }
   function hush() {
     say.cancelTimer?.(); say.cancelTimer = null;
+    say.gen++; const src = say.src; say.src = null; try { src?.stop(); } catch {}
     say.queue.length = 0; say.onIdle = null; say.streamDone = true;
     if (SYN) SYN.cancel();
     say.playing = false; R.talking(false);
@@ -786,6 +843,10 @@
   const devIn = Object.assign(document.createElement("input"), { type: "text", placeholder: "e.g. Legion Go 2, my phone", value: S.deviceName, maxLength: 30, autocomplete: "off" });
   const modelSel = document.createElement("select");
   const voiceSel = document.createElement("select");
+  const slider = (min, max, step, val) => Object.assign(document.createElement("input"), { type: "range", min, max, step, value: val });
+  const rateIn = slider(0.6, 1.6, 0.05, S.rate), pitchIn = slider(0.5, 1.5, 0.05, S.pitch);
+  const testBtn = Object.assign(document.createElement("button"), { type: "button", textContent: "Test voice" });
+  const voiceNote = Object.assign(document.createElement("p"), { className: "voice-note" });
   const sttSel = document.createElement("select");
   sttSel.append(new Option("Automatic", "auto"), new Option("This browser (words show as you talk)", "browser"), new Option("The laptop's Whisper", "laptop"));
   const chanIn = Object.assign(document.createElement("input"), { type: "text", placeholder: "channel name", value: S.channel, maxLength: 25, autocapitalize: "off" });
@@ -797,17 +858,41 @@
   const paceSel = document.createElement("select");
   paceSel.append(new Option("Often (every 1 to 3 min of quiet)", "often"), new Option("Sometimes (2 to 6 min)", "sometimes"), new Option("Rarely (8 to 20 min)", "rarely"));
   const newBtn = Object.assign(document.createElement("button"), { type: "button", textContent: "New chat" });
-  more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field(`This device (seen as ${deviceInfo().label})`, devIn), field("Model", modelSel), voiceChk, field("Rosin's voice", voiceSel), field("Speech to text", sttSel), webChk,
+  more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field(`This device (seen as ${deviceInfo().label})`, devIn), field("Model", modelSel), voiceChk, field("Rosin's voice", voiceSel), voiceNote,
+               field("Speed", rateIn), field("Pitch", pitchIn), testBtn, field("Speech to text", sttSel), webChk,
                chatChk, field("How often", paceSel),
                field("Twitch channel", chanIn), twChk, awakeChk, newBtn);
   function fillModels() {
     modelSel.replaceChildren(...(models.length ? models : [{ name: "" }]).map((m) => new Option(labelOf(m) || "No models (laptop asleep?)", m.name)));
     modelSel.value = S.model;
   }
+  function showSliders() {
+    rateIn.closest(".field").firstChild.textContent = `Speed ${S.rate.toFixed(2)}×`;
+    pitchIn.closest(".field").firstChild.textContent = `Pitch ${S.pitch.toFixed(2)}`;
+    rateIn.setAttribute("aria-valuetext", S.rate.toFixed(2) + " times"); pitchIn.setAttribute("aria-valuetext", S.pitch.toFixed(2));
+  }
   function fillVoices() {
-    voiceSel.replaceChildren(new Option("Automatic", ""), ...voices.map((v) => new Option(`${v.name} (${v.lang})`, v.name)));
-    voiceSel.value = voices.some((v) => v.name === S.voice) ? S.voice : "";
-    voiceSel.closest(".field").hidden = !SYN || !voices.length;
+    const group = (label, opts) => { const g = document.createElement("optgroup"); g.label = label; g.append(...opts); return g; };
+    const parts = [new Option("Automatic (best on this device)", "")];
+    if (laptopVoices.ready && laptopVoices.voices.length)
+      parts.push(group("Natural voices from the laptop", laptopVoices.voices.map((v) => new Option(kokoroLabel(v), "laptop:" + v))));
+    const en = voices.filter((v) => /^en/i.test(v.lang)), other = voices.filter((v) => !/^en/i.test(v.lang));
+    const opt = (v) => new Option(`${v.name} (${v.lang})${v.localService === false ? " · online" : ""}`, v.name);
+    if (en.length) parts.push(group("This device: English", en.map(opt)));
+    if (other.length) parts.push(group("This device: other languages", other.map(opt)));
+    voiceSel.replaceChildren(...parts);
+    const has = [...voiceSel.options].some((o) => o.value === S.voice);
+    voiceSel.value = has ? S.voice : "";
+    const any = voices.length || laptopVoices.ready;
+    voiceSel.closest(".field").hidden = !any;
+    rateIn.closest(".field").hidden = testBtn.hidden = !any;
+    const wantsLaptop = S.voice.startsWith("laptop:");
+    pitchIn.closest(".field").hidden = !any || !!laptopVoice();   // the laptop's voices keep their own pitch
+    showSliders();
+    voiceNote.textContent = wantsLaptop && !laptopVoices.ready
+      ? "The laptop's natural voices aren't answering, so this device's voice stands in."
+      : !laptopVoices.ready && online ? "Want a better voice? The laptop can add natural ones: steps at tavernworks.dev/local-ai/#voices" : "";
+    voiceNote.hidden = !voiceNote.textContent;
   }
   function syncSettings() { voiceBox.checked = S.voiceOn; webBox.checked = S.web; twBox.checked = S.twitchOn; awakeBox.checked = S.awake; chatBox.checked = S.chatter; paceSel.value = S.chatterPace; paceSel.closest(".field").hidden = !S.chatter; }
   menuReady = true;
@@ -829,7 +914,13 @@
     else R.status(`Ready · ${modelName()}`);
   });
   modelSel.addEventListener("change", () => { S.model = modelSel.value; save("model"); store.set("modelv", 2); R.status(`Ready · ${modelName()}`); });
-  voiceSel.addEventListener("change", () => { S.voice = voiceSel.value; save("voice"); unlock(); hush(); speakLine("[happy] Hey, it's me. Rosin."); });
+  const testLine = () => { unlock(); hush(); speakLine("[happy] Hey, it's me, Rosin. How do I sound?"); };
+  voiceSel.addEventListener("change", () => { S.voice = voiceSel.value; save("voice"); fillVoices(); testLine(); });
+  rateIn.addEventListener("input", () => { S.rate = Number(rateIn.value); showSliders(); });
+  pitchIn.addEventListener("input", () => { S.pitch = Number(pitchIn.value); showSliders(); });
+  rateIn.addEventListener("change", () => { save("rate"); testLine(); });
+  pitchIn.addEventListener("change", () => { save("pitch"); testLine(); });
+  testBtn.addEventListener("click", testLine);
   voiceBox.addEventListener("change", () => { S.voiceOn = voiceBox.checked; save("voiceOn"); if (!S.voiceOn) hush(); });
   webBox.addEventListener("change", () => { S.web = webBox.checked; save("web"); });
   awakeBox.addEventListener("change", () => { S.awake = awakeBox.checked; save("awake"); KA?.screen(S.awake); });

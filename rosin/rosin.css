@@ -171,3 +171,7 @@ body.lite #glow-back { filter: blur(8px); }
 #log .empty { opacity: 0.6; font-size: 14px; }
 #log a { color: #ffb36b; }
 #subs.listening { opacity: 0.7; font-style: italic; }
+
+/* voice settings: sliders and the note under the voice picker */
+.tray input[type="range"] { width: 100%; min-height: 32px; accent-color: #d0602a; touch-action: pan-y; }
+.tray .voice-note { flex: 1 1 100%; margin: -2px 0 2px; font-size: 13px; opacity: 0.8; }

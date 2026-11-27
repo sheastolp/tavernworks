@@ -15,7 +15,11 @@ delete models. This server only lets the chat through:
   the chat asks for tools, the model only gets the two web tools.
 - `GET /search` and `GET /fetch` go to the [web search server](../web-search/)
   on the laptop, so 🌐 works too.
-- `GET /health` tells the chat whether Ollama and search are up.
+- `GET /health` tells the chat whether Ollama, search, Whisper and the voices are up.
+- `GET /api/voices` and `POST /api/speak` give Rosin natural voices: Kokoro,
+  in the same speaches server as Whisper (`TTS_URL`, `TTS_MODEL`). Text is
+  capped at 1,000 characters a request, and only Kokoro's English voices are
+  allowed. Setup: tavernworks.dev/local-ai/#voices
 - Everything except `/health` needs the laptop key, sent as an `X-Gate-Key`
   header. With no key set up, the gate turns every chat away. 20 wrong keys
   from one address lock that address out for 10 minutes.
@@ -144,6 +148,8 @@ Environment variables, set with `Environment=` in the service file:
 | `WHISPER_URL` | `http://127.0.0.1:8000` | The laptop's Whisper server (speaches), for `POST /api/transcribe` |
 | `WHISPER_MODEL` | `Systran/faster-distil-whisper-small.en` | Which Whisper model it uses |
 | `WHISPER_LANGUAGE` | `en` | The language it listens for |
+| `TTS_URL` | same as `WHISPER_URL` | The speaches server that speaks Rosin's natural voices, for `POST /api/speak` |
+| `TTS_MODEL` | `speaches-ai/Kokoro-82M-v1.0-ONNX` | The voice model downloaded into it |
 | `GATE_ORIGINS` | `https://tavernworks.dev` | Websites allowed to use it, comma-separated |
 | `OLLAMA_URL` | `http://127.0.0.1:11434` | Where Ollama is |
 | `SEARCH_URL` | `http://127.0.0.1:8791` | Where the web search server is |

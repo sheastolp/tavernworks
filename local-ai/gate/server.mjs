@@ -13,6 +13,8 @@
 //                         into the same NDJSON; if the pool is off or fails, an Ollama model answers
 //                         instead and the stream starts with a { note } line saying so
 //   POST /api/transcribe  audio (webm, ogg, mp4, wav)  ->  { text }, from the Whisper server (speaches)
+//   GET  /api/voices      the laptop's natural voices (Kokoro, through speaches), and whether they're ready
+//   POST /api/speak       { text, voice, speed }  ->  mp3 of Rosin saying it, from the same speaches server
 //   GET  /search?q=…&n=5  passed to the web search server
 //   GET  /fetch?url=…     passed to the web search server
 //   GET  /api/reply?id=…&from=N   the rest of a reply the browser lost hold of
@@ -44,6 +46,15 @@ const WHISPER = (process.env.WHISPER_URL || "http://127.0.0.1:8000").replace(/\/
 const WHISPER_MODEL = process.env.WHISPER_MODEL || "Systran/faster-distil-whisper-small.en";
 const WHISPER_LANGUAGE = process.env.WHISPER_LANGUAGE || "en";
 const MAX_AUDIO = 12 * 1024 * 1024;   // about 10 minutes of phone audio
+// Text to speech for Rosin's natural voices: the same speaches server, with the Kokoro model downloaded into it.
+const TTS = (process.env.TTS_URL || WHISPER).replace(/\/+$/, "").replace(/\/v1$/, "");
+const TTS_MODEL = process.env.TTS_MODEL || "speaches-ai/Kokoro-82M-v1.0-ONNX";
+// Kokoro's English voices (a = American, b = British; f = female, m = male).
+const TTS_VOICES = ["am_michael", "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam", "am_onyx", "am_puck", "am_santa",
+  "bm_george", "bm_lewis", "bm_daniel", "bm_fable",
+  "af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky", "af_nova", "af_river", "af_alloy", "af_aoede", "af_jessica", "af_kore",
+  "bf_emma", "bf_isabella", "bf_alice", "bf_lily"];
+const MAX_SPEAK_CHARS = 1000;
 const ORIGINS = (process.env.GATE_ORIGINS || "https://tavernworks.dev").split(",").map((s) => s.trim()).filter(Boolean);
 // Only these models, if set (comma-separated). Otherwise every installed model.
 const ONLY = (process.env.GATE_MODELS || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -81,6 +92,7 @@ const CHAT_PER_IP = { n: 60, ms: 10 * 60 * 1000 };
 const CHAT_ALL = { n: 400, ms: 10 * 60 * 1000 };
 const SEARCH_PER_IP = { n: 120, ms: 10 * 60 * 1000 };
 const HEAR_PER_IP = { n: 120, ms: 10 * 60 * 1000 };
+const SPEAK_PER_IP = { n: 600, ms: 10 * 60 * 1000 };   // one request per sentence Rosin says
 
 // The chat's two web tools. Whatever tools a request asks for, the model
 // only ever gets these.
@@ -431,6 +443,36 @@ async function transcribe(req, res, origin) {
   return send(res, 200, { text: String(j.text || "").trim() }, origin);
 }
 
+// ── Text to speech ──
+let ttsCache = { at: 0, ok: false };
+async function ttsReady() {
+  if (Date.now() - ttsCache.at < 60000) return ttsCache.ok;
+  const j = await fetch(TTS + "/v1/models", { signal: AbortSignal.timeout(4000) }).then((r) => (r.ok ? r.json() : null), () => null);
+  const ok = !!j && Array.isArray(j.data) && j.data.some((m) => m && m.id === TTS_MODEL);
+  ttsCache = { at: Date.now(), ok };
+  return ok;
+}
+async function speak(req, res, origin) {
+  const b = await readJson(req);
+  const text = String(b.text || "").replace(/\s+/g, " ").trim().slice(0, MAX_SPEAK_CHARS);
+  if (!text) throw fail(400, "Nothing to say.");
+  const voice = TTS_VOICES.includes(b.voice) ? b.voice : TTS_VOICES[0];
+  const speed = Math.min(2, Math.max(0.5, Number(b.speed) || 1));
+  const r = await fetch(TTS + "/v1/audio/speech", {
+    method: "POST", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(60000),
+    body: JSON.stringify({ model: TTS_MODEL, voice, input: text, response_format: "mp3", speed }),
+  }).catch(() => null);
+  if (!r) { ttsCache.at = 0; throw fail(502, "The laptop's voice server isn't answering. Its setup is on tavernworks.dev/local-ai/#voices."); }
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    ttsCache.at = 0;
+    throw fail(502, "The laptop's voice server said: " + String(j.detail || j.error?.message || j.error || r.status).slice(0, 200));
+  }
+  const audio = Buffer.from(await r.arrayBuffer());
+  res.writeHead(200, { "content-type": "audio/mpeg", "content-length": audio.length, "cache-control": "no-store", vary: "Origin", ...cors(origin) });
+  res.end(audio);
+}
+
 // ── Web search ──
 async function search(url, res, origin) {
   const q = new URLSearchParams();
@@ -458,7 +500,8 @@ const server = http.createServer(async (req, res) => {
         fetch(SEARCH + "/health", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false),
         fetch(WHISPER + "/health", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false),
       ]);
-      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search, whisper, pool: !!poolUrl() }, origin);
+      const voices = await ttsReady();
+      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search, whisper, voices, pool: !!poolUrl() }, origin);
     }
     // Everything past here needs the key.
     if (!KEY_HASH) return send(res, 503, { error: "The laptop's gate has no key set up yet, so it's closed. See the gate's README to add one.", locked: true }, origin);
@@ -485,6 +528,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/transcribe") {
       if (!allowed("hear:" + clientIp(req), HEAR_PER_IP)) return send(res, 429, { error: "Too much talking at once. Wait a few minutes." }, origin);
       return await transcribe(req, res, origin);
+    }
+    if (req.method === "GET" && url.pathname === "/api/voices") return send(res, 200, { ready: await ttsReady(), model: TTS_MODEL, voices: TTS_VOICES }, origin);
+    if (req.method === "POST" && url.pathname === "/api/speak") {
+      if (!allowed("speak:" + clientIp(req), SPEAK_PER_IP)) return send(res, 429, { error: "Rosin's been talking a lot. Wait a few minutes." }, origin);
+      return await speak(req, res, origin);
     }
     if (req.method === "POST" && url.pathname === "/api/stop") return stopReply(url, res, origin);
     if (req.method === "POST" && url.pathname === "/api/chat") {

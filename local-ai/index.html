@@ -247,6 +247,22 @@ sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart local-ai-gate</pr
         <p class="note">Then <code>sudo cat /etc/local-ai-gate/key</code> and paste it into the chat's <b>⚙ Settings → Laptop key</b> (or Rosin's <b>⋯ → Laptop key</b>). For a phone, use ⚙ Settings → Show QR code with "Include the laptop key" ticked on a device that has it. More ways in the gate's README.</p>
         <p class="note">Check from any device, even one off the tailnet: <code>https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net:10000/health</code> should say <code>"ollama":true</code>. The chat has this address built in.</p>
       </li>
+      <li id="voices">
+        <h4>Optional: natural voices for Rosin</h4>
+        <p>Rosin can talk with Kokoro, a free neural voice that runs on the laptop's CPU, instead of the device's built-in voice. It runs inside speaches (the same server as Rosin's Whisper), and the gate passes it through with the laptop key. Run these one at a time as root. First, see whether speaches is already running:</p>
+<pre>curl -s http://127.0.0.1:8000/health</pre>
+        <p>If nothing answers, start it:</p>
+<pre>docker run --detach --restart unless-stopped --publish 127.0.0.1:8000:8000 --name speaches --volume hf-hub-cache:/home/ubuntu/.cache/huggingface/hub ghcr.io/speaches-ai/speaches:latest-cpu</pre>
+        <p>Download the Kokoro voice model into it (about 350 MB):</p>
+<pre>curl -X POST "http://127.0.0.1:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX"</pre>
+        <p>Check it can talk (it should print a file size, not 0):</p>
+<pre>curl -s -X POST http://127.0.0.1:8000/v1/audio/speech -H "content-type: application/json" -d '{"model":"speaches-ai/Kokoro-82M-v1.0-ONNX","voice":"am_michael","input":"Hey, it is Rosin."}' -o /tmp/rosin.mp3 &amp;&amp; ls -l /tmp/rosin.mp3</pre>
+        <p>Update the gate so it passes voices through, then restart it:</p>
+<pre>curl -fsSL https://tavernworks.dev/local-ai/gate/server.mjs -o /opt/local-ai-gate/server.mjs</pre>
+<pre>systemctl restart local-ai-gate</pre>
+<pre>curl -s http://127.0.0.1:8793/health</pre>
+        <p class="note">That last one should say <code>"voices":true</code>. Then in Rosin, open <b>⋯ → Rosin's voice</b> and pick one under <b>Natural voices from the laptop</b>. Each device keeps its own pick, speed and pitch.</p>
+      </li>
       <li>
         <h4>Optional: Claude Code, for me only</h4>
         <p>The Claude Code bridge adds Claude Code to the chat's model list. It runs Claude Code on my Claude account as its own <code>claude-bridge</code> user, in a work folder on the laptop, and only answers requests carrying its token. It can run commands, so it stays on the tailnet and never goes through the gate. Setup in its <a href="https://github.com/sheastolp/tavernworks/tree/main/local-ai/claude-bridge" target="_blank" rel="noopener" style="color:var(--gold2)">README</a>; then paste the token into the chat's <b>⚙ Settings</b> on a device that's on the tailnet:</p>
