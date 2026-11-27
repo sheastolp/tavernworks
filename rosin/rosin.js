@@ -412,7 +412,7 @@
 
   // ---------- what a brain script (rosin-web.js) can drive ----------
   window.Rosin = {
-    OBS, MUTE, SMALL_TOUCH, params: q,
+    OBS, MUTE, SMALL_TOUCH, LITE, params: q,
     setExpression, blink, fit, audio,
     talking(on) { webTalk = !!on; if (on) rosin.classList.remove("thinking"); },
     pulse(v = 1) { webPulse = Math.max(webPulse, v); },
