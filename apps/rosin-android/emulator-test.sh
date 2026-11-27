@@ -22,7 +22,7 @@ import sys
 from PIL import Image
 im = Image.open(sys.argv[1]).convert("RGB")
 if sys.argv[3]:
-    x, y, r = int(sys.argv[3]), int(sys.argv[4]), im.width // 5
+    x, y, r = int(sys.argv[3]), int(sys.argv[4]), im.width // 4
     im = im.crop((max(0, x - r), max(0, y - r), min(im.width, x + r), min(im.height, y + r)))
     im.thumbnail((420, 420))
 else:
@@ -34,6 +34,8 @@ PY
 adb logcat -c
 (adb logcat -v time > logcat.txt 2>&1 &)
 a install -r "$APK"
+# A sharper screen than the emulator's own 320 x 640, so the close-ups of Rosin show detail.
+a shell wm size 720x1440; a shell wm density 320
 a shell appops set $PKG SYSTEM_ALERT_WINDOW allow
 a shell pm grant $PKG android.permission.POST_NOTIFICATIONS 2>/dev/null || true
 a shell am start -n $PKG/.MainActivity

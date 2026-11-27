@@ -30,8 +30,11 @@ class RosinFace(context: Context, private val onTurned: () -> Unit) : ImageView(
     }
 
     init {
-        // Far enough away that turning reads as a turn, not a stretch.
-        cameraDistance = 9000f * resources.displayMetrics.density
+        // The camera about 4.5 Rosins away, like a page's CSS perspective: near enough that the near side grows and
+        // the far side shrinks, so the turn reads as a turn. Android counts this distance in its own way (pixels
+        // over dpi, times 72), hence the sum.
+        val dm = resources.displayMetrics
+        cameraDistance = 4.5f * 118f * dm.density * dm.densityDpi / 72f
     }
 
     private var face = ""
