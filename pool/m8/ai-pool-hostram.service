@@ -1,0 +1,12 @@
+[Unit]
+Description=AI Pool — the FX705's own RAM as a split device (loopback rpc-server)
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/ai-pool/hostram.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

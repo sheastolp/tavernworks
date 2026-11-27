@@ -86,11 +86,94 @@ DEFAULTS = {
     # Pre-download: fill that cache from the model's public download
     # (Hugging Face) ahead of time, so a split sends almost nothing.
     "predownload": True,
+    # Android only: yield when the battery is this hot (deg C).
+    "battery_temp_limit_c": 42,
 }
 
 
 def log(msg):
     print("[pool-worker] " + msg, flush=True)
+
+
+# ------------------------------------------------------------------
+# Android (Termux). The worker runs unchanged in Termux's Python; the
+# engine is llama.cpp's own Android arm64 release at the pool's pin:
+#   llama-<pin>-bin-android-arm64-snapdragon.tar.gz  CPU + Adreno GPU
+#       (OpenCL) + Hexagon — for Snapdragon phones with Adreno 7xx/8xx
+#   llama-<pin>-bin-android-arm64.tar.gz             CPU only — every
+#       other phone (Mali, PowerVR, older Adreno)
+# The Snapdragon rpc-server links libOpenCL.so, so it only starts on a
+# phone whose vendor ships it; if it can't start, the worker falls
+# back to the CPU engine by itself.
+# ------------------------------------------------------------------
+def is_android():
+    if platform.system() == "Android":          # Python 3.13+
+        return True
+    if hasattr(sys, "getandroidapilevel"):
+        return True
+    return bool(os.environ.get("TERMUX_VERSION") or
+                os.environ.get("ANDROID_ROOT"))
+
+
+def getprop(key):
+    try:
+        out = subprocess.run(["getprop", key], capture_output=True,
+                             text=True, timeout=5)
+        return out.stdout.strip()
+    except Exception:
+        return ""
+
+
+def android_gpu():
+    """'Adreno 750', 'Mali-G715', ... or '' — best effort: Android
+    hides most of this from apps."""
+    for path in ("/sys/class/kgsl/kgsl-3d0/gpu_model",):
+        try:
+            with open(path) as f:
+                model = f.read().strip()
+            if model:
+                m = re.match(r"(?i)adreno\D*(\d{3})", model)
+                return ("Adreno " + m.group(1)) if m else model
+        except OSError:
+            pass
+    egl = (getprop("ro.hardware.egl") or "").lower()
+    vk = (getprop("ro.hardware.vulkan") or "").lower()
+    for name in (egl, vk):
+        if "adreno" in name:
+            return "Adreno"
+        if "mali" in name:
+            return "Mali"
+        if "powervr" in name or "img" in name:
+            return "PowerVR"
+    return ""
+
+
+def adreno_gen(gpu):
+    """The Adreno series digit (7 for an Adreno 750), 0 when unknown."""
+    m = re.search(r"Adreno (\d)\d\d", gpu or "")
+    return int(m.group(1)) if m else 0
+
+
+def model_gpu_ok_opencl(model_file):
+    """Whether the Adreno OpenCL backend can run every matmul of this
+    model. The RPC host never asks a remote device what it supports,
+    so an op the phone's GPU can't do would crash its rpc-server
+    mid-split. llama.cpp's OpenCL backend runs MoE expert matmuls
+    (MUL_MAT_ID) in general only for Q4_0, Q8_0 and MXFP4 — so a
+    phone's GPU only computes for MXFP4/Q4_0/Q8_0 files; for any
+    other quant it lends its RAM and CPU instead."""
+    name = (model_file or "").upper()
+    return any(t in name for t in ("MXFP4", "Q4_0", "Q8_0"))
+
+
+def auto_offered_mb_android(ram_mb):
+    """Phones share one pool of RAM between the GPU, the apps and
+    Android itself, and Android kills big background processes under
+    pressure: offer a third of RAM, 512 MB steps, [1024, 6144]."""
+    if ram_mb <= 0:
+        return 2048
+    third = (ram_mb // 3 // 512) * 512
+    return max(1024, min(6144, third))
 
 
 def auto_offered_mb(vram_mb, ram_mb):
@@ -319,6 +402,13 @@ class Worker:
         self._seed_warned = ""
         self._seed_extra_seen = 0
         self._seed_thread = None
+        self.android = is_android()
+        self.rpc_device = ""
+        if self.android and not os.path.isfile(cfg_path):
+            # A phone's storage rarely has room for a whole ~20 GB
+            # model; its slice arrives over the network at the first
+            # split instead (and is cached for the next one).
+            self.cfg["predownload"] = False
 
     # ---------------------------------------------------------- config
     def save_cfg(self):
@@ -360,6 +450,10 @@ class Worker:
 
     # ---------------------------------------------------------- enroll
     def detect_gpu(self):
+        if self.android:
+            gpu = android_gpu()
+            soc = getprop("ro.soc.model") or getprop("ro.board.platform")
+            return ((gpu or "unknown GPU") + (" (" + soc + ")" if soc else ""))
         smi = nvidia_smi_cmd()
         if not smi:
             return ""
@@ -375,6 +469,8 @@ class Worker:
         return ""
 
     def detect_vram_mb(self):
+        if self.android:
+            return 0  # unified memory: the RAM figure is the one
         smi = nvidia_smi_cmd()
         if not smi:
             return 0
@@ -431,6 +527,11 @@ class Worker:
         if self.cfg["enrollment_id"] and self.cfg["key"]:
             return
         name = self.cfg["name"]
+        if not name and self.android:
+            # Termux's hostname is just 'localhost'; the phone's model
+            # name says more ('Pixel-8', 'SM-S921U').
+            model = getprop("ro.product.model") or getprop("ro.product.device")
+            name = re.sub(r"[^A-Za-z0-9_-]+", "-", model).strip("-")[:32]
         if not name:
             name = socket.gethostname() or "my-pc"
             self.cfg["name"] = name
@@ -440,7 +541,8 @@ class Worker:
         if offered < 512:
             vram = self.detect_vram_mb()
             ram = self.total_ram_mb()
-            offered = auto_offered_mb(vram, ram)
+            offered = (auto_offered_mb_android(ram) if self.android
+                       else auto_offered_mb(vram, ram))
             self.cfg["offered_mb"] = offered
             base = vram or ram
             log("no --offered-mb given — offering " + str(offered) +
@@ -451,7 +553,8 @@ class Worker:
         code, obj = self.http_json("POST", "/enroll", {
             "name": name, "offered_mb": offered,
             "gpu": self.detect_gpu() or "unknown",
-            "os": (platform.system() or "unknown").lower()})
+            "os": "android" if self.android else
+                  (platform.system() or "unknown").lower()})
         if code != 201:
             raise SystemExit("enrollment failed: " + json.dumps(obj))
         self.cfg["enrollment_id"] = obj["id"]
@@ -487,6 +590,16 @@ class Worker:
     # ---------------------------------------------------------- engine
     def detect_backend(self):
         want = (self.cfg["backend"] or "auto").lower()
+        if self.android:
+            if want in ("opencl", "cpu"):
+                return want
+            gpu = android_gpu()
+            # Adreno 7xx/8xx are the GPUs llama.cpp's OpenCL backend is
+            # verified on; 6xx and older (and Mali, PowerVR) run the
+            # CPU engine — they'd be slower than the phone's own CPU.
+            if adreno_gen(gpu) >= 7 or gpu == "Adreno":
+                return "opencl"
+            return "cpu"
         if want in ("cuda", "vulkan", "cpu"):
             return want
         if self.detect_gpu():
@@ -516,7 +629,8 @@ class Worker:
         worker's platform is considered: Windows assets carry
         '-win-' in the name, Linux ones don't."""
         if plat is None:
-            plat = "win" if platform.system() == "Windows" else "linux"
+            plat = ("android" if self.android else
+                    "win" if platform.system() == "Windows" else "linux")
         groups = {}
         for comp in manifest.get("components", []):
             name = comp["name"]
@@ -529,16 +643,25 @@ class Worker:
             return ("-win-" in base) == (plat == "win")
         engines, cudarts = {}, {}
         for base, parts in groups.items():
-            if "arm64" in base or not for_plat(base):
+            if plat == "android":
+                if "-android-arm64" not in base:
+                    continue
+            elif "arm64" in base or not for_plat(base):
                 continue
             if base.startswith("llama-"):
                 engines[base] = parts
             elif base.startswith("cudart-"):
                 cudarts[base] = parts
-        cands = [b for b in engines
-                 if ("-" + backend + "-") in b or
-                 ("-" + backend + ".") in b or backend in b.split("-")]
-        if not cands and backend == "cpu":
+        if plat == "android":
+            # The Adreno build is upstream's '-snapdragon' package;
+            # the plain one is CPU only.
+            cands = [b for b in engines
+                     if ("snapdragon" in b) == (backend == "opencl")]
+        else:
+            cands = [b for b in engines
+                     if ("-" + backend + "-") in b or
+                     ("-" + backend + ".") in b or backend in b.split("-")]
+        if not cands and backend == "cpu" and plat != "android":
             # The plain build carries no backend keyword in its
             # name (llama-b12359-bin-ubuntu-x64.tar.gz upstream).
             others = ("cuda", "vulkan", "rocm", "sycl", "opencl",
@@ -697,6 +820,12 @@ class Worker:
         for root, _dirs, files in os.walk(self.engine_dir):
             if any(_is_lib(f) for f in files):
                 lib_dirs.append(root)
+        if self.android:
+            # The Adreno engine links the vendor's libOpenCL.so.
+            for vd in ("/vendor/lib64", "/system/vendor/lib64"):
+                if os.path.isfile(os.path.join(vd, "libOpenCL.so")):
+                    lib_dirs.append(vd)
+                    break
         if lib_dirs:
             key = "LD_LIBRARY_PATH" if platform.system() != "Windows" \
                 else "PATH"
@@ -773,6 +902,16 @@ class Worker:
         rpc = self.find_rpc()
         port = int(self.cfg["rpc_port"])
         base = [rpc, "-H", "127.0.0.1", "-p", str(port)]
+        if self.android:
+            # One device per endpoint, always: the host's tensor split
+            # counts RPC devices, and the Snapdragon engine would
+            # otherwise also offer the Hexagon NPU.
+            dev = self.android_device()
+            base += ["-d", dev]
+            self.rpc_device = dev
+            log("this phone serves its slice on " +
+                ("its Adreno GPU (OpenCL)" if dev == "GPUOpenCL"
+                 else "its CPU"))
         tries = [base + ["-c"], base] if self.cfg.get("rpc_cache") else [base]
         for cmd in tries:
             log("starting rpc-server on 127.0.0.1:" + str(port) +
@@ -803,6 +942,24 @@ class Worker:
                     "without the cache (see " + self.rpc_log_path + ")")
         raise SystemExit("rpc-server exited at startup — see " +
                          self.rpc_log_path)
+
+    def android_device(self):
+        if self.detect_backend() != "opencl":
+            return "CPU"
+        model = ""
+        try:
+            status, info = self.http_json("GET", "/model.json", timeout=20)
+            if status == 200:
+                model = info.get("file") or ""
+        except Exception:
+            pass
+        if model and model_gpu_ok_opencl(model):
+            return "GPUOpenCL"
+        if model:
+            log("the pool's model (" + model + ") has expert layers the "
+                "phone's GPU can't compute (it needs an MXFP4, Q4_0 or "
+                "Q8_0 file) — lending RAM + CPU instead")
+        return "CPU"
 
     def stop_rpc(self):
         if self.rpc_proc and self.rpc_proc.poll() is None:
@@ -840,6 +997,10 @@ class Worker:
             except Exception:
                 pass
             return False
+        if self.android:
+            st = self.termux_battery()
+            if st:
+                return str(st.get("plugged", "")).upper() == "UNPLUGGED"
         base = "/sys/class/power_supply"
         try:
             for name in os.listdir(base):
@@ -853,6 +1014,18 @@ class Worker:
         except Exception:
             pass
         return False
+
+    def termux_battery(self):
+        """termux-battery-status (the Termux:API add-on), or None."""
+        exe = shutil.which("termux-battery-status")
+        if not exe:
+            return None
+        try:
+            out = subprocess.run([exe], capture_output=True, text=True,
+                                 timeout=15)
+            return json.loads(out.stdout) if out.returncode == 0 else None
+        except Exception:
+            return None
 
     def gpu_temp(self):
         smi = nvidia_smi_cmd()
@@ -874,6 +1047,13 @@ class Worker:
             return "paused by owner (PAUSE file present)"
         if self.on_battery():
             return "running on battery"
+        if self.android:
+            st = self.termux_battery()
+            t = (st or {}).get("temperature")
+            lim = float(self.cfg.get("battery_temp_limit_c") or 42)
+            if isinstance(t, (int, float)) and t >= lim:
+                return ("battery at " + str(round(t, 1)) + "C (limit " +
+                        str(lim) + "C)")
         temp = self.gpu_temp()
         if temp is not None and temp >= int(self.cfg["temp_limit_c"]):
             return "GPU at " + str(temp) + "C (limit " + \
@@ -909,8 +1089,30 @@ class Worker:
             except OSError:
                 pass
 
+    def device_check(self):
+        """Android + Adreno: when the pool's model changes between a
+        GPU-friendly quant and one the phone's GPU can't run, restart
+        rpc-server on the right device (only while no split holds it)."""
+        if not (self.android and self.rpc_device and
+                self.detect_backend() == "opencl"):
+            return
+        status, info = self.http_json("GET", "/model.json", timeout=20)
+        if status != 200 or not info.get("file"):
+            return
+        want = "GPUOpenCL" if model_gpu_ok_opencl(info["file"]) else "CPU"
+        if want == self.rpc_device or (self.relay and self.relay.streams):
+            return
+        log("the pool's model changed — restarting rpc-server on " +
+            ("the GPU" if want == "GPUOpenCL" else "the CPU"))
+        if self.rpc_proc and self.rpc_proc.poll() is None:
+            self.rpc_proc.terminate()  # the monitor restarts it
+
     def seed_loop(self):
         while not self.stop_flag.is_set():
+            try:
+                self.device_check()
+            except Exception:
+                pass
             if self.cfg.get("predownload") and self.cfg.get("rpc_cache") \
                     and self.rpc_cache_on:
                 try:
@@ -932,6 +1134,7 @@ class Worker:
         status, info = self.http_json("GET", "/model.json", timeout=20)
         if status != 200 or not info.get("file"):
             return
+
         model, url = info["file"], info.get("url") or ""
         size = int(info.get("size_bytes") or 0)
         data = self._seed_load()
@@ -1177,7 +1380,17 @@ class Worker:
                     self.stop_flag.wait(delay)
                 continue
             if not self.rpc_proc or self.rpc_proc.poll() is not None:
-                self.start_rpc()
+                try:
+                    self.start_rpc()
+                except SystemExit as e:
+                    if self.android and self.detect_backend() == "opencl":
+                        log("the Adreno engine would not start (" + str(e) +
+                            ") — switching this phone to the CPU engine")
+                        self.cfg["backend"] = "cpu"
+                        self.save_cfg()
+                        self.ensure_engine()
+                        continue
+                    raise
             if self._seed_thread is None:
                 # After rpc-server is up: the pre-download only makes
                 # sense once we know its cache flag was accepted.

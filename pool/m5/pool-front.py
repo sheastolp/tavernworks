@@ -115,7 +115,56 @@ BUILTIN_MODEL_SOURCES = {
     "qwen2.5-1.5b-instruct-q4_k_m.gguf": {
         "url": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
     },
+    # Qwen3.5 35B-A3B (M8): a mixture-of-experts model — 35B of
+    # weights, ~3B used per token, so it runs about as fast as a 3-4B
+    # model while knowing far more than the 14B. There is no Qwen3.5
+    # 32B; this and the dense 27B are the sizes near it. Abliterated
+    # like the 14B so Burn isn't softened. SHA-256s from each file's
+    # Hugging Face page; pool/m8/get-model.sh checks them on download.
+    # Split default (~19 GB): every backend in the pool can run it,
+    # phones lend RAM + CPU.
+    "Huihui-Qwen3.5-35B-A3B-abliterated.IQ4_XS.gguf": {
+        "url": "https://huggingface.co/mradermacher/Huihui-Qwen3.5-35B-A3B-abliterated-GGUF/resolve/main/Huihui-Qwen3.5-35B-A3B-abliterated.IQ4_XS.gguf",
+        "sha256": "070cbf105010853960c1b0dfecf394c9296d1e8af394bacc40bbb017448b5987",
+    },
+    "Huihui-Qwen3.5-35B-A3B-abliterated.Q4_K_M.gguf": {
+        "url": "https://huggingface.co/mradermacher/Huihui-Qwen3.5-35B-A3B-abliterated-GGUF/resolve/main/Huihui-Qwen3.5-35B-A3B-abliterated.Q4_K_M.gguf",
+        "sha256": "f3321b73521fbab3b95c2b05d8ea940042933527d8056f7d1f6c3bf569011cea",
+    },
+    # The file Adreno phone GPUs can compute on (~22 GB): llama.cpp's
+    # OpenCL backend runs MoE expert layers only as MXFP4/Q4_0/Q8_0.
+    "Huihui-Qwen3.5-35B-A3B-abliterated-MXFP4_MOE.gguf": {
+        "url": "https://huggingface.co/noctrex/Huihui-Qwen3.5-35B-A3B-abliterated-MXFP4_MOE-GGUF/resolve/main/Huihui-Qwen3.5-35B-A3B-abliterated-MXFP4_MOE.gguf",
+        "sha256": "75d0d71d8160af32a2f24e9d2a8df404a7cb1b42fe03318f3300930d485168d9",
+    },
+    # Small enough for the FX705 alone (solo, experts in RAM).
+    "Huihui-Qwen3.5-35B-A3B-abliterated.i1-IQ3_M.gguf": {
+        "url": "https://huggingface.co/mradermacher/Huihui-Qwen3.5-35B-A3B-abliterated-i1-GGUF/resolve/main/Huihui-Qwen3.5-35B-A3B-abliterated.i1-IQ3_M.gguf",
+        "sha256": "26df5bf33a108044fa57fc2f54d38d620ec55b63a29deffcc0f16b43d7ef4714",
+    },
+    "Huihui-Qwen3.5-35B-A3B-abliterated.i1-IQ3_XXS.gguf": {
+        "url": "https://huggingface.co/mradermacher/Huihui-Qwen3.5-35B-A3B-abliterated-i1-GGUF/resolve/main/Huihui-Qwen3.5-35B-A3B-abliterated.i1-IQ3_XXS.gguf",
+        "sha256": "cea1e91f2cdba2eba8f1e3a2da3edcce0172aa37c8820c421680d330633c767a",
+    },
 }
+# The full pool page (the repo's pool/index.html), served at "/" so
+# pool.tavernworks.dev is the pool's home. Looked for next to this
+# script, then in ~/ai-pool; the small built-in landing page below is
+# the fallback while neither copy exists.
+POOL_PAGE_PATHS = (
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "pool-page.html"),
+    os.path.join(POOL_DIR, "pool-page.html"),
+)
+
+
+def pool_page_html():
+    for path in POOL_PAGE_PATHS:
+        try:
+            with open(path, encoding="utf-8") as f:
+                return f.read()
+        except OSError:
+            continue
+    return None
 # The front pings every relayed worker this often, so the WebSocket
 # never sits silent: a split's RPC link idles for minutes while the
 # host loads other machines' layers, and both the worker's watchdog
@@ -1628,6 +1677,8 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         if path == RELAY_PUBLIC_PATH:
             self.handle_relay()
+        elif path in ("/", "/index.html") and pool_page_html() is not None:
+            self._send(200, pool_page_html())
         elif path == "/":
             st = pool_status()
             # NOT str.format for the page below: LANDING's CSS is

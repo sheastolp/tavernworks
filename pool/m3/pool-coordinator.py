@@ -297,9 +297,20 @@ def mem_info():
     return {"total_mb": vals.get("MemTotal", 0), "available_mb": vals.get("MemAvailable", 0)}
 
 
-def worker_up(ip):
+# The FX705's own RAM can join a split as one more RPC device: a
+# CPU-only ggml-rpc-server on this machine's loopback
+# (ai-pool-hostram.service). Loopback costs no network time, so it
+# is the cheapest memory the split can add — what lets a ~19 GB
+# model fit beside the Yoga and the relayed workers. It sits last
+# among the RPC devices, right before the card.
+HOST_RAM_IP = "127.0.0.1"
+HOST_RAM_PORT = 50060
+HOST_RAM_NAME = "FX705 RAM"
+
+
+def worker_up(ip, port=50052):
     try:
-        with socket.create_connection((ip, 50052), timeout=2):
+        with socket.create_connection((ip, int(port)), timeout=2):
             return True
     except Exception:
         return False
@@ -389,8 +400,31 @@ def pool_state():
     machines = []
     total_offered = 0
     devices = []  # live RPC devices, in split order
+    host_ram = []  # the FX705's own RAM device, appended after relays
     for m in cfg["machines"]:
         entry = dict(m)
+        if m.get("role") == "host-ram":
+            endpoint = HOST_RAM_IP + ":" + str(HOST_RAM_PORT)
+            probed = worker_up(HOST_RAM_IP, HOST_RAM_PORT)
+            if probed:
+                LAST_SEEN_UP[endpoint] = now
+            busy = (not probed) and (running_split or starting) and (
+                endpoint in trusted
+                or now - LAST_SEEN_UP.get(endpoint, 0) < WORKER_GRACE_SEC)
+            entry["ip"] = endpoint
+            entry["up"] = probed or busy
+            entry["state"] = "up" if probed else ("busy" if busy else "down")
+            entry["holds"] = "layers just before the card (loopback)"
+            total_offered += int(m.get("offered_mb") or 0)
+            if entry["up"] and int(m.get("offered_mb") or 0) > 0:
+                host_ram.append({
+                    "name": HOST_RAM_NAME,
+                    "endpoint": endpoint,
+                    "offered_mb": int(m.get("offered_mb") or 0),
+                    "source": "host",
+                })
+            machines.append(entry)
+            continue
         if m.get("role") == "coordinator":
             entry["up"] = brain["up"] or solo == "active" or host == "active"
             entry["state"] = "up" if entry["up"] else "down"
@@ -435,13 +469,17 @@ def pool_state():
             "name": rm["name"], "endpoint": rm["rpc"],
             "offered_mb": rm["offered_mb"], "source": "relay",
         })
+    # The FX705's RAM goes last among the RPC devices: its layers sit
+    # right before the card's, on the same machine, so the hop
+    # between them never leaves this laptop.
+    devices.extend(host_ram)
 
     solo_capacity = gpu_total + mem["available_mb"] - reserve
     workers_offered = sum(d["offered_mb"] for d in devices)
     split_capacity = fx_share + workers_offered  # M1-proven: the 2,1 load's KV lived inside these shares
     split = compute_split([d["offered_mb"] for d in devices], fx_share)
     rpc_list = ",".join(d["endpoint"] for d in devices)
-    ends_safe = bool(devices) and devices[0]["source"] == "tailnet"
+    ends_safe = bool(devices) and devices[0]["source"] in ("tailnet", "host")
 
     models = []
     cur = current_model()
@@ -551,6 +589,30 @@ def act(name, fields):
             sh(["systemctl", "restart", "ai-pool-host"], timeout=30)
             return "Model set to " + model + " — the split pool is restarting with it (a few minutes)."
         return "Model set to " + model + " — it will load at the next start."
+    if name == "set_host_ram":
+        try:
+            offered = int((fields.get("offered_mb") or ["0"])[0])
+        except ValueError:
+            return "Offered memory must be a number of MB."
+        cfg["machines"] = [m for m in cfg["machines"]
+                           if m.get("role") != "host-ram"]
+        if offered <= 0:
+            save_config(cfg)
+            return ("The FX705's RAM is out of the split. It takes effect "
+                    "at the next Start split.")
+        mem = mem_info()
+        if mem["total_mb"] and offered > mem["total_mb"] - 3072:
+            return ("That leaves this laptop under 3 GB for everything "
+                    "else — offer at most " +
+                    str(max(0, mem["total_mb"] - 3072)) + " MB.")
+        cfg["machines"].append({"name": HOST_RAM_NAME, "ip": HOST_RAM_IP,
+                                "role": "host-ram", "offered_mb": offered})
+        save_config(cfg)
+        note = ("" if worker_up(HOST_RAM_IP, HOST_RAM_PORT) else
+                " Its RAM worker isn't answering yet — run "
+                "'sudo systemctl enable --now ai-pool-hostram' first.")
+        return ("The FX705 now offers " + str(offered) + " MB of RAM to "
+                "the split (next Start split)." + note)
     if name == "set_offered":
         target = (fields.get("machine") or [""])[0]
         try:
@@ -741,13 +803,19 @@ def page(st, msg=""):
     rows = ""
     for m in st["machines"]:
         offered = "detected live" if m.get("role") == "coordinator" else (
+            str(m.get("offered_mb") or 0) + " MB "
+            '<form class="inline" method="post" action="/action">'
+            '<input type="hidden" name="action" value="set_host_ram">'
+            '<input name="offered_mb" size="6" placeholder="MB">'
+            '<button class="alt" type="submit">Set</button></form>'
+            if m.get("role") == "host-ram" else (
             str(m.get("offered_mb") or 0) + " MB (enrollment)" if m.get("relayed") else (
             str(m.get("offered_mb") or 0) + " MB "
             '<form class="inline" method="post" action="/action">'
             '<input type="hidden" name="action" value="set_offered">'
             '<input type="hidden" name="machine" value="' + escape(str(m.get("name", ""))) + '">'
             '<input name="offered_mb" size="6" placeholder="MB">'
-            '<button class="alt" type="submit">Set</button></form>'))
+            '<button class="alt" type="submit">Set</button></form>')))
         rows += ("<tr><td><strong>" + escape(str(m.get("name", ""))) + "</strong></td>"
                  "<td>" + escape(str(m.get("role", ""))) + " · " + escape(str(m.get("ip", ""))) + "</td>"
                  "<td>" + offered + "</td>"
@@ -877,6 +945,14 @@ def page(st, msg=""):
         gpu_txt = ("GPU " + str(st["gpu"]["used_mb"]) + " / " + str(st["gpu"]["total_mb"]) +
                    " MB · RAM available " + str(st["mem"]["available_mb"]) + " MB · ")
     msg_html = '<div class="msg">' + escape(msg) + "</div>" if msg else ""
+    has_host_ram = any(m.get("role") == "host-ram" for m in st["machines"])
+    host_ram_html = "" if has_host_ram else (
+        '<form method="post" action="/action" style="margin-top:.8rem">'
+        '<input type="hidden" name="action" value="set_host_ram">'
+        '<div class="row"><input name="offered_mb" placeholder="MB of FX705 RAM" size="14">'
+        '<button class="alt" type="submit">Add the FX705\'s RAM to the split</button></div>'
+        '<p class="fine">Needs ai-pool-hostram running. Loopback, so it adds memory '
+        'without adding network time — the way a ~19 GB model fits.</p></form>')
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -916,6 +992,7 @@ def page(st, msg=""):
   </div>
   <p class="fine">Joining verifies the PC answers on the worker port (50052) before adding it.</p>
 </form>
+{host_ram_html}
 </div>
 
 <h2>Models on the host</h2>

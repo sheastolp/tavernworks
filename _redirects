@@ -1,0 +1,6 @@
+# The AI Pool's home moved to its own subdomain (served by the pool's
+# front door on the FX705). Only the page itself moves; the pool's
+# design notes and milestone files stay on tavernworks.dev/pool/...
+/pool             https://pool.tavernworks.dev/  301
+/pool/            https://pool.tavernworks.dev/  301
+/pool/index.html  https://pool.tavernworks.dev/  301

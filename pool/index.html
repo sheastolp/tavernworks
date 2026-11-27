@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<link rel="canonical" href="https://tavernworks.dev/pool/">
+<link rel="canonical" href="https://pool.tavernworks.dev/">
+<script>
+  // The pool's home is pool.tavernworks.dev; the old address forwards there.
+  if (/^(www\.)?tavernworks\.dev$/.test(location.hostname)) {
+    location.replace("https://pool.tavernworks.dev/" + location.search + location.hash);
+  }
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The AI Pool — Tavernworks</title>
 <meta name="description" content="One AI model, split across a pool of PCs. The Tavernworks AI Pool: how it works, who's in, and how to join.">
@@ -63,7 +69,9 @@
 
   <p>Most home PCs top out around a 4-billion-parameter AI model. The pool links
   machines together so a single much larger model — today a <strong>14B</strong> — can be
-  spread across all of them, each PC carrying part of it. It's the mining-pool idea,
+  spread across all of them, each PC carrying part of it. Next up: Qwen3.5's 35B
+mixture-of-experts model, which only works ~3B of its weights per word and so runs
+far faster than its size suggests. It's the mining-pool idea,
   pointed at AI instead of coins.</p>
 
   <h2>Pool status</h2>
@@ -125,10 +133,12 @@
     <ol>
       <li><strong>Get an account.</strong> Register with the button below. The operator
       approves accounts by hand; approval comes with 100 starter shares.</li>
-      <li><strong>Run the worker on the PC you're contributing</strong> (Windows or
-      Linux, with Python 3 — that's the only requirement):
+      <li><strong>Run the worker on the PC or phone you're contributing</strong> (Windows,
+      Linux or Android, with Python 3 — that's the only requirement):
       <br>Windows, in Command Prompt: <code>curl -fsSL https://pool.tavernworks.dev/downloads/install-worker.bat -o install-worker.bat &amp;&amp; install-worker.bat</code>
       <br>Linux, in a terminal: <code>curl -fsSL https://pool.tavernworks.dev/downloads/install-worker.sh -o install-worker.sh &amp;&amp; bash install-worker.sh</code>
+      <br>Android, in <a href="https://f-droid.org/packages/com.termux/">Termux</a> (phone plugged in): <code>curl -fsSL https://pool.tavernworks.dev/downloads/install-android.sh -o install-android.sh &amp;&amp; bash install-android.sh</code>
+      <br><span class="fine">Phones with a Snapdragon 8 Gen 2 or newer (Adreno 7xx/8xx) lend their GPU when the pool's model allows it; every other phone lends RAM and CPU.</span>
       <br>It downloads the worker from the pool's own
       <a href="https://pool.tavernworks.dev/downloads/">download shelf</a>, enrolls your
       machine with a sensible memory offer (override it with <code>--offered-mb</code> if
