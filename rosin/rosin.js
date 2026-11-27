@@ -15,6 +15,8 @@
  * Page settings (set before rosin.js loads, used by the public demo at tavernworks.dev/rosin/):
  *   window.ROSIN_DEMO = true      always demo, no server, no mic, no wake screen
  *   window.ROSIN_IMG_EXT = "webp" load img/*.webp instead of img/*.png
+ *   window.ROSIN_WEB = true       a "brain" script (rosin-web.js on tavernworks.dev) talks for Rosin instead of
+ *                                 Open-LLM-VTuber; it drives Rosin through window.Rosin (see the bottom of this file)
  */
 (() => {
   const q = new URLSearchParams(location.search);
@@ -22,6 +24,8 @@
   const WEB_DEMO = window.ROSIN_DEMO === true;
   const DEMO = WEB_DEMO || q.get("demo") === "1";
   const IMG_EXT = window.ROSIN_IMG_EXT || "png";
+  const WEB = window.ROSIN_WEB === true && !DEMO;
+  const brain = () => window.RosinBrain || {};
   const MUTE = q.get("mute") === "1";
   const SMALL_TOUCH = matchMedia("(pointer: coarse) and (max-width: 900px), (pointer: coarse) and (max-height: 500px)").matches;
   const LITE = q.get("lite") === "1" || (q.get("lite") !== "0" && !OBS && SMALL_TOUCH);
@@ -29,7 +33,7 @@
   body.classList.add(OBS ? "obs" : "preview");
   if (LITE) body.classList.add("lite");
   if (matchMedia("(any-pointer: coarse)").matches) body.classList.add("touch");
-  if (q.get("subs") === "1" || (!OBS && (SMALL_TOUCH || WEB_DEMO) && q.get("subs") !== "0")) body.classList.add("subs");
+  if (q.get("subs") === "1" || (!OBS && (SMALL_TOUCH || WEB_DEMO || window.ROSIN_WEB === true) && q.get("subs") !== "0")) body.classList.add("subs");
 
   // Same order as the "rosin" emotionMap in model_dict.json (neutral 0 ... confused 6).
   const EXPRESSIONS = ["normal", "stoned", "happy", "laugh", "surprise", "anger", "confused"];
@@ -186,7 +190,7 @@
     })();
   }
 
-  let smooth = 0, shown = -1;
+  let smooth = 0, shown = -1, webTalk = false, webPulse = 0;
   (function tick() {
     let v = 0;
     if (analyser && speaking && currentSrc) {
@@ -194,6 +198,8 @@
       let s = 0; for (const x of buf) s += x * x;
       v = Math.min(1, Math.sqrt(s / buf.length) * 5);
     }
+    if (webTalk) { const t = performance.now(); v = Math.max(v, webPulse, 0.3 + 0.55 * Math.abs(Math.sin(t / 95)) * (0.6 + 0.4 * Math.random())); }
+    webPulse *= 0.9;
     v = Math.max(v, fakeVol);
     smooth += (v - smooth) * (v > smooth ? 0.5 : 0.12);  // fast attack, slow release
     if (smooth < 0.002) smooth = 0;
@@ -207,6 +213,7 @@
   const wsUrl = q.get("ws") || `${location.protocol === "https:" ? "wss" : "ws"}://${location.host || "127.0.0.1:12393"}/proxy-ws`;
   function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
   function connect() {
+    if (WEB) return;   // rosin-web.js talks to the AI
     if (DEMO) { statusEl.textContent = WEB_DEMO ? "Demo: the real Rosin talks on stream" : "demo mode (no server)"; return; }
     ws = new WebSocket(wsUrl);
     ws.onopen = () => { statusEl.textContent = MUTE ? "connected (voice muted here)" : "connected"; };
@@ -234,7 +241,7 @@
     const box = document.getElementById("say-text");
     const text = box.value.trim(); if (!text) return;
     audio();
-    if (DEMO) { demoReply(); } else { send({ type: "text-input", text }); }
+    if (DEMO) { demoReply(); } else if (WEB) { brain().say?.(text); } else { send({ type: "text-input", text }); }
     box.value = "";
     if (SMALL_TOUCH) box.blur();     // drop the phone keyboard so Rosin is visible again
   });
@@ -245,6 +252,7 @@
   let mic = null;   // {ctx, stream, node, src}
   let micWanted = false;
   async function micStart() {
+    if (WEB) { brain().micStart?.(); return; }
     if (mic || micWanted) return;
     micWanted = true;
     if (DEMO) { micBtn.classList.add("live"); statusEl.textContent = "demo mode: the mic only works with the server"; return; }
@@ -284,6 +292,7 @@
     }
   }
   function micStop() {
+    if (WEB) { brain().micStop?.(); return; }
     micWanted = false;
     micBtn.classList.remove("live"); micBtn.setAttribute("aria-pressed", "false");
     if (!mic) { if (DEMO) statusEl.textContent = "demo mode (no server)"; return; }
@@ -332,6 +341,7 @@
   subsBox.addEventListener("change", () => body.classList.toggle("subs", subsBox.checked));
   const demoBox = document.getElementById("opt-demo");
   demoBox.checked = DEMO;
+  if (WEB) demoBox.closest("label").hidden = true;
   if (WEB_DEMO) {
     demoBox.closest("label").hidden = true; micBtn.hidden = true;
     const hint = document.querySelector("#controls .hint");
@@ -350,12 +360,13 @@
 
   // ---------- keyboard (PC and the Legion Go 2 with a keyboard) ----------
   window.addEventListener("keydown", e => {
-    if (e.target.tagName === "INPUT" || e.target === micBtn) return;   // the talk button handles its own keys
+    if (/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(e.target.tagName)) return;   // typing, menus and buttons (the talk button too) handle their own keys
     if (e.code === "Space" && !e.repeat && !WEB_DEMO) { e.preventDefault(); micStart(); }
+    if (e.key === "Escape" && WEB) brain().stop?.();
     const n = parseInt(e.key, 10); if (n >= 1 && n <= 7) setExpression(n - 1);
     if (e.key === "b" || e.key === "B") blink();
   });
-  window.addEventListener("keyup", e => { if (e.code === "Space" && micWanted) micStop(); });
+  window.addEventListener("keyup", e => { if (e.code === "Space" && (micWanted || WEB) && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) micStop(); });
 
   // Browsers only play sound after a tap or click. OBS doesn't need it.
   const wake = document.getElementById("wake");
@@ -397,6 +408,20 @@
     let i = 0;
     setInterval(() => { if (Date.now() - lastReply < 9000) return; const [e, t] = lines[i++ % lines.length]; setExpression(e, 3500); demoSpeak(t); }, 4500);
   }
+
+  // ---------- what a brain script (rosin-web.js) can drive ----------
+  window.Rosin = {
+    OBS, MUTE, SMALL_TOUCH, params: q,
+    setExpression, blink, fit, audio,
+    talking(on) { webTalk = !!on; if (on) rosin.classList.remove("thinking"); },
+    pulse(v = 1) { webPulse = Math.max(webPulse, v); },
+    thinking(on) { rosin.classList.toggle("thinking", !!on); if (on) setExpression("stoned", 0); },
+    subs(text) { subsEl.textContent = text || ""; },
+    status(text) { statusEl.textContent = text; },
+    micLive(on) { micBtn.classList.toggle("live", !!on); micBtn.setAttribute("aria-pressed", String(!!on)); },
+    get expression() { return current; },
+  };
+  if (WEB) document.dispatchEvent(new Event("rosin-ready"));
 
   // ---------- embers (fewer on phones) ----------
   const cv = document.getElementById("embers"), g = cv.getContext("2d");

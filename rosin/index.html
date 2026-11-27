@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Rosin · Tavernworks</title>
-<meta name="description" content="Rosin, the vine-orb co-host of Stoned Sheamus's Twitch stream. A live demo of the avatar: faces, blinking and glowing eye.">
+<meta name="description" content="Talk with Rosin, the vine-orb AI co-host of Stoned Sheamus's Twitch stream, by voice or text on your phone or PC.">
 <link rel="icon" href="img/eye-happy.webp" type="image/webp">
 <link rel="stylesheet" href="rosin.css">
 <style>
@@ -23,7 +23,7 @@
 </head>
 <body>
   <canvas id="embers"></canvas>
-  <div id="badge">Rosin <small>Stoned Sheamus's co-host. This is a demo; the real Rosin talks on stream.</small><a href="https://tavernworks.dev/">← tavernworks.dev</a></div>
+  <div id="badge">Rosin <small>Stoned Sheamus's AI co-host, running on the tavern's own laptop.</small><a href="https://tavernworks.dev/">← tavernworks.dev</a></div>
 
   <div id="stage">
     <div id="rosin">
@@ -45,7 +45,7 @@
   <div id="subs" aria-live="polite"></div>
 
   <div id="controls">
-    <div id="status" role="status">Demo</div>
+    <div id="status" role="status">Waking up…</div>
     <div id="faces" class="tray" hidden aria-label="Expressions"></div>
     <div id="more" class="tray" hidden>
       <label class="chk"><input type="checkbox" id="opt-subs"> Subtitles</label>
@@ -68,8 +68,9 @@
 
   <div id="wake"><span>Click to wake Rosin</span></div>
 
-  <script>window.ROSIN_DEMO = true; window.ROSIN_IMG_EXT = "webp";</script>
+  <script>window.ROSIN_WEB = true; window.ROSIN_IMG_EXT = "webp";</script>
   <script src="layers.js"></script>
   <script src="rosin.js"></script>
+  <script src="rosin-web.js"></script>
 </body>
 </html>
