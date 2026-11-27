@@ -376,7 +376,8 @@ Environment variables, set with `Environment=` in the service file:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `VERROWEN_MODEL` | `huihui_ai/phi4-mini-abliterated:3.8b` | The model that narrates until the owner picks another on the page |
+| `VERROWEN_POOL_URL` | found from `tailscale ip -4`, port 8090 | The AI Pool's brain, which narrates by default. `off` takes the pool away and narrates on Ollama only |
+| `VERROWEN_MODEL` | `huihui_ai/phi4-mini-abliterated:3.8b` | The Ollama model that stands in when the pool is off or loading (and narrates with `VERROWEN_POOL_URL=off`). Picking an Ollama model on the page makes it the stand-in |
 | `VERROWEN_MAX_CTX` | `16384` | The largest context window a reply may use. Each reply gets just enough room for its prompt; lower this if a model runs out of GPU memory |
 | `VERROWEN_PORT` | `8792` | Port to listen on |
 | `VERROWEN_HOST` | `127.0.0.1` | Address to listen on |

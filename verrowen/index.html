@@ -628,15 +628,15 @@ $("ownerLoad").addEventListener("click", async () => {
   try{
     const j = await owner("/admin/models");
     const sel = $("ownerModel"); sel.innerHTML = "";
-    for (const m of j.models){ const o = document.createElement("option"); o.value = o.textContent = m; sel.appendChild(o); }
+    for (const m of j.models){ const o = document.createElement("option"); o.value = m; o.textContent = (j.labels && j.labels[m]) || m; sel.appendChild(o); }
     sel.value = j.model;
     [sel, $("ownerModelLabel"), $("ownerSave")].forEach(el => el.hidden = false);
-    st.textContent = "Now narrating with " + j.model + ".";
+    st.textContent = "Now narrating with " + (j.label || j.model) + ".";
   }catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
 });
 $("ownerSave").addEventListener("click", async () => {
   const st = $("ownerStatus"); st.textContent = "Switching…";
-  try{ const j = await owner("/admin/model", {model: $("ownerModel").value}); st.textContent = "✔ Every new turn is now narrated by " + j.model + "."; checkHealth(); }
+  try{ const j = await owner("/admin/model", {model: $("ownerModel").value}); st.textContent = "✔ Every new turn is now narrated by " + (j.label || j.model) + "."; checkHealth(); }
   catch(e){ st.textContent = e instanceof TypeError ? "Couldn't reach the laptop." : e.message; }
 });
 

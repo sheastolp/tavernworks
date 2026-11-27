@@ -10,8 +10,9 @@
 //   GET  /health     { ok, model, ollama }
 //   POST /warm       { chars }  ->  { ok, loaded, model, ctx }   loads the model and keeps it loaded
 //                    (the lore-keeper calls it while its chat is open)
-//   GET  /admin/models   (owner's token)  { model, models: [names] }
-//   POST /admin/model    (owner's token)  { model }  ->  { ok, model }   the narrator for everyone
+//   GET  /admin/models   (owner's token)  { model, label, models: [names], labels: { name: label } }
+//                        ("pool" is the AI Pool's brain, the default; the rest are Ollama models)
+//   POST /admin/model    (owner's token)  { model }  ->  { ok, model, label }   the narrator for everyone
 //   POST /admin/publish  (owner's token)  {}  ->  { ok, sha, how }   puts the Review Clone (grand-orrery's
 //                        review branch) live on main, then tells GuildScribe to re-read it
 //   POST /admin/discard  (owner's token)  {}  ->  { ok, sha }   throws away everything waiting on review
@@ -81,10 +82,16 @@ import zlib from "node:zlib";
 
 const PORT = Number(process.env.VERROWEN_PORT || 8792);
 const HOST = process.env.VERROWEN_HOST || "127.0.0.1";
-// The model backend's base address. Ollama by default; set OLLAMA_URL
-// to the AI Pool brain (http://100.100.40.72:8090) and the narrator
-// pick (narrator-model.txt) to the pool's model to run on the pool.
+// The narrator runs on the AI Pool's brain by default (pool/m1: llama-server,
+// solo or split, on this laptop's tailnet address, port 8090). VERROWEN_POOL_URL
+// sets its address, "off" takes the pool away; otherwise it's found from
+// `tailscale ip -4`. Ollama is the other choice (the owner's Change AI model),
+// and stands in whenever the pool is off or still loading.
 const OLLAMA = (process.env.OLLAMA_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
+const POOL = "pool";
+const POOL_SETTING = String(process.env.VERROWEN_POOL_URL || "").trim();
+const POOL_OFF = /^(off|no|false|0)$/i.test(POOL_SETTING);
+// The Ollama model that narrates when the pool can't (and the first pick on Ollama).
 const DEFAULT_MODEL = process.env.VERROWEN_MODEL || "huihui_ai/phi4-mini-abliterated:3.8b";
 const ORIGINS = (process.env.VERROWEN_ORIGINS || "https://tavernworks.dev").split(",").map((s) => s.trim()).filter(Boolean);
 const SAVE_DIR = process.env.VERROWEN_SAVE_DIR || process.env.STATE_DIRECTORY || path.resolve("verrowen-saves");
@@ -117,10 +124,24 @@ const LIVE = "main", CLONE = "review";              // the GPU writes one reply 
 // ── The narrator model ──
 // The owner can switch it from the game page with their token. The choice
 // is kept in the save folder (as .txt, so `list` skips it).
+// narrator-model.txt: line 1 the pick ("pool" or an Ollama model), line 2 "2" once
+// the pick was made with the pool on offer, line 3 the Ollama model that stands in
+// for the pool. A pick saved before the pool was a choice gives way to the pool
+// once (Sheamus, 2026-11-27: the pool by default everywhere) and becomes its stand-in.
 const MODEL_FILE = () => path.join(SAVE_DIR, "narrator-model.txt");
 const TOKEN_FILE = () => path.join(SAVE_DIR, "owner-token.txt");
-let MODEL = DEFAULT_MODEL;
-try { MODEL = (await fs.readFile(MODEL_FILE(), "utf8")).trim() || DEFAULT_MODEL; } catch { }
+let MODEL = POOL_OFF ? DEFAULT_MODEL : POOL;
+let STANDIN = DEFAULT_MODEL;
+try {
+  const [pick = "", v = "", standin = ""] = (await fs.readFile(MODEL_FILE(), "utf8")).split("\n").map((l) => l.trim());
+  if (v === "2") { MODEL = pick || MODEL; STANDIN = standin || STANDIN; }
+  else if (pick) { STANDIN = pick === POOL ? STANDIN : pick; if (POOL_OFF) MODEL = STANDIN; }
+} catch { }
+if (POOL_OFF && MODEL === POOL) MODEL = STANDIN;
+async function saveModel() {
+  await fs.mkdir(SAVE_DIR, { recursive: true });
+  await fs.writeFile(MODEL_FILE(), `${MODEL}\n2\n${STANDIN}\n`);
+}
 async function ownerToken() {
   try { const t = (await fs.readFile(TOKEN_FILE(), "utf8")).trim(); if (t) return t; } catch { }
   const t = crypto.randomBytes(24).toString("base64url");
@@ -140,6 +161,52 @@ async function installed() {
   const r = await fetch(OLLAMA + "/v1/models", { signal: AbortSignal.timeout(8000) }).catch(() => null);
   if (!r || !r.ok) throw Object.assign(new Error("The AI backend isn't answering on the laptop"), { status: 502 });
   return ((await r.json().catch(() => ({}))).data || []).map((m) => m.id).filter(Boolean);
+}
+
+// ── The AI Pool ──
+let poolBase = null, poolLookedAt = 0;
+async function poolUrl() {
+  if (POOL_OFF) return null;
+  if (POOL_SETTING) return POOL_SETTING.replace(/\/+$/, "").replace(/\/v1$/, "");
+  if (!poolBase && Date.now() - poolLookedAt > 60000) {
+    poolLookedAt = Date.now();
+    const ip = await promisify(execFile)("tailscale", ["ip", "-4"], { timeout: 3000 }).then((o) => String(o.stdout).trim().split("\n")[0], () => "");
+    if (/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) poolBase = `http://${ip}:8090`;
+  }
+  return poolBase;
+}
+// What the pool's brain is doing: "up", "loading" (llama-server answers 503 while it loads) or "off",
+// and the model file it serves. Cached for a few seconds so a busy page asks once.
+let poolCache = { at: 0, s: null };
+async function pool(fresh = false) {
+  const base = await poolUrl();
+  if (!base) return { base: null, state: "off", file: "" };
+  if (!fresh && poolCache.s && Date.now() - poolCache.at < 10000) return poolCache.s;
+  const h = await fetch(base + "/health", { signal: AbortSignal.timeout(2500) }).catch(() => null);
+  const state = !h ? "off" : h.ok ? "up" : h.status === 503 ? "loading" : "off";
+  let file = poolCache.s?.file || "";
+  if (state === "up") {
+    const j = await fetch(base + "/v1/models", { signal: AbortSignal.timeout(2500) }).then((r) => r.json()).catch(() => null);
+    file = String(j?.data?.[0]?.id || file).replace(/^.*[\\/]/, "").replace(/\.gguf$/i, "");
+  }
+  poolCache = { at: Date.now(), s: { base, state, file } };
+  return poolCache.s;
+}
+// What a pick is called on the pages (and on /health, which ai-model-note.js reads to tell
+// players whether the model is abliterated, so the pool's own model name is kept in it).
+async function labelFor(pick) {
+  if (pick !== POOL) return pick;
+  const p = await pool();
+  return `AI Pool${p.file ? " · " + p.file : ""}${p.state === "up" ? "" : p.state === "loading" ? " (loading, " + STANDIN + " stands in)" : " (off, " + STANDIN + " stands in)"}`;
+}
+// Where a turn goes: the pool when it's picked and up, else Ollama (the stand-in for the pool).
+async function backend() {
+  if (MODEL === POOL) {
+    const p = await pool();
+    if (p.state === "up") return { url: p.base, model: POOL, isPool: true };
+    return { url: OLLAMA, model: STANDIN, isPool: false, standIn: true };
+  }
+  return { url: OLLAMA, model: MODEL, isPool: false };
 }
 
 // ── Small helpers ──
@@ -218,20 +285,23 @@ function ctxFor(chars) {
 let warming = null;
 async function warm(chars) {
   const ctx = ctxFor(chars);
+  const b = await backend();
+  // The pool's llama-server keeps its model resident: nothing to load.
+  if (b.isPool) return { ok: true, loaded: true, model: await labelFor(POOL), ctx };
   const list = await fetch(OLLAMA + "/v1/models", { signal: AbortSignal.timeout(3000) }).then((r) => r.json(), () => ({}));
-  const loaded = (list.data || []).some((m) => m.id === MODEL);
+  const loaded = (list.data || []).some((m) => m.id === b.model);
   // A one-token reply is the warm-up poke: it loads the model on
   // backends that load on demand, and costs nothing on ones (the
   // pool's llama-server) that keep the model resident.
   if (!warming) warming = fetch(OLLAMA + "/v1/chat/completions", {
     method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, messages: [{ role: "user", content: "Warm up." }], max_tokens: 1, stream: false }),
+    body: JSON.stringify({ model: b.model, messages: [{ role: "user", content: "Warm up." }], max_tokens: 1, stream: false }),
     signal: AbortSignal.timeout(120000),
   }).then((r) => r.ok, () => false).finally(() => { warming = null; });
   // Already loaded: the refresh is instant. Loading: answer straight away
   // rather than holding the page for the whole load.
   const ok = loaded ? await warming : await Promise.race([warming, new Promise((r) => setTimeout(() => r(null), 1500))]);
-  return { ok: ok !== false, loaded: ok === true, model: MODEL, ctx };
+  return { ok: ok !== false, loaded: ok === true, model: await labelFor(MODEL), ctx };
 }
 async function narrate(messages, left, opts = {}) {
   if (waiting >= MAX_WAITING) throw Object.assign(new Error("The narrator is busy with other players. Try again in a minute."), { status: 503 });
@@ -244,14 +314,31 @@ async function narrate(messages, left, opts = {}) {
     // The backend's window is fixed on its side (the pool's server is
     // launched with the full 16k; Ollama sizes its own), so nothing
     // here asks for a context — the whole conversation goes as-is.
-    const ask = (options) => fetch(OLLAMA + "/v1/chat/completions", {
+    let b = await backend();
+    // The pool's Qwen thinks out loud unless told not to; a narrator turn wants the story only.
+    const ask = (options) => fetch(b.url + "/v1/chat/completions", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages, stream: false, ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}), top_p: 0.9, ...options, ...(opts.temperature != null ? { temperature: opts.temperature } : {}) }),
+      body: JSON.stringify({ model: b.model, messages, stream: false, ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}), top_p: 0.9, ...options, ...(opts.temperature != null ? { temperature: opts.temperature } : {}), ...(b.isPool ? { cache_prompt: true, chat_template_kwargs: { enable_thinking: false } } : {}) }),
       signal: left || undefined,
     });
     const errText = (x) => (typeof x?.error === "string" ? x.error : x?.error?.message) || "";
-    let r = await ask({ temperature: 0.9, repeat_penalty: 1.15 });
+    let r;
+    try { r = await ask({ temperature: 0.9, repeat_penalty: 1.15 }); }
+    catch (e) {
+      // The pool went away between the check and the turn: Ollama stands in.
+      if (!b.isPool || left?.aborted) throw e;
+      poolCache.at = 0;
+      console.warn(new Date().toISOString(), `AI Pool didn't take the turn (${e.message}); ${STANDIN} narrates it`);
+      b = { url: OLLAMA, model: STANDIN, isPool: false, standIn: true };
+      r = await ask({ temperature: 0.9, repeat_penalty: 1.15 });
+    }
+    if (b.isPool && r.status >= 500) {
+      poolCache.at = 0;
+      console.warn(new Date().toISOString(), `AI Pool answered ${r.status}; ${STANDIN} narrates this turn`);
+      b = { url: OLLAMA, model: STANDIN, isPool: false, standIn: true };
+      r = await ask({ temperature: 0.9, repeat_penalty: 1.15 });
+    }
     let j = await r.json().catch(() => ({}));
     if (!r.ok && /repeat/i.test(errText(j))) {
       r = await ask({ temperature: 0.7, repeat_penalty: 1.3, presence_penalty: 0.5 });
@@ -1480,7 +1567,7 @@ async function restLogTail(n = 80) {
 function restStatus() {
   return { on: rest.on, mode: rest.mode || "rest", since: rest.since, until: rest.until, lastRound: rest.lastRound, nextRound: rest.on ? rest.nextRound : null,
     running: !!resting, rounds: rest.rounds,
-    views: Object.entries(rest.views || {}).map(([k, v]) => ({ file: k.split("\n")[0], line: k.split("\n").slice(1).join("\n"), verdict: v.verdict, why: v.why, at: v.at })), everyMinutes: REST_EVERY_MS / 60_000, maxPerRound: REST_MAX_PER_ROUND, ideasPerDay: REST_IDEAS_PER_DAY, model: MODEL, github: !!GH_TOKEN };
+    views: Object.entries(rest.views || {}).map(([k, v]) => ({ file: k.split("\n")[0], line: k.split("\n").slice(1).join("\n"), verdict: v.verdict, why: v.why, at: v.at })), everyMinutes: REST_EVERY_MS / 60_000, maxPerRound: REST_MAX_PER_ROUND, ideasPerDay: REST_IDEAS_PER_DAY, model: MODEL === POOL ? "AI Pool" : MODEL, github: !!GH_TOKEN };
 }
 async function setRest(b) {
   if (b.on) {
@@ -2075,8 +2162,10 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "OPTIONS") return send(res, origin ? 204 : 403, {}, origin);
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
-      const up = await fetch(OLLAMA + "/v1/models", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false);
-      return send(res, 200, { ok: true, game: "Wake in Verrowen", model: MODEL, ollama: up, resting: rest.on, orreryStore: LOCAL_ON ? (localReady ? "local" : "github-fallback") : "github" }, origin);
+      const p = MODEL === POOL ? await pool() : null;
+      // `ollama` means "a backend can narrate": the pool when it's picked and up, else Ollama.
+      const up = p?.state === "up" || await fetch(OLLAMA + "/v1/models", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false);
+      return send(res, 200, { ok: true, game: "Wake in Verrowen", model: await labelFor(MODEL), pick: MODEL, pool: p ? p.state : null, ollama: up, resting: rest.on, orreryStore: LOCAL_ON ? (localReady ? "local" : "github-fallback") : "github" }, origin);
     }
     // Browsers on other sites are turned away; scripts without an Origin header still hit the rate limits.
     if (req.headers.origin && !origin) return send(res, 403, { error: "This site isn't allowed to use the narrator" }, null);
@@ -2131,16 +2220,23 @@ const server = http.createServer(async (req, res) => {
       const own = isOwner(req);
       if (!allowed((own ? "owner:" : "badtoken:") + clientIp(req), { n: own ? 2000 : 30, ms: PER_IP.ms })) return send(res, 429, { error: "Too many tries. Wait a few minutes." }, origin);
       if (!own) return send(res, 401, { error: "That's not the owner's token" }, origin);
-      if (req.method === "GET" && url.pathname === "/admin/models") return send(res, 200, { model: MODEL, models: await installed() }, origin);
+      if (req.method === "GET" && url.pathname === "/admin/models") {
+        const base = await poolUrl();
+        const ollama = await installed().catch((e) => { if (!base) throw e; return []; });
+        const models = [...(base ? [POOL] : []), ...ollama];
+        const labels = Object.fromEntries(await Promise.all(models.map(async (m) => [m, await labelFor(m)])));
+        return send(res, 200, { model: MODEL, label: await labelFor(MODEL), models, labels, standIn: STANDIN }, origin);
+      }
       if (req.method === "POST" && url.pathname === "/admin/host-sync") { hostSync(); return send(res, 200, { ok: true, dataSha: host.dataSha, sha: host.sha }, origin); }
       if (req.method === "POST" && url.pathname === "/admin/model") {
         const want = String((await readJson(req)).model || "");
-        if (!(await installed()).includes(want)) return send(res, 400, { error: `${want || "That model"} isn't installed on the laptop` }, origin);
+        if (want === POOL) { if (!(await poolUrl())) return send(res, 400, { error: "The AI Pool is turned off on the laptop (VERROWEN_POOL_URL=off)" }, origin); }
+        else if (!(await installed()).includes(want)) return send(res, 400, { error: `${want || "That model"} isn't installed on the laptop` }, origin);
         MODEL = want;
-        await fs.mkdir(SAVE_DIR, { recursive: true });
-        await fs.writeFile(MODEL_FILE(), MODEL + "\n");
+        if (want !== POOL) STANDIN = want;   // the last Ollama pick also stands in for the pool
+        await saveModel();
         console.log(new Date().toISOString(), "narrator model is now", MODEL);
-        return send(res, 200, { ok: true, model: MODEL }, origin);
+        return send(res, 200, { ok: true, model: MODEL, label: await labelFor(MODEL) }, origin);
       }
       if (lk && req.method === "GET") return send(res, 200, { chat: await readLorekeeper() }, origin);
       if (lk && req.method === "POST") return send(res, 200, { ok: true, saved: await saveLorekeeper(await readJson(req)) }, origin);
@@ -2312,4 +2408,4 @@ const server = http.createServer(async (req, res) => {
 
 if (process.argv[2] === "list") await list();
 else if (process.argv[2] === "token") console.log(TOKEN || `No token yet in ${SAVE_DIR}. Start the server once; it makes one.`);
-else server.listen(PORT, HOST, () => console.log(`Wake in Verrowen narrator on http://${HOST}:${PORT}, model ${MODEL}, saves in ${SAVE_DIR}`));
+else server.listen(PORT, HOST, () => console.log(`Wake in Verrowen narrator on http://${HOST}:${PORT}, model ${MODEL === POOL ? `the AI Pool (${STANDIN} stands in)` : MODEL}, saves in ${SAVE_DIR}`));
