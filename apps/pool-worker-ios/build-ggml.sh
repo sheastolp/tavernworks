@@ -47,6 +47,8 @@ echo "Static libraries:"; echo "$LIBS"
 libtool -static -o vendor/lib/libggml-all.a $LIBS
 cp "$WORK/llama.cpp/ggml/include/"*.h vendor/include/
 echo "$PIN" > vendor/PIN
-nm -g vendor/lib/libggml-all.a | grep -q ggml_backend_rpc_start_server
-nm -g vendor/lib/libggml-all.a | grep -q ggml_backend_metal_reg
+nm -g vendor/lib/libggml-all.a > "$WORK/symbols.txt" 2>/dev/null || true
+for sym in ggml_backend_rpc_start_server ggml_backend_metal_reg; do
+  grep -q "$sym" "$WORK/symbols.txt" || { echo "missing from libggml-all.a: $sym"; exit 1; }
+done
 echo "ggml ${PIN} for iOS ready (Metal + RPC server)."
