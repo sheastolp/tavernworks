@@ -1,0 +1,152 @@
+:root {
+  --glow: 0;      /* 0..1, driven by voice volume */
+  --blink: 0;     /* 0 open .. 1 shut */
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  overscroll-behavior: none; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent;
+  background: transparent;            /* transparent in OBS browser source */
+  font-family: Georgia, "Times New Roman", serif;
+  color: #f6e7c8;
+}
+body.preview { background: radial-gradient(circle at 50% 55%, #1d2a17 0%, #0d130b 70%); }
+
+#embers { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+/* --ctrl-h is the height of the controls (set by rosin.js) so Rosin never hides behind them */
+#stage { position: fixed; inset: 0; display: grid; place-items: center;
+         padding-bottom: var(--ctrl-h, 0px); touch-action: manipulation; }
+/* rosin.js sets the exact size to fit any screen; this is only the starting guess */
+#rosin {
+  position: relative; height: min(94vh, 118vw); aspect-ratio: 1382 / 1698;
+  animation: float 6s ease-in-out infinite;
+}
+#rig, #rig .part, #rig .part img { position: absolute; }
+#rig { inset: 0; transform: scale(calc(1 + var(--glow) * 0.025));
+       filter: drop-shadow(0 0 calc(4px + var(--glow) * 16px) rgba(255, 90, 30, calc(0.25 + var(--glow) * 0.4))); }
+#rig .part img { inset: 0; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; will-change: transform;
+                 animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+
+/* idle motion; the wrappers add a little extra when Rosin talks */
+.part[data-part="antenna-l"]     { transform: rotate(calc(var(--glow) * -5deg)); }
+.part[data-part="antenna-r"]     { transform: rotate(calc(var(--glow) *  5deg)); }
+.part[data-part="antenna-l"] img { animation: sway-l 5.3s; }
+.part[data-part="antenna-r"] img { animation: sway-r 4.6s; }
+.part[data-part="crystal-l"] img { animation: pend 3.7s; }
+.part[data-part="crystal-r"] img { animation: pend 4.2s -1.3s; }
+.part[data-part="float-l"]   img { animation: bob 3.3s; }
+.part[data-part="float-r"]   img { animation: bob 3.9s -1.7s; }
+.part[data-part^="spark"]    img { animation: spark 2.6s; }
+.part[data-part="spark-2"]   img { animation-duration: 3.1s; animation-delay: -0.9s; }
+.part[data-part="spark-3"]   img { animation-duration: 2.2s; animation-delay: -1.4s; }
+.part[data-part="charms"]    img { animation: charms 3.2s; }
+.part[data-part^="crystal"], .part[data-part^="float"], .part[data-part^="antenna"] {
+  filter: brightness(calc(1 + var(--glow) * 0.35));
+}
+
+@keyframes float  { 0%, 100% { transform: translateY(-1.5%) rotate(-1deg); } 50% { transform: translateY(1.5%) rotate(1deg); } }
+@keyframes sway-l { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2deg); } }
+@keyframes sway-r { 0%, 100% { transform: rotate(2.5deg); }  50% { transform: rotate(-2deg); } }
+@keyframes pend   { 0%, 100% { transform: rotate(-3deg); }   50% { transform: rotate(3deg); } }
+@keyframes bob    { 0%, 100% { transform: translateY(-5%) rotate(-5deg); } 50% { transform: translateY(5%) rotate(4deg); } }
+@keyframes spark  { 0%, 100% { transform: translateY(-10%); opacity: 1; } 50% { transform: translateY(12%); opacity: 0.55; } }
+@keyframes charms { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+
+/* expression eyes sit over the eye and crossfade */
+#eye { position: absolute; }
+#eye img { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 140ms linear; }
+#eye img.on { opacity: 1; }
+
+/* eyelids: two crimson lids inside the eye's oval that meet in the middle */
+#lids { position: absolute; border-radius: 50%; overflow: hidden; pointer-events: none; }
+.lid { position: absolute; left: -2%; right: -2%; height: 52%; transform: scaleY(var(--blink)); }
+.lid.top { top: 0; transform-origin: 50% 0; border-bottom: 3px solid #1a0304;
+  border-radius: 0 0 50% 50% / 0 0 22% 22%;
+  background: linear-gradient(to bottom, #2a0509 0%, #6e1520 55%, #8f2229 88%, #1a0304 100%); }
+.lid.bot { bottom: 0; transform-origin: 50% 100%; border-top: 3px solid #1a0304;
+  border-radius: 50% 50% 0 0 / 22% 22% 0 0;
+  background: linear-gradient(to top, #2a0509 0%, #5c1019 60%, #7a1b24 90%, #1a0304 100%); }
+
+/* soft fire behind the orb and a hot spot on the eye that pulse when Rosin speaks */
+#glow-back {
+  position: absolute; width: 80%; height: 66%; transform: translate(-50%, -50%) scale(calc(0.9 + var(--glow) * 0.2));
+  background: radial-gradient(circle, rgba(255, 80, 20, 0.35) 0%, rgba(160, 20, 10, 0.15) 40%, transparent 70%);
+  filter: blur(18px); opacity: calc(0.35 + var(--glow) * 0.65);
+}
+#glow-eye {
+  position: absolute; transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse, rgba(255, 220, 140, 0.9) 0%, rgba(255, 120, 40, 0.5) 35%, transparent 70%);
+  mix-blend-mode: screen; pointer-events: none;
+  opacity: calc(var(--glow) * 0.75);
+}
+#rosin.thinking #glow-eye { animation: think 1.6s ease-in-out infinite; }
+@keyframes think { 0%, 100% { opacity: 0.05; } 50% { opacity: 0.35; } }
+
+#subs {
+  position: fixed; left: 50%; bottom: calc(var(--ctrl-h, 0px) + 4vh); transform: translateX(-50%);
+  width: max-content; max-width: min(90vw, 900px); text-align: center; font-size: clamp(17px, 3.2vmin, 34px);
+  text-shadow: 0 2px 6px #000, 0 0 14px #000; display: none; pointer-events: none;
+}
+body.subs #subs { display: block; }
+
+/* ---------- controls: one layout for mouse, touch and phone ---------- */
+#controls {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  padding: 8px max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  background: linear-gradient(to top, rgba(8, 10, 6, 0.85), rgba(8, 10, 6, 0.55) 70%, transparent);
+}
+body.obs #controls, body.obs #wake, body.hide-ui #controls { display: none !important; }
+#status { font-size: 13px; opacity: 0.75; text-align: center; }
+#say, #controls .row, .tray { display: flex; gap: 8px; width: min(640px, 100%); }
+#controls .row { justify-content: center; }
+.tray { flex-wrap: wrap; justify-content: center; }
+.tray[hidden] { display: none; }
+#controls button, .chk {
+  min-height: 44px; min-width: 44px; padding: 10px 14px; border-radius: 12px;
+  border: 1px solid #6b3b1f; background: rgba(40, 20, 10, 0.9); color: inherit; font: inherit; font-size: 16px;
+  cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+#controls button:active { transform: scale(0.97); }
+#controls button[aria-pressed="true"], #controls button[aria-expanded="true"] { background: #7a2a10; border-color: #d0602a; }
+#controls button:focus-visible, #say-text:focus-visible { outline: 2px solid #ffb36b; outline-offset: 2px; }
+#say-text {
+  flex: 1; min-width: 0; min-height: 44px; padding: 10px 12px; border-radius: 12px; border: 1px solid #6b3b1f;
+  background: rgba(20, 14, 8, 0.9); color: inherit; font: inherit;
+  font-size: 16px;               /* 16px or more stops phones zooming in on tap */
+}
+#mic { flex: 1 1 auto; max-width: 260px; border-color: #8c2c14 !important; background: #3a1309 !important;
+       touch-action: none; -webkit-touch-callout: none; }
+#mic.live { background: #c2410c !important; }
+.chk input { width: 20px; height: 20px; margin: 0; accent-color: #d0602a; }
+.hint { font-size: 12px; opacity: 0.5; text-align: center; }
+body.touch .hint { display: none; }
+
+#wake {
+  position: fixed; inset: 0; display: grid; place-items: center; padding: 24px;
+  background: rgba(0, 0, 0, 0.55); font-size: 22px; cursor: pointer; text-align: center;
+}
+
+/* short screens (phone sideways, Legion Go 2 with a small window): one compact row */
+@media (max-height: 500px) {
+  #controls { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 6px; padding-top: 4px; }
+  #status, .hint { display: none; }
+  #say { width: min(420px, 100%); }
+  #controls .row { width: auto; }
+  #controls button, .chk, #say-text { min-height: 40px; padding: 6px 10px; }
+}
+/* narrow phones: shorter labels */
+@media (max-width: 380px) {
+  #controls button { padding: 8px 10px; }
+}
+
+/* lighter effects on phones (?lite=1 forces it, ?lite=0 turns it off) */
+body.lite #rig { filter: none; }
+body.lite .part[data-part^="crystal"], body.lite .part[data-part^="float"], body.lite .part[data-part^="antenna"] { filter: none; }
+body.lite #glow-back { filter: blur(8px); }
+
+@media (prefers-reduced-motion: reduce) {
+  #rosin, #rig .part img { animation: none !important; }
+}

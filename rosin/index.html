@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d130b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Rosin · Tavernworks</title>
+<meta name="description" content="Rosin, the vine-orb co-host of Stoned Sheamus's Twitch stream. A live demo of the avatar: faces, blinking and glowing eye.">
+<link rel="icon" href="img/eye-happy.webp" type="image/webp">
+<link rel="stylesheet" href="rosin.css">
+<style>
+  #badge { position: fixed; z-index: 30; top: calc(env(safe-area-inset-top) + 10px); left: calc(env(safe-area-inset-left) + 12px);
+           font: 600 14px/1.3 system-ui, sans-serif; color: #f3dcc0; background: rgba(13,19,11,.72); border: 1px solid rgba(243,220,192,.18);
+           border-radius: 12px; padding: 8px 12px; max-width: calc(100vw - 24px); }
+  #badge a { color: #ffb25c; text-decoration: none; display: inline-block; padding: 6px 0; }
+  #badge small { display: block; font-weight: 400; opacity: .75; }
+  body.hide-ui #badge { display: none; }
+</style>
+</head>
+<body>
+  <canvas id="embers"></canvas>
+  <div id="badge">Rosin <small>Stoned Sheamus's co-host. This is a demo; the real Rosin talks on stream.</small><a href="https://tavernworks.dev/">← tavernworks.dev</a></div>
+
+  <div id="stage">
+    <div id="rosin">
+      <div id="glow-back"></div>
+      <div id="rig"></div>          <!-- body and moving parts, filled in by rosin.js from layers.js -->
+      <div id="eye">
+        <img data-exp="stoned"   src="img/eye-stoned.webp"   alt="">
+        <img data-exp="happy"    src="img/eye-happy.webp"    alt="">
+        <img data-exp="laugh"    src="img/eye-laugh.webp"    alt="">
+        <img data-exp="surprise" src="img/eye-surprise.webp" alt="">
+        <img data-exp="anger"    src="img/eye-anger.webp"    alt="">
+        <img data-exp="confused" src="img/eye-confused.webp" alt="">
+      </div>
+      <div id="lids"><div class="lid top"></div><div class="lid bot"></div></div>
+      <div id="glow-eye"></div>
+    </div>
+  </div>
+
+  <div id="subs" aria-live="polite"></div>
+
+  <div id="controls">
+    <div id="status" role="status">Demo</div>
+    <div id="faces" class="tray" hidden aria-label="Expressions"></div>
+    <div id="more" class="tray" hidden>
+      <label class="chk"><input type="checkbox" id="opt-subs"> Subtitles</label>
+      <label class="chk"><input type="checkbox" id="opt-demo"> Demo mode</label>
+      <button type="button" id="btn-full">Full screen</button>
+      <button type="button" id="btn-hide">Hide controls</button>
+    </div>
+    <form id="say">
+      <input id="say-text" autocomplete="off" enterkeyhint="send" placeholder="Say something to Rosin">
+      <button type="submit" id="send" aria-label="Send">Send</button>
+    </form>
+    <div class="row">
+      <button type="button" id="mic" aria-pressed="false" title="Hold to talk (or hold Space)">🎙 Hold to talk</button>
+      <button type="button" id="btn-faces" aria-expanded="false" aria-controls="faces">Faces</button>
+      <button type="button" id="btn-blink">Blink</button>
+      <button type="button" id="btn-more" aria-expanded="false" aria-controls="more" aria-label="More options">⋯</button>
+    </div>
+    <div class="hint">Keyboard: hold <b>Space</b> to talk · <b>1</b> to <b>7</b> faces · <b>B</b> blink</div>
+  </div>
+
+  <div id="wake"><span>Click to wake Rosin</span></div>
+
+  <script>window.ROSIN_DEMO = true; window.ROSIN_IMG_EXT = "webp";</script>
+  <script src="layers.js"></script>
+  <script src="rosin.js"></script>
+</body>
+</html>
