@@ -37,20 +37,45 @@ jobs:
           gradle-version: "8.14.3"
       - name: Put llama.cpp's Android rpc-server in the app
         run: apps/pool-worker-android/fetch-engine.sh
-      - name: Signing key (optional)
+      # Every build is signed with the same key, so a new APK installs over the old one. The key is made once
+      # and kept in this repository's Actions cache (a POOL_KEYSTORE_B64 secret overrides it).
+      - name: Load the signing key
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.pool-worker-signing
+          key: pool-worker-signing-v1
+      - name: Make the signing key (first build only)
+        id: make
         env:
           KEYSTORE_B64: ${{ secrets.POOL_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.POOL_KEYSTORE_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/pool.jks"
             echo "POOL_KEYSTORE=$RUNNER_TEMP/pool.jks" >> "$GITHUB_ENV"
-          else
-            echo "No POOL_KEYSTORE_B64 secret: signing with the debug key."
+            echo "POOL_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            exit 0
           fi
+          D="$HOME/.pool-worker-signing"
+          if [ ! -f "$D/pool.jks" ]; then
+            mkdir -p "$D"
+            openssl rand -hex 16 > "$D/pass"
+            P=$(cat "$D/pass")
+            keytool -genkeypair -keystore "$D/pool.jks" -storepass "$P" -keypass "$P" -alias poolworker \
+              -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Pool Worker, O=Tavernworks"
+            echo "made=true" >> "$GITHUB_OUTPUT"
+          fi
+          P=$(cat "$D/pass"); echo "::add-mask::$P"
+          echo "POOL_KEYSTORE=$D/pool.jks" >> "$GITHUB_ENV"
+          echo "POOL_KEYSTORE_PASSWORD=$P" >> "$GITHUB_ENV"
+      - name: Keep the new signing key
+        if: steps.make.outputs.made == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.pool-worker-signing
+          key: pool-worker-signing-v1
       - name: Build APK
         working-directory: apps/pool-worker-android
-        env:
-          POOL_KEYSTORE_PASSWORD: ${{ secrets.POOL_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon assembleRelease
       - name: Check the engine is inside the APK
         run: |

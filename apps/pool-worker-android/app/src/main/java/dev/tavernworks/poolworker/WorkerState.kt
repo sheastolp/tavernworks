@@ -31,6 +31,7 @@ data class WorkerUi(
     val servingOn: String = "",      // "Adreno GPU (OpenCL)" or "CPU"
     val poolModel: String = "",
     val pinWarning: String = "",
+    val heat: String = "",           // "battery 38.5 °C · Android: light"
     val log: List<String> = emptyList(),
 )
 
@@ -50,6 +51,18 @@ object WorkerState {
         val entry = stamp.format(Date()) + "  " + line
         _ui.update { it.copy(log = (it.log + entry).takeLast(200)) }
     }
+}
+
+/**
+ * When the worker steps out of the pool for heat. Two readings: the battery's temperature, and
+ * Android's own heat level for the phone (none, light, moderate, severe, critical, emergency).
+ * Off still keeps a floor: a battery at 50 °C or Android at "critical" always pauses it, because
+ * past that point the battery wears fast and Android starts shutting things down itself.
+ */
+enum class HeatMode(val key: String, val label: String, val batteryC: Float, val status: Int, val blurb: String) {
+    Normal("normal", "Normal", 45f, 3, "Pauses at a 45 °C battery or when Android says \"severe\"."),
+    Relaxed("relaxed", "Relaxed", 48f, 4, "Pauses at a 48 °C battery or when Android says \"critical\"."),
+    Off("off", "Off", 50f, 4, "Ignores heat except the safety floor: a 50 °C battery or Android at \"critical\"."),
 }
 
 /** The worker's saved settings and its enrollment (id + key, shown once by the pool). */
@@ -82,9 +95,10 @@ class Config(context: Context) {
     var onlyWhileCharging: Boolean
         get() = p.getBoolean("only_charging", true)
         set(v) = p.edit().putBoolean("only_charging", v).apply()
-    var batteryTempLimitC: Float
-        get() = p.getFloat("battery_temp_limit_c", 42f)
-        set(v) = p.edit().putFloat("battery_temp_limit_c", v).apply()
+    /** How readily the worker pauses for heat: normal, relaxed or off (see [HeatMode]). */
+    var heatMode: HeatMode
+        get() = HeatMode.entries.firstOrNull { it.key == p.getString("heat_mode", null) } ?: HeatMode.Normal
+        set(v) = p.edit().putString("heat_mode", v.key).apply()
     /** The user wants the worker on: the service restarts itself after Android stops it. */
     var wantRunning: Boolean
         get() = p.getBoolean("want_running", false)

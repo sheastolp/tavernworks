@@ -9,7 +9,7 @@ enrollment and relay protocol:
    127.0.0.1 only, shipped inside the APK (`fetch-engine.sh` puts upstream's release binaries in);
 3. holds one relay WebSocket to the pool front, which carries the host's RPC traffic;
 4. stays running with the screen off behind a notification ("Leave the pool" is on it), and pauses
-   when the phone is unplugged (setting), the battery passes 42 °C, or Android reports severe heat.
+   when the phone is unplugged (setting) or runs hot. Settings > Heat pause picks how hot: Normal (45 °C battery or Android "severe"), Relaxed (48 °C or "critical") or Off. Off still pauses at a 50 °C battery or Android "critical", and the Heat line on the main screen shows both readings live.
 
 Which engine:
 - **Adreno 7xx/8xx** (Snapdragon 8 Gen 2 and newer, some 8 Gen 1 / 7-series): the Snapdragon build on

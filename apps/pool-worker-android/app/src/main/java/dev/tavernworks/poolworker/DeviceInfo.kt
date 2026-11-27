@@ -98,10 +98,16 @@ object DeviceInfo {
         return Battery(plugged, temp, if (level >= 0 && scale > 0) level * 100 / scale else -1)
     }
 
-    /** True when Android says the phone is running hot enough to throttle hard. */
-    fun thermalSevere(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < 29) return false
-        val pm = context.getSystemService(PowerManager::class.java)
-        return pm.currentThermalStatus >= PowerManager.THERMAL_STATUS_SEVERE
+    /** Android's own heat level for the whole phone (0 none .. 6 shutdown), from the maker's
+     *  sensors and rules. -1 when Android is older than 10 and doesn't say. Makers set their own
+     *  trip points, and some report "severe" while the case still feels cool. */
+    fun thermalStatus(context: Context): Int {
+        if (Build.VERSION.SDK_INT < 29) return -1
+        return runCatching { context.getSystemService(PowerManager::class.java).currentThermalStatus }.getOrDefault(-1)
+    }
+
+    fun thermalName(status: Int): String = when (status) {
+        0 -> "none"; 1 -> "light"; 2 -> "moderate"; 3 -> "severe"
+        4 -> "critical"; 5 -> "emergency"; 6 -> "shutdown"; else -> "not reported"
     }
 }

@@ -189,14 +189,45 @@ class Worker(private val context: Context) {
     }
 
     // ------------------------------------------------------------ owner first
-    private fun yieldReason(): String? {
+    /** Heat that has to last this long before the worker steps out, so a brief spike doesn't pause it. */
+    private var hotSince = 0L
+
+    /**
+     * Why the phone should step out of the pool now, or null. [serving] true means it's in the pool:
+     * heat then has to last [HEAT_GRACE_MS] first (the safety floor pauses at once). While paused, it
+     * rejoins only once the battery is 2 °C under the limit and Android's level is below the trigger.
+     */
+    private fun yieldReason(serving: Boolean = false): String? {
         val b = DeviceInfo.battery(context)
-        if (cfg.onlyWhileCharging && !b.plugged) return "Unplugged. Plug the phone in and it rejoins."
-        if (b.tempC >= cfg.batteryTempLimitC)
-            return "Battery at %.1f°C (limit %.0f°C). It rejoins once it cools.".format(b.tempC, cfg.batteryTempLimitC)
-        if (DeviceInfo.thermalSevere(context)) return "The phone is throttling from heat. It rejoins once it cools."
-        return null
+        val status = DeviceInfo.thermalStatus(context)
+        WorkerState.set { it.copy(heat = heatText(b.tempC, status)) }
+        if (cfg.onlyWhileCharging && !b.plugged) { hotSince = 0; return "Unplugged. Plug the phone in and it rejoins." }
+
+        val mode = cfg.heatMode
+        val margin = if (serving) 0f else 2f
+        val floor = HeatMode.Off
+        val hotReason: String? = when {
+            b.tempC >= floor.batteryC || (status >= floor.status) ->
+                return "Too hot to keep going safely (${heatText(b.tempC, status)}). It rejoins once it cools.".also { hotSince = 0 }
+            b.tempC >= mode.batteryC - margin ->
+                "Battery at %.1f °C (limit %.0f °C on %s). It rejoins once it cools.".format(b.tempC, mode.batteryC, mode.label)
+            status >= 0 && status >= mode.status ->
+                "Android reports the phone's heat as \"${DeviceInfo.thermalName(status)}\" (battery %.1f °C). ".format(b.tempC) +
+                    "It rejoins once that eases. Settings > Heat pause > Relaxed or Off ignores this."
+            else -> null
+        }
+        if (hotReason == null) { hotSince = 0; return null }
+        if (!serving) return hotReason
+        val now = System.currentTimeMillis()
+        if (hotSince == 0L) {
+            hotSince = now
+            WorkerState.log("hot: $hotReason Waiting ${HEAT_GRACE_MS / 1000} s to see if it lasts.")
+        }
+        return if (now - hotSince >= HEAT_GRACE_MS) hotReason else null
     }
+
+    private fun heatText(tempC: Float, status: Int): String =
+        "battery %.1f °C · Android: %s".format(tempC, DeviceInfo.thermalName(status))
 
     // ------------------------------------------------------------ serve
     private fun loop() {
@@ -257,8 +288,9 @@ class Worker(private val context: Context) {
             var yielded = false
             while (session.alive && !stopping) {
                 pause(2_000)
-                if (yieldReason() != null) {
-                    WorkerState.log("yielding, draining out of the pool")
+                val why = yieldReason(serving = true)
+                if (why != null) {
+                    WorkerState.log("yielding ($why), draining out of the pool")
                     yielded = true
                     session.close("the phone's owner needs it")
                     break
@@ -301,6 +333,7 @@ class Worker(private val context: Context) {
     companion object {
         fun gb(mb: Int): String = if (mb % 1024 == 0) "${mb / 1024} GB" else "%.1f GB".format(mb / 1024.0)
         const val REJOIN_DELAY_MS = 120_000L
+        const val HEAT_GRACE_MS = 30_000L
         const val DRAIN_GRACE_MS = 10_000L
     }
 }

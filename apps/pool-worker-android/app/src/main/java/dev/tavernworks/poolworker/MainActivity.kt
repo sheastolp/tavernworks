@@ -136,6 +136,10 @@ private fun Screen() {
                 Fact("Approved", if (ui.approved) "yes" else if (cfg.enrolled) "not yet" else "not enrolled")
                 Fact("Relay", if (ui.relayConnected) "connected" else "not connected")
                 Fact("Splits now", ui.streams.toString())
+                Fact("Heat", ui.heat.ifEmpty {
+                    "battery %.1f °C · Android: %s".format(DeviceInfo.battery(ctx).tempC,
+                        DeviceInfo.thermalName(DeviceInfo.thermalStatus(ctx)))
+                })
                 if (ui.poolModel.isNotEmpty()) Fact("Pool model", ui.poolModel)
                 Fact("Engine", "llama.cpp " + BuildConfig.ENGINE_PIN)
             }
@@ -203,10 +207,24 @@ private fun SettingsCard(cfg: Config, ramMb: Long, gpuCapable: Boolean, locked: 
     var charging by remember { mutableStateOf(cfg.onlyWhileCharging) }
     var useGpu by remember { mutableStateOf(cfg.backend != "cpu") }
     var note by remember { mutableStateOf("") }
+    var heat by remember { mutableStateOf(cfg.heatMode) }
 
     Card(colors = CardDefaults.cardColors(containerColor = Wood)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (locked) Text("Leave the pool to change these.", color = Parchment.copy(alpha = 0.7f))
+            // Heat pause applies at once, even while in the pool.
+            Text("Heat pause", color = Parchment, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                for (m in HeatMode.entries) {
+                    val picked = m == heat
+                    val onPick = { heat = m; cfg.heatMode = m; WorkerState.log("heat pause set to ${m.label}") }
+                    if (picked) Button(onClick = onPick, modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Amber, contentColor = Night)) { Text(m.label) }
+                    else OutlinedButton(onClick = onPick, modifier = Modifier.weight(1f)) { Text(m.label, color = Parchment) }
+                }
+            }
+            Text(heat.blurb, color = Parchment.copy(alpha = 0.75f), fontSize = 13.sp)
+            HorizontalDivider(color = Parchment.copy(alpha = 0.15f))
+            if (locked) Text("Leave the pool to change the rest.", color = Parchment.copy(alpha = 0.7f))
             OutlinedTextField(url, { url = it }, label = { Text("Pool address") }, singleLine = true,
                 enabled = !locked, modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
