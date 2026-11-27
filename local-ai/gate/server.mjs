@@ -45,6 +45,7 @@ const SEARCH = (process.env.SEARCH_URL || "http://127.0.0.1:8791").replace(/\/$/
 const WHISPER = (process.env.WHISPER_URL || "http://127.0.0.1:8000").replace(/\/+$/, "").replace(/\/v1$/, "");
 const WHISPER_MODEL = process.env.WHISPER_MODEL || "Systran/faster-distil-whisper-small.en";
 const WHISPER_LANGUAGE = process.env.WHISPER_LANGUAGE || "en";
+const WHISPER_PROMPT = process.env.WHISPER_PROMPT || "Hey Rosin, it's Sheamus. Stoned Sheamus, Tavernworks, Twitch, OBS, Legion Go, GuildScribe.";
 const MAX_AUDIO = 12 * 1024 * 1024;   // about 10 minutes of phone audio
 // Text to speech for Rosin's natural voices: the same speaches server, with the Kokoro model downloaded into it.
 const TTS = (process.env.TTS_URL || WHISPER).replace(/\/+$/, "").replace(/\/v1$/, "");
@@ -436,6 +437,8 @@ async function transcribe(req, res, origin) {
   form.append("file", new Blob([Buffer.concat(chunks)], { type }), "speech." + ext);
   form.append("model", WHISPER_MODEL);
   if (WHISPER_LANGUAGE) form.append("language", WHISPER_LANGUAGE);
+  // Names Whisper would otherwise mishear ("Rosen", "Shamus"); a prompt like this steers its spelling.
+  form.append("prompt", WHISPER_PROMPT);
   form.append("response_format", "json");
   const r = await fetch(WHISPER + "/v1/audio/transcriptions", { method: "POST", body: form, signal: AbortSignal.timeout(90000) }).catch(() => null);
   if (!r) throw fail(502, "The laptop's Whisper server isn't answering. Its setup is on tavernworks.dev/local-ai/.");

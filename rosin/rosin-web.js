@@ -52,7 +52,8 @@
     channel: (q.get("channel") || store.get("channel", "")).replace(/^#/, "").toLowerCase(),
     twitchOn: q.get("channel") ? true : store.get("twitchOn", false),
     awake: store.get("awake", true),
-    stt: store.get("stt", "auto"),   // speech to text: auto, browser or laptop
+    stt: store.get("stt", "auto"),
+    pause: store.get("pause", "normal"),   // how long a pause ends your turn: short, normal or long   // speech to text: auto, browser or laptop
     chatter: q.get("chatter") === "0" ? false : store.get("chatter", true),   // Rosin speaks up on its own now and then
     chatterPace: store.get("chatterPace", "sometimes"),
   };
@@ -642,12 +643,13 @@
     const mode = earMode();
     if (!mode) { R.status(S.stt === "laptop" ? "This browser can't record for the laptop. Type instead." : "This browser can't turn speech into text. Pick Laptop under ⋯ → Speech to text, or type instead."); return; }
     stop();
-    ear.on = true; ear.mode = mode; ear.heard = ""; ear.error = "";
+    ear.on = true; ear.mode = mode; ear.heard = ""; ear.error = ""; ear.finishing = false; ear.restarts = 0; ear.lastWord = 0;
     R.micLive(true);
     if (mode === "browser") browserBegin(); else await laptopBegin();
   }
   function earFinish() {
     if (!ear.on) return;
+    ear.finishing = true; clearTimeout(ear.quiet);
     if (ear.mode === "browser") { try { ear.rec?.stop(); } catch { browserDone(); } }
     else laptopStop();
   }
@@ -683,9 +685,16 @@
     R.status(why || "I didn't catch anything. Tap 🎙 Talk and speak, or type instead.");
   }
 
-  // The browser's recogniser. Android's works best one phrase at a time (it stops by itself when you pause);
-  // elsewhere it keeps listening, and 1.8 seconds of quiet after some words counts as done.
-  function browserBegin() {
+  // How long a pause ends your turn. Longer when the last words sound unfinished ("and…", "so um…", a trailing comma),
+  // so thinking mid-sentence doesn't send half a thought. The length is set under ⋯ → Pause before sending.
+  const PAUSES = { short: 1300, normal: 2000, long: 3000 };
+  const UNFINISHED = /(,|\b(and|but|or|so|because|cause|cuz|like|um+|uh+|er+|hmm+|the|a|an|to|of|with|for|if|when|then|my|your|i|i'm|we|which|from|into|than|gonna|wanna|kinda|sorta)\s*)$/i;
+  const pauseFor = (text) => (PAUSES[S.pause] || PAUSES.normal) * (text && UNFINISHED.test(text.trim()) ? 1.6 : 1);
+
+  // The browser's recogniser. It listens across pauses: when it stops by itself (Android stops after every phrase,
+  // Chrome after a long quiet), it's started again and the words carry on, until a pause as long as pauseFor() goes by
+  // with nothing new, or they tap 🎙 again.
+  function browserBegin(before = "") {
     const rec = new SR(); ear.rec = rec;
     rec.lang = navigator.language || "en-US";
     rec.interimResults = true; rec.continuous = !ANDROID; rec.maxAlternatives = 1;
@@ -696,15 +705,32 @@
         const t = e.results[i][0].transcript;
         if (e.results[i].isFinal) finals[i] = t; else interim += t;
       }
-      ear.heard = (finals.filter(Boolean).join(" ") + " " + interim).replace(/\s+/g, " ").trim();
+      const now = (finals.filter(Boolean).join(" ") + " " + interim).replace(/\s+/g, " ").trim();
+      ear.heard = (before + " " + now).replace(/\s+/g, " ").trim();
+      if (now) ear.lastWord = Date.now();
       showHeard(ear.heard, false);
-      clearTimeout(ear.quiet);
-      if (rec.continuous && ear.heard) ear.quiet = setTimeout(() => { try { rec.stop(); } catch {} }, 1800);
+      armQuiet();
     };
-    rec.onerror = (e) => { ear.error = e.error || "error"; };
-    rec.onend = browserDone;
-    try { rec.start(); R.status("Listening… tap 🎙 again when you're done, or just stop talking"); }
+    rec.onerror = (e) => { if (e.error !== "no-speech" || !ear.heard) ear.error = e.error || "error"; };
+    rec.onend = () => browserEnded(rec);
+    try { rec.start(); if (!before) R.status(callMode.on ? "Listening… take your time" : "Listening… take your time, tap 🎙 again when you're done"); }
     catch (e) { ear.error = "start"; browserDone(); }
+  }
+  // Waits out a pause, then ends the turn. Rearmed with every new word.
+  function armQuiet() {
+    clearTimeout(ear.quiet);
+    if (!ear.heard) return;
+    ear.quiet = setTimeout(() => { ear.finishing = true; const r = ear.rec; try { r ? r.stop() : browserDone(); } catch { browserDone(); } }, pauseFor(ear.heard));
+  }
+  function browserEnded(rec) {
+    if (rec !== ear.rec || !ear.on || ear.mode !== "browser") return;
+    const fatal = /not-allowed|service-not-allowed|audio-capture|network|language-not-supported|start/.test(ear.error);
+    // It stopped by itself mid-thought: start it again and keep the words. armQuiet's timer still ends the turn.
+    if (ear.heard && !ear.finishing && !fatal && Date.now() - (ear.lastWord || 0) < pauseFor(ear.heard)) {
+      ear.restarts = (ear.restarts || 0) + 1;
+      if (ear.restarts < 40) { browserBegin(ear.heard); return; }
+    }
+    browserDone();
   }
   function browserDone() {
     if (!ear.on || ear.mode !== "browser") return;
@@ -717,6 +743,7 @@
       "language-not-supported": "The browser's speech-to-text doesn't know this language.",
       "start": "The mic couldn't start. Tap 🎙 Talk again.",
     }[ear.error];
+    ear.finishing = false; ear.restarts = 0;
     earDone(ear.heard, why);
   }
 
@@ -730,7 +757,7 @@
     const recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
     const parts = [];
     recorder.ondataavailable = (e) => { if (e.data.size) parts.push(e.data); };
-    let ctx = null, spoke = false, lastLoud = Date.now(), started = Date.now(), meter = null;
+    let ctx = null, spoke = false, lastLoud = Date.now(), started = Date.now(), meter = null, floor = 0;
     try {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       const an = ctx.createAnalyser(); an.fftSize = 1024; ctx.createMediaStreamSource(stream).connect(an);
@@ -738,9 +765,11 @@
       meter = tick(100, () => {
         an.getFloatTimeDomainData(buf);
         let sum = 0; for (const v of buf) sum += v * v;
-        const rms = Math.sqrt(sum / buf.length);
-        if (rms > 0.02) { spoke = true; lastLoud = Date.now(); }
-        if ((spoke && Date.now() - lastLoud > 1500) || Date.now() - started > 30000) laptopStop();
+        const rms = Math.sqrt(sum / buf.length), now = Date.now();
+        if (now - started < 400) { floor = Math.max(floor, rms); return; }   // the room's own noise
+        if (rms > Math.max(0.015, Math.min(0.06, floor * 2.2))) { spoke = true; lastLoud = now; }
+        // No words to go on here, so it waits a little longer than the browser does before ending the turn.
+        if ((spoke && now - lastLoud > pauseFor("") * 1.25) || now - started > 60000) laptopStop();
       });
     } catch {}
     recorder.onstop = async () => {
@@ -792,7 +821,7 @@
   }
   function endCall(why) {
     if (!callMode.on) return;
-    callMode.on = false; stopMonitor();
+    callMode.on = false; stopMonitor(); clearTimeout(ear.quiet);
     if (ear.on) {
       const m = ear.mode; ear.on = false;
       try { if (m === "browser") { ear.rec?.abort ? ear.rec.abort() : ear.rec?.stop(); } else { ear.discard = true; laptopStop(); } } catch {}
@@ -1031,6 +1060,10 @@
   const [bargeChk, bargeBox] = check("On a call, talking over Rosin interrupts it");
   const testBtn = Object.assign(document.createElement("button"), { type: "button", textContent: "Test voice" });
   const voiceNote = Object.assign(document.createElement("p"), { className: "voice-note" });
+  const pauseSel = document.createElement("select");
+  pauseSel.append(new Option("Short (about 1 s)", "short"), new Option("Normal (about 2 s)", "normal"), new Option("Long (about 3 s)", "long"));
+  pauseSel.value = PAUSES[S.pause] ? S.pause : "normal";
+  pauseSel.addEventListener("change", () => { S.pause = pauseSel.value; save("pause"); });
   const sttSel = document.createElement("select");
   sttSel.append(new Option("Automatic", "auto"), new Option("This browser (words show as you talk)", "browser"), new Option("The laptop's Whisper", "laptop"));
   const chanIn = Object.assign(document.createElement("input"), { type: "text", placeholder: "channel name", value: S.channel, maxLength: 25, autocapitalize: "off" });
@@ -1043,7 +1076,7 @@
   paceSel.append(new Option("Often (every 1 to 3 min of quiet)", "often"), new Option("Sometimes (2 to 6 min)", "sometimes"), new Option("Rarely (8 to 20 min)", "rarely"));
   const newBtn = Object.assign(document.createElement("button"), { type: "button", textContent: "New chat" });
   more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field(`This device (seen as ${deviceInfo().label})`, devIn), field("Model", modelSel), field("Mood", moodIn), moodAutoChk, voiceChk, field("Rosin's voice", voiceSel), voiceNote,
-               field("Speed", rateIn), field("Pitch", pitchIn), testBtn, field("Speech to text", sttSel), bargeChk, webChk,
+               field("Speed", rateIn), field("Pitch", pitchIn), testBtn, field("Speech to text", sttSel), field("Pause before sending", pauseSel), bargeChk, webChk,
                chatChk, field("How often", paceSel),
                field("Twitch channel", chanIn), twChk, awakeChk, newBtn);
   function fillModels() {
@@ -1139,7 +1172,12 @@
   $("controls").insertBefore(log, $("say"));
   const logBtn = Object.assign(document.createElement("button"), { type: "button", id: "btn-log", textContent: "Chat" });
   logBtn.setAttribute("aria-expanded", "false"); logBtn.setAttribute("aria-controls", "log");
-  $("btn-faces").before(logBtn);
+  // The main row keeps only Talk, Call and ⋯. Chat history, faces and blink move to the top of ⋯.
+  const quick = Object.assign(document.createElement("div"), { className: "quick" });
+  quick.append(logBtn, $("btn-faces"), $("btn-blink"));
+  more.prepend(quick);
+  const hintEl = document.querySelector("#controls .hint");
+  if (hintEl) hintEl.innerHTML = "<b>🎙 Talk</b> sends one message, <b>📞 Call</b> keeps talking · Chat history, faces and settings are under <b>⋯</b> · Hold <b>Space</b> to talk";
   logBtn.addEventListener("click", () => {
     const open = log.hidden; log.hidden = !open; logBtn.setAttribute("aria-expanded", String(open));
     if (open) { drawLog(); log.scrollTop = log.scrollHeight; }

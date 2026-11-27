@@ -148,6 +148,7 @@ Environment variables, set with `Environment=` in the service file:
 | `WHISPER_URL` | `http://127.0.0.1:8000` | The laptop's Whisper server (speaches), for `POST /api/transcribe` |
 | `WHISPER_MODEL` | `Systran/faster-distil-whisper-small.en` | Which Whisper model it uses |
 | `WHISPER_LANGUAGE` | `en` | The language it listens for |
+| `WHISPER_PROMPT` | names like Rosin and Sheamus | A hint that steers how Whisper spells names it would mishear |
 | `TTS_URL` | same as `WHISPER_URL` | The speaches server that speaks Rosin's natural voices, for `POST /api/speak` |
 | `TTS_MODEL` | `speaches-ai/Kokoro-82M-v1.0-ONNX` | The voice model downloaded into it |
 | `GATE_ORIGINS` | `https://tavernworks.dev` | Websites allowed to use it, comma-separated |
