@@ -12,18 +12,20 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
-    --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
-    --ember:#c9572b; --green:#7fb069; --twitch:#9146ff; --lore:#9b7bd4;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  body{
-    font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
-    background:
-      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(155,123,212,.16), transparent 70%),
+  <style>
+   :root{
+     --bg:#15100c; --bg2:#1e1611; --card:#241a13; --line:#3a2a1d;
+     --text:#f1e6d6; --muted:#b9a68f; --gold:#e0a84a; --gold2:#f5c873;
+     --ember:#c9572b; --green:#7fb069; --twitch:#9146ff; --lore:#9b7bd4;
+     --rosin:#a8d5ba; --rosin-dark:#5a8f73;
+   }
+   *{box-sizing:border-box;margin:0;padding:0}
+   html{scroll-behavior:smooth}
+   body{
+     font-family:Inter,system-ui,sans-serif;color:var(--text);line-height:1.6;
+     background:
+       radial-gradient(ellipse 80% 50% at 50% -10%, rgba(155,123,212,.16), transparent 70%),
+       radial-gradient(ellipse 60% 40% at 50% 100%, rgba(168,213,186,.12), transparent 80%);
       radial-gradient(ellipse 60% 40% at 50% 110%, rgba(201,87,43,.12), transparent 70%),
       var(--bg);
     min-height:100vh;
@@ -172,22 +174,43 @@
       <h3>Clips by voice</h3>
       <p>Teach it a person once and it finds them in your VODs by voice, scores their best moments and cuts them into 16:9 or vertical clips with word-by-word captions. Pulls VODs straight from Twitch.</p>
     </div>
-    <div class="card">
-      <div class="icon">✂️</div>
-      <h3>Edit by transcript</h3>
-      <p>Strike words to cut them from the video, auto-strike filler words, cut dead air and export SRT or VTT captions that match your cuts.</p>
-    </div>
-    <div class="card">
-      <div class="icon">🎛️</div>
-      <h3>Studio &amp; timeline</h3>
-      <p>Trim, split, merge, speed, denoise, loudness fixes and conversions, plus a timeline with a facecam overlay track, two audio tracks, fades and undo.</p>
-    </div>
-    <div class="card">
-      <div class="icon">🎮</div>
-      <h3>Plays nice with games</h3>
-      <p>Uses NVIDIA, AMD or Intel GPUs, or just the CPU. The model unloads when idle so your games get the VRAM back.</p>
-    </div>
-  </div>
+     <div class="card">
+       <div class="icon">🎥</div>
+       <h3>Rosin Video Demos</h3>
+       <p>Explore Rosin's vine animation and crystal dance through interactive video demos showcasing real-time chat responses and stream features.</p>
+       <div class="video-grid">
+         <div class="video-item">
+           <div class="video-placeholder">
+             <div class="play-icon">▶</div>
+             <span class="video-title">Vine Core Animation</span>
+           </div>
+           <p class="video-desc">Watch the smooth vine movements and crystal dance that power Rosin's responsive interface.</p>
+         </div>
+         <div class="video-item">
+           <div class="video-placeholder">
+             <div class="play-icon">▶</div>
+             <span class="video-title">Interactive Chat Demo</span>
+           </div>
+           <p class="video-desc">See how Rosin engages in real-time conversations with fluid chat responses and data tracking.</p>
+         </div>
+       </div>
+     </div>
+     <div class="card">
+       <div class="icon">✂️</div>
+       <h3>Edit by transcript</h3>
+       <p>Strike words to cut them from the video, auto-strike filler words, cut dead air and export SRT or VTT captions that match your cuts.</p>
+     </div>
+     <div class="card">
+       <div class="icon">🎛️</div>
+       <h3>Studio &amp; timeline</h3>
+       <p>Trim, split, merge, speed, denoise, loudness fixes and conversions, plus a timeline with a facecam overlay track, two audio tracks, fades and undo.</p>
+     </div>
+     <div class="card">
+       <div class="icon">🎮</div>
+       <h3>Plays nice with games</h3>
+       <p>Uses NVIDIA, AMD or Intel GPUs, or just the CPU. The model unloads when idle so your games get the VRAM back.</p>
+     </div>
+   </div>
 
   <div class="divider" id="install">DOWNLOAD &amp; INSTALL</div>
   <div class="scroll guide">
