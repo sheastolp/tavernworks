@@ -201,7 +201,8 @@ function toOpenAI(o) {
     if (m.role === "tool") return { role: "tool", tool_call_id: open.shift() || "call_" + n++, content: m.content };
     return { role: m.role, content: m.content };
   });
-  const out = { model: "pool", messages, stream: true, max_tokens: MAX_REPLY_TOKENS };
+  // cache_prompt: llama-server reuses the part of the prompt it read last time (Rosin keeps its prompt's start the same).
+  const out = { model: "pool", messages, stream: true, max_tokens: MAX_REPLY_TOKENS, cache_prompt: true };
   const opt = o.options || {};
   if (opt.temperature !== undefined) out.temperature = opt.temperature;
   if (opt.repeat_penalty !== undefined) out.repeat_penalty = opt.repeat_penalty;   // llama-server takes it as is
