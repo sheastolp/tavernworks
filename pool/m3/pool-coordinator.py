@@ -48,6 +48,7 @@ CONFIG_PATH = os.path.join(POOL_DIR, "pool-config.json")
 CURRENT_MODEL_PATH = os.path.join(POOL_DIR, "current-model.txt")
 SPLIT_PATH = os.path.join(POOL_DIR, "pool-split.txt")
 RPC_PATH = os.path.join(POOL_DIR, "pool-rpc.txt")
+DRAFT_PATH = os.path.join(POOL_DIR, "pool-draft.txt")
 LAST_SEEN_UP = {}   # worker endpoint -> epoch it last answered a probe
 WORKER_GRACE_SEC = 600  # seen up this recently = busy, not down, while
                         # a split is loading or running
@@ -420,6 +421,30 @@ def current_model():
     return DEFAULT_MODEL
 
 
+def draft_info():
+    """What ~/ai-pool/pool-draft.txt turns on for the next split
+    start (fx705-host.sh reads the same line): None when off, else
+    {"mode": "model"|"mtp", "file", "card_mb"} where card_mb is what
+    the draft takes out of the card's 4 GB — the file plus 512 MB
+    for its context and compute buffers."""
+    try:
+        with open(DRAFT_PATH) as f:
+            line = (f.readline() or "").strip()
+    except Exception:
+        return None
+    if not line or line.lower() in ("off", "none"):
+        return None
+    if line.lower() == "mtp":
+        return {"mode": "mtp", "file": "", "card_mb": 256}
+    if line.endswith(".gguf"):
+        try:
+            size = os.path.getsize(os.path.join(POOL_DIR, line)) // (1024 * 1024)
+        except OSError:
+            return None  # the host script also runs without it
+        return {"mode": "model", "file": line, "card_mb": size + 512}
+    return None
+
+
 def compute_split(offered_list, fx_share):
     """One proportion per live RPC device, in device order, plus
     the host card's share — always last, always 1: the card's slice
@@ -441,6 +466,11 @@ def pool_state():
     reserve = int(cfg.get("kv_reserve_mb") or 1024)
     gpu_total = gpu["total_mb"] if gpu else 0
     fx_share = min(int(cfg.get("fx705_gpu_cap_mb") or 3072), gpu_total or 3072)
+    # A draft model lives whole on the card, so the card's layer
+    # share shrinks by what the draft takes (floor 1 GB).
+    draft = draft_info()
+    if draft:
+        fx_share = max(1024, fx_share - draft["card_mb"])
 
     # A ggml-rpc-server will not answer this page's side probe while
     # a llama-server session is connected to it — that is, for the
@@ -568,6 +598,7 @@ def pool_state():
         "solo_capacity_mb": solo_capacity,
         "split_capacity_mb": split_capacity,
         "split": split,
+        "draft": draft,
         "rpc_list": rpc_list,
         "devices": devices,
         "ends_safe": ends_safe,

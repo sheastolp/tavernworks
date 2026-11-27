@@ -174,6 +174,56 @@ if [ "$CTX_WANT" -le "$CTX_FALLBACK" ]; then
   CTX_FALLBACK=""
 fi
 CTX_LOAD_WINDOW="${POOL_SPLIT_LOAD_WINDOW:-900}"
+# Draft model (Nov 27, Shea's call): optional speculative decoding.
+# A small model on this card guesses several tokens ahead and the
+# split checks them all in ONE pass, so the remote machines' round
+# trips are paid once per batch of guesses instead of once per
+# token. On/off lives in ~/ai-pool/pool-draft.txt, first line:
+#   missing, empty or "off"  -> no draft (the old behaviour)
+#   <file>.gguf              -> that draft model from ~/ai-pool,
+#                               loaded whole on this card (CUDA0).
+#                               Pick: Qwen3.5-0.8B-Q4_K_M.gguf
+#                               (unsloth, 533 MB, same 248,320-token
+#                               vocabulary as Qwen3.5 35B-A3B)
+#   mtp                      -> the main model's own MTP head, only
+#                               if its GGUF kept the nextn tensors
+# POOL_DRAFT_N=<n> sets how many tokens a draft guesses (default 8;
+# 3 for mtp). If the brain dies during load with a draft on, it is
+# retried once without the draft before any context fallback, so a
+# bad draft can never keep the pool down. The coordinator shrinks
+# the card's share of the split by the draft's size while it is on.
+DRAFT_MODE=""
+if [ -f "$POOL_DIR/pool-draft.txt" ]; then
+  DRAFT_MODE="$(head -1 "$POOL_DIR/pool-draft.txt" | tr -d '[:space:]')"
+fi
+DRAFT_N="${POOL_DRAFT_N:-}"
+case "$DRAFT_N" in *[!0-9]*) DRAFT_N="" ;; esac
+DRAFT_ARGS=()
+case "$DRAFT_MODE" in
+  ""|off|OFF|Off|none) DRAFT_MODE="" ;;
+  mtp|MTP)
+    DRAFT_MODE="mtp"
+    DRAFT_ARGS=(--spec-type draft-mtp --spec-draft-n-max "${DRAFT_N:-3}")
+    ;;
+  *.gguf)
+    if [ -f "$POOL_DIR/$DRAFT_MODE" ]; then
+      DRAFT_ARGS=(-md "$POOL_DIR/$DRAFT_MODE" --spec-type draft-simple
+                  -ngld 99 -devd CUDA0 --spec-draft-n-max "${DRAFT_N:-8}")
+    else
+      echo "!! Draft model $DRAFT_MODE is not in $POOL_DIR — running without a draft."
+      DRAFT_MODE=""
+    fi
+    ;;
+  *)
+    echo "!! pool-draft.txt says '$DRAFT_MODE' — expected off, mtp or a .gguf file name. Running without a draft."
+    DRAFT_MODE=""
+    ;;
+esac
+if [ -n "$DRAFT_MODE" ]; then
+  echo ">> Draft: $DRAFT_MODE (speculative decoding on; off = empty ~/ai-pool/pool-draft.txt)"
+else
+  echo ">> Draft: off"
+fi
 run_brain() {
   "$SERVER" -m "$POOL_DIR/$MODEL" \
     --reasoning off \
@@ -182,6 +232,7 @@ run_brain() {
     --tensor-split "$SPLIT" \
     -ngl 99 -fit off \
     -c "$1" \
+    ${DRAFT_ARGS[@]+"${DRAFT_ARGS[@]}"} \
     --host "$TS_IP" --port 8090
 }
 wait_for_workers() {
@@ -203,6 +254,14 @@ echo ">> with layers offloaded to both. Leave this terminal open; Ctrl-C stops t
 START=$SECONDS
 CODE=0
 run_brain "$CTX_WANT" || CODE=$?
+if [ -n "$DRAFT_MODE" ] && [ "$CODE" -ne 0 ] && [ "$CODE" -ne 130 ] && [ "$CODE" -ne 131 ] && [ $((SECONDS - START)) -lt "$CTX_LOAD_WINDOW" ]; then
+  echo "!! Brain exited (code $CODE) during load with draft $DRAFT_MODE — retrying once without the draft."
+  wait_for_workers "${POOL_SPLIT_WORKER_WAIT:-120}" || true
+  DRAFT_ARGS=(); DRAFT_MODE=""
+  START=$SECONDS
+  CODE=0
+  run_brain "$CTX_WANT" || CODE=$?
+fi
 if [ -n "$CTX_FALLBACK" ] && [ "$CODE" -ne 0 ] && [ "$CODE" -ne 130 ] && [ "$CODE" -ne 131 ] && [ $((SECONDS - START)) -lt "$CTX_LOAD_WINDOW" ]; then
   echo "!! Brain exited (code $CODE) during load at context $CTX_WANT — waiting for the RPC workers to answer again, then retrying once at $CTX_FALLBACK."
   if wait_for_workers "${POOL_SPLIT_WORKER_WAIT:-120}"; then

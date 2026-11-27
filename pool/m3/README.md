@@ -58,3 +58,29 @@ systemctl enable --now pool-coordinator
 Verify: the control page at http://100.100.40.72:8091/ shows the
 brain online with the Qwen2.5, the roster with the Yoga probed,
 and Burn's dashboard still green after the solo restart.
+
+## Draft model for the split (Nov 27)
+
+The split can run a small draft model on the FX705's card
+(speculative decoding). The draft guesses several tokens and the
+split checks them in one pass, so the remote machines' round trips
+are paid once per batch of guesses instead of once per token.
+
+- On: put the draft's file name in `~/ai-pool/pool-draft.txt`, then
+  restart the split. The pick for Qwen3.5 35B-A3B is
+  `Qwen3.5-0.8B-Q4_K_M.gguf` from unsloth/Qwen3.5-0.8B-GGUF (533 MB,
+  the same 248,320-token vocabulary).
+- `mtp` in that file uses the main model's own MTP head instead, if
+  its GGUF kept the `nextn` tensors.
+- Off: empty the file (or write `off`) and restart the split.
+- While it is on, the coordinator takes the draft's size plus 512 MB
+  out of the card's share of the split (never below 1 GB).
+- A start that dies during load with a draft on is retried once
+  without it, so a bad draft can't keep the pool down.
+- `POOL_DRAFT_N=<n>` in the host unit's environment changes how many
+  tokens a draft guesses (default 8; 3 for mtp).
+
+Each machine already gets one unbroken block of layers: llama.cpp's
+default split mode is by layer, so per token the work visits each
+machine once. The relayed machine's round trip is the cost the draft
+spreads out.
