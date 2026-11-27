@@ -19,7 +19,7 @@ canvas.smoke { position: fixed; inset: 0; width: 100%; height: 100%; pointer-eve
 
 /* --ctrl-h is the height of the controls (set by rosin.js) so Rosin never hides behind them */
 #stage { position: fixed; inset: 0; display: grid; place-items: center;
-         padding-bottom: calc(var(--ctrl-h, 0px) + var(--subs-h, 0px)); touch-action: manipulation; }
+         padding-bottom: var(--ctrl-h, 0px); touch-action: manipulation; }
 /* rosin.js sets the exact size to fit any screen; this is only the starting guess */
 #rosin {
   position: relative; height: min(94vh, 118vw); aspect-ratio: 1382 / 1698;
@@ -274,3 +274,12 @@ html.buddy #changes, body.obs #changes, html.buddy #btn-changes, body.obs #btn-c
 #log p img.pic { display: block; max-width: min(180px, 60%); max-height: 140px; border-radius: 8px; margin: 4px 0; }
 html.buddy #pics, html.buddy #pic-btn, body.obs #pics { display: none !important; }
 @media (max-height: 500px) { #pics .pic-wait { width: 48px; height: 48px; } }
+
+/* Rosin offering a change: it waits here for Draft it or No thanks (rosin-self.js) */
+#chg-offer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: min(640px, 100%); box-sizing: border-box;
+             padding: 8px 10px; border: 1px solid #d0602a; border-radius: 12px; background: rgba(40, 16, 8, 0.92); }
+#chg-offer[hidden] { display: none; }
+#chg-offer .chg-offer-text { flex: 1 1 220px; margin: 0; font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+#chg-offer .chg-offer-btns { display: flex; gap: 8px; flex: 0 0 auto; }
+#chg-offer button { min-height: 44px; }
+#chg-offer .chg-primary { background: #8a3414; border-color: #d0602a; }

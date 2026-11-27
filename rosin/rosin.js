@@ -116,16 +116,19 @@
   function fit() {
     const ctrlH = body.classList.contains("preview") && !body.classList.contains("hide-ui") ? controls.offsetHeight + 8 : 0;
     root.style.setProperty("--ctrl-h", ctrlH + "px");
-    // Subtitles get their own band, three lines tall, between Rosin and the controls, so they never sit on Rosin's face.
-    const band = body.classList.contains("subs") && !body.classList.contains("obs") && !body.classList.contains("hide-ui")
-      ? Math.round((parseFloat(getComputedStyle(subsEl).fontSize) || 17) * 1.25 * 3 + 10) : 0;
-    root.style.setProperty("--subs-h", band + "px");
-    const w = stage.clientWidth, h = stage.clientHeight - ctrlH - band;
+    // No space is kept for subtitles: they sit over the bottom of the smoke, just above the controls, and only
+    // while there's a line to show. Rosin gets the room.
+    root.style.setProperty("--subs-h", "0px");
+    const w = stage.clientWidth, h = stage.clientHeight - ctrlH;
     // The smoke hangs below Rosin's box: fit Rosin and the smoke together, and centre the pair, not just Rosin.
     const FH = smokeShown() ? Math.max(L.H, L.smoke.showY + L.smoke.showH) : L.H;
     const height = Math.max(120, Math.min(h * 0.94 * L.H / FH, w * 0.96 * L.H / L.W));
     rosin.style.height = height + "px"; rosin.style.width = (height * L.W / L.H) + "px";
     rosin.style.marginBottom = (height * (FH - L.H) / L.H) + "px";
+    // On a tall phone screen Rosin is as wide as it can be and there's height to spare: put most of it above the
+    // antennae, so Rosin sits down near the controls instead of floating with a gap under the smoke.
+    const spare = Math.max(0, h - height * FH / L.H);
+    rosin.style.marginTop = (ctrlH ? spare * 0.7 : 0) + "px";   // OBS and hidden controls stay centred
   }
   addEventListener("resize", fit);
   addEventListener("orientationchange", () => setTimeout(fit, 250));

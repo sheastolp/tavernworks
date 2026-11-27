@@ -1,6 +1,7 @@
 /* rosin-self.js: Rosin changing its own app, with Sheamus's OK (load after rosin-web.js).
  *
- * Ask for a change under ⋯ → Changes, or just ask Rosin in conversation ("can you make the Talk button bigger?").
+ * Ask for a change under ⋯ → Changes, or ask Rosin in conversation ("can you make the Talk button bigger?"): Rosin
+ * says what it would change and waits, and it is drafted only once you tap Draft it or say yes.
  * It can be Rosin's own app or any other repo the laptop's GitHub token reaches: pick one, or let Rosin work it out
  * from what you asked (the card always says which). The laptop's gate has a model draft it as small edits, checks
  * them (never workflows, secrets or settings files), and opens a pull request on GitHub. Here you see what it'll do
@@ -51,16 +52,58 @@
   const keyOf = (it) => (it.pr ? `${it.repo || ""}#${it.pr}` : it.id);
   const clean = (t) => String(t || "").replace(/[\[\]{}<>"]/g, "").replace(/\s+/g, " ").trim().slice(0, 160);
 
-  // Rosin offering a change in conversation ("[change: …]" at the end of its reply).
-  window.addEventListener("rosin-change", async (e) => {
-    if (!on || !H.selfReady()) return;
-    const want = String(e.detail?.want || "").trim();
-    if (want.length < 4) return;
-    const context = H.recent(6).map((m) => `${m.role === "user" ? m.who || "Sheamus" : "Rosin"}: ${m.text}`).join("\n");
-    try { await call("/api/self/draft", { request: want, from: "chat", context, repo: "auto" }); R.status("Drafting that change on the laptop. It'll wait for your OK under ⋯ → Changes."); }
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+  // Rosin offering a change in conversation ("[change: …]" at the end of its reply). Nothing is drafted until
+  // Sheamus says yes: a bar above the chat box shows the offer with Draft it and No thanks, and saying or typing
+  // "yes" (or "no") in the next few minutes answers it too.
+  const OFFER_FOR = 5 * MIN;
+  let offer = null, answered = { want: "", at: 0 }, skipReply = false;   // offer: { want, context, at }
+  const offerBar = el("div", "chg-offer"); offerBar.id = "chg-offer"; offerBar.hidden = true;
+  offerBar.setAttribute("role", "group"); offerBar.setAttribute("aria-label", "Rosin offers a change");
+  const offerText = el("p", "chg-offer-text");
+  const offerYes = Object.assign(el("button", "chg-primary", "Draft it"), { type: "button" });
+  const offerNo = Object.assign(el("button", "", "No thanks"), { type: "button" });
+  const offerBtns = el("div", "chg-offer-btns"); offerBtns.append(offerYes, offerNo);
+  offerBar.append(offerText, offerBtns);
+  document.getElementById("controls").insertBefore(offerBar, document.getElementById("say"));
+  function showOffer(o) {
+    offer = o; offerBar.hidden = !o;
+    if (o) offerText.textContent = `Rosin offers a change: ${o.want}`;
+    H.fit();
+  }
+  async function takeOffer() {
+    const o = offer; if (!o) return;
+    showOffer(null); answered = { want: o.want.toLowerCase(), at: Date.now() };
+    try { await call("/api/self/draft", { request: o.want, from: "chat", context: o.context, repo: "auto" }); R.status("Drafting that change on the laptop. It'll wait for your OK under ⋯ → Changes."); }
     catch (err) { R.status(err.message, true); }
     refresh();
+  }
+  offerYes.addEventListener("click", takeOffer);
+  function dropOffer() { if (offer) answered = { want: offer.want.toLowerCase(), at: Date.now() }; showOffer(null); }
+  offerNo.addEventListener("click", () => { dropOffer(); R.status("Okay, no change."); });
+  window.addEventListener("rosin-change", (e) => {
+    if (!on || !H.selfReady()) return;
+    const want = String(e.detail?.want || "").replace(/\s+/g, " ").trim().slice(0, 300);
+    if (want.length < 4) return;
+    // Rosin's reply to a "yes" or "no" often tags the same change again: that isn't a new offer.
+    if (skipReply) { skipReply = false; return; }
+    if (want.toLowerCase() === answered.want && Date.now() - answered.at < 10 * MIN) return;
+    const context = H.recent(6).map((m) => `${m.role === "user" ? m.who || "Sheamus" : "Rosin"}: ${m.text}`).join("\n");
+    showOffer({ want, context, at: Date.now() });
   });
+  // A short yes or no from this person, said or typed, answers the offer. Anything else leaves it waiting.
+  const YES = /^\s*(yes|yeah|yep|yup|sure|ok(ay)?|do it|go ahead|go for it|draft it|please do|sounds good|absolutely|definitely)\b[\s\S]{0,40}$/i;
+  const NO = /^\s*(no|nope|nah|never ?mind|no thanks|don'?t|not now|skip it|cancel)\b[\s\S]{0,40}$/i;
+  window.addEventListener("rosin-turn", (e) => {   // rosin-web.js: something this person said or typed
+    skipReply = false;
+    if (!offer) return;
+    if (Date.now() - offer.at > OFFER_FOR) { showOffer(null); return; }
+    const t = String(e.detail?.text || "");
+    if (YES.test(t)) { skipReply = true; takeOffer(); }
+    else if (NO.test(t)) { skipReply = true; dropOffer(); }
+  });
+  H.tick(30 * SEC, () => { if (offer && Date.now() - offer.at > OFFER_FOR) showOffer(null); });
 
   // ---------- the Changes panel (⋯ → Changes) ----------
   const panel = document.createElement("div"); panel.id = "changes"; panel.className = "tray"; panel.hidden = true;
@@ -82,7 +125,6 @@
   }
   btn.addEventListener("click", () => openPanel(panel.hidden));
 
-  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const button = (label, fn, cls) => { const b = el("button", cls, label); b.type = "button"; b.addEventListener("click", fn); return b; };
   const intro = el("p", "chg-dim", "Ask for a change to Rosin's app or any of your repos, here or just by asking Rosin. The laptop drafts it, and nothing merges until you approve it here.");
   const setup = el("p", "chg-note");
@@ -210,4 +252,27 @@
   H.later(4000, refresh);
 
   B.self = { refresh, items: () => items.slice(), repos: () => repos.slice(), open: () => openPanel(true), draw };
+
+  // ---------- picking up a new version of this page ----------
+  // The Android app keeps this page running for hours, so a change pushed to the site (an approved draft included)
+  // would never reach it. Every 10 minutes it asks the site whether Rosin's files changed, and reloads itself once
+  // nothing is going on: not talking or listening, nothing typed, no tray or offer open, quiet for a minute.
+  const FILES = ["index.html", "rosin.js", "rosin-web.js", "rosin-self.js", "rosin-compass.js", "rosin-eyes.js", "rosin.css", "layers.js"];
+  let shipped = null, newer = false;
+  async function version() {
+    const base = location.href.replace(/[?#].*$/, "").replace(/[^/]*$/, "");
+    const tags = await Promise.all(FILES.map((f) => fetch(base + f, { method: "HEAD", cache: "no-store" })
+      .then((r) => (r.ok ? r.headers.get("etag") || r.headers.get("last-modified") || "" : "")).catch(() => "")));
+    return tags.some(Boolean) ? tags.join("|") : null;
+  }
+  const calm = () => !H.busy() && H.quietFor() > MIN && !document.getElementById("say-text")?.value.trim() && !offer
+    && !H.onCall() && [...document.querySelectorAll(".tray")].every((t) => t.hidden) && !B.eyes?.pending().length;
+  if (location.protocol === "https:") {
+    H.later(15 * SEC, async () => { shipped = await version(); });
+    let n = 0;
+    H.tick(MIN, async () => {   // checks the site every 10 minutes; once there's an update, looks for a calm minute
+      if (!newer && ++n % 10 === 0) { const v = await version(); newer = !!(shipped && v && v !== shipped); if (!shipped) shipped = v; }
+      if (newer && calm()) { R.status("Rosin got an update. Reloading…"); setTimeout(() => location.reload(), 800); }
+    });
+  }
 })();

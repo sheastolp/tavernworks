@@ -683,23 +683,31 @@ function outline(path, text) {
   });
   return `${path}: ${text.split("\n").length} lines${names.length ? ". " + names.slice(0, 80).join(", ") : ""}`;
 }
-// `whole` files go in complete; the rest as windows around the lines that match the request.
-function pickContext(files, want, whole = [], budget = 24000) {
+// Code goes to the model with line numbers ("120| …"), so it can name the lines to change instead of having to copy
+// them exactly, which a small local model often gets slightly wrong. `shown` records which lines it saw: an edit may
+// only touch those. `best` is the line that matches the request best, for the one-part fallback.
+const numbered = (lines, a, b) => lines.slice(a, b + 1).map((l, k) => `${a + k + 1}| ${l}`).join("\n");
+function pickContext(files, want, whole = [], budget = 11000) {
   const words = wordsOf(want);
-  const parts = [];
-  let used = 0;
-  for (const w of whole) if (files[w] && used + files[w].length < budget) { parts.push(`=== ${w} (whole file) ===\n${files[w]}`); used += files[w].length; }
+  const parts = [], shown = {};
+  let used = 0, best = null;
+  for (const w of whole) if (files[w] && used + files[w].length < budget) {
+    const lines = files[w].split("\n");
+    parts.push(`=== ${w} (whole file, lines 1-${lines.length}) ===\n${numbered(lines, 0, lines.length - 1)}`);
+    shown[w] = [[1, lines.length]]; used += files[w].length;
+  }
   const spots = [];
   for (const [path, text] of Object.entries(files)) {
-    if (whole.includes(path)) continue;
     text.split("\n").forEach((l, i) => { const low = l.toLowerCase(); let s = 0; for (const w of words) if (low.includes(w)) s += w.length > 4 ? 2 : 1; if (s) spots.push({ path, i, s }); });
   }
   spots.sort((a, b) => b.s - a.s);
+  if (spots.length) best = { path: spots[0].path, i: spots[0].i };
   const ranges = {};
   for (const sp of spots) {
+    if (whole.includes(sp.path)) continue;
     const list = (ranges[sp.path] ||= []);
     if (list.some(([a, b]) => sp.i >= a && sp.i <= b)) continue;
-    const lines = files[sp.path].split("\n"), a = Math.max(0, sp.i - 22), b = Math.min(lines.length - 1, sp.i + 22);
+    const lines = files[sp.path].split("\n"), a = Math.max(0, sp.i - 18), b = Math.min(lines.length - 1, sp.i + 18);
     const size = lines.slice(a, b + 1).join("\n").length;
     if (used + size > budget) continue;
     list.push([a, b]); used += size;
@@ -711,13 +719,14 @@ function pickContext(files, want, whole = [], budget = 24000) {
     ranges[path] = [[0, text.split("\n").length - 1]]; used += text.length;
   }
   for (const [path, list] of Object.entries(ranges)) {
+    if (!list.length) continue;
     const lines = files[path].split("\n");
     list.sort((x, y) => x[0] - y[0]);
     const merged = [];
     for (const r of list) { const last = merged[merged.length - 1]; if (last && r[0] <= last[1] + 1) last[1] = Math.max(last[1], r[1]); else merged.push([...r]); }
-    for (const [a, b] of merged) parts.push(`=== ${path}, lines ${a + 1}-${b + 1} ===\n${lines.slice(a, b + 1).join("\n")}`);
+    for (const [a, b] of merged) { parts.push(`=== ${path}, lines ${a + 1}-${b + 1} ===\n${numbered(lines, a, b)}`); (shown[path] ||= []).push([a + 1, b + 1]); }
   }
-  return { outline: Object.entries(files).map(([p, t]) => outline(p, t)).join("\n"), code: parts.join("\n\n") };
+  return { outline: Object.entries(files).map(([p, t]) => outline(p, t)).join("\n"), code: parts.join("\n\n"), shown, best };
 }
 // Reads the files a change in `repo` may need: Rosin's page files for Rosin, otherwise the editable files whose paths
 // best match the request (and the README), up to about 200 KB.
@@ -762,19 +771,24 @@ const DRAFT_FORMAT = [
   "TITLE: a short title, under 60 characters",
   "SUMMARY: one or two plain sentences for Sheamus saying what will change",
   "FILE: <path exactly as shown>",
-  "<<<<<<< SEARCH",
-  "a few lines copied exactly from the code shown, enough to match one place only",
-  "=======",
-  "the new lines",
-  ">>>>>>> REPLACE",
-  "Repeat FILE and SEARCH/REPLACE blocks for every edit. SEARCH must be copied character for character from the code shown below, including spaces. Only edit files and lines you were shown, or make a new file by using an empty SEARCH with a FILE path next to the files shown. Keep the change as small as it can be.",
+  "LINES: <first>-<last>",
+  "<<<<<<< NEW",
+  "the new lines that take the place of those lines, without line numbers",
+  ">>>>>>> END",
+  "LINES are the numbers shown at the left of the code (\"120| \"). Give the full new text of every line in that range, changed or not. To add lines without replacing any, write AFTER: <line number> instead of LINES. To delete lines, leave NEW empty.",
+  "Repeat FILE, LINES and NEW for every edit. Use only line numbers from the code shown below, and keep the change as small as it can be.",
+  "(A SEARCH/REPLACE block also works: <<<<<<< SEARCH, a few lines from the code without their numbers, =======, the new lines, >>>>>>> REPLACE.)",
+];
+const NEW_FILES = "To make a new file next to the files shown: FILE: <new path>, LINES: new, then the whole file in NEW.";
+const DRAFT_LIMITS = [
   "Never touch workflows, CI, secrets, keys, passwords, tokens, settings or build config files, and never add code that sends data somewhere new, runs downloaded code, or removes safety checks.",
   "If the request is unclear, unsafe, or would need code you weren't shown, answer only: CANNOT: and the reason in one plain sentence.",
 ];
+
 const ROSIN_RULES = [
   "You change the code of Rosin, an AI co-host web page (tavernworks.dev/rosin) that also runs inside Sheamus's Android and Windows apps. Sheamus asked for a change; draft it as small, exact edits.",
   "Files: index.html (the page), layers.js (the art layers), rosin.js (the avatar: face, mood glow, layout), rosin-web.js (chat, voice, mic, call, settings under the ⋯ menu), rosin-compass.js (mood compass), rosin-self.js (the Changes panel), rosin-eyes.js (photos), rosin.css (the look). Settings rows in rosin-web.js are made with field(label, element) and check(label), saved with store.set.",
-  ...DRAFT_FORMAT.map((l) => l.replace("make a new file by using an empty SEARCH with a FILE path next to the files shown", "never make new files")),
+  ...DRAFT_FORMAT, "Never make new files.", ...DRAFT_LIMITS,
   "Rosin's body: a vine-wrapped orb with one fiery eye, crystal antennae on vines (the .antenna parts, which sway), small crystals around it, and a smoke wisp below. It has no ears, mouth, hands, arms or legs. If Sheamus names a part Rosin doesn't have, use the closest real part only when the match is obvious (ears or horns mean the antennae) and say so in SUMMARY; otherwise answer CANNOT and ask which part he means.",
   "SUMMARY must say exactly what the edits change, in his words where you can (which button, part, setting, by how much), never just repeat the request, so he isn't approving a guess.",
   "It must keep working on a phone and a touchscreen handheld: tap targets at least 44px, nothing wider than the screen.",
@@ -782,53 +796,142 @@ const ROSIN_RULES = [
 ].join("\n");
 const repoRules = (r) => [
   `You change the code in Sheamus's GitHub repo ${r.full}${r.desc ? ` (${r.desc})` : ""}${r.lang ? `, mostly ${r.lang}` : ""}. Sheamus asked for a change; draft it as small, exact edits that fit the code's own style.`,
-  ...DRAFT_FORMAT,
+  ...DRAFT_FORMAT, NEW_FILES, ...DRAFT_LIMITS,
   "SUMMARY must say exactly what the edits change (which file, function, button or text), never just repeat the request. If the request names something this code doesn't have, answer CANNOT and ask what he means.",
   "Anything with a screen must keep working on a phone and a touchscreen handheld.",
 ].join("\n");
 
+const unfence = (s) => String(s).replace(/^```[\w-]*\n/, "").replace(/\n?```\s*$/, "");
+// A model sometimes copies the "120| " numbers along with the code. Strip them when most lines have them.
+function stripNums(s) {
+  const lines = String(s).split("\n"), body = lines.filter((l) => l.trim());
+  if (!body.length || body.filter((l) => /^\s*\d{1,5}\s?\|/.test(l)).length < body.length / 2) return s;
+  return lines.map((l) => l.replace(/^\s*\d{1,5}\s?\| ?/, "")).join("\n");
+}
 function parseDraft(text) {
   text = String(text || "").replace(/<think>[\s\S]*?<\/think>/g, "").replace(/\r\n/g, "\n");
-  const blocks = [...text.matchAll(/<<<<<<< ?SEARCH[^\n]*\n([\s\S]*?)\n?=======[^\n]*\n([\s\S]*?)\n?>>>>>>> ?REPLACE/g)];
+  const found = [];
+  for (const m of text.matchAll(/<<<<<<< ?SEARCH[^\n]*\n([\s\S]*?)\n?=======[^\n]*\n([\s\S]*?)\n?>>>>>>> ?REPLACE[^\n]*/g)) found.push({ at: m.index, end: m.index + m[0].length, search: m[1], replace: m[2] });
+  for (const m of text.matchAll(/<<<<<<< ?NEW[^\n]*\n([\s\S]*?)\n?>>>>>>> ?END[^\n]*/g)) found.push({ at: m.index, end: m.index + m[0].length, body: m[1] });
   const cannot = /^\s*CANNOT:\s*(.+)$/mi.exec(text);
-  if (!blocks.length) return cannot ? { cannot: cannot[1].trim().slice(0, 300) } : { error: "No SEARCH/REPLACE blocks in the answer." };
-  const edits = blocks.map((m) => {
-    const before = text.slice(0, m.index), files = [...before.matchAll(/FILE:\s*`?(?:\.\/)?([\w./-]+)`?/g)];
-    return { path: files.length ? files[files.length - 1][1] : "", search: m[1].replace(/^```\w*\n/, ""), replace: m[2].replace(/\n```$/, "") };
+  if (!found.length) return cannot ? { cannot: cannot[1].trim().slice(0, 300) } : { error: "No edits in the answer: use FILE, LINES and a NEW block." };
+  found.sort((a, b) => a.at - b.at);
+  let prevEnd = 0, lastPath = "";
+  const edits = found.map((f) => {
+    const head = text.slice(prevEnd, f.at), paths = [...text.slice(0, f.at).matchAll(/FILE:\s*\**`?(?:\.\/)?([\w./-]+)`?/g)];
+    prevEnd = f.end;
+    const path = paths.length ? paths[paths.length - 1][1] : lastPath;
+    lastPath = path;
+    if (f.body == null) return { path, kind: "search", search: stripNums(unfence(f.search)), replace: stripNums(unfence(f.replace)) };
+    const ln = /\b(LINES?|AFTER)\s*:?\s*\**\s*(new|\d+)(?:\s*(?:-|–|—|to)\s*(\d+))?/i.exec(head);
+    const range = !ln ? null : /new/i.test(ln[2]) ? { isNew: true }
+      : { after: /after/i.test(ln[1]), a: +ln[2], b: ln[3] ? +ln[3] : +ln[2] };
+    const body = stripNums(unfence(f.body));
+    return { path, kind: "lines", range, text: body };
   });
-  const title = (/^\s*TITLE:\s*(.+)$/mi.exec(text)?.[1] || "").trim().slice(0, 80);
-  const summary = (/^\s*SUMMARY:\s*(.+)$/mi.exec(text)?.[1] || "").trim().slice(0, 500);
+  const title = (/^\s*\**TITLE:?\**\s*(.+)$/mi.exec(text)?.[1] || "").trim().slice(0, 80);
+  const summary = (/^\s*\**SUMMARY:?\**\s*(.+)$/mi.exec(text)?.[1] || "").trim().slice(0, 500);
   return { title, summary, edits };
 }
-// `ctx`: { repo, files, rosin, all } — rosin: only Rosin's page files; all: every path in the repo (for new files).
+
+// Loose line matching for SEARCH blocks: spaces, quotes and blank lines don't count, and a close match is accepted
+// when it is clearly the best one among the lines the model was shown.
+const normLine = (l) => String(l).trim().replace(/[‘’`]/g, "'").replace(/[“”"]/g, "'").replace(/\s+/g, " ").replace(/\s*([{}()[\];,:=<>+*/|&!?-])\s*/g, "$1");
+function dice(a, b) {
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return 0;
+  const grams = new Map();
+  for (let i = 0; i < a.length - 1; i++) { const g = a.slice(i, i + 2); grams.set(g, (grams.get(g) || 0) + 1); }
+  let both = 0;
+  for (let i = 0; i < b.length - 1; i++) { const g = b.slice(i, i + 2), n = grams.get(g); if (n) { both++; grams.set(g, n - 1); } }
+  return (2 * both) / (a.length + b.length - 2);
+}
+const inShown = (ranges, a, b) => !ranges || ranges.some(([x, y]) => a >= x && b <= y);
+function findLines(text, search, shownRanges, where, path) {
+  const lines = text.split("\n");
+  const want = search.split("\n").map(normLine).filter(Boolean);
+  if (!want.length) throw new Error(`${where}: SEARCH is empty. Give LINES instead.`);
+  const nb = [];
+  lines.forEach((l, i) => { const n = normLine(l); if (n) nb.push({ i, n }); });
+  const hits = [], scored = [];
+  for (let k = 0; k + want.length <= nb.length; k++) {
+    if (want.every((w, j) => nb[k + j].n === w)) { hits.push(k); continue; }
+    if (hits.length) continue;
+    if (!inShown(shownRanges, nb[k].i + 1, nb[k + want.length - 1].i + 1)) continue;
+    let sum = 0, worst = 1;
+    for (let j = 0; j < want.length; j++) { const s = dice(want[j], nb[k + j].n); sum += s; if (s < worst) worst = s; }
+    scored.push({ k, s: sum / want.length, worst });
+  }
+  if (hits.length > 1) throw new Error(`${where}: SEARCH matches more than one place. Give LINES instead.`);
+  let k = hits[0];
+  if (k == null) {
+    scored.sort((x, y) => y.s - x.s);
+    const [top, next] = scored;
+    if (top && top.s >= 0.82 && top.worst >= 0.5 && (!next || next.s < top.s - 0.05)) k = top.k;
+    else {
+      const near = top && top.s >= 0.35 ? nb[top.k].i : -1;
+      const hint = near >= 0 ? ` The closest lines in ${path} are ${near + 1}-${nb[top.k + want.length - 1].i + 1}:\n${numbered(lines, near, Math.min(nb[top.k + want.length - 1].i, near + 11))}` : "";
+      throw new Error(`${where}: SEARCH doesn't match the file. Give LINES instead.${hint}`);
+    }
+  }
+  return { start: nb[k].i, end: nb[k + want.length - 1].i + 1 };
+}
+
+// `ctx`: { repo, files, rosin, all, shown } — rosin: only Rosin's page files; all: every path in the repo (for new
+// files); shown: the line ranges the model saw, per file (an edit may only touch those).
 function applyEdits(ctx, edits) {
   const { files } = ctx, out = {};
+  const sig = (s) => s.trim().length > 3 && /[A-Za-z0-9]/.test(s);
+  const lineEdits = {}, searchEdits = [];
   edits.forEach((e, n) => {
     const where = `Edit ${n + 1} (${e.path || "no file named"})`;
-    const known = e.path in files || e.path in out;
+    const known = e.path in files;
     if (ctx.rosin ? !SELF_PATH.test(e.path) || !known : !editable(ctx.repo, e.path)) throw new Error(`${where}: that file can't be changed here. Use one of the files shown, exactly as named.`);
-    if (!known) {   // a new file: an empty SEARCH, next to files that exist, and not one that's already there
-      if (e.search.trim()) throw new Error(`${where}: that file isn't one shown. Use a file shown, or an empty SEARCH to make a new one.`);
+    const makesNew = e.kind === "lines" ? e.range?.isNew : !e.search.trim();
+    if (!known) {   // a new file: next to files that exist, and not one that's already there
+      if (!makesNew) throw new Error(`${where}: that file isn't one shown. Use a file shown, exactly as named.`);
       if (ctx.all.includes(e.path)) throw new Error(`${where}: that file exists but wasn't shown, so it can't be changed blind.`);
-      out[e.path] = e.replace; return;
+      if (e.path in out) throw new Error(`${where}: that new file is made twice.`);
+      out[e.path] = e.kind === "lines" ? e.text : e.replace; return;
     }
-    if (!e.search.trim()) throw new Error(`${where}: SEARCH is empty. Copy the lines to change.`);
+    if (makesNew) throw new Error(`${where}: that file already exists. Give LINES from the code shown.`);
+    if (e.kind === "search") { searchEdits.push({ e, where }); return; }
+    if (!e.range) throw new Error(`${where}: LINES is missing. Give the numbers shown at the left of the code, like LINES: 120-124.`);
+    (lineEdits[e.path] ||= []).push({ e, where });
+  });
+  for (const [path, list] of Object.entries(lineEdits)) {
+    const lines = files[path].split("\n"), shown = ctx.shown?.[path];
+    const spans = list.map(({ e, where }) => {
+      const { a, b, after } = e.range;
+      if (after ? a < 0 || a > lines.length : a < 1 || b > lines.length || a > b) throw new Error(`${where}: lines ${a}${after ? "" : "-" + b} are outside the file (it has ${lines.length}).`);
+      if (!(after ? inShown(shown, Math.max(a, 1), Math.max(a, 1)) || inShown(shown, a + 1, a + 1) : inShown(shown, a, b))) throw new Error(`${where}: lines ${a}${after ? "" : "-" + b} weren't all shown. Use line numbers from the code shown.`);
+      return { e, where, a, b, after, from: after ? a + 0.5 : a, to: after ? a + 0.5 : b };
+    }).sort((x, y) => y.from - x.from);
+    for (let i = 1; i < spans.length; i++) if (spans[i].to >= spans[i - 1].from) throw new Error(`${spans[i].where}: its lines overlap another edit. Give each part once.`);
+    for (const s of spans) {
+      const nl = s.e.text === "" ? [] : s.e.text.split("\n");
+      if (s.after) {
+        if (nl.length && s.a >= 1 && sig(nl[0]) && nl[0].trim() === lines[s.a - 1].trim()) nl.shift();   // repeated the line it goes after
+        lines.splice(s.a, 0, ...nl);
+      } else {
+        // The model often repeats the line just before or after the range: drop those copies.
+        if (nl.length && s.a >= 2 && sig(nl[0]) && nl[0].trim() === lines[s.a - 2].trim() && nl[0].trim() !== lines[s.a - 1].trim()) nl.shift();
+        if (nl.length && s.b < lines.length && sig(nl[nl.length - 1]) && nl[nl.length - 1].trim() === lines[s.b].trim() && nl[nl.length - 1].trim() !== lines[s.b - 1].trim()) nl.pop();
+        lines.splice(s.a - 1, s.b - s.a + 1, ...nl);
+      }
+    }
+    out[path] = lines.join("\n");
+  }
+  for (const { e, where } of searchEdits) {
     const t = out[e.path] ?? files[e.path];
     const first = t.indexOf(e.search);
-    if (first !== -1) {
-      if (t.indexOf(e.search, first + 1) !== -1) throw new Error(`${where}: SEARCH matches more than one place. Include more lines.`);
-      out[e.path] = t.slice(0, first) + e.replace + t.slice(first + e.search.length);
-      return;
-    }
-    // Same lines, different indentation or trailing spaces: match line by line on trimmed text.
-    const lines = t.split("\n"), want = e.search.split("\n").map((l) => l.trim());
-    while (want.length && !want[want.length - 1]) want.pop();
-    const hits = [];
-    for (let i = 0; i + want.length <= lines.length; i++) if (want.every((w, k) => lines[i + k].trim() === w)) hits.push(i);
-    if (hits.length !== 1) throw new Error(`${where}: SEARCH ${hits.length ? "matches more than one place. Include more lines." : "doesn't match the file. Copy the lines exactly as shown."}`);
-    lines.splice(hits[0], want.length, ...e.replace.split("\n"));
+    if (first !== -1 && t.indexOf(e.search, first + 1) === -1) { out[e.path] = t.slice(0, first) + e.replace + t.slice(first + e.search.length); continue; }
+    // Line numbers have moved if a LINES edit already changed this file, so the shown ranges no longer apply.
+    const { start, end } = findLines(t, e.search, e.path in lineEdits ? null : ctx.shown?.[e.path], where, e.path);
+    const lines = t.split("\n");
+    lines.splice(start, end - start, ...(e.replace === "" ? [] : e.replace.split("\n")));
     out[e.path] = lines.join("\n");
-  });
+  }
   return out;
 }
 // Checks every draft must pass before it becomes a pull request. In Rosin's page (which holds the laptop key while it
@@ -883,28 +986,42 @@ async function checkDraft(ctx, changed) {
 
 // Why a draft failed after its tries, in plain words first, with the detail after.
 function plainFailure(msg) {
-  const why = /doesn't match the file|more than one place|SEARCH is empty|exists but wasn't shown|isn't one shown/.test(msg) ? "The laptop's model couldn't pin down the exact code to change"
+  msg = String(msg).replace(/ The closest lines[\s\S]*$/, "");   // the hint is for the model, not the card
+  const why = /doesn't match the file|more than one place|SEARCH is empty|exists but wasn't shown|isn't one shown|LINES is missing|outside the file|weren't all shown|overlap|already exists/.test(msg) ? "The laptop's model couldn't pin down the exact code to change"
     : /can't be changed here/.test(msg) ? "It kept trying to change a file it isn't allowed to touch"
     : /wouldn't run|isn't valid JSON|unbalanced|drops /.test(msg) ? "The change broke the code, so the check stopped it"
-    : /No SEARCH\/REPLACE|don't change anything/.test(msg) ? "The laptop's model didn't write the change in a form the gate can use"
+    : /No edits in the answer|don't change anything/.test(msg) ? "The laptop's model didn't write the change in a form the gate can use"
+    : /too big for the laptop's model/.test(msg) ? "The request was too big for the laptop's model"
     : "";
   return why ? `${why}. Try naming the exact button, part or setting. (${msg})` : msg;
 }
-async function draftModelCall(messages) {
+const logDraft = (...a) => console.error(new Date().toISOString(), "change draft:", ...a);
+async function draftModelCall(messages, maxTokens = 3000) {
   const p = await pool(true).catch(() => null);
   if (p && p.state === "up") {
     const r = await fetch(p.base + "/v1/chat/completions", {
       method: "POST", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(20 * 60000),
-      body: JSON.stringify({ model: "pool", messages, stream: false, max_tokens: 3500, temperature: 0.2, chat_template_kwargs: { enable_thinking: false } }),
-    }).catch(() => null);
-    if (r && r.ok) { const j = await r.json().catch(() => ({})); const t = j.choices?.[0]?.message?.content; if (t) return { text: String(t), model: p.label }; }
+      body: JSON.stringify({ model: "pool", messages, stream: false, max_tokens: maxTokens, temperature: 0.2, chat_template_kwargs: { enable_thinking: false } }),
+    }).catch((e) => { logDraft("the AI Pool didn't answer:", String(e.message || e).slice(0, 120)); return null; });
+    if (r && r.ok) {
+      const j = await r.json().catch(() => ({}));
+      const t = j.choices?.[0]?.message?.content;
+      if (t) return { text: String(t), model: p.label };
+      logDraft("the AI Pool sent back an empty answer");
+    } else if (r) {
+      const body = (await r.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
+      logDraft(`the AI Pool said ${r.status}: ${body}`);
+      // A request it turned down would fail the same way on Ollama, which also has to share the laptop's memory with it.
+      if (r.status >= 400 && r.status < 500) throw new Error(/context|exceed|too long|n_ctx|tokens/i.test(body) ? "The request was too big for the laptop's model." : `The laptop's model turned the request down (${r.status}).`);
+    }
   }
   const name = SELF_MODEL || (await poolFallback());
   if (!name) throw new Error("No model on the laptop is free to draft it.");
-  const body = { model: name, messages, stream: false, keep_alive: "30m", options: { temperature: 0.2, num_ctx: Math.min(16384, MAX_CTX), num_predict: 3500 } };
+  if (p && p.state === "up") logDraft("falling back to Ollama:", name);
+  const body = { model: name, messages, stream: false, keep_alive: "30m", options: { temperature: 0.2, num_ctx: Math.min(16384, MAX_CTX), num_predict: maxTokens } };
   if (/^qwen3(?!.*(instruct|coder))/i.test(name)) body.think = false;
   const r = await fetch(OLLAMA + "/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(20 * 60000) }).catch(() => null);
-  if (!r || !r.ok) throw new Error("The laptop's model didn't answer.");
+  if (!r || !r.ok) { logDraft(`Ollama (${name}) said ${r ? r.status : "nothing"}`); throw new Error("The laptop's model didn't answer."); }
   const j = await r.json().catch(() => ({}));
   return { text: String(j.message?.content || ""), model: name };
 }
@@ -924,9 +1041,36 @@ async function runDrafts() {
       if (!d || d.state !== "queued") continue;
       d.state = "drafting"; d.started = Date.now();
       try { await draftOne(d); DRAFTS.delete(d.id); listCache.at = 0; }
-      catch (e) { d.state = "failed"; d.error = String(e.message || e).slice(0, 300); console.error(new Date().toISOString(), "change draft:", d.error); }
+      catch (e) { d.state = "failed"; d.error = String(e.message || e).slice(0, 300); logDraft("gave up:", d.error); }
     }
   } finally { drafting = false; }
+}
+// The one part of one file for the last try: where an earlier try aimed or the best match for the request, whichever
+// window holds more of the request's words, widened to the blank lines around it (usually a whole function or CSS
+// rule), about 70 lines at most.
+function focusPart(ctx, pc, tried, want) {
+  const words = [...wordsOf(want)];
+  const windowAt = (path, at) => {
+    const lines = ctx.files[path].split("\n");
+    let a = Math.max(0, at - 15), b = Math.min(lines.length - 1, at + 20);
+    for (let n = 0; n < 15 && a > 0 && lines[a - 1].trim(); n++) a--;
+    for (let n = 0; n < 15 && b < lines.length - 1 && lines[b + 1].trim(); n++) b++;
+    const low = lines.slice(a, b + 1).join("\n").toLowerCase();
+    return { path, a: a + 1, b: b + 1, score: words.reduce((n, w) => n + (low.includes(w) ? 1 : 0), 0) };
+  };
+  const options = [];
+  for (const e of tried.slice().reverse()) {
+    if (!(e.path in ctx.files)) continue;
+    const lines = ctx.files[e.path].split("\n");
+    if (e.kind === "lines" && e.range?.a) { options.push(windowAt(e.path, Math.min(lines.length, e.range.a) - 1)); continue; }
+    const first = (e.search || "").split("\n").map(normLine).find(Boolean);
+    if (!first) continue;
+    let best = 0, bi = -1;
+    lines.forEach((l, i) => { const s = dice(first, normLine(l)); if (s > best) { best = s; bi = i; } });
+    if (best >= 0.6) options.push(windowAt(e.path, bi));
+  }
+  if (pc.best) options.push(windowAt(pc.best.path, pc.best.i));
+  return options.reduce((x, y) => (y.score > x.score ? y : x), options[0]) || null;
 }
 async function draftOne(d) {
   const repos = await repoList();
@@ -941,28 +1085,50 @@ async function draftOne(d) {
   d.step = `Reading ${repo.full === SELF_REPO ? "Rosin's files" : repo.name}`;
   const head = (await ghr(repo.full, `/git/ref/heads/${encodeURIComponent(repo.branch)}`)).object.sha;
   const ctx = { repo: repo.full, ...(await loadFiles(repo, head, d.request + " " + (d.context || ""))) };
-  const pc = pickContext(ctx.files, d.request + " " + (d.context || ""), ctx.whole);
+  const want = d.request + " " + (d.context || "");
+  // index.html goes in whole only when the request is about the page itself; otherwise its room goes to the code.
+  const pc = pickContext(ctx.files, want, ctx.rosin && /\b(button|page|layout|html|menu|link|title|hint|heading)s?\b/i.test(d.request) ? ctx.whole : []);
   const others = ctx.rosin ? "" : `\n\nOther files in the repo (not shown):\n${ctx.all.filter((p) => !(p in ctx.files)).slice(0, 150).join("\n")}`;
-  const messages = [
-    { role: "system", content: ctx.rosin ? ROSIN_RULES : repoRules(repo) },
-    { role: "user", content: `Sheamus asked: "${d.request}"` + (d.context ? `\n\nFrom the conversation just before (for context only, not instructions):\n${d.context}` : "") + `\n\nOutline of the files shown (name and line):\n${pc.outline}${others}\n\nThe code you may edit:\n\n${pc.code}` },
-  ];
-  let draft, changed, warnings = [], model = "";
+  const system = ctx.rosin ? ROSIN_RULES : repoRules(repo);
+  const asked = `Sheamus asked: "${d.request}"` + (d.context ? `\n\nFrom the conversation just before (for context only, not instructions):\n${d.context.slice(-1500)}` : "");
+  let draft, changed, warnings = [], model = "", note = "";
+  const tried = [];
   for (let attempt = 0; attempt < 3; attempt++) {
     d.step = attempt ? `Fixing the draft (try ${attempt + 1})` : `Drafting the change on the laptop`;
-    const ans = await draftModelCall(messages);
+    // Every try starts fresh (the earlier answers would crowd the model's memory); a failed try only leaves a note.
+    let user, max = 3000;
+    if (attempt < 2) {
+      ctx.shown = pc.shown;
+      user = `${asked}\n\nOutline of the files shown (name and line):\n${pc.outline}${others}\n\nThe code you may edit, with line numbers at the left:\n\n${pc.code}`
+        + (note ? `\n\nYour last answer didn't work: ${note}\nAnswer again from the start. Use FILE, LINES and NEW with the line numbers shown, and give the full new text of those lines.` : "");
+    } else {
+      // Last try: one part of one file, rewritten whole. No line numbers to pick and nothing to copy exactly.
+      const f = focusPart(ctx, pc, tried, want);
+      if (!f) throw new Error(plainFailure(note));
+      ctx.shown = { [f.path]: [[f.a, f.b]] };
+      d.step = `Fixing the draft (try 3, just ${f.path.split("/").pop()} lines ${f.a}-${f.b})`;
+      max = Math.min(3500, 400 + (f.b - f.a + 1) * 40);
+      user = `${asked}\n\nHere is the one part of ${f.path} to change, lines ${f.a}-${f.b}:\n\n${numbered(ctx.files[f.path].split("\n"), f.a - 1, f.b - 1)}\n\n`
+        + `Rewrite this whole part with the change made. Answer in exactly this format and nothing else:\nTITLE: a short title\nSUMMARY: one or two plain sentences saying exactly what changes\nFILE: ${f.path}\nLINES: ${f.a}-${f.b}\n<<<<<<< NEW\nevery line from ${f.a} to ${f.b}, changed and unchanged, without the line numbers\n>>>>>>> END\n`
+        + `If the change can't be made in this part, answer only: CANNOT: and the reason in one plain sentence.`;
+    }
+    const messages = [{ role: "system", content: system }, { role: "user", content: user }];
+    const ans = await draftModelCall(messages, max);
     model = ans.model;
     draft = parseDraft(ans.text);
     try {
       if (draft.cannot) throw Object.assign(new Error(draft.cannot), { final: true });
       if (draft.error) throw new Error(draft.error);
+      tried.push(...draft.edits);
       changed = applyEdits(ctx, draft.edits);
+      for (const [p, t] of Object.entries(changed)) if (ctx.files[p] === t) delete changed[p];
       if (!Object.keys(changed).length) throw new Error("The edits don't change anything.");
       warnings = await checkDraft(ctx, changed);
       break;
     } catch (e) {
+      logDraft(`try ${attempt + 1} of "${d.request.slice(0, 60)}" failed (${system.length + user.length} characters sent, ${model}): ${String(e.message).split("\n")[0]} | answer began: ${ans.text.replace(/\s+/g, " ").slice(0, 160)}`);
       if (e.final || /was stopped|changes too much/.test(e.message) || attempt === 2) throw new Error(e.final ? "Rosin couldn't do this one: " + e.message : plainFailure(e.message));
-      messages.push({ role: "assistant", content: ans.text.slice(0, 12000) }, { role: "user", content: `That didn't work: ${e.message} Send the whole answer again in the same format, with SEARCH copied exactly from the code shown.` });
+      note = e.message;
     }
   }
   d.step = "Opening it for your review";
