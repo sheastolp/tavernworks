@@ -1,0 +1,12 @@
+/* Added to tavernworks.dev/rosin/ in the desktop app: see-through background, drag Rosin to move the window. */
+html, body, body.preview { background: transparent !important; }
+#badge, #wake { display: none !important; }
+#stage, #embers { -webkit-app-region: drag; }
+#controls, #controls *, #subs, #log, .tray, button, input, select, textarea, a, label { -webkit-app-region: no-drag; }
+#controls { border-radius: 16px 16px 18px 18px; }
+#desk-bar { position: fixed; top: 6px; right: 6px; z-index: 50; display: flex; gap: 4px; opacity: .25; transition: opacity .2s; -webkit-app-region: no-drag; }
+body:hover #desk-bar { opacity: 1; }
+#desk-bar button { width: 30px; height: 30px; padding: 0; border-radius: 9px; border: 1px solid rgba(243,220,192,.25);
+  background: rgba(13,19,11,.8); color: #f3dcc0; font: 600 14px/1 system-ui, sans-serif; cursor: pointer; }
+#desk-bar button:hover { background: #3a1309; border-color: #8c2c14; }
+#desk-bar button[aria-pressed="true"] { background: #7a2a10; border-color: #d0602a; }

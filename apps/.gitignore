@@ -1,0 +1,6 @@
+rosin-android/.gradle/
+rosin-android/build/
+rosin-android/app/build/
+rosin-android/local.properties
+rosin-desktop/node_modules/
+rosin-desktop/dist/

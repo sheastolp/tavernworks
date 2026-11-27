@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="4dp"
+    android:background="@drawable/widget_bg">
+
+    <ImageView
+        android:id="@+id/face"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="14dp"
+        android:scaleType="fitCenter"
+        android:contentDescription="Rosin"
+        android:src="@drawable/rosin_normal" />
+
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:gravity="center"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="@color/rosin_ember"
+        android:textSize="11sp"
+        android:text="Tap to talk" />
+</FrameLayout>

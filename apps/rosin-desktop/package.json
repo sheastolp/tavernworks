@@ -1,0 +1,37 @@
+{
+  "name": "rosin-desktop",
+  "productName": "Rosin",
+  "version": "1.0.0",
+  "description": "Rosin, Stoned Sheamus's AI co-host, as a floating always-on-top desktop window.",
+  "author": "Stoned Sheamus",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.3.1",
+    "electron-builder": "26.18.1"
+  },
+  "build": {
+    "appId": "dev.tavernworks.rosin",
+    "productName": "Rosin",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "desktop.css", "assets/**"],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Rosin",
+      "artifactName": "Rosin-Setup-${version}.${ext}"
+    },
+    "portable": { "artifactName": "Rosin-Portable-${version}.${ext}" }
+  }
+}

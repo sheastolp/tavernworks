@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="rosin_bg">#FF0D130B</color>
+    <color name="rosin_panel">#E60D130B</color>
+    <color name="rosin_text">#FFF3DCC0</color>
+    <color name="rosin_dim">#B3F3DCC0</color>
+    <color name="rosin_ember">#FFFFB25C</color>
+    <color name="rosin_button">#FF3A1309</color>
+</resources>

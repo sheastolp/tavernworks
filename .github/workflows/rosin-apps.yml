@@ -1,0 +1,64 @@
+# Builds Rosin's Android app (APK with the home screen widget) and Windows app (installer + portable exe).
+# The files are attached to each run under "Artifacts".
+name: Rosin apps
+
+on:
+  push:
+    paths: ["apps/**", ".github/workflows/rosin-apps.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+      - name: Signing key (optional)
+        env:
+          KEYSTORE_B64: ${{ secrets.ROSIN_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/rosin.jks"
+            echo "ROSIN_KEYSTORE=$RUNNER_TEMP/rosin.jks" >> "$GITHUB_ENV"
+          else
+            echo "No ROSIN_KEYSTORE_B64 secret: signing with the debug key."
+          fi
+      - name: Build APK
+        working-directory: apps/rosin-android
+        env:
+          ROSIN_KEYSTORE_PASSWORD: ${{ secrets.ROSIN_KEYSTORE_PASSWORD }}
+        run: gradle --no-daemon assembleRelease
+      - name: Name the APK
+        run: cp apps/rosin-android/app/build/outputs/apk/release/app-release.apk "Rosin-android-${{ github.run_number }}.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rosin-android
+          path: Rosin-android-*.apk
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build installer
+        working-directory: apps/rosin-desktop
+        shell: bash
+        run: |
+          npm version "1.0.${{ github.run_number }}" --no-git-tag-version --allow-same-version
+          npm install --no-audit --no-fund
+          npx electron-builder --win --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rosin-windows
+          path: apps/rosin-desktop/dist/*.exe
