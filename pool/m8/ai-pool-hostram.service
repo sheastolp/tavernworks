@@ -4,6 +4,7 @@ After=network-online.target
 
 [Service]
 Type=simple
+Environment=HOME=/root
 ExecStart=/opt/ai-pool/hostram.sh
 Restart=on-failure
 RestartSec=10
