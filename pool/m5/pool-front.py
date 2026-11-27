@@ -103,17 +103,9 @@ CURRENT_MODEL_PATH = os.path.join(POOL_DIR, "current-model.txt")
 MODEL_SOURCES_PATH = os.path.join(POOL_DIR, "model-sources.json")
 DEFAULT_MODEL = "Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf"
 BUILTIN_MODEL_SOURCES = {
-    # The pool's default (solo + split). Repo and exact file name as
-    # pinned in M1-RUNBOOK.md; workers also check the size matches.
-    "Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf": {
-        "url": "https://huggingface.co/mradermacher/Qwen2.5-14B-Instruct-abliterated-GGUF/resolve/main/Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf",
-    },
     "huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf": {
         "url": "https://huggingface.co/bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF/resolve/main/huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf",
         "sha256": "d76889059a3bfab30bc565012a0184827ff2bdc10197f6babc24541b98451dbe",
-    },
-    "qwen2.5-1.5b-instruct-q4_k_m.gguf": {
-        "url": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
     },
     # Qwen3.5 35B-A3B (M8): a mixture-of-experts model — 35B of
     # weights, ~3B used per token, so it runs about as fast as a 3-4B
@@ -146,48 +138,9 @@ BUILTIN_MODEL_SOURCES = {
         "url": "https://huggingface.co/mradermacher/Huihui-Qwen3.5-35B-A3B-abliterated-i1-GGUF/resolve/main/Huihui-Qwen3.5-35B-A3B-abliterated.i1-IQ3_XXS.gguf",
         "sha256": "cea1e91f2cdba2eba8f1e3a2da3edcce0172aa37c8820c421680d330633c767a",
     },
-    # Qwen2.5 32B Instruct, abliterated: the 14B's big sibling, same
-    # family and style (huihui-ai's abliteration, mradermacher's quants).
-    # Dense, so every token runs all 32B — several times slower than the
-    # 35B-A3B on this pool. IQ4_XS (~18 GB) fits the split with or
-    # without the relayed MSI; Q4_K_M (~20 GB) matches the 14B's quant
-    # when the whole pool is online.
-    "Qwen2.5-32B-Instruct-abliterated.IQ4_XS.gguf": {
-        "url": "https://huggingface.co/mradermacher/Qwen2.5-32B-Instruct-abliterated-GGUF/resolve/main/Qwen2.5-32B-Instruct-abliterated.IQ4_XS.gguf",
-        "sha256": "f157190d92a442824100873e0251db96ed77b9ceccf3d80eed46fffda3912542",
-    },
-    "Qwen2.5-32B-Instruct-abliterated.Q4_K_S.gguf": {
-        "url": "https://huggingface.co/mradermacher/Qwen2.5-32B-Instruct-abliterated-GGUF/resolve/main/Qwen2.5-32B-Instruct-abliterated.Q4_K_S.gguf",
-        "sha256": "e0c1067d72f45f2ffc8dfd282e1d4d8575c689b6fa8edb5f402701de017dc51d",
-    },
-    "Qwen2.5-32B-Instruct-abliterated.Q4_K_M.gguf": {
-        "url": "https://huggingface.co/mradermacher/Qwen2.5-32B-Instruct-abliterated-GGUF/resolve/main/Qwen2.5-32B-Instruct-abliterated.Q4_K_M.gguf",
-        "sha256": "e63617fd56c8585fe78fe05bcbb3b36e0b5ef3857e11233cdd1dc9ba56f38001",
-    },
-    "Qwen2.5-32B-Instruct-abliterated.Q3_K_L.gguf": {
-        "url": "https://huggingface.co/mradermacher/Qwen2.5-32B-Instruct-abliterated-GGUF/resolve/main/Qwen2.5-32B-Instruct-abliterated.Q3_K_L.gguf",
-        "sha256": "8f4dafa2ca29eaf914d78f1af247dd368bc408addadde6b1f72d1a6eed469e1d",
-    },
-    # Qwen2.5 72B Instruct, abliterated (huihui-ai; mradermacher's
-    # imatrix quants): the only Huihui Qwen near 70B. There is no
-    # Qwen3.8 70B — Qwen3.8 comes as a dense 27B or a 180B MoE. Dense,
-    # so every token reads the whole file: expect it a few times slower
-    # than the 32B. IQ2_M (~29 GB) needs the whole pool online; the
-    # 4-bit IQ4_XS (~40 GB) needs more RAM than the pool has today.
-    "Qwen2.5-72B-Instruct-abliterated.i1-IQ2_M.gguf": {
-        "url": "https://huggingface.co/mradermacher/Qwen2.5-72B-Instruct-abliterated-i1-GGUF/resolve/main/Qwen2.5-72B-Instruct-abliterated.i1-IQ2_M.gguf",
-        "sha256": "c31518a576c52b65f6f549ddc272b8265c1c908d691932b2f3dfe67f1d51a016",
-    },
-    "Qwen2.5-72B-Instruct-abliterated.i1-IQ3_XXS.gguf": {
-        "url": "https://huggingface.co/mradermacher/Qwen2.5-72B-Instruct-abliterated-i1-GGUF/resolve/main/Qwen2.5-72B-Instruct-abliterated.i1-IQ3_XXS.gguf",
-        "sha256": "a794bbe015e03371b50266398050b4d116e493d1cb323d11cf0d0e9feb5d55bf",
-    },
-    "Qwen2.5-72B-Instruct-abliterated.i1-IQ4_XS.gguf": {
-        "url": "https://huggingface.co/mradermacher/Qwen2.5-72B-Instruct-abliterated-i1-GGUF/resolve/main/Qwen2.5-72B-Instruct-abliterated.i1-IQ4_XS.gguf",
-        "sha256": "4f54913253e5c7a62611a4602986f5f533e9f2853c2f824eb9659eab39cc5a1d",
-    },
-    # Huihui Qwen3.8 27B abliterated (dense; mradermacher's quants): the
-    # Qwen3.8 that runs here. Text only (no mmproj).
+    # Huihui Qwen3.8 27B abliterated (dense; mradermacher's quants).
+    # Sheamus's pick 2026-11-27; no Qwen2.5 files in this list by his
+    # word. GGUF arch qwen35, which b12359 loads. Text only (no mmproj).
     "Huihui-Qwen3.8-27B-abliterated.IQ4_XS.gguf": {
         "url": "https://huggingface.co/mradermacher/Huihui-Qwen3.8-27B-abliterated-GGUF/resolve/main/Huihui-Qwen3.8-27B-abliterated.IQ4_XS.gguf",
         "sha256": "46cbac118fcfd398da6f48091ee7c0ed443f4bbce1137667ac11a45fb7a3f6dc",

@@ -28,33 +28,17 @@ Thinking stays off through the host's existing chat-template flags.
 SHA-256 check; the front's `/model.json` sends workers to the same
 Hugging Face files for their pre-download.
 
-### Qwen2.5 32B (dense), the 14B's big sibling
+### Huihui Qwen3.8 27B (dense)
 
-`get-model.sh 32b` fetches Qwen2.5-32B-Instruct-abliterated IQ4_XS
-(17.9 GB, mradermacher's quants of huihui-ai's abliteration);
-`32b-q4km` the Q4_K_M (19.9 GB). With FX705 RAM at 10 GB the split
-holds about 22 GB, so IQ4_XS fits with room for an 8k context. Being
-dense, it reads all ~18 GB of weights for every token, against ~2 GB
-for the 35B-A3B, so expect it several times slower (around 1 token/s
-on this pool, unmeasured).
-
-### Qwen2.5 72B (dense), the Huihui ~70B
-
-There is no Qwen3.8 70B: Qwen3.8 comes as a dense 27B or a 180B MoE
-(68 GB at its smallest quant, far past this pool). The only Huihui Qwen
-near 70B is huihui-ai's Qwen2.5-72B-Instruct-abliterated, here in
-mradermacher's imatrix quants:
-
-| Pick | File | Size | When |
-|---|---|---|---|
-| `72b` | i1-IQ2_M | 29.4 GB | whole pool online (~31 GB with context) |
-| `72b-iq3` | i1-IQ3_XXS | 31.9 GB | a few GB more RAM online |
-| `72b-iq4` | i1-IQ4_XS | 39.8 GB | needs ~42 GB, more than the pool has today |
-
-Dense: every token reads the whole file, about 1.5x the 32B's bytes,
-so expect it two to three times slower than the 32B (unmeasured).
-`get-model.sh qwen3.8` fetches Huihui Qwen3.8 27B abliterated IQ4_XS
-(15.5 GB, dense), the Qwen3.8 that fits comfortably.
+`get-model.sh qwen3.8` fetches Huihui-Qwen3.8-27B-abliterated IQ4_XS
+(15.4 GB, mradermacher's quants); `qwen3.8-q4km` the Q4_K_M (16.8 GB).
+Its GGUF architecture is `qwen35` (64 layers, three linear-attention
+layers to each full one), which the pool's llama.cpp b12359 already
+loads. Either quant fits the FX705 solo with no split. Being dense, it
+reads the whole file for every token, against ~2 GB for the 35B-A3B,
+so expect replies several times slower than the 35B-A3B (unmeasured).
+There is no Qwen3.8 70B: Qwen3.8 comes as this 27B or a 180B MoE.
+No Qwen2.5 files are in the download list (Sheamus, 2026-11-27).
 
 ### Deleting models
 

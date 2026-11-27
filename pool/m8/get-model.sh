@@ -5,11 +5,8 @@
 #   bash get-model.sh split           # the split pick (35B-A3B IQ4_XS, ~19 GB)
 #   bash get-model.sh solo            # the FX705-alone pick (35B-A3B i1-IQ3_M, ~15 GB)
 #   bash get-model.sh phones-gpu      # the file Adreno phone GPUs can compute (~22 GB)
-#   bash get-model.sh 32b             # Qwen2.5 32B abliterated IQ4_XS (~18 GB), the 14B's big sibling
-#   bash get-model.sh 32b-q4km        # the same at Q4_K_M (~20 GB)
-#   bash get-model.sh 72b             # Qwen2.5 72B abliterated i1-IQ2_M (~29 GB), the Huihui ~70B
-#   bash get-model.sh 72b-iq3         # the same at i1-IQ3_XXS (~32 GB); 72b-iq4 = IQ4_XS (~40 GB)
-#   bash get-model.sh qwen3.8         # Huihui Qwen3.8 27B abliterated IQ4_XS (~15 GB)
+#   bash get-model.sh qwen3.8         # Huihui Qwen3.8 27B abliterated IQ4_XS (~15 GB), dense
+#   bash get-model.sh qwen3.8-q4km    # the same at Q4_K_M (~17 GB)
 #   bash get-model.sh <file.gguf>     # any file from the list
 #   bash get-model.sh delete <file>   # delete a downloaded model (asks first)
 #
@@ -24,8 +21,6 @@ mkdir -p "$POOL_DIR"; cd "$POOL_DIR"
 
 MR="https://huggingface.co/mradermacher/Huihui-Qwen3.5-35B-A3B-abliterated-GGUF/resolve/main"
 MRI="https://huggingface.co/mradermacher/Huihui-Qwen3.5-35B-A3B-abliterated-i1-GGUF/resolve/main"
-Q32="https://huggingface.co/mradermacher/Qwen2.5-32B-Instruct-abliterated-GGUF/resolve/main"
-Q72="https://huggingface.co/mradermacher/Qwen2.5-72B-Instruct-abliterated-i1-GGUF/resolve/main"
 Q38="https://huggingface.co/mradermacher/Huihui-Qwen3.8-27B-abliterated-GGUF/resolve/main"
 NX="https://huggingface.co/noctrex/Huihui-Qwen3.5-35B-A3B-abliterated-MXFP4_MOE-GGUF/resolve/main"
 # file | url | sha256 | size note
@@ -35,13 +30,6 @@ Huihui-Qwen3.5-35B-A3B-abliterated.Q4_K_M.gguf|$MR/Huihui-Qwen3.5-35B-A3B-ablite
 Huihui-Qwen3.5-35B-A3B-abliterated-MXFP4_MOE.gguf|$NX/Huihui-Qwen3.5-35B-A3B-abliterated-MXFP4_MOE.gguf|75d0d71d8160af32a2f24e9d2a8df404a7cb1b42fe03318f3300930d485168d9|22.1 GB, Adreno phone GPUs compute
 Huihui-Qwen3.5-35B-A3B-abliterated.i1-IQ3_M.gguf|$MRI/Huihui-Qwen3.5-35B-A3B-abliterated.i1-IQ3_M.gguf|26df5bf33a108044fa57fc2f54d38d620ec55b63a29deffcc0f16b43d7ef4714|15.4 GB, solo pick
 Huihui-Qwen3.5-35B-A3B-abliterated.i1-IQ3_XXS.gguf|$MRI/Huihui-Qwen3.5-35B-A3B-abliterated.i1-IQ3_XXS.gguf|cea1e91f2cdba2eba8f1e3a2da3edcce0172aa37c8820c421680d330633c767a|13.5 GB, solo if IQ3_M won't fit
-Qwen2.5-32B-Instruct-abliterated.IQ4_XS.gguf|$Q32/Qwen2.5-32B-Instruct-abliterated.IQ4_XS.gguf|f157190d92a442824100873e0251db96ed77b9ceccf3d80eed46fffda3912542|17.9 GB, the 14B's 32B sibling, split pick
-Qwen2.5-32B-Instruct-abliterated.Q4_K_S.gguf|$Q32/Qwen2.5-32B-Instruct-abliterated.Q4_K_S.gguf|e0c1067d72f45f2ffc8dfd282e1d4d8575c689b6fa8edb5f402701de017dc51d|18.8 GB, 32B dense
-Qwen2.5-32B-Instruct-abliterated.Q4_K_M.gguf|$Q32/Qwen2.5-32B-Instruct-abliterated.Q4_K_M.gguf|e63617fd56c8585fe78fe05bcbb3b36e0b5ef3857e11233cdd1dc9ba56f38001|19.9 GB, 32B dense, same quant as the 14B
-Qwen2.5-32B-Instruct-abliterated.Q3_K_L.gguf|$Q32/Qwen2.5-32B-Instruct-abliterated.Q3_K_L.gguf|8f4dafa2ca29eaf914d78f1af247dd368bc408addadde6b1f72d1a6eed469e1d|17.2 GB, 32B dense, smaller
-Qwen2.5-72B-Instruct-abliterated.i1-IQ2_M.gguf|$Q72/Qwen2.5-72B-Instruct-abliterated.i1-IQ2_M.gguf|c31518a576c52b65f6f549ddc272b8265c1c908d691932b2f3dfe67f1d51a016|29.4 GB, 72B dense, whole pool, slow
-Qwen2.5-72B-Instruct-abliterated.i1-IQ3_XXS.gguf|$Q72/Qwen2.5-72B-Instruct-abliterated.i1-IQ3_XXS.gguf|a794bbe015e03371b50266398050b4d116e493d1cb323d11cf0d0e9feb5d55bf|31.9 GB, 72B dense, better, needs more RAM
-Qwen2.5-72B-Instruct-abliterated.i1-IQ4_XS.gguf|$Q72/Qwen2.5-72B-Instruct-abliterated.i1-IQ4_XS.gguf|4f54913253e5c7a62611a4602986f5f533e9f2853c2f824eb9659eab39cc5a1d|39.8 GB, 72B dense, 4-bit, beyond today's pool
 Huihui-Qwen3.8-27B-abliterated.IQ4_XS.gguf|$Q38/Huihui-Qwen3.8-27B-abliterated.IQ4_XS.gguf|46cbac118fcfd398da6f48091ee7c0ed443f4bbce1137667ac11a45fb7a3f6dc|15.5 GB, Qwen3.8 27B dense
 Huihui-Qwen3.8-27B-abliterated.Q4_K_M.gguf|$Q38/Huihui-Qwen3.8-27B-abliterated.Q4_K_M.gguf|4225f7248586317aedf4f1cd3370ec25eca1c1dcd2ddf7c22145a36b4ec40eac|16.9 GB, Qwen3.8 27B dense
 "
@@ -71,15 +59,11 @@ case "$WANT" in
   split) WANT="Huihui-Qwen3.5-35B-A3B-abliterated.IQ4_XS.gguf" ;;
   solo) WANT="Huihui-Qwen3.5-35B-A3B-abliterated.i1-IQ3_M.gguf" ;;
   phones-gpu) WANT="Huihui-Qwen3.5-35B-A3B-abliterated-MXFP4_MOE.gguf" ;;
-  32b) WANT="Qwen2.5-32B-Instruct-abliterated.IQ4_XS.gguf" ;;
-  32b-q4km) WANT="Qwen2.5-32B-Instruct-abliterated.Q4_K_M.gguf" ;;
-  72b) WANT="Qwen2.5-72B-Instruct-abliterated.i1-IQ2_M.gguf" ;;
-  72b-iq3) WANT="Qwen2.5-72B-Instruct-abliterated.i1-IQ3_XXS.gguf" ;;
-  72b-iq4) WANT="Qwen2.5-72B-Instruct-abliterated.i1-IQ4_XS.gguf" ;;
   qwen3.8) WANT="Huihui-Qwen3.8-27B-abliterated.IQ4_XS.gguf" ;;
+  qwen3.8-q4km) WANT="Huihui-Qwen3.8-27B-abliterated.Q4_K_M.gguf" ;;
 esac
 if [ -z "$WANT" ]; then
-  echo "Known models (bash get-model.sh <file|split|solo|phones-gpu|32b|32b-q4km|72b|72b-iq3|72b-iq4|qwen3.8>)"
+  echo "Known models (bash get-model.sh <file|split|solo|phones-gpu|qwen3.8|qwen3.8-q4km>)"
   echo "Delete one: bash get-model.sh delete <file>"
   echo "$MODELS" | awk -F'|' 'NF==4 {printf "  %-55s %s\n", $1, $4}'
   exit 0
