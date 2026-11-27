@@ -243,15 +243,33 @@
     set(k, v, s = localStorage) { try { v == null ? s.removeItem(k) : s.setItem(k, v); return true; } catch { return false; } },
   };
 
-  // ---------- state ----------
-  let cfg = { repo: "sheastolp/tavernworks", branch: "main", token: "" };
-  let base = null;             // { commit, tree: Map(path -> {sha, size}) }
-  const orig = new Map();      // path -> text, or { b64 } for binary
-  const pending = new Map();   // path -> { text } | { b64 } | { del: true }
-  let data = null;             // parsed projects.js (working copy)
-  let dataError = "";          // set while a raw edit of projects.js doesn't parse
-  let editor = null;           // open file editor { path, get() }
+   // ---------- state ----------
+   let cfg = { repo: "sheastolp/tavernworks", branch: "main", token: "" };
+   let base = null;             // { commit, tree: Map(path -> {sha, size}) }
+   const orig = new Map();      // path -> text, or { b64 } for binary
+   const pending = new Map();   // path -> { text } | { b64 } | { del: true }
+   let data = null;             // parsed projects.js (working copy)
+   let dataError = "";          // set while a raw edit of projects.js doesn't parse
+   let editor = null;           // open file editor { path, get() }
+   let calendar = [];           // { title, date, time, location, notes }
 
+   // ---------- GitHub ----------
+   async function gh(path, opts = {}) {
+=======
+   // ---------- state ----------
+   let cfg = { repo: "sheastolp/tavernworks", branch: "main", token: "" };
+   let base = null;             // { commit, tree: Map(path -> {sha, size}) }
+   const orig = new Map();      // path -> text, or { b64 } for binary
+   const pending = new Map();   // path -> { text } | { b64 } | { del: true }
+   let data = null;             // parsed projects.js (working copy)
+   let dataError = "";          // set while a raw edit of projects.js doesn't parse
+   let editor = null;           // open file editor { path, get() }
+   let calendar = [
+     { title: "Fargo Neurosurgery", date: "2024-01-11", time: "12:45", location: "Fargo", notes: "Reminder for January 11th @ 12:45pm" }
+   ];
+
+   // ---------- GitHub ----------
+   async function gh(path, opts = {}) {
   // ---------- GitHub ----------
   async function gh(path, opts = {}) {
     const headers = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
