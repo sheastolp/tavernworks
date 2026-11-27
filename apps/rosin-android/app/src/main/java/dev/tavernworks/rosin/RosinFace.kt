@@ -50,7 +50,9 @@ class RosinFace(context: Context, private val onTurned: () -> Unit) : ImageView(
 
     fun lookAt(x: Float, y: Float) {
         tx = x.coerceIn(-1f, 1f); ty = y.coerceIn(-1f, 1f)
-        animate().rotationY(tx * TURN_Y).rotationX(-ty * TURN_X).setDuration(350).start()
+        // Android's 3D turns run the other way round from a page's CSS across (a positive rotationY brings the right
+        // side nearer, so Rosin faces left), and the same way up and down (a positive rotationX faces up).
+        animate().rotationY(-tx * TURN_Y).rotationX(-ty * TURN_X).setDuration(350).start()
         postInvalidateOnAnimation()
     }
 
