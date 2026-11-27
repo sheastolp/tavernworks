@@ -19,9 +19,8 @@ import org.json.JSONObject
  * browser's speechSynthesis and webkitSpeechRecognition). Calls arrive on a background thread; anything
  * that touches the WebView, the recogniser or the widget is posted to the main thread.
  */
-class NativeBridge(private val activity: MainActivity, private val web: WebView) : TextToSpeech.OnInitListener {
+class NativeBridge(private val app: android.content.Context, private val web: WebView) : TextToSpeech.OnInitListener {
 
-    private val app = activity.applicationContext
     private val main = Handler(Looper.getMainLooper())
 
     // ---------- talking back to the page ----------
@@ -102,7 +101,9 @@ class NativeBridge(private val activity: MainActivity, private val web: WebView)
     @JavascriptInterface
     fun listen(id: Int, lang: String, interim: Boolean) {
         main.post {
-            activity.withMic { ok ->
+            val a = RosinHost.activity
+            if (a == null) { emit(id, "start"); emit(id, "error", "not-allowed"); emit(id, "end"); return@post }
+            a.withMic { ok ->
                 if (!ok) { emit(id, "start"); emit(id, "error", "not-allowed"); emit(id, "end") }
                 else startRecognizer(id, lang, interim)
             }
@@ -171,16 +172,11 @@ class NativeBridge(private val activity: MainActivity, private val web: WebView)
         }
     }
 
-    // ---------- what Rosin is doing, for the widget and the keep-running notification ----------
+    // ---------- what Rosin is doing, for the floating Rosin's face and speech bubbles ----------
     @JavascriptInterface
     fun state(json: String) {
         val s = try { JSONObject(json) } catch (_: Exception) { return }
-        WidgetState.save(app, s)
-        main.post {
-            RosinWidget.refreshSoon(app)
-            val active = s.optBoolean("busy") || s.optBoolean("thinking") || s.optBoolean("listening")
-            if (active) RosinService.start(app) else RosinService.stopLater(app)
-        }
+        main.post { RosinHost.onState(s) }
     }
 
     @JavascriptInterface

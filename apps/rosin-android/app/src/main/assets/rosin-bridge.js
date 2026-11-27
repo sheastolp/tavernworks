@@ -6,7 +6,7 @@
  * them exactly as it uses the browser's, so the site itself doesn't change.
  *
  * It also skips the "Tap to wake Rosin" screen (the app may play sound without a tap) and reports Rosin's
- * face and what Rosin is saying to the app, which shows them on the home screen widget.
+ * face and what Rosin is saying to the app, which shows them on the floating Rosin's speech bubbles.
  */
 (() => {
   const N = window.RosinNative;
@@ -115,17 +115,25 @@
     window.SpeechRecognition = window.webkitSpeechRecognition = undefined;   // the page then uses the laptop's Whisper
   }
 
-  // ---------- once the page is up: no wake screen, and tell the widget what Rosin is doing ----------
+  // ---------- Rosin runs on with the app closed ----------
+  // The app keeps this page running in the background (it floats Rosin over other apps), so to the page it is
+  // always "showing": otherwise it holds back idle chatter on phones while hidden.
+  try {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+  } catch {}
+
+  // ---------- once the page is up: no wake screen, and tell the app what Rosin is doing ----------
   document.addEventListener("DOMContentLoaded", () => {
     const wake = document.getElementById("wake");
     if (wake) { try { window.Rosin?.audio(); } catch {} wake.remove(); }
     document.documentElement.classList.add("in-app");
 
     const plain = (t) => String(t || "").replace(/\[[^\]]*\]/g, " ").replace(/[*_`#]+/g, "").replace(/\s+/g, " ").trim();
-    let last = "";
-    setInterval(() => {
-      const R = window.Rosin;
-      if (!R) return;
+    const R = window.Rosin;
+    let talking = false, last = "";
+    function post() {
+      if (!window.Rosin) return;
       let reply = "";
       try {
         const h = JSON.parse(localStorage.getItem("rosin.web.history") || "[]");
@@ -134,11 +142,11 @@
       const send = document.getElementById("send");
       const subsBox = document.getElementById("subs");
       const state = {
-        face: R.expression || "normal",
+        face: window.Rosin.expression || "normal",
         status: (document.getElementById("status")?.textContent || "").trim(),
-        subs: (subsBox?.textContent || "").trim(),
+        subs: plain(subsBox?.textContent || ""),
         heard: !!subsBox?.classList.contains("listening"),   // the subtitles are showing your words, not Rosin's
-        talking: !!synth.speaking,
+        talking: talking || !!synth.speaking,
         reply: reply.slice(0, 400),
         thinking: !!document.getElementById("rosin")?.classList.contains("thinking"),
         busy: send?.dataset.stop === "true",
@@ -146,6 +154,24 @@
       };
       const s = JSON.stringify(state);
       if (s !== last) { last = s; N.state(s); }
-    }, 600);
+    }
+    // Tell the app the moment anything changes (a background page's timers can be slowed right down), and
+    // also check now and then from a timer that isn't slowed, for anything that changes without a DOM change.
+    let queued = false;
+    const soon = () => { if (!queued) { queued = true; Promise.resolve().then(() => { queued = false; post(); }); } };
+    if (R) {
+      for (const k of ["talking", "subs", "thinking", "setExpression", "status", "micLive"]) {
+        const f = R[k];
+        if (typeof f !== "function") continue;
+        R[k] = function (...a) { if (k === "talking") talking = !!a[0]; const r = f.apply(this, a); soon(); return r; };
+      }
+    }
+    const mo = new MutationObserver(soon);
+    for (const id of ["subs", "status", "rosin", "send", "mic"]) {
+      const el = document.getElementById(id);
+      if (el) mo.observe(el, { attributes: true, childList: true, characterData: true, subtree: id === "subs" || id === "status" });
+    }
+    if (window.KeepAwake) window.KeepAwake.ticker(1000, post); else setInterval(post, 1000);
+    post();
   });
 })();

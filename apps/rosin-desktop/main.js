@@ -1,10 +1,12 @@
-// Rosin for Windows: tavernworks.dev/rosin/ in a floating, frameless, see-through window that stays on top,
-// with a tray icon and a few hotkeys. Rosin keeps talking while the window is hidden or behind other windows.
+// Rosin for Windows: Rosin alone on the desktop, with no box, talking in speech bubbles. Clicks pass through
+// everywhere except on Rosin: click Rosin to open the app (the full tavernworks.dev/rosin/ page with its
+// controls), drag Rosin to move it. Esc, the ▾ button or clicking away goes back to just Rosin. Rosin speaks
+// up on its own now and then, and keeps going while hidden or behind other windows. Tray icon and hotkeys too.
 //
 // Hotkeys (anywhere in Windows):
 //   Ctrl+Alt+R   show or hide Rosin
 //   Ctrl+Alt+T   talk to Rosin (starts listening; press again to send)
-//   Ctrl+Alt+Y   type to Rosin (shows Rosin and puts the cursor in the text box)
+//   Ctrl+Alt+Y   type to Rosin (opens the app and puts the cursor in the text box)
 //
 // The laptop key is entered once under ⋯ → Laptop key, the same as in a browser, and stays in this app's
 // own storage on this PC.
@@ -21,7 +23,8 @@ if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
 // ---------- settings, kept in %APPDATA%\Rosin\desktop.json ----------
 const settingsFile = () => path.join(app.getPath("userData"), "desktop.json");
-let settings = { onTop: true, compact: false, size: "Medium", bounds: null };
+let settings = { onTop: true, buddy: true, size: "Medium", bounds: null, buddyBounds: null };
+const BUDDY = [260, 460];   // just Rosin: about 9:16, with room above Rosin for the speech bubble
 function loadSettings() {
   try { settings = { ...settings, ...JSON.parse(fs.readFileSync(settingsFile(), "utf8")) }; } catch {}
 }
@@ -43,16 +46,30 @@ function onScreen(b) {
     b.x + 60 > a.x && b.y + 30 > a.y && b.x + 60 < a.x + a.width && b.y + 30 < a.y + a.height);
 }
 
+function buddyBounds() {
+  if (onScreen(settings.buddyBounds)) return settings.buddyBounds;
+  const a = screen.getPrimaryDisplay().workArea;
+  return { width: BUDDY[0], height: BUDDY[1], x: a.x + a.width - BUDDY[0] - 16, y: a.y + a.height - BUDDY[1] - 8 };
+}
+/** The app opens over just-Rosin's spot, bottom-right corners lined up, kept on the screen. */
+function appBounds() {
+  const [w0, h0] = SIZES[settings.size] || SIZES.Medium;
+  const w = settings.bounds?.width || w0, h = settings.bounds?.height || h0;
+  const b = buddyBounds();
+  const a = screen.getDisplayMatching(b).workArea;
+  const x = Math.min(Math.max(b.x + b.width - w, a.x), a.x + a.width - w);
+  const y = Math.min(Math.max(b.y + b.height - h, a.y), a.y + a.height - h);
+  return { x, y, width: w, height: h };
+}
+
 function createWindow() {
-  const [w, h] = SIZES[settings.size] || SIZES.Medium;
-  const b = onScreen(settings.bounds) ? settings.bounds : null;
-  const area = screen.getPrimaryDisplay().workArea;
+  const b = settings.buddy ? buddyBounds() : appBounds();
   win = new BrowserWindow({
-    width: b ? b.width : w,
-    height: b ? b.height : h,
-    x: b ? b.x : area.x + area.width - w - 24,
-    y: b ? b.y : area.y + area.height - h - 24,
-    minWidth: 220, minHeight: 300,
+    width: b.width,
+    height: b.height,
+    x: b.x,
+    y: b.y,
+    minWidth: 180, minHeight: 300,
     frame: false,
     transparent: true,
     backgroundColor: "#00000000",
@@ -80,7 +97,7 @@ function createWindow() {
   wc.on("will-navigate", (e, url) => { if (!isRosinUrl(url)) { e.preventDefault(); shell.openExternal(url); } });
   wc.on("dom-ready", () => {
     wc.insertCSS(fs.readFileSync(path.join(__dirname, "desktop.css"), "utf8"));
-    applyCompact();
+    applyMode(false);
   });
   wc.on("did-fail-load", (_e, code, desc, url, isMain) => {
     if (!isMain || code === -3) return;   // -3 is an aborted load, not a failure
@@ -91,12 +108,26 @@ function createWindow() {
     setTimeout(() => { if (win && !win.isDestroyed()) win.loadURL(START_URL); }, 15000);
   });
 
-  win.once("ready-to-show", () => win.show());
-  const remember = () => { if (!win.isMinimized()) { settings.bounds = win.getBounds(); saveSettings(); } };
+  win.once("ready-to-show", () => win.showInactive());
+  const remember = () => {
+    if (win.isMinimized() || moving) return;
+    if (settings.buddy) settings.buddyBounds = win.getBounds(); else settings.bounds = win.getBounds();
+    saveSettings();
+  };
   win.on("moved", remember);
   win.on("resized", remember);
   win.on("close", (e) => { if (!quitting) { e.preventDefault(); win.hide(); refreshTray(); } });
   win.on("show", refreshTray);
+  // Clicking away from the app (with nothing typed and not listening) goes back to just Rosin.
+  win.on("blur", () => {
+    if (settings.buddy) return;
+    setTimeout(() => {
+      if (!win || win.isDestroyed() || win.isFocused() || settings.buddy) return;
+      page(`(() => { const b = document.getElementById("say-text"); const m = document.getElementById("mic");
+                     return !(b && b.value.trim()) && !(m && m.classList.contains("live")); })()`)
+        .then((ok) => { if (ok && !win.isFocused()) setBuddy(true); });
+    }, 600);
+  });
   win.on("hide", refreshTray);
 
   win.loadURL(START_URL);
@@ -107,8 +138,30 @@ function page(js) {
   return win.webContents.executeJavaScript(js, true).catch(() => {});
 }
 
-function applyCompact() {
-  page(`document.body.classList.toggle("hide-ui", ${!!settings.compact}); window.Rosin && window.Rosin.fit && window.Rosin.fit(); true`);
+// ---------- just Rosin, or the app ----------
+let moving = false;
+function applyMode(focus) {
+  if (!win || win.isDestroyed()) return;
+  const b = !!settings.buddy;
+  win.webContents.send("rosin-mode", b);
+  page(`document.documentElement.classList.toggle("buddy", ${b}); document.body.classList.toggle("hide-ui", ${b});
+        window.Rosin && window.Rosin.fit && window.Rosin.fit(); true`);
+  win.setIgnoreMouseEvents(b, { forward: true });   // just Rosin: clicks go through, except on Rosin (see "over")
+  win.setResizable(!b);
+  moving = true;
+  win.setBounds(b ? buddyBounds() : appBounds());
+  moving = false;
+  if (!b && focus) { win.show(); win.focus(); }
+  setTimeout(() => page(`window.Rosin && window.Rosin.fit && window.Rosin.fit(); true`), 60);
+  refreshTray();
+}
+function setBuddy(on, focus = true) {
+  if (!!settings.buddy === !!on) { if (!on && focus) { win.show(); win.focus(); } return; }
+  settings.buddy = !!on; saveSettings(); applyMode(focus);
+}
+function openApp() {
+  setBuddy(false);
+  page(`(() => { const b = document.getElementById("say-text"); if (b) b.focus(); return true; })()`);
 }
 
 function showRosin(focus = true) {
@@ -124,18 +177,14 @@ function talk() {
   page(`window.RosinBrain && window.RosinBrain.micStart(); true`);
 }
 function typeToRosin() {
-  if (settings.compact) { settings.compact = false; saveSettings(); applyCompact(); }
   showRosin(true);
-  page(`(() => { const b = document.getElementById("say-text"); if (b) b.focus(); return true; })()`);
-  refreshTray();
+  openApp();
 }
 
 function setSize(name) {
-  const [w, h] = SIZES[name];
-  const b = win.getBounds();
   settings.size = name;
-  win.setBounds({ x: b.x + b.width - w, y: b.y + b.height - h, width: w, height: h });   // keep the bottom-right corner put
-  settings.bounds = win.getBounds();
+  settings.bounds = null;   // the app opens at this size next time
+  if (!settings.buddy) { moving = true; win.setBounds(appBounds()); moving = false; settings.bounds = win.getBounds(); }
   saveSettings(); refreshTray();
 }
 
@@ -149,9 +198,9 @@ function refreshTray() {
     { type: "separator" },
     { label: "Always on top", type: "checkbox", checked: settings.onTop, click: (m) => {
         settings.onTop = m.checked; win.setAlwaysOnTop(m.checked, "floating"); saveSettings(); } },
-    { label: "Hide the controls (just Rosin)", type: "checkbox", checked: settings.compact, click: (m) => {
-        settings.compact = m.checked; saveSettings(); applyCompact(); } },
-    { label: "Size", submenu: Object.keys(SIZES).map((n) => ({ label: n, type: "radio", checked: settings.size === n, click: () => setSize(n) })) },
+    { label: "Open the app\tCtrl+Alt+Y", click: () => { showRosin(true); openApp(); } },
+    { label: "Just Rosin on the desktop", type: "checkbox", checked: !!settings.buddy, click: (m) => { showRosin(false); setBuddy(m.checked); } },
+    { label: "App size", submenu: Object.keys(SIZES).map((n) => ({ label: n, type: "radio", checked: settings.size === n, click: () => setSize(n) })) },
     { label: "Start with Windows", type: "checkbox", checked: startup, click: (m) => {
         app.setLoginItemSettings({ openAtLogin: m.checked }); refreshTray(); } },
     { type: "separator" },
@@ -167,10 +216,39 @@ ipcMain.on("rosin-desktop", (e, what) => {
   if (!win || e.sender !== win.webContents) return;
   if (what === "hide") win.hide();
   else if (what === "pin") { settings.onTop = !settings.onTop; win.setAlwaysOnTop(settings.onTop, "floating"); saveSettings(); refreshTray(); }
-  else if (what === "compact") { settings.compact = !settings.compact; saveSettings(); applyCompact(); refreshTray(); }
+  else if (what === "buddy") setBuddy(true);
+  else if (what === "open") openApp();
   else if (what === "menu") tray && tray.popUpContextMenu();
+  else if (what === "ready") { win.webContents.send("rosin-mode", !!settings.buddy); greetSoon(); }
+  // just Rosin: take the mouse only while it's over Rosin, so clicks everywhere else reach the desktop
+  else if (what === "over") { if (settings.buddy) win.setIgnoreMouseEvents(false); }
+  else if (what === "out") { if (settings.buddy) win.setIgnoreMouseEvents(true, { forward: true }); }
+  else if (what === "drag-start") dragFrom = win.getPosition();
+  else if (what === "drag-end") { dragFrom = null; settings.buddyBounds = win.getBounds(); saveSettings(); }
 });
-ipcMain.handle("rosin-desktop-state", (e) => (win && e.sender === win.webContents ? { onTop: settings.onTop, compact: settings.compact } : null));
+let dragFrom = null;
+ipcMain.on("rosin-desktop-drag", (e, dx, dy) => {
+  if (!win || e.sender !== win.webContents || !dragFrom || !settings.buddy) return;
+  win.setPosition(Math.round(dragFrom[0] + dx), Math.round(dragFrom[1] + dy));
+});
+ipcMain.handle("rosin-desktop-state", (e) => (win && e.sender === win.webContents ? { onTop: settings.onTop, buddy: settings.buddy } : null));
+
+// ---------- Rosin speaks up by itself soon after starting, instead of waiting minutes ----------
+let greeted = false;
+function greetSoon() {
+  if (greeted) return;
+  let tries = 0;
+  const check = () => {
+    if (greeted || !win || win.isDestroyed()) return;
+    page(`(document.getElementById("status")?.textContent || "").startsWith("Ready")`).then((ready) => {
+      if (ready) {
+        greeted = true;
+        setTimeout(() => page(`window.RosinBrain && window.RosinBrain.settings.chatter && window.RosinBrain.chatterNow(); true`), 12000);
+      } else if (++tries < 120) setTimeout(check, 5000);
+    });
+  };
+  setTimeout(check, 3000);
+}
 
 app.on("second-instance", () => showRosin());
 

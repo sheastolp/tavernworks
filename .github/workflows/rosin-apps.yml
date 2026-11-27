@@ -1,4 +1,4 @@
-# Builds Rosin's Android app (APK with the home screen widget) and Windows app (installer + portable exe).
+# Builds Rosin's Android app (APK: Rosin floating over the home screen) and Windows app (installer + portable exe).
 # The files are attached to each run under "Artifacts". Pushing a tag like rosin-v1.0.1 also publishes them
 # as a GitHub release (so does running it by hand with "release" ticked), with fixed names so the "latest" links below always point at the newest build:
 #   https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin.apk
@@ -36,20 +36,46 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.14.3"
-      - name: Signing key (optional)
+      # Every build is signed with the same key, so a new APK installs over the old one. The key is made once
+      # and kept in this repository's Actions cache (a ROSIN_KEYSTORE_B64 secret overrides it).
+      - name: Load the signing key
+        id: ks
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.rosin-signing
+          key: rosin-signing-v1
+      - name: Make the signing key (first build only)
         env:
           KEYSTORE_B64: ${{ secrets.ROSIN_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ROSIN_KEYSTORE_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/rosin.jks"
             echo "ROSIN_KEYSTORE=$RUNNER_TEMP/rosin.jks" >> "$GITHUB_ENV"
-          else
-            echo "No ROSIN_KEYSTORE_B64 secret: signing with the debug key."
+            echo "ROSIN_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            exit 0
           fi
+          D="$HOME/.rosin-signing"
+          if [ ! -f "$D/rosin.jks" ]; then
+            mkdir -p "$D"
+            openssl rand -hex 16 > "$D/pass"
+            P=$(cat "$D/pass")
+            keytool -genkeypair -keystore "$D/rosin.jks" -storepass "$P" -keypass "$P" -alias rosin \
+              -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Rosin, O=Tavernworks"
+            echo "made=true" >> "$GITHUB_OUTPUT"
+          fi
+          P=$(cat "$D/pass"); echo "::add-mask::$P"
+          echo "ROSIN_KEYSTORE=$D/rosin.jks" >> "$GITHUB_ENV"
+          echo "ROSIN_KEYSTORE_PASSWORD=$P" >> "$GITHUB_ENV"
+        id: make
+      - name: Keep the new signing key
+        if: steps.make.outputs.made == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.rosin-signing
+          key: rosin-signing-v1
       - name: Build APK
         working-directory: apps/rosin-android
-        env:
-          ROSIN_KEYSTORE_PASSWORD: ${{ secrets.ROSIN_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon assembleRelease
       - name: Name the APK
         run: cp apps/rosin-android/app/build/outputs/apk/release/app-release.apk "Rosin-android-${{ github.run_number }}.apk"
@@ -57,6 +83,32 @@ jobs:
         with:
           name: Rosin-android
           path: Rosin-android-*.apk
+
+  # Tries the APK on an Android emulator: Rosin floating over the home screen, the speech bubble, tapping
+  # Rosin. Screenshots are printed into this job's log. It doesn't hold up a release.
+  emulator:
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Rosin-android
+          path: apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash apps/rosin-android/emulator-test.sh
 
   windows:
     runs-on: windows-latest
@@ -104,8 +156,8 @@ jobs:
           body: |
             Rosin, Stoned Sheamus's AI co-host, as an app.
 
-            - **Rosin.apk**: Android app with a home screen widget (Talk and Type buttons, Rosin's face and last reply). Uses the phone's own voice and speech-to-text.
-            - **Rosin-Setup.exe**: Windows app, a floating see-through window that stays on top, with a tray icon. Ctrl+Alt+R show/hide, Ctrl+Alt+T talk, Ctrl+Alt+Y type.
+            - **Rosin.apk**: Android app. Rosin floats over your home screen and other apps with no box, speaks up on its own now and then, and talks in speech bubbles. Tap Rosin to open the app; drag to move. Allow "Display over other apps" when it asks. Uses the phone's own voice and speech-to-text.
+            - **Rosin-Setup.exe**: Windows app. Just Rosin on the desktop, no box, talking in speech bubbles; clicks pass through everywhere except Rosin. Click Rosin to open the app, drag to move. Ctrl+Alt+R show/hide, Ctrl+Alt+T talk, Ctrl+Alt+Y type.
             - **Rosin-Portable.exe**: the same Windows app without installing.
 
             Enter your laptop key once under the ⋯ menu in each app.

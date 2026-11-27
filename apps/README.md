@@ -3,14 +3,17 @@
 Rosin, the vine-orb AI co-host, outside the browser. Both apps open tavernworks.dev/rosin/, so anything
 changed on the site shows up in them too. The laptop key is entered once in each app under ⋯ → Laptop key.
 
-- `rosin-android/`: Android app (Kotlin, WebView) with a resizable home screen widget that is just Rosin
-  on a see-through background, with speech bubbles while Rosin talks (tap Rosin to open the app). Uses the
-  phone's own speech-to-text and voice (`assets/rosin-bridge.js` plugs them into the page).
+- `rosin-android/`: Android app (Kotlin, WebView). Rosin floats over the home screen and other apps with no
+  box ("Display over other apps"), speaks up on its own and talks in speech bubbles; tap Rosin to open the app,
+  drag to move. A foreground service keeps Rosin's page running with the app closed. Uses the phone's own
+  speech-to-text and voice (`assets/rosin-bridge.js` plugs them into the page). `emulator-test.sh` is run by CI.
 - Both apps tell the page which device it's on (`?device=windows-app`, `android-app`, or `android-widget`
   while the Android app is in the background and replies only show in the widget's bubbles), also as
   `window.RosinDevice` and a `rosin-device` event, so Rosin can fit its replies to the device.
-- `rosin-desktop/`: Windows app (Electron). Floating see-through window that stays on top, tray icon,
-  hotkeys Ctrl+Alt+R (show/hide), Ctrl+Alt+T (talk), Ctrl+Alt+Y (type). Keeps talking while hidden.
+- `rosin-desktop/`: Windows app (Electron). Just Rosin on the desktop with no box, talking in speech bubbles;
+  clicks pass through everywhere except Rosin. Click Rosin to open the app, drag to move, Esc or clicking away
+  goes back to just Rosin. Tray icon, hotkeys Ctrl+Alt+R (show/hide), Ctrl+Alt+T (talk), Ctrl+Alt+Y (type).
+  Keeps talking while hidden.
 
 GitHub Actions (`.github/workflows/rosin-apps.yml`) builds both on every push that touches `apps/`.
 The APK and the Windows installer are under "Artifacts" on the run's page.

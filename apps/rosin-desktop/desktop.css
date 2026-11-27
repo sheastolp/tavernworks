@@ -10,3 +10,22 @@ body:hover #desk-bar { opacity: 1; }
   background: rgba(13,19,11,.8); color: #f3dcc0; font: 600 14px/1 system-ui, sans-serif; cursor: pointer; }
 #desk-bar button:hover { background: #3a1309; border-color: #8c2c14; }
 #desk-bar button[aria-pressed="true"] { background: #7a2a10; border-color: #d0602a; }
+
+/* ---------- just Rosin: no box, no controls, a speech bubble while Rosin talks ---------- */
+html.buddy * { -webkit-app-region: no-drag !important; }
+html.buddy #desk-bar, html.buddy #controls, html.buddy #log, html.buddy .tray { display: none !important; }
+html.buddy #stage { top: 30%; }                         /* room above Rosin for the bubble */
+html.buddy.buddy-hover #rosin { cursor: pointer; filter: drop-shadow(0 0 10px rgba(255, 150, 60, .6)); }
+html.buddy #subs { display: none !important; }
+html.buddy.rosin-talking #subs:not(:empty) {
+  display: block !important; position: fixed; top: 8px; bottom: auto; left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: calc(100vw - 16px);
+  background: #f3dcc0; color: #2a1308; border: 2px solid #8c2c14; border-radius: 16px; padding: 8px 12px;
+  font: 15px/1.35 system-ui, "Segoe UI", sans-serif; text-shadow: none; text-align: left; opacity: 1; font-style: normal;
+}
+/* the bubble's tail, pointing down at Rosin */
+html.buddy.rosin-talking #subs:not(:empty)::after, html.buddy.rosin-talking #subs:not(:empty)::before {
+  content: ""; position: absolute; left: 50%; border: solid transparent; border-bottom: 0;
+}
+html.buddy.rosin-talking #subs:not(:empty)::after { bottom: -11px; margin-left: -10px; border-width: 11px 10px 0; border-top-color: #8c2c14; }
+html.buddy.rosin-talking #subs:not(:empty)::before { bottom: -8px; margin-left: -8px; border-width: 9px 8px 0; border-top-color: #f3dcc0; z-index: 1; }
