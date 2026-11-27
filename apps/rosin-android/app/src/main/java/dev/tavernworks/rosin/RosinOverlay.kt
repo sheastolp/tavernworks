@@ -258,7 +258,7 @@ class RosinOverlay(private val context: Context) {
         rosinLp.y = prefs.getInt("y", (dm.heightPixels * 0.55f).toInt())
         clamp()
         RosinService.start(context)   // the notification's button now says "Show on screen"
-        android.widget.Toast.makeText(context, "Floating Rosin is closed. Tap \"Show on screen\" in Rosin's notification to bring it back.",
+        android.widget.Toast.makeText(context, "Rosin's closed. Bring it back from Rosin's notification.",
             android.widget.Toast.LENGTH_LONG).show()
     }
 
