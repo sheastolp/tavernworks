@@ -112,12 +112,16 @@
   })();
 
   // ---------- fit Rosin to the screen, leaving room for the controls ----------
+  function smokeShown() { return !!L.smoke && q.get("smoke") !== "0"; }
   function fit() {
     const ctrlH = body.classList.contains("preview") && !body.classList.contains("hide-ui") ? controls.offsetHeight + 8 : 0;
     root.style.setProperty("--ctrl-h", ctrlH + "px");
     const w = stage.clientWidth, h = stage.clientHeight - ctrlH;
-    const height = Math.max(120, Math.min(h * 0.94, w * 0.96 * L.H / L.W));
+    // The smoke hangs below Rosin's box: fit Rosin and the smoke together, and centre the pair, not just Rosin.
+    const FH = smokeShown() ? Math.max(L.H, L.smoke.showY + L.smoke.showH) : L.H;
+    const height = Math.max(120, Math.min(h * 0.94 * L.H / FH, w * 0.96 * L.H / L.W));
     rosin.style.height = height + "px"; rosin.style.width = (height * L.W / L.H) + "px";
+    rosin.style.marginBottom = (height * (FH - L.H) / L.H) + "px";
   }
   addEventListener("resize", fit);
   addEventListener("orientationchange", () => setTimeout(fit, 250));
@@ -458,7 +462,7 @@
   // Rosin bobs above it instead of carrying it. At most 30 frames a second (24 on phones), paused while hidden.
   try { smoke(); } catch (e) { console.warn("Rosin's smoke couldn't start:", e); }   // smoke is decoration: never let it break the page
   function smoke() {
-    if (q.get("smoke") === "0" || !L.smoke) return;
+    if (!smokeShown()) return;
     const SM = L.smoke, FPS = LITE ? 24 : 30, DPR = Math.min(window.devicePixelRatio || 1, LITE ? 1.5 : 2);
     const c = document.createElement("canvas");
     c.className = "smoke"; c.setAttribute("aria-hidden", "true");
@@ -493,8 +497,10 @@
       const t = now / 1000, glow = Math.max(0, +getComputedStyle(root).getPropertyValue("--glow") || 0);
       // Where the wisp goes: the sheet's spot under the orb, from the layout (not the float, so it moves on its own).
       const bw = rosin.offsetWidth * DPR, bh = rosin.offsetHeight * DPR;
-      const x0 = rosin.offsetLeft * DPR + SM.x / L.W * bw, y0 = rosin.offsetTop * DPR + SM.y / L.H * bh;
-      const w = SM.w / L.W * bw, h = SM.h / L.H * bh;
+      // Drawn lower and taller than on the sheet (showY, showH), so Rosin and the smoke stand closer to 9:16.
+      const sy = SM.showY ?? SM.y, sh = SM.showH ?? SM.h;
+      const x0 = rosin.offsetLeft * DPR + SM.x / L.W * bw, y0 = rosin.offsetTop * DPR + sy / L.H * bh;
+      const w = SM.w / L.W * bw, h = sh / L.H * bh;
       g.clearRect(0, 0, c.width, c.height);
       if (w < 4 || h < 4) return;
       // 1. Ripple each row sideways: little at the top where it leaves the orb, more down the tail.

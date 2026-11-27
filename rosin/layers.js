@@ -115,7 +115,9 @@ window.ROSIN_LAYERS = {
   "y": 1163,
   "w": 850,
   "h": 535,
-  "note": "the sheet's own smoke under the orb (tools/cut_smoke.py), drawn by rosin.js as its own moving layer"
+  "showY": 1240,
+  "showH": 880,
+  "note": "the sheet's own smoke under the orb (tools/cut_smoke.py), drawn by rosin.js as its own moving layer, lower and taller than on the sheet (showY, showH) so Rosin and the smoke stand closer to 9:16"
  },
  "eye": {
   "x": 600,
