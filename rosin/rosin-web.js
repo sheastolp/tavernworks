@@ -12,6 +12,8 @@
  * URL options (on top of rosin.js's): ?channel=stonedsheamus  read that Twitch chat (also in ⋯ > Twitch)
  *                                    ?voice=0                  no voice, subtitles only
  *                                    ?chatter=0                Rosin doesn't speak up on its own
+ *                                    ?device=android-app | android-widget | windows-app   set by the apps, so Rosin
+ *                                              fits its replies to where it's being used (also ?app=android / desktop)
  * Load after rosin.js, with window.ROSIN_WEB = true set before both.
  */
 (() => {
@@ -45,6 +47,38 @@
     chatterPace: store.get("chatterPace", "sometimes"),
   };
   const save = (k) => store.set(k, S[k]);
+  S.deviceName = store.get("deviceName", "");
+
+  // ---------- which device Rosin is on ----------
+  // Rosin is mostly for Sheamus, on a few devices. It works out which one this is, so a reply fits it: short and easy
+  // to listen to on the phone, one quick line in the home screen widget, fuller on a PC, stream-minded in OBS.
+  // The apps say what they are (?device=…); otherwise the browser, the screen and the pointer tell. A name given
+  // under ⋯ (kept in this browser only) says which of Sheamus's devices it is.
+  const DEVICES = {
+    "android-widget": { label: "Android widget", where: "the Rosin widget on their phone's home screen", len: "tiny" },
+    "android-app": { label: "Android app", where: "the Rosin app on their Android phone", len: "short" },
+    "phone": { label: "phone browser", where: "their phone's web browser", len: "short" },
+    "tablet": { label: "tablet", where: "a tablet", len: "medium" },
+    "windows-app": { label: "Windows app", where: "the Rosin app on their Windows PC", len: "full" },
+    "handheld": { label: "Windows handheld", where: "a touchscreen Windows handheld (a gaming handheld like the Legion Go 2)", len: "medium" },
+    "obs": { label: "OBS stream overlay", where: "OBS: you're on screen as an overlay on Sheamus's live stream", len: "stream" },
+    "desktop": { label: "computer browser", where: "a web browser on their computer", len: "full" },
+  };
+  function detectDevice() {
+    const flag = (q.get("device") || "").toLowerCase(), app = (q.get("app") || "").toLowerCase();
+    if (DEVICES[flag]) return flag;
+    if (R.OBS || /\bOBS\//.test(navigator.userAgent)) return "obs";
+    if (app === "android") return "android-app";
+    if (app === "desktop" || app === "windows") return "windows-app";
+    const ua = navigator.userAgent, touch = (navigator.maxTouchPoints || 0) > 0;
+    const coarse = matchMedia("(pointer: coarse)").matches, small = Math.min(screen.width, screen.height) < 600;
+    if (/iPhone|iPod/.test(ua) || (/Android/.test(ua) && (/Mobile/.test(ua) || small))) return "phone";
+    if (/iPad|Android/.test(ua) || (/Macintosh/.test(ua) && touch)) return "tablet";
+    if (/Windows/.test(ua) && touch && coarse) return "handheld";   // a touch-first Windows device, like the Legion Go 2
+    return "desktop";
+  }
+  let device = detectDevice();
+  const deviceInfo = () => DEVICES[device] || DEVICES.desktop;
   // Speaking up on its own (set up further down): any activity starts the quiet over.
   const PACES = { often: [1, 3], sometimes: [2, 6], rarely: [8, 20] };   // minutes of quiet before Rosin speaks up
   const chatterWait = () => { const [a, b] = PACES[S.chatterPace] || PACES.sometimes; return (a + Math.random() * (b - a)) * 60000; };
@@ -63,6 +97,19 @@
   // ---------- Rosin's personality ----------
   // Only the tags themselves: with a word about each one, small models read the words out as part of the reply.
   const FACES = "[neutral] [stoned] [happy] [laugh] [surprise] [anger] [confused]";
+  // Where the person is and how long a reply should be there. Rosin knows this but doesn't bring it up unasked.
+  function deviceLines() {
+    const d = deviceInfo(), named = S.deviceName ? ` (they call this device "${S.deviceName.slice(0, 30)}")` : "";
+    const real = "When someone wants real help (how to do something, a plan, a recipe, a fact, an idea), give the useful answer";
+    const len = {
+      tiny: `Your words show in a tiny speech bubble on a phone home screen, so keep every reply to one short sentence, under about 15 words. ${real} in at most two short sentences and offer to say more.`,
+      short: `They're on a phone, probably on the move or listening rather than reading, so keep small talk to one or two short sentences. ${real} in up to about four short sentences.`,
+      medium: `Small talk: one to three short sentences. ${real} in up to about six short sentences.`,
+      full: `They're at a computer, so you can say a bit more. Small talk: one to three short sentences. ${real} clearly in up to about eight short sentences.`,
+      stream: `Everything you say is heard by the stream's viewers, so keep it fun, short (one or two sentences) and stream-friendly, never share anything private, and play to the audience. ${real} in up to about four short sentences.`,
+    }[d.len];
+    return `Right now they're using you through ${d.where}${named}. ${len} Still spoken and still in character. Don't mention the device or how you know it unless it really fits the conversation.`;
+  }
   function systemPrompt(model) {
     const now = new Date();
     const who = S.name
@@ -78,7 +125,7 @@
       who,
       `It is ${now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}, ${now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} where they are.`,
       "Everything you write is spoken out loud by a voice, so write only what Rosin says: casual spoken English, no lists, no markdown, no emoji, no stage directions, and never describe your actions in brackets or asterisks.",
-      "Small talk: one to three short sentences. When someone wants real help (how to do something, a plan, a recipe, a fact, an idea), give the useful answer clearly in up to about eight short sentences, still spoken and still in character.",
+      deviceLines(),
       `Start every reply with exactly one face tag in square brackets, chosen from: ${FACES}. Then just talk. For example: [happy] Oh hey, good to see you.`,
       "The tag sets your face on screen and is never read out, so never describe your face, mood or expression in words, and never start with a name and a colon.",
       S.chatter ? "A message that starts with \"[Quiet moment]\" isn't from anyone: it means nobody has said anything for a while, so say something on your own, out loud, as if to the room, the way the note asks. Never mention the note." : "",
@@ -673,12 +720,14 @@
       "notice how quiet it's gotten and make a little joke about it",
     ];
     if (fresh) topics.push("come back to something from earlier in the conversation", "come back to something from earlier in the conversation");
+    if (device === "obs") topics.push("say something fun to the viewers watching the stream", "ask the stream a playful question");
     if (twitch) topics.push(`say something to the viewers in #${S.channel}'s Twitch chat`, "ask Twitch chat a fun question they can answer");
     let i = Math.floor(Math.random() * topics.length);
     if (i === lastTopic) i = (i + 1) % topics.length;
     lastTopic = i;
     const before = history.filter((m) => m.idle).slice(-5).map((m) => `"${m.content.replace(/\[[a-z]+\]\s*/g, "").slice(0, 120)}"`);
-    return `Nobody has said anything for a bit, so ${topics[i]}. One or two short sentences, starting with a face tag.` +
+    const size = { tiny: "One short sentence, under 12 words", short: "One short sentence", stream: "One or two short sentences the viewers will enjoy" }[deviceInfo().len] || "One or two short sentences";
+    return `Nobody has said anything for a bit, so ${topics[i]}. ${size}, starting with a face tag.` +
       (before.length ? ` Say something new, not like these: ${before.join(" ")}` : "");
   }
   async function chatterNow() {
@@ -702,6 +751,7 @@
   const check = (label) => { const w = document.createElement("label"); w.className = "chk"; const i = document.createElement("input"); i.type = "checkbox"; w.append(i, " " + label); return [w, i]; };
   const keyIn = Object.assign(document.createElement("input"), { type: "password", placeholder: "only on Sheamus's devices", value: window.GateKey?.get() || "", autocomplete: "off", spellcheck: false, autocapitalize: "off" });
   const nameIn = Object.assign(document.createElement("input"), { type: "text", placeholder: "so Rosin knows who's talking", value: S.name, maxLength: 40, autocomplete: "nickname" });
+  const devIn = Object.assign(document.createElement("input"), { type: "text", placeholder: "e.g. Legion Go 2, my phone", value: S.deviceName, maxLength: 30, autocomplete: "off" });
   const modelSel = document.createElement("select");
   const voiceSel = document.createElement("select");
   const sttSel = document.createElement("select");
@@ -715,7 +765,7 @@
   const paceSel = document.createElement("select");
   paceSel.append(new Option("Often (every 1 to 3 min of quiet)", "often"), new Option("Sometimes (2 to 6 min)", "sometimes"), new Option("Rarely (8 to 20 min)", "rarely"));
   const newBtn = Object.assign(document.createElement("button"), { type: "button", textContent: "New chat" });
-  more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field("Model", modelSel), voiceChk, field("Rosin's voice", voiceSel), field("Speech to text", sttSel), webChk,
+  more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field(`This device (seen as ${deviceInfo().label})`, devIn), field("Model", modelSel), voiceChk, field("Rosin's voice", voiceSel), field("Speech to text", sttSel), webChk,
                chatChk, field("How often", paceSel),
                field("Twitch channel", chanIn), twChk, awakeChk, newBtn);
   function fillModels() {
@@ -739,6 +789,7 @@
   });
   window.addEventListener("gatekeychange", () => { keyIn.value = window.GateKey?.get() || ""; locked = false; R.status("Checking the key…"); lastCheck = Date.now(); checkLaptop(); });
   nameIn.addEventListener("change", () => { S.name = nameIn.value.trim(); save("name"); });
+  devIn.addEventListener("change", () => { S.deviceName = devIn.value.trim(); save("deviceName"); });
   sttSel.value = S.stt;
   sttSel.addEventListener("change", async () => {
     S.stt = sttSel.value; save("stt"); ear.browserBroken = false;
@@ -792,5 +843,8 @@
   });
 
   if (S.twitchOn && S.channel) twitchConnect();
-  window.RosinBrain = { say: (t) => { unlock(); ask(t); }, micStart, micStop, stop, ask, chatterNow, settings: S };
+  window.RosinBrain = { say: (t) => { unlock(); ask(t); }, micStart, micStop, stop, ask, chatterNow, settings: S,
+    // The apps can switch this as they go, e.g. "android-widget" while a reply is for the home screen widget.
+    get device() { return device; },
+    setDevice(kind) { kind = String(kind || "").toLowerCase(); device = DEVICES[kind] ? kind : detectDevice(); return device; } };
 })();
