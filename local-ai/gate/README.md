@@ -186,6 +186,7 @@ Environment variables, set with `Environment=` in the service file:
 | `GATE_KEY_FILE` | (none) | Read the key from this file instead of the systemd credential |
 | `GATE_POOL_URL` | found from `tailscale ip -4`, port 8090 | Where the AI Pool's brain is; `off` hides the pool |
 | `GATE_POOL_FALLBACK` | a qwen3 model, else the first | The Ollama model that answers when the pool can't |
+| `GATE_VIDEO_URL` | unset (off) | A video backend for making videos with AI, meant for the AI Pool split. It answers `GET /health` and `POST /generate` with `{ prompt, seconds, width, height }`, returning the video (mp4 or webm). Until it's set, Rosin's 🪄 Make a video says it needs the pool split |
 | `WHISPER_URL` | `http://127.0.0.1:8000` | The laptop's Whisper server (speaches), for `POST /api/transcribe` |
 | `WHISPER_MODEL` | `Systran/faster-distil-whisper-small.en` | Which Whisper model it uses |
 | `WHISPER_LANGUAGE` | `en` | The language it listens for |
