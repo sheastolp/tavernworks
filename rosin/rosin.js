@@ -467,7 +467,7 @@
       return { c, g: c.getContext("2d"), parts: [] };
     };
     const back = layer(true), front = layer(false);
-    const max = { back: LITE ? 16 : 30, front: LITE ? 6 : 12 };
+    const max = { back: LITE ? 22 : 36, front: LITE ? 8 : 14 };
     // One soft puff, tinted twice: deep smoke and an ember-lit edge.
     const puff = (inner, outer) => {
       const c = document.createElement("canvas"); c.width = c.height = 64;
@@ -475,8 +475,8 @@
       gr.addColorStop(0, inner); gr.addColorStop(0.45, outer); gr.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return c;
     };
-    const DEEP = puff("rgba(190, 46, 22, 0.8)", "rgba(120, 22, 12, 0.35)");
-    const LIT = puff("rgba(255, 120, 52, 0.65)", "rgba(170, 40, 16, 0.25)");
+    const DEEP = puff("rgba(200, 56, 28, 0.9)", "rgba(130, 26, 14, 0.45)");
+    const LIT = puff("rgba(255, 130, 60, 0.8)", "rgba(200, 54, 20, 0.35)");
     let W = 0, H = 0;
     function size() {
       W = Math.ceil(innerWidth * SCALE); H = Math.ceil(innerHeight * SCALE);
@@ -493,7 +493,7 @@
       const a = Math.PI * (0.05 + Math.random() * 0.9), rr = o.r * (front ? 0.95 + Math.random() * 0.35 : 0.85 + Math.random() * 0.45);
       const dir = Math.random() < 0.5 ? 1 : -1;
       l.parts.push({ a, rr, dir, rise: 0, life: 0, max: (front ? 5 : 7) + Math.random() * 5,
-                     s: o.r * (front ? 0.28 : 0.4) * (0.7 + Math.random() * 0.6), spin: (Math.random() - 0.5) * 0.6,
+                     s: o.r * (front ? 0.32 : 0.48) * (0.7 + Math.random() * 0.6), spin: (Math.random() - 0.5) * 0.6,
                      lit: Math.random() < (front ? 0.35 : 0.2), seed: Math.random() * 100 });
     }
     let last = performance.now(), acc = 0;
@@ -506,6 +506,8 @@
       for (const [l, isFront] of [[back, false], [front, true]]) {
         if (l.parts.length < max[isFront ? "front" : "back"] * (1 + glow * 0.6) && Math.random() < step * (isFront ? 1.6 : 3)) spawn(l, o, isFront);
         const g = l.g; g.clearRect(0, 0, W, H);
+        // The front wisps add light (they glow like the eye); the back ones are plain smoke.
+        g.globalCompositeOperation = isFront ? "lighter" : "source-over";
         for (let i = l.parts.length - 1; i >= 0; i--) {
           const p = l.parts[i];
           p.life += step;
@@ -518,10 +520,10 @@
           const wob = Math.sin(t * 0.7 + p.seed) * o.r * 0.06 + Math.sin(t * 1.9 + p.seed * 2) * o.r * 0.025;
           const x = o.x + Math.cos(p.a) * p.rr + wob + (isFront ? Math.sin(t * 0.3) * o.r * 0.04 : 0);
           const y = o.y + Math.sin(p.a) * p.rr * 0.8 - p.rise;
-          const fade = Math.min(1, k * 4) * (1 - k);
-          const sz = p.s * (0.7 + k * 1.4);
+          const fade = Math.min(1, k / 0.15) * Math.min(1, (1 - k) / 0.45);   // in quickly, out slowly
+          const sz = p.s * (0.7 + k * 1.6);
           g.save();
-          g.globalAlpha = fade * (isFront ? 0.6 : 1);
+          g.globalAlpha = fade * (isFront ? 0.5 : 0.95);
           g.translate(x, y); g.rotate(p.a + p.spin * p.life + Math.PI / 2);
           g.scale(1.7, 0.75);   // stretched along the way it's moving: wisps, not balls
           g.drawImage(p.lit ? LIT : DEEP, -sz, -sz, sz * 2, sz * 2);
