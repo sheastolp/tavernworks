@@ -352,3 +352,39 @@ html.buddy #g-card, html.buddy #btn-mail { display: none !important; }
 @media (max-height: 500px) { #v-card .v-media iframe, #v-card .v-media > video { max-height: calc(100vh - 230px); } }
 body.obs #v-card, body.obs #btn-clip, body.obs #btn-make-video, body.obs .log-video { display: none !important; }
 html.buddy #v-card, html.buddy #btn-clip, html.buddy #btn-make-video { display: none !important; }
+
+/* initiative mode (rosin-initiative.js): ⋯ → Initiative, and the Auto-Mod card */
+#initiative { flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; gap: 8px;
+              background: rgba(12, 10, 6, 0.92); border: 1px solid #3b2414; border-radius: 12px; padding: 10px 12px;
+              max-height: max(140px, var(--tray-max)); overflow-y: auto; overflow-x: hidden;
+              -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; box-sizing: border-box; }
+#initiative > * { min-width: 0; flex-shrink: 0; }
+#initiative p { margin: 0; font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
+#initiative .ini-h { font-weight: 600; color: #e8c877; margin-top: 4px; }
+#initiative .ini-now { font-weight: 600; color: #ffb36b; }
+#initiative .ini-now.quiet { color: #a9c7ff; }
+#initiative .ini-dim { opacity: 0.75; font-size: 13px; }
+#initiative .field { flex: 0 0 auto; }
+#initiative input[type="range"] { width: 100%; min-height: 32px; accent-color: #d0602a; touch-action: pan-x; }
+#initiative .ini-marks { display: flex; justify-content: space-between; font-size: 12px; opacity: 0.7; margin-top: -6px; }
+#initiative .ini-times, #initiative .ini-obs { display: flex; gap: 8px; flex-wrap: wrap; }
+#initiative .ini-times .field, #initiative .ini-obs .field { flex: 1 1 140px; }
+#initiative[hidden], #initiative .ini-times[hidden], #initiative .ini-obs[hidden] { display: none !important; }
+#initiative textarea, #initiative select, #initiative input[type="text"], #initiative input[type="password"], #initiative input[type="time"] {
+  min-height: 44px; padding: 8px 10px; border-radius: 12px; border: 1px solid #6b3b1f; box-sizing: border-box;
+  background: rgba(20, 14, 8, 0.95); color: inherit; font: inherit; font-size: 16px; width: 100%; resize: vertical; color-scheme: dark; }
+#initiative button { min-height: 44px; }
+#mod-card { width: min(640px, 100%); box-sizing: border-box; padding: 10px 12px; border: 1px solid #8fb0e8; border-radius: 12px;
+            background: rgba(12, 18, 30, 0.95); display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
+            max-height: min(40vh, 320px); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+#mod-card[hidden] { display: none; }
+#mod-card p { margin: 0; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+#mod-card .m-head { font-weight: 600; font-size: 15px; color: #a9c7ff; }
+#mod-card .m-said b { color: #e8c877; }
+#mod-card .m-why { opacity: 0.8; font-size: 13px; }
+#mod-card .m-btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#mod-card button { min-height: 44px; flex: 1 1 auto; }
+#mod-card .m-primary { background: #1f3b66; border-color: #8fb0e8; }
+#mod-card .m-more { font-size: 13px; opacity: 0.8; }
+@media (max-height: 500px) { #initiative { width: 100%; } #mod-card { max-height: calc(100vh - 170px); } }
+body.obs #initiative, body.obs #mod-card, html.buddy #initiative, html.buddy #btn-initiative, html.buddy #mod-card { display: none !important; }

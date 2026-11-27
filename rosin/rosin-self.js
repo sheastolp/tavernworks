@@ -257,7 +257,7 @@
   // The Android app keeps this page running for hours, so a change pushed to the site (an approved draft included)
   // would never reach it. Every 10 minutes it asks the site whether Rosin's files changed, and reloads itself once
   // nothing is going on: not talking or listening, nothing typed, no tray or offer open, quiet for a minute.
-  const FILES = ["index.html", "rosin.js", "rosin-web.js", "rosin-self.js", "rosin-compass.js", "rosin-eyes.js", "rosin.css", "layers.js"];
+  const FILES = ["index.html", "rosin.js", "rosin-web.js", "rosin-self.js", "rosin-compass.js", "rosin-eyes.js", "rosin-google.js", "rosin-video.js", "rosin-initiative.js", "rosin.css", "layers.js"];
   let shipped = null, newer = false;
   async function version() {
     const base = location.href.replace(/[?#].*$/, "").replace(/[^/]*$/, "");

@@ -34,6 +34,10 @@
   // Things the app looks up before Rosin answers (like his inbox when he asks about mail): each gets what was said
   // and returns a note (or "") that rides along with this one question only, never saved in the history.
   const extraContext = [];
+  // Initiative (rosin-initiative.js): holds stop Rosin speaking up on its own (quiet times, hush); chatterHolds stop only
+  // its small talk; chatterTopics add ideas for that small talk.
+  const holds = [], chatterHolds = [], chatterTopics = [];
+  const held = (list) => list.some((f) => { try { return f(); } catch { return false; } });
   let noTools = false;   // the chosen model turned tools down
   const liveExtras = () => extraTools.filter((t) => { try { return t.on(); } catch { return false; } });
 
@@ -134,7 +138,7 @@
     if (DEVICES[k]) { window.RosinDevice = k; device = k; forcedDevice = false; }
   });
   // Speaking up on its own (set up further down): any activity starts the quiet over.
-  const PACES = { often: [1, 3], sometimes: [2, 6], rarely: [8, 20] };   // minutes of quiet before Rosin speaks up
+  const PACES = { chatty: [0.5, 1.5], often: [1, 3], sometimes: [2, 6], rarely: [8, 20] };   // minutes of quiet before Rosin speaks up
   const chatterWait = () => { const [a, b] = PACES[S.chatterPace] || PACES.sometimes; return (a + Math.random() * (b - a)) * 60000; };
   let chatterAt = Date.now() + chatterWait(), chatting = false, lastTopic = -1;
   let lastHeardAt = Date.now(), lastTurnAt = 0;   // any activity; the last time someone actually said something
@@ -465,7 +469,7 @@
   const noteHeads = [...Object.values(LENS).map((l) => l.split(",")[0].split(":")[0]), ...Object.values(MOODS), ON_CALL, "reply in one short sentence", "reply in \\d+ (?:or|to) \\d+ (?:short |fun )?sentences"];
   const NOTE_BITS = new RegExp(`\\s*[:;,]?\\s*(?:on (?:a|an|the|his|your) [^:\\n]{1,60}:\\s*)?(?:${noteHeads.map((h, i) => i >= noteHeads.length - 2 ? h : esc(h)).join("|")})(?:[,:][^\\n)]{0,120}?(?:something|private|sentences?|words)\\b)*\\s*\\)?\\)?`, "gi");
   function tidy(t) {
-    return t.replace(/\[\s*change\s*:[^\]]*(?:\]|$)/gi, "").replace(/\[\s*video\s*:[^\]]*(?:\]|$)/gi, "")
+    return t.replace(/\[\s*change\s*:[^\]]*(?:\]|$)/gi, "").replace(/\[\s*mod\s*:[^\]]*(?:\]|$)/gi, "").replace(/\[\s*ask\s+sheamus\s*(?:\]|$)/gi, "").replace(/\[\s*video\s*:[^\]]*(?:\]|$)/gi, "")
       // Labels small models sometimes echo from the app's length note ("Small talk:", "(real help)"): never shown or said.
       .replace(/[(\[*_]*\b(?:small[\s-]?talk|real[\s-]?help)\b(?:\s+mode)?[)\]*_]*\s*[:\-–—][*_]*\s*/gi, "")
       .replace(/[(\[]\s*(?:small[\s-]?talk|real[\s-]?help)\s*[)\]]\s*/gi, "").replace(/\(\([\s\S]*?(?:\)\)|$)/g, "").replace(NOTE_BITS, "").replace(/\s*\)\)/g, "").replace(/\[\s*twitch chat\s*\]\s*(?:[\w-]{1,25}\s*:\s*)?/gi, "")
@@ -561,7 +565,7 @@
     const idle = !!opts.idle;   // Rosin speaking up on its own: text is the hidden cue, never shown or kept
     // Photos waiting in the chat box (rosin-eyes.js) go with what this person says next, never with Twitch chat or idle lines.
     // A video waiting there (rosin-video.js) is watched first: its frames come as one picture, and "extra" says what's in it.
-    const got = !idle && !opts.fromChat ? opts.images || (await hooks.takePics?.(text)) || [] : [];
+    const got = !idle && !opts.fromChat ? opts.images || (await hooks.takePics?.(text)) || [] : idle && opts.images ? opts.images : [];
     const pics = got.slice(0, 3), picNote = got.note || "", extra = got.extra || "";   // note: why waiting photos couldn't go
     if (!text && got.media === "video") text = "Take a look at this video.";
     if (!text && pics.length) text = pics.length > 1 ? "Take a look at these." : "Take a look at this.";
@@ -616,7 +620,7 @@
     let seen = text;   // what this turn showed Rosin (his words, fetched notes, tool results): the only places a video link may come from
     try {
       const messages = [{ role: "system", content: systemPrompt(S.model) }, ...contextHistory()];
-      if (idle) messages.push({ role: "user", content: turnNote() + "[Quiet moment] " + text });
+      if (idle) messages.push({ role: "user", content: turnNote() + "[Quiet moment] " + text, ...(pics.length ? { images: pics } : {}) });
       if (!idle && !opts.fromChat && extraContext.length) {
         const notes = (await Promise.all(extraContext.map(async (f) => { try { return (await f(text, ctl.signal)) || ""; } catch { return ""; } }))).filter(Boolean);
         const lastMsg = messages[messages.length - 1];
@@ -646,6 +650,21 @@
         R.status("Rosin is thinking…");
       }
       feed(true);
+      // Twitch chat with Auto-Mod (rosin-initiative.js): "[mod: why]" means Rosin won't answer it and flags it for Sheamus;
+      // "[ask sheamus]" means it answered but only Sheamus really can. Neither acts on anyone by itself.
+      if (opts.fromChat) {
+        const bare = raw.replace(/<think>[\s\S]*?<\/think>/g, "");
+        const mod = /\[\s*mod\s*:\s*([^\]\n]{2,160})\]?/i.exec(bare);
+        if (mod) {
+          hush();
+          const i = history.lastIndexOf(history.filter((m) => m.role === "user").pop());
+          if (i >= 0 && history[i].who === opts.who) { history.splice(i, 1); saveHistory(); drawLog(); }   // a flagged line doesn't stay in Rosin's memory
+          window.dispatchEvent(new CustomEvent("rosin-chat-flag", { detail: { chat: opts.chat || null, reason: mod[1].trim() } }));
+          R.status(`Ready · ${modelName()}`);
+          return true;
+        }
+        if (/\[\s*ask\s+sheamus\s*\]?/i.test(bare)) window.dispatchEvent(new CustomEvent("rosin-chat-ask", { detail: { chat: opts.chat || null, answer: visible().trim() } }));
+      }
       const answer = visible().trim();
       if (!answer) {
         const other = " Try again, or pick another model under ⋯.";
@@ -1037,8 +1056,12 @@
           const tags = Object.fromEntries((m[1] || "").split(";").map((p) => { const i = p.indexOf("="); return [p.slice(0, i), p.slice(i + 1)]; }));
           const login = m[2].toLowerCase();
           let msg = m[3]; if (msg.startsWith("\u0001ACTION ")) msg = msg.slice(8).replace(/\u0001$/, "");
-          if (twitchSkip(login, msg, tags)) continue;
           const badges = (tags.badges || "").split(",").map((b) => b.split("/")[0]);
+          // Every line goes to rosin-initiative.js first (Auto-Mod, cheers, a bot thanking a follower), skipped or not.
+          // A line Auto-Mod flags (detail.flagged) goes to Sheamus as a card and isn't answered.
+          const seen = { kind: "chat", id: tags.id, login, user: tags["display-name"] || login, text: msg, tags, badges, bot: BOTS.has(login), flagged: false };
+          window.dispatchEvent(new CustomEvent("rosin-twitch", { detail: seen }));
+          if (seen.flagged || twitchSkip(login, msg, tags)) continue;
           let score = 0;
           if (MENTION.test(msg)) score += 100;
           if (badges.includes("broadcaster")) score += 50;
@@ -1052,6 +1075,12 @@
           if (clean.length < 2) continue;
           tw.pending.push({ id: tags.id, login, user: tags["display-name"] || login, text: clean, score, t: Date.now() });
           if (tw.pending.length > 100) tw.pending.shift();
+          continue;
+        }
+        const un = line.match(/^@(\S+) :tmi\.twitch\.tv USERNOTICE #\S+(?: :(.*))?$/);   // raids, subs, gifted subs
+        if (un) {
+          const tags = Object.fromEntries(un[1].split(";").map((p) => { const i = p.indexOf("="); return [p.slice(0, i), p.slice(i + 1)]; }));
+          window.dispatchEvent(new CustomEvent("rosin-twitch", { detail: { kind: "notice", tags, text: un[2] || "" } }));
           continue;
         }
         const cc = line.match(/ CLEARCHAT #\S+(?: :(\S+))?$/);
@@ -1078,7 +1107,7 @@
     else if (quiet > 4 * 60000) { try { ws.send("PING :tmi.twitch.tv"); } catch {} }
   });
   tick(1000, async () => {        // answer one chat line at a time, never while Rosin is busy
-    if (!S.twitchOn || busy || say.playing || ear.on) return;
+    if (!S.twitchOn || busy || say.playing || ear.on || hooks.holdChat?.()) return;
     const now = Date.now();
     if (now - tw.lastSent < tw.cooldown) return;
     tw.pending = tw.pending.filter((p) => now - p.t < 60000);
@@ -1087,7 +1116,7 @@
     const best = options.reduce((a, b) => (b.score > a.score || (b.score === a.score && b.t > a.t) ? b : a));
     tw.pending.splice(tw.pending.indexOf(best), 1);
     tw.lastUser.set(best.login, now); tw.lastSent = now;
-    await ask(`[Twitch chat] ${best.user}: ${best.text}`, { fromChat: true, who: best.user + " (Twitch)" });
+    await ask(`[Twitch chat] ${best.user}: ${best.text}`, { fromChat: true, who: best.user + " (Twitch)", chat: best });
     await whenQuiet();
     tw.lastSent = Date.now();     // the wait starts when Rosin stops talking
   });
@@ -1117,6 +1146,7 @@
     if (fresh) topics.push("come back to something from earlier in the conversation", "come back to something from earlier in the conversation");
     if (device === "obs") topics.push("say something fun to the viewers watching the stream", "ask the stream a playful question");
     if (twitch) topics.push(`say something to the viewers in #${S.channel}'s Twitch chat`, "ask Twitch chat a fun question they can answer");
+    for (const f of chatterTopics) { try { topics.push(...(f() || [])); } catch {} }
     let i = Math.floor(Math.random() * topics.length);
     if (i === lastTopic) i = (i + 1) % topics.length;
     lastTopic = i;
@@ -1129,10 +1159,10 @@
   // Rosin says something nobody asked for (idle chatter, the mood compass). On a call, it may cut in while the mic is
   // open but hasn't heard any words yet; the call goes back to listening afterwards.
   async function speakUp(cue, opts = {}) {
-    if (chatting || busy || say.playing) return false;
+    if (!cue || chatting || busy || say.playing || held(holds)) return false;
     if (ear.on) { if (!(opts.onCall && callMode.on && !ear.heard)) return false; earCancel(); }
     chatting = true;
-    try { return await ask(cue, { idle: true }); }
+    try { return await ask(cue, { idle: true, images: opts.images }); }
     finally { chatting = false; heardFrom(); }
   }
   tick(5000, () => {
@@ -1140,6 +1170,7 @@
     if (busy || say.playing || ear.on) return;                       // it starts the quiet over when it's done
     if (!online || locked || !S.model || sayBox()?.value.trim() || (R.LITE && document.hidden)) { heardFrom(); return; }
     if (S.twitchOn && tw.pending.length) return;                     // chat goes first
+    if (held(holds) || held(chatterHolds)) { heardFrom(); return; }   // quiet times, hush, chat still busy on stream
     chatterNow();
   });
   sayBox()?.addEventListener("input", heardFrom);
@@ -1173,11 +1204,11 @@
   const [twChk, twBox] = check("Answer this Twitch chat");
   const [chatChk, chatBox] = check("Rosin talks on its own");
   const paceSel = document.createElement("select");
-  paceSel.append(new Option("Often (every 1 to 3 min of quiet)", "often"), new Option("Sometimes (2 to 6 min)", "sometimes"), new Option("Rarely (8 to 20 min)", "rarely"));
+  paceSel.append(new Option("Chatty (every 30 to 90 s of quiet)", "chatty"), new Option("Often (every 1 to 3 min of quiet)", "often"), new Option("Sometimes (2 to 6 min)", "sometimes"), new Option("Rarely (8 to 20 min)", "rarely"));
   const newBtn = Object.assign(document.createElement("button"), { type: "button", textContent: "New chat" });
   more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field(`This device (seen as ${deviceInfo().label})`, devIn), field("Model", modelSel), field("Mood", moodIn), moodAutoChk, voiceChk, field("Rosin's voice", voiceSel), voiceNote,
                field("Speed", rateIn), field("Pitch", pitchIn), testBtn, field("Speech to text", sttSel), field("Pause before sending", pauseSel), bargeChk, webChk,
-               chatChk, field("How often", paceSel),
+               field("How often", paceSel),
                field("Twitch channel", chanIn), twChk, awakeChk, newBtn);
   // In the Android app: Rosin floating over other apps (and the home screen) can be switched off here.
   const RN = window.RosinNative;
@@ -1227,7 +1258,7 @@
       : !laptopVoices.ready && online ? "Want a better voice? The laptop can add natural ones: steps at tavernworks.dev/local-ai/#voices" : "";
     voiceNote.hidden = !voiceNote.textContent;
   }
-  function syncSettings() { voiceBox.checked = S.voiceOn; webBox.checked = S.web; twBox.checked = S.twitchOn; awakeBox.checked = S.awake; chatBox.checked = S.chatter; paceSel.value = S.chatterPace; paceSel.closest(".field").hidden = !S.chatter; }
+  function syncSettings() { voiceBox.checked = S.voiceOn; webBox.checked = S.web; twBox.checked = S.twitchOn; awakeBox.checked = S.awake; chatBox.checked = S.chatter; paceSel.value = S.chatterPace; paceSel.closest(".field").hidden = true; }   // the Initiative panel's dial sets these now
   menuReady = true;
   if (SYN) { loadVoices(); SYN.addEventListener?.("voiceschanged", loadVoices); }
   fillModels(); fillVoices(); syncSettings();
@@ -1346,7 +1377,10 @@
     // Nothing private where an audience can hear: OBS, or while Rosin answers a Twitch chat.
     onAir: () => deviceNow() === "obs" || R.OBS || !!(S.twitchOn && S.channel),
     deviceLen: () => deviceInfo().len, name: () => S.name.trim(),
-    speakUp,
+    speakUp, heardFrom, holds, chatterHolds, chatterTopics, holdChat: null, syncSettings: () => syncSettings(),
+    dropChat: (drop) => { tw.pending = tw.pending.filter((p) => !drop(p)); },
+    twitch: () => ({ on: !!(S.twitchOn && S.channel), channel: S.channel, connected: tw.ws?.readyState === 1 }),
+    device: () => deviceNow(),
     videoSpec: null, tap: null,
     extraTools, extraPrompt, extraContext, noTools: () => noTools, history: () => history,
   };

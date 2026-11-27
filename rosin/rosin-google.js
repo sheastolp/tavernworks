@@ -251,5 +251,5 @@
   H.later(2500, refresh);
   H.tick(10 * 60 * 1000, () => { if (!state.ready) refresh(); else drawSetting(); });
 
-  B.google = { refresh, state: () => ({ ...state }), queue: () => queue.slice(), tools, asks: ASKS };
+  B.google = { refresh, state: () => ({ ...state }), queue: () => queue.slice(), tools, asks: ASKS, call, can };   // call and can: initiative nudges (rosin-initiative.js)
 })();
