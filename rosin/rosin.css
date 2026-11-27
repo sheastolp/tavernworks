@@ -102,7 +102,7 @@ body.obs #controls, body.obs #wake, body.hide-ui #controls { display: none !impo
 #say, #controls .row, .tray { display: flex; gap: 8px; width: min(640px, 100%); }
 #controls .row { justify-content: center; }
 .tray { flex-wrap: wrap; justify-content: center; }
-.tray[hidden] { display: none; }
+[hidden], .tray[hidden] { display: none !important; }
 #controls button, .chk {
   min-height: 44px; min-width: 44px; padding: 10px 14px; border-radius: 12px;
   border: 1px solid #6b3b1f; background: rgba(40, 20, 10, 0.9); color: inherit; font: inherit; font-size: 16px;

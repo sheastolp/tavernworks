@@ -29,7 +29,7 @@
   body.classList.add(OBS ? "obs" : "preview");
   if (LITE) body.classList.add("lite");
   if (matchMedia("(any-pointer: coarse)").matches) body.classList.add("touch");
-  if (q.get("subs") === "1" || (!OBS && SMALL_TOUCH && q.get("subs") !== "0")) body.classList.add("subs");
+  if (q.get("subs") === "1" || (!OBS && (SMALL_TOUCH || WEB_DEMO) && q.get("subs") !== "0")) body.classList.add("subs");
 
   // Same order as the "rosin" emotionMap in model_dict.json (neutral 0 ... confused 6).
   const EXPRESSIONS = ["normal", "stoned", "happy", "laugh", "surprise", "anger", "confused"];
