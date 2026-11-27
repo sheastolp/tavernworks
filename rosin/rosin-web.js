@@ -153,6 +153,14 @@
   const labelOf = (m) => !m ? "" : !m.pool ? m.name
     : `AI Pool · ${m.pool.label}${m.pool.state === "up" ? "" : m.pool.state === "loading" ? " (loading)" : " (off, Ollama stands in)"}`;
   const modelName = () => labelOf(models.find((m) => m.name === S.model)) || S.model;
+  // The model's own name for the thinking stopwatch: the AI Pool's loaded model as the gate reports it, else the Ollama model.
+  function stopwatchName() {
+    const m = models.find((x) => x.name === S.model);
+    if (!m || !m.pool) return S.model || "the model";
+    const p = m.pool, params = m.details?.parameter_size || "";
+    const name = (p.label || "the AI Pool's model") + (params && !String(p.label || "").includes(params) ? " " + params : "");
+    return p.state === "loading" ? `${name}, still loading on the laptop` : p.state === "up" ? `${name} on the AI Pool` : `${name} is off, an Ollama model stands in`;
+  }
   function pickModel(list) {
     const names = list.map((m) => m.name).filter((n) => !/embed|vision|llava|bge|nomic/i.test(n));
     if (S.model && names.includes(S.model)) return S.model;
@@ -189,6 +197,15 @@
       online = false;
       if (!busy) R.status("Can't reach the AI laptop right now. It may be asleep; I'll keep trying.");
     }
+  }
+  // A quiet look at the model list mid-reply: only updates what each model reports, changes nothing else.
+  async function refreshModels() {
+    try {
+      const r = await fetch(GATE + "/api/tags", gopts({ signal: timeout(6000) }));
+      if (!r.ok) return;
+      const list = (await r.json()).models || [];
+      if (list.length) { models = list; fillModels(); }
+    } catch (e) { /* the stopwatch keeps the last name it knew */ }
   }
   checkLaptop();
   let lastCheck = Date.now();
@@ -370,11 +387,15 @@
     let raw = "", spoken = 0, last = null;
     // A big model on the laptop can take a while before its first word: show it's still working, never just go quiet.
     const started = Date.now();
+    // A stopwatch that ticks every second and names the model that's actually working on it.
     const slow = setInterval(() => {
       if (raw || !busy || idle) return;
-      const s = Math.round((Date.now() - started) / 1000);
-      R.status(`Rosin is still thinking… ${s} s` + (S.model === "pool" ? " (the 14B is slow on the laptop, the first answer takes longest)" : ""));
-    }, 5000);
+      const s = Math.floor((Date.now() - started) / 1000);
+      if (s < 1) return;
+      const clock = s < 60 ? `${s} s` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+      R.status(`Rosin is still thinking… ${clock} · ${stopwatchName()}`);
+      if (S.model === "pool" && s % 15 === 0) refreshModels();   // pick up "loading" turning into "up"
+    }, 1000);
     let thinkingShown = false;
     const onThink = () => { if (!thinkingShown) { thinkingShown = true; R.status("Rosin is thinking it over…"); } };
     const visible = () => {
