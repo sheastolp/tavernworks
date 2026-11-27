@@ -7,7 +7,11 @@
 #   bash get-model.sh phones-gpu      # the file Adreno phone GPUs can compute (~22 GB)
 #   bash get-model.sh 32b             # Qwen2.5 32B abliterated IQ4_XS (~18 GB), the 14B's big sibling
 #   bash get-model.sh 32b-q4km        # the same at Q4_K_M (~20 GB)
+#   bash get-model.sh 72b             # Qwen2.5 72B abliterated i1-IQ2_M (~29 GB), the Huihui ~70B
+#   bash get-model.sh 72b-iq3         # the same at i1-IQ3_XXS (~32 GB); 72b-iq4 = IQ4_XS (~40 GB)
+#   bash get-model.sh qwen3.8         # Huihui Qwen3.8 27B abliterated IQ4_XS (~15 GB)
 #   bash get-model.sh <file.gguf>     # any file from the list
+#   bash get-model.sh delete <file>   # delete a downloaded model (asks first)
 #
 # The file lands in ~/ai-pool, where the coordinator's model picker
 # lists it with its fit check; pick it there and Start split/solo.
@@ -21,6 +25,8 @@ mkdir -p "$POOL_DIR"; cd "$POOL_DIR"
 MR="https://huggingface.co/mradermacher/Huihui-Qwen3.5-35B-A3B-abliterated-GGUF/resolve/main"
 MRI="https://huggingface.co/mradermacher/Huihui-Qwen3.5-35B-A3B-abliterated-i1-GGUF/resolve/main"
 Q32="https://huggingface.co/mradermacher/Qwen2.5-32B-Instruct-abliterated-GGUF/resolve/main"
+Q72="https://huggingface.co/mradermacher/Qwen2.5-72B-Instruct-abliterated-i1-GGUF/resolve/main"
+Q38="https://huggingface.co/mradermacher/Huihui-Qwen3.8-27B-abliterated-GGUF/resolve/main"
 NX="https://huggingface.co/noctrex/Huihui-Qwen3.5-35B-A3B-abliterated-MXFP4_MOE-GGUF/resolve/main"
 # file | url | sha256 | size note
 MODELS="
@@ -33,18 +39,48 @@ Qwen2.5-32B-Instruct-abliterated.IQ4_XS.gguf|$Q32/Qwen2.5-32B-Instruct-abliterat
 Qwen2.5-32B-Instruct-abliterated.Q4_K_S.gguf|$Q32/Qwen2.5-32B-Instruct-abliterated.Q4_K_S.gguf|e0c1067d72f45f2ffc8dfd282e1d4d8575c689b6fa8edb5f402701de017dc51d|18.8 GB, 32B dense
 Qwen2.5-32B-Instruct-abliterated.Q4_K_M.gguf|$Q32/Qwen2.5-32B-Instruct-abliterated.Q4_K_M.gguf|e63617fd56c8585fe78fe05bcbb3b36e0b5ef3857e11233cdd1dc9ba56f38001|19.9 GB, 32B dense, same quant as the 14B
 Qwen2.5-32B-Instruct-abliterated.Q3_K_L.gguf|$Q32/Qwen2.5-32B-Instruct-abliterated.Q3_K_L.gguf|8f4dafa2ca29eaf914d78f1af247dd368bc408addadde6b1f72d1a6eed469e1d|17.2 GB, 32B dense, smaller
+Qwen2.5-72B-Instruct-abliterated.i1-IQ2_M.gguf|$Q72/Qwen2.5-72B-Instruct-abliterated.i1-IQ2_M.gguf|c31518a576c52b65f6f549ddc272b8265c1c908d691932b2f3dfe67f1d51a016|29.4 GB, 72B dense, whole pool, slow
+Qwen2.5-72B-Instruct-abliterated.i1-IQ3_XXS.gguf|$Q72/Qwen2.5-72B-Instruct-abliterated.i1-IQ3_XXS.gguf|a794bbe015e03371b50266398050b4d116e493d1cb323d11cf0d0e9feb5d55bf|31.9 GB, 72B dense, better, needs more RAM
+Qwen2.5-72B-Instruct-abliterated.i1-IQ4_XS.gguf|$Q72/Qwen2.5-72B-Instruct-abliterated.i1-IQ4_XS.gguf|4f54913253e5c7a62611a4602986f5f533e9f2853c2f824eb9659eab39cc5a1d|39.8 GB, 72B dense, 4-bit, beyond today's pool
+Huihui-Qwen3.8-27B-abliterated.IQ4_XS.gguf|$Q38/Huihui-Qwen3.8-27B-abliterated.IQ4_XS.gguf|46cbac118fcfd398da6f48091ee7c0ed443f4bbce1137667ac11a45fb7a3f6dc|15.5 GB, Qwen3.8 27B dense
+Huihui-Qwen3.8-27B-abliterated.Q4_K_M.gguf|$Q38/Huihui-Qwen3.8-27B-abliterated.Q4_K_M.gguf|4225f7248586317aedf4f1cd3370ec25eca1c1dcd2ddf7c22145a36b4ec40eac|16.9 GB, Qwen3.8 27B dense
 "
 
 WANT="${1:-}"
+
+# Delete a downloaded model: bash get-model.sh delete <file.gguf>
+# Refuses the pool's current model and any file something has open.
+if [ "$WANT" = "delete" ]; then
+  F="${2:-}"
+  case "$F" in ""|*/*|.*) echo "!! Name one .gguf in $POOL_DIR, e.g. bash get-model.sh delete My-Model.gguf"; ls -1sh "$POOL_DIR"/*.gguf 2>/dev/null; exit 1 ;; esac
+  [ -f "$F" ] || { echo "!! $F is not in $POOL_DIR. On disk:"; ls -1sh "$POOL_DIR"/*.gguf 2>/dev/null; exit 1; }
+  CUR="$(cat current-model.txt 2>/dev/null | tr -d '[:space:]')"
+  [ "$F" != "$CUR" ] || { echo "!! $F is the pool's current model. Pick another one first."; exit 1; }
+  if grep -qsF " $POOL_DIR/$F" /proc/[0-9]*/maps 2>/dev/null || \
+     { ls -l /proc/[0-9]*/fd 2>/dev/null || true; } | grep -qF -- "-> $POOL_DIR/$F"; then
+    echo "!! $F is open right now (a running brain, a download or a checksum). Try again once that finishes."; exit 1
+  fi
+  echo ">> $F is $(du -h "$F" | cut -f1). Delete it for good?"
+  read -r -p "   Type yes to delete: " OK
+  [ "$OK" = "yes" ] || { echo ">> Kept $F."; exit 0; }
+  rm -f -- "$F" && echo ">> Deleted $F. Free now: $(df -h --output=avail "$POOL_DIR" | tail -1 | tr -d ' ')"
+  exit 0
+fi
+
 case "$WANT" in
   split) WANT="Huihui-Qwen3.5-35B-A3B-abliterated.IQ4_XS.gguf" ;;
   solo) WANT="Huihui-Qwen3.5-35B-A3B-abliterated.i1-IQ3_M.gguf" ;;
   phones-gpu) WANT="Huihui-Qwen3.5-35B-A3B-abliterated-MXFP4_MOE.gguf" ;;
   32b) WANT="Qwen2.5-32B-Instruct-abliterated.IQ4_XS.gguf" ;;
   32b-q4km) WANT="Qwen2.5-32B-Instruct-abliterated.Q4_K_M.gguf" ;;
+  72b) WANT="Qwen2.5-72B-Instruct-abliterated.i1-IQ2_M.gguf" ;;
+  72b-iq3) WANT="Qwen2.5-72B-Instruct-abliterated.i1-IQ3_XXS.gguf" ;;
+  72b-iq4) WANT="Qwen2.5-72B-Instruct-abliterated.i1-IQ4_XS.gguf" ;;
+  qwen3.8) WANT="Huihui-Qwen3.8-27B-abliterated.IQ4_XS.gguf" ;;
 esac
 if [ -z "$WANT" ]; then
-  echo "Known models (bash get-model.sh <file|split|solo|phones-gpu|32b|32b-q4km>):"
+  echo "Known models (bash get-model.sh <file|split|solo|phones-gpu|32b|32b-q4km|72b|72b-iq3|72b-iq4|qwen3.8>)"
+  echo "Delete one: bash get-model.sh delete <file>"
   echo "$MODELS" | awk -F'|' 'NF==4 {printf "  %-55s %s\n", $1, $4}'
   exit 0
 fi

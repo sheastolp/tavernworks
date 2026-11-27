@@ -18,6 +18,7 @@
 # POOL_MEMINFO override every machine-specific path.
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -62,6 +63,7 @@ def running_rpc_endpoints():
         return []
 RELAY_STATE_PATH = os.path.join(POOL_DIR, "relay-state.json")
 MEMINFO_PATH = os.environ.get("POOL_MEMINFO", "/proc/meminfo")
+PROC_DIR = os.environ.get("POOL_PROC", "/proc")
 PORT = int(os.environ.get("POOL_PORT", "8091"))
 DEFAULT_MODEL = "Qwen2.5-14B-Instruct-abliterated.Q4_K_M.gguf"
 MEASURED_SPEED = "3.3 tokens/sec (solo) · 0.9 split"
@@ -352,6 +354,61 @@ def catalog():
     return out
 
 
+def disk_free_mb():
+    try:
+        return shutil.disk_usage(POOL_DIR).free // (1024 * 1024)
+    except Exception:
+        return 0
+
+
+def model_in_use(name):
+    """True when any process has this model file open or mapped: a
+    loaded brain (llama-server maps the weights), a download still
+    writing it, or a checksum reading it."""
+    path = os.path.realpath(os.path.join(POOL_DIR, name))
+    try:
+        pids = [p for p in os.listdir(PROC_DIR) if p.isdigit()]
+    except Exception:
+        return False
+    for pid in pids:
+        base = os.path.join(PROC_DIR, pid)
+        try:
+            for fd in os.listdir(os.path.join(base, "fd")):
+                try:
+                    if os.path.realpath(os.path.join(base, "fd", fd)) == path:
+                        return True
+                except OSError:
+                    pass
+        except OSError:
+            pass
+        try:
+            with open(os.path.join(base, "maps")) as f:
+                for line in f:
+                    if line.rstrip("\n").endswith(" " + path):
+                        return True
+        except OSError:
+            pass
+    return False
+
+
+def delete_refusal(model):
+    """Why this model can't be deleted right now, or "" when it can."""
+    if not model or os.path.basename(model) != model or not model.endswith(".gguf"):
+        return "That isn't a model file name — nothing deleted."
+    if model not in {m["file"] for m in catalog()}:
+        return "That model is not on disk — nothing deleted."
+    if model == current_model():
+        return (model + " is the pool's current model, so it stays. Pick "
+                "another model with Use this model first, then delete this one.")
+    loaded = brain_info().get("model") or ""
+    if loaded and os.path.basename(loaded) == model:
+        return model + " is loaded in the running brain, so it stays. Stop the brain first."
+    if model_in_use(model):
+        return (model + " is open right now (a running brain, a download "
+                "or a checksum), so it stays. Try again once that finishes.")
+    return ""
+
+
 def current_model():
     try:
         with open(CURRENT_MODEL_PATH) as f:
@@ -589,6 +646,18 @@ def act(name, fields):
             sh(["systemctl", "restart", "ai-pool-host"], timeout=30)
             return "Model set to " + model + " — the split pool is restarting with it (a few minutes)."
         return "Model set to " + model + " — it will load at the next start."
+    if name == "delete_model":
+        model = (fields.get("model") or [""])[0]
+        if (fields.get("confirm") or [""])[0] != model:
+            return "Delete wasn't confirmed — nothing deleted."
+        why = delete_refusal(model)
+        if why:
+            return why
+        path = os.path.join(POOL_DIR, model)
+        size_gb = os.path.getsize(path) / 1073741824
+        os.remove(path)
+        return ("Deleted " + model + " — freed " + ("%.1f" % size_gb) +
+                " GB. Download it again any time with get-model.sh.")
     if name == "set_host_ram":
         try:
             offered = int((fields.get("offered_mb") or ["0"])[0])
@@ -789,7 +858,31 @@ form.inline{display:inline} .row{display:flex;gap:.5rem;flex-wrap:wrap;align-ite
 """
 
 
-def page(st, msg=""):
+def delete_confirm_html(st, model):
+    """The confirm step for deleting a model: its own card at the top
+    of the page, with the file named in full and its size."""
+    md = next((m for m in st["models"] if m["file"] == model), None)
+    if not md:
+        return '<div class="msg">' + escape(model) + " is not on disk — nothing to delete.</div>"
+    why = delete_refusal(model)
+    if why:
+        return '<div class="msg">' + escape(why) + "</div>"
+    return ('<div class="card" style="border:2px solid #c0392b">'
+            '<p><strong>Delete this model from the FX705?</strong></p>'
+            '<p><code>' + escape(model) + '</code> · ' + ("%.1f" % (md["size_mb"] / 1024)) + ' GB</p>'
+            '<p class="fine">This removes the file for good. To use it again you would '
+            'download it again with get-model.sh.</p>'
+            '<div class="row" style="margin-top:.6rem">'
+            '<form method="post" action="/action">'
+            '<input type="hidden" name="action" value="delete_model">'
+            '<input type="hidden" name="model" value="' + escape(model) + '">'
+            '<input type="hidden" name="confirm" value="' + escape(model) + '">'
+            '<button type="submit" style="background:#c0392b;border-color:#c0392b">Yes, delete it</button></form>'
+            '<form method="get" action="/"><button class="alt" type="submit">Cancel</button></form>'
+            '</div></div>')
+
+
+def page(st, msg="", ask_delete=""):
     def dot(up, idle=False):
         cls = "dot" if up else ("dot idle" if idle else "dot off")
         return '<span class="' + cls + '"></span>'
@@ -834,7 +927,10 @@ def page(st, msg=""):
             btn = ('<form class="inline" method="post" action="/action">'
                    '<input type="hidden" name="action" value="set_model">'
                    '<input type="hidden" name="model" value="' + escape(md["file"]) + '">'
-                   '<button class="alt" type="submit">Use this model</button></form>')
+                   '<button class="alt" type="submit">Use this model</button></form> '
+                   '<form class="inline" method="get" action="/">'
+                   '<input type="hidden" name="delete" value="' + escape(md["file"]) + '">'
+                   '<button class="alt" type="submit">Delete…</button></form>')
         mrows += ("<tr><td>" + escape(md["file"]) + (" <strong>(current)</strong>" if md["current"] else "") +
                   "</td><td>" + str(md["size_mb"]) + " MB</td><td>" + " · ".join(fit) +
                   "</td><td>" + btn + "</td></tr>")
@@ -945,6 +1041,8 @@ def page(st, msg=""):
         gpu_txt = ("GPU " + str(st["gpu"]["used_mb"]) + " / " + str(st["gpu"]["total_mb"]) +
                    " MB · RAM available " + str(st["mem"]["available_mb"]) + " MB · ")
     msg_html = '<div class="msg">' + escape(msg) + "</div>" if msg else ""
+    if ask_delete:
+        msg_html += delete_confirm_html(st, ask_delete)
     has_host_ram = any(m.get("role") == "host-ram" for m in st["machines"])
     host_ram_html = "" if has_host_ram else (
         '<form method="post" action="/action" style="margin-top:.8rem">'
@@ -1000,8 +1098,10 @@ def page(st, msg=""):
 <tr><th>Model</th><th>Size</th><th>Fit check</th><th></th></tr>
 {mrows}
 </table></div>
+<p class="fine">Disk free in {escape(POOL_DIR)}: {"%.1f" % (disk_free_mb() / 1024)} GB.</p>
 <p class="fine">“Use this model” writes the picker's choice for the next start — and restarts the
-brain with it if one is running (expect a few minutes of loading).</p>
+brain with it if one is running (expect a few minutes of loading). “Delete…” asks once more,
+then removes the file; the current model and any file in use can't be deleted.</p>
 </div>
 
 <h2>Enrollments (public)</h2>
@@ -1077,7 +1177,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, json.dumps({"status": "ok"}), "application/json")
         elif path == "/":
             q = parse_qs(urlparse(self.path).query)
-            self._send(200, page(pool_state(), (q.get("msg") or [""])[0]))
+            self._send(200, page(pool_state(), (q.get("msg") or [""])[0],
+                                 (q.get("delete") or [""])[0]))
         else:
             self._send(404, "Not here")
 

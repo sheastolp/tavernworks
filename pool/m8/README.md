@@ -38,6 +38,33 @@ dense, it reads all ~18 GB of weights for every token, against ~2 GB
 for the 35B-A3B, so expect it several times slower (around 1 token/s
 on this pool, unmeasured).
 
+### Qwen2.5 72B (dense), the Huihui ~70B
+
+There is no Qwen3.8 70B: Qwen3.8 comes as a dense 27B or a 180B MoE
+(68 GB at its smallest quant, far past this pool). The only Huihui Qwen
+near 70B is huihui-ai's Qwen2.5-72B-Instruct-abliterated, here in
+mradermacher's imatrix quants:
+
+| Pick | File | Size | When |
+|---|---|---|---|
+| `72b` | i1-IQ2_M | 29.4 GB | whole pool online (~31 GB with context) |
+| `72b-iq3` | i1-IQ3_XXS | 31.9 GB | a few GB more RAM online |
+| `72b-iq4` | i1-IQ4_XS | 39.8 GB | needs ~42 GB, more than the pool has today |
+
+Dense: every token reads the whole file, about 1.5x the 32B's bytes,
+so expect it two to three times slower than the 32B (unmeasured).
+`get-model.sh qwen3.8` fetches Huihui Qwen3.8 27B abliterated IQ4_XS
+(15.5 GB, dense), the Qwen3.8 that fits comfortably.
+
+### Deleting models
+
+The control page's "Models on the host" table has a **Delete…** button
+per model. It asks once more (file name and size), then removes the
+file. It refuses the current model, the model a running brain has
+loaded, and any file something has open (a download or checksum).
+From a shell: `bash get-model.sh delete <file.gguf>` (same refusals,
+asks you to type yes).
+
 ## 3. The FX705's own RAM joins the split
 
 The Yoga (6 GB) + the MSI (relay) + the card's 3 GB is about 12-13 GB,

@@ -168,6 +168,34 @@ BUILTIN_MODEL_SOURCES = {
         "url": "https://huggingface.co/mradermacher/Qwen2.5-32B-Instruct-abliterated-GGUF/resolve/main/Qwen2.5-32B-Instruct-abliterated.Q3_K_L.gguf",
         "sha256": "8f4dafa2ca29eaf914d78f1af247dd368bc408addadde6b1f72d1a6eed469e1d",
     },
+    # Qwen2.5 72B Instruct, abliterated (huihui-ai; mradermacher's
+    # imatrix quants): the only Huihui Qwen near 70B. There is no
+    # Qwen3.8 70B — Qwen3.8 comes as a dense 27B or a 180B MoE. Dense,
+    # so every token reads the whole file: expect it a few times slower
+    # than the 32B. IQ2_M (~29 GB) needs the whole pool online; the
+    # 4-bit IQ4_XS (~40 GB) needs more RAM than the pool has today.
+    "Qwen2.5-72B-Instruct-abliterated.i1-IQ2_M.gguf": {
+        "url": "https://huggingface.co/mradermacher/Qwen2.5-72B-Instruct-abliterated-i1-GGUF/resolve/main/Qwen2.5-72B-Instruct-abliterated.i1-IQ2_M.gguf",
+        "sha256": "c31518a576c52b65f6f549ddc272b8265c1c908d691932b2f3dfe67f1d51a016",
+    },
+    "Qwen2.5-72B-Instruct-abliterated.i1-IQ3_XXS.gguf": {
+        "url": "https://huggingface.co/mradermacher/Qwen2.5-72B-Instruct-abliterated-i1-GGUF/resolve/main/Qwen2.5-72B-Instruct-abliterated.i1-IQ3_XXS.gguf",
+        "sha256": "a794bbe015e03371b50266398050b4d116e493d1cb323d11cf0d0e9feb5d55bf",
+    },
+    "Qwen2.5-72B-Instruct-abliterated.i1-IQ4_XS.gguf": {
+        "url": "https://huggingface.co/mradermacher/Qwen2.5-72B-Instruct-abliterated-i1-GGUF/resolve/main/Qwen2.5-72B-Instruct-abliterated.i1-IQ4_XS.gguf",
+        "sha256": "4f54913253e5c7a62611a4602986f5f533e9f2853c2f824eb9659eab39cc5a1d",
+    },
+    # Huihui Qwen3.8 27B abliterated (dense; mradermacher's quants): the
+    # Qwen3.8 that runs here. Text only (no mmproj).
+    "Huihui-Qwen3.8-27B-abliterated.IQ4_XS.gguf": {
+        "url": "https://huggingface.co/mradermacher/Huihui-Qwen3.8-27B-abliterated-GGUF/resolve/main/Huihui-Qwen3.8-27B-abliterated.IQ4_XS.gguf",
+        "sha256": "46cbac118fcfd398da6f48091ee7c0ed443f4bbce1137667ac11a45fb7a3f6dc",
+    },
+    "Huihui-Qwen3.8-27B-abliterated.Q4_K_M.gguf": {
+        "url": "https://huggingface.co/mradermacher/Huihui-Qwen3.8-27B-abliterated-GGUF/resolve/main/Huihui-Qwen3.8-27B-abliterated.Q4_K_M.gguf",
+        "sha256": "4225f7248586317aedf4f1cd3370ec25eca1c1dcd2ddf7c22145a36b4ec40eac",
+    },
 }
 # The full pool page (the repo's pool/index.html), served at "/" so
 # pool.tavernworks.dev is the pool's home. Looked for next to this
