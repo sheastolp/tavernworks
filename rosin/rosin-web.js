@@ -46,6 +46,8 @@
     // Mood, 0 calm to 1 fired up (0.5 easy, the old behaviour): the eye's glow, the voice's tempo and a little the replies.
     // Kept per device (this browser); ?mood=0..100 sets it for OBS, which has no menu.
     mood: q.get("mood") ? Math.min(1, Math.max(0, Number(q.get("mood")) / 100 || 0)) : store.get("mood", 0.5),
+    moodAuto: q.get("mood") ? false : store.get("moodAuto", true),   // Auto: the mood follows the conversation
+    callBarge: store.get("callBarge", true),   // on a call, talking over Rosin stops it and Rosin listens
     web: store.get("web", false),
     channel: (q.get("channel") || store.get("channel", "")).replace(/^#/, "").toLowerCase(),
     twitchOn: q.get("channel") ? true : store.get("twitchOn", false),
@@ -56,9 +58,29 @@
   };
   const save = (k) => store.set(k, S[k]);
   // The voice's tempo: the Speed setting, nudged by mood (calm 0.85×, easy 1×, fired up 1.15×).
-  const voiceRate = () => Math.min(2, Math.max(0.5, S.rate * (0.85 + 0.3 * S.mood)));
+  // Auto mood: read from what's said, never asked of the model, so the prompt stays the same. Rosin's face tags (which every
+  // reply already has), its ! and …, and how the person writes nudge it; it eases back to easy-going when things go quiet.
+  let autoMood = 0.5;
+  const curMood = () => (S.moodAuto ? autoMood : S.mood);
+  const FACE_MOOD = { stoned: 0.2, sadness: 0.25, fear: 0.4, confused: 0.4, neutral: 0.5, normal: 0.5, happy: 0.65, joy: 0.75, surprise: 0.8, surprised: 0.8, laugh: 0.85, anger: 0.9, angry: 0.9 };
+  function nudgeMood(target, weight) {
+    if (!S.moodAuto) return;
+    autoMood = Math.min(1, Math.max(0, autoMood + (Math.min(1, Math.max(0, target)) - autoMood) * weight));
+    R.setMood?.(autoMood);
+    onMood?.();
+  }
+  let onMood = null;   // the menu's slider follows along
+  function moodFromWords(text, face) {   // a line Rosin says, or something the person said
+    const bangs = Math.min(3, (text.match(/!/g) || []).length), trails = /\.\.\.|…/.test(text) ? 1 : 0;
+    const shouty = (text.match(/\b[A-Z]{3,}\b/g) || []).length >= 2 ? 0.15 : 0;
+    const hype = /\b(hype|let'?s go+|pog|amazing|awesome|insane|fired up|stoked|excited|wild|yes+!)\b/i.test(text) ? 0.15 : 0;
+    const low = /\b(chill|tired|sleepy|calm down|relax|mellow|sad|sick|sorry|rough|bummed|exhausted|quiet|lazy|feeling low)\b/i.test(text) ? 0.2 : 0;
+    const base = face && FACE_MOOD[face] !== undefined ? FACE_MOOD[face] : autoMood;
+    return base + bangs * 0.05 - trails * 0.06 + shouty + hype - low;
+  }
+  const voiceRate = () => Math.min(2, Math.max(0.5, S.rate * (0.85 + 0.3 * curMood())));
   const moodWord = (m) => m < 0.2 ? "Mellow" : m < 0.4 ? "Calm" : m < 0.6 ? "Easy" : m < 0.8 ? "Lively" : "Fired up";
-  R.setMood?.(S.mood);
+  R.setMood?.(curMood(), true);
   S.deviceName = store.get("deviceName", "");
 
   // ---------- which device Rosin is on ----------
@@ -138,8 +160,10 @@
     const now = new Date();
     const when = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) + ", " +
       now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    const mood = S.mood < 0.35 ? "; mood: calm and mellow, slower and softer" : S.mood > 0.65 ? "; mood: fired up, extra lively and excited" : "";
-    return `\n\n((${when}, ${deviceNote()}${mood}))`;
+    // Only a mood set by hand goes to the model (Auto follows Rosin's own replies, so telling it back would only feed itself).
+    const mood = S.moodAuto ? "" : S.mood < 0.35 ? "; mood: calm and mellow, slower and softer" : S.mood > 0.65 ? "; mood: fired up, extra lively and excited" : "";
+    const onCall = callMode.on ? "; on a hands-free voice call with you, so keep it conversational" : "";
+    return `\n\n((${when}, ${deviceNote()}${onCall}${mood}))`;
   }
   // Fixed for the whole conversation (only settings change it), so the laptop can keep it cached. Kept short on purpose.
   function systemPrompt(model) {
@@ -407,6 +431,7 @@
     const face = [...raw.matchAll(TAG_RE)].map((m) => m[1].toLowerCase()).find((t) => KNOWN.includes(t));
     const text = forSpeech(raw);
     if (!text && !face) return;
+    if (face || text) nudgeMood(moodFromWords(text, face), face ? 0.35 : 0.15);
     const item = { text, face, stamp: replyStamp };
     const lv = text && S.voiceOn && !R.MUTE ? laptopVoice() : "";
     if (lv) item.clip = fetchClip(text, lv);   // start fetching now, while earlier lines are still playing
@@ -439,7 +464,7 @@
     const ctx = R.audio(), src = ctx.createBufferSource();
     src.buffer = buf; src.connect(ctx.destination); say.src = src;
     let finished = false;
-    const beat = tick(Math.round(220 - 120 * S.mood), () => R.pulse(0.3 + 0.3 * S.mood + Math.random() * 0.4));   // the eye flickers while it talks
+    const m = curMood(), beat = tick(Math.round(220 - 120 * m), () => R.pulse(0.3 + 0.3 * m + Math.random() * 0.4));   // the eye flickers while it talks
     const done = () => { if (finished) return; finished = true; beat(); cancelGuard(); if (say.src === src) say.src = null; if (gen === say.gen) nextLine(); };
     const cancelGuard = later(buf.duration * 1000 + 3000, done);
     src.onended = done;
@@ -475,7 +500,7 @@
     const idle = !!opts.idle;   // Rosin speaking up on its own: text is the hidden cue, never shown or kept
     if (busy) { if (opts.fromChat || idle) return false; stop(); }
     if (idle && (!online || locked || !S.model)) return false;
-    if (!idle) heardFrom();
+    if (!idle) { heardFrom(); if (!opts.fromChat) nudgeMood(moodFromWords(text), 0.25); }
     if (!online) await checkLaptop();
     if (locked) { R.status(window.GateKey?.get() ? "That laptop key is wrong. Check it under ⋯." : LOCKED_MSG); return false; }
     if (!online || !S.model) { R.status("Can't reach the AI laptop right now. It may be asleep."); return false; }
@@ -631,11 +656,14 @@
     ear.on = false; ear.rec = null; clearTimeout(ear.quiet);
     R.micLive(false); $("subs").classList.remove("listening");
     text = String(text || "").trim();
+    if (callMode.on && !text) { callHeardNothing(why); return; }   // on a call, silence just means listen again
     if (text) {
       ear.emptyRuns = 0;
       showHeard(text, true);
       if (sayBox()) sayBox().value = "";
+      if (callMode.on) callState("thinking");
       const sent = await ask(text);
+      if (sent === false && callMode.on) endCall($("status").textContent);
       if (sent === false) {   // the laptop couldn't take it: keep the words so Send can try again
         if (sayBox() && !sayBox().value.trim()) sayBox().value = text;
         R.status($("status").textContent + " What you said is in the box; press Send to try again.");
@@ -717,6 +745,7 @@
     } catch {}
     recorder.onstop = async () => {
       meter?.(); stream.getTracks().forEach((t) => t.stop()); ctx?.close().catch(() => {});
+      if (ear.discard) { ear.discard = false; return; }   // the call was hung up mid-sentence
       const blob = new Blob(parts, { type: recorder.mimeType || type || "audio/webm" });
       if (!spoke && ctx) return earDone("", "Didn't hear anything. Tap 🎙 Talk and speak a little closer.");
       R.status("Writing down what you said…"); showHeard("…", false);
@@ -734,6 +763,108 @@
   }
   function laptopStop() { const m = ear.media; ear.media = null; if (m && m.state !== "inactive") m.stop(); }
   if (!SR) { const m = $("mic"); if (m) m.title = "Tap to talk: the laptop writes down what you say"; }
+
+  // ---------- hands-free call: listen, send when they stop, Rosin answers, listen again ----------
+  // Uses the same ears as 🎙 Talk. The mic is closed while Rosin talks so it doesn't hear itself; with "talk over Rosin" on,
+  // a separate level meter (echo cancelled) listens for them talking over it, stops Rosin and goes back to listening.
+  const callMode = { on: false, state: "", fastFails: 0, lastListen: 0, mon: null, wait: 0 };
+  const callBtn = Object.assign(document.createElement("button"), { type: "button", id: "btn-call", textContent: "📞 Call", title: "Hands-free: talk, Rosin answers, and it listens again" });
+  const callPill = Object.assign(document.createElement("div"), { id: "callpill", hidden: true });
+  callPill.setAttribute("role", "status");
+  $("mic")?.after(callBtn); document.body.append(callPill);
+  const CALL_WORDS = { listening: "Listening… just talk", hearing: "Hearing you…", thinking: "Rosin is thinking…", speaking: "Rosin is talking", starting: "Starting the call…" };
+  function callState(st) {
+    if (!callMode.on) return;
+    callMode.state = st;
+    callPill.textContent = "On a call · " + (CALL_WORDS[st] || st) + (st === "speaking" && S.callBarge ? " (talk over to interrupt)" : "");
+    callPill.dataset.state = st;
+  }
+  function startCall() {
+    if (callMode.on) return;
+    if (!earMode()) { R.status("This browser can't hear you, so a call won't work here. Pick Laptop under ⋯ → Speech to text, or type instead."); return; }
+    unlock(); stop(); heardFrom();
+    callMode.on = true; callMode.fastFails = 0; callMode.wait = 0;
+    document.body.classList.add("in-call"); callPill.hidden = false;
+    callBtn.textContent = "Hang up"; callBtn.classList.add("hangup"); callBtn.setAttribute("aria-pressed", "true");
+    callState("starting");
+    R.status("On a call with Rosin. Just talk; it sends when you stop. Tap Hang up to end it.");
+    callListen();
+  }
+  function endCall(why) {
+    if (!callMode.on) return;
+    callMode.on = false; stopMonitor();
+    if (ear.on) {
+      const m = ear.mode; ear.on = false;
+      try { if (m === "browser") { ear.rec?.abort ? ear.rec.abort() : ear.rec?.stop(); } else { ear.discard = true; laptopStop(); } } catch {}
+      R.micLive(false); $("subs").classList.remove("listening"); showSubs("");
+    }
+    document.body.classList.remove("in-call"); callPill.hidden = true;
+    callBtn.textContent = "📞 Call"; callBtn.classList.remove("hangup"); callBtn.setAttribute("aria-pressed", "false");
+    R.status(why || "Call ended.");
+    heardFrom();
+  }
+  function callListen() {
+    if (!callMode.on || ear.on || busy || say.playing) return;
+    callMode.lastListen = Date.now();
+    heardFrom();   // no idle chatter while on a call
+    callState("listening");
+    earBegin();
+  }
+  async function callHeardNothing(why) {
+    // Plain silence just listens again (but not in a fast loop). A broken browser recogniser moves the call to the
+    // laptop's Whisper when it's up; anything else (blocked mic, laptop unreachable, locked) ends the call and says why.
+    if (why && !/Didn't hear|heard nothing/.test(why)) {
+      const swap = ear.mode === "browser" && S.stt !== "browser" && /network|service-not-allowed|not-supported/.test(ear.error);
+      if (swap && (whisperUp ?? (await checkWhisper()))) { ear.browserBroken = true; callMode.wait = Date.now() + 300; R.status("Switched the call to the laptop's Whisper, since the browser's speech-to-text isn't working."); return; }
+      endCall(why); return;
+    }
+    callMode.fastFails = Date.now() - callMode.lastListen < 1500 ? callMode.fastFails + 1 : 0;
+    if (callMode.fastFails >= 4) { endCall("The mic keeps stopping straight away, so I hung up. Try 🎙 Talk, or pick Laptop under ⋯ → Speech to text."); return; }
+    callMode.wait = Date.now() + (callMode.fastFails ? 800 * callMode.fastFails : 250);
+  }
+  // Watches the call: listens again once Rosin is done, and runs the talk-over meter while Rosin talks.
+  tick(250, () => {
+    if (!callMode.on) return;
+    if (say.playing) { callState("speaking"); if (S.callBarge && !callMode.mon) startMonitor(); return; }
+    if (callMode.mon) stopMonitor();
+    if (busy) { callState("thinking"); return; }
+    if (ear.on) { if (ear.heard && callMode.state !== "hearing") callState("hearing"); return; }
+    if (Date.now() < callMode.wait) return;
+    callMode.wait = Date.now() + 350;   // a breath after Rosin stops, so its last word isn't heard
+    if (callMode.state === "speaking" || callMode.state === "thinking") { callMode.state = "after"; return; }
+    callListen();
+  });
+  async function startMonitor() {
+    const m = { stopped: false, floor: 0, at: Date.now(), loudSince: 0 };
+    callMode.mon = m;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false } });
+      if (m.stopped || callMode.mon !== m) { stream.getTracks().forEach((t) => t.stop()); return; }
+      m.stream = stream; m.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const an = m.ctx.createAnalyser(); an.fftSize = 1024; m.ctx.createMediaStreamSource(stream).connect(an);
+      const buf = new Float32Array(an.fftSize);
+      m.stopTick = tick(80, () => {
+        an.getFloatTimeDomainData(buf);
+        let sum = 0; for (const v of buf) sum += v * v;
+        const rms = Math.sqrt(sum / buf.length), now = Date.now();
+        if (now - m.at < 700) { m.floor = Math.max(m.floor, rms); return; }   // learn how much of Rosin leaks back in
+        if (rms > Math.max(0.05, m.floor * 2.5)) { m.loudSince ||= now; if (now - m.loudSince > 380) bargeIn(); }
+        else m.loudSince = 0;
+      });
+    } catch { /* no meter: they can still tap Talk or Stop to cut in */ }
+  }
+  function stopMonitor() {
+    const m = callMode.mon; callMode.mon = null; if (!m) return;
+    m.stopped = true; m.stopTick?.(); m.stream?.getTracks().forEach((t) => t.stop()); m.ctx?.close().catch(() => {});
+  }
+  function bargeIn() {
+    if (!callMode.on) return;
+    stopMonitor(); stop();   // stops the reply (what was said so far stays in the history)
+    R.status("Go ahead, I'm listening.");
+    callMode.wait = 0; callMode.state = "listening";
+    setTimeout(callListen, 120);   // let the meter's mic close first
+  }
+  callBtn.addEventListener("click", () => (callMode.on ? endCall() : startCall()));
 
   // ---------- Twitch chat (optional, anonymous and read-only) ----------
   const tw = { ws: null, backoff: 2000, lastData: 0, pending: [], recent: [], lastUser: new Map(), lastSent: 0, cooldown: 20000, userCooldown: 90000 };
@@ -896,6 +1027,8 @@
   const slider = (min, max, step, val) => Object.assign(document.createElement("input"), { type: "range", min, max, step, value: val });
   const rateIn = slider(0.6, 1.6, 0.05, S.rate), pitchIn = slider(0.5, 1.5, 0.05, S.pitch), moodIn = slider(0, 1, 0.05, S.mood);
   moodIn.setAttribute("aria-label", "Mood, from calm to fired up");
+  const [moodAutoChk, moodAutoBox] = check("Mood follows the chat");
+  const [bargeChk, bargeBox] = check("On a call, talking over Rosin interrupts it");
   const testBtn = Object.assign(document.createElement("button"), { type: "button", textContent: "Test voice" });
   const voiceNote = Object.assign(document.createElement("p"), { className: "voice-note" });
   const sttSel = document.createElement("select");
@@ -909,8 +1042,8 @@
   const paceSel = document.createElement("select");
   paceSel.append(new Option("Often (every 1 to 3 min of quiet)", "often"), new Option("Sometimes (2 to 6 min)", "sometimes"), new Option("Rarely (8 to 20 min)", "rarely"));
   const newBtn = Object.assign(document.createElement("button"), { type: "button", textContent: "New chat" });
-  more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field(`This device (seen as ${deviceInfo().label})`, devIn), field("Model", modelSel), field("Mood", moodIn), voiceChk, field("Rosin's voice", voiceSel), voiceNote,
-               field("Speed", rateIn), field("Pitch", pitchIn), testBtn, field("Speech to text", sttSel), webChk,
+  more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field(`This device (seen as ${deviceInfo().label})`, devIn), field("Model", modelSel), field("Mood", moodIn), moodAutoChk, voiceChk, field("Rosin's voice", voiceSel), voiceNote,
+               field("Speed", rateIn), field("Pitch", pitchIn), testBtn, field("Speech to text", sttSel), bargeChk, webChk,
                chatChk, field("How often", paceSel),
                field("Twitch channel", chanIn), twChk, awakeChk, newBtn);
   function fillModels() {
@@ -918,8 +1051,11 @@
     modelSel.value = S.model;
   }
   function showSliders() {
-    moodIn.closest(".field").firstChild.textContent = `Mood: ${moodWord(S.mood)} (calm ↔ fired up)`;
-    moodIn.setAttribute("aria-valuetext", moodWord(S.mood));
+    const m = curMood();
+    moodIn.closest(".field").firstChild.textContent = `Mood: ${moodWord(m)}${S.moodAuto ? " (auto)" : ""} · calm ↔ fired up`;
+    moodIn.setAttribute("aria-valuetext", moodWord(m) + (S.moodAuto ? ", automatic" : ""));
+    if (document.activeElement !== moodIn) moodIn.value = String(Math.round(m * 20) / 20);
+    moodAutoBox.checked = S.moodAuto;
     rateIn.closest(".field").firstChild.textContent = `Speed ${S.rate.toFixed(2)}×`;
     pitchIn.closest(".field").firstChild.textContent = `Pitch ${S.pitch.toFixed(2)}`;
     rateIn.setAttribute("aria-valuetext", S.rate.toFixed(2) + " times"); pitchIn.setAttribute("aria-valuetext", S.pitch.toFixed(2));
@@ -970,8 +1106,18 @@
   const testLine = () => { unlock(); hush(); speakLine("[happy] Hey, it's me, Rosin. How do I sound?"); };
   voiceSel.addEventListener("change", () => { S.voice = voiceSel.value; save("voice"); fillVoices(); testLine(); });
   rateIn.addEventListener("input", () => { S.rate = Number(rateIn.value); showSliders(); });
-  moodIn.addEventListener("input", () => { S.mood = Number(moodIn.value); R.setMood?.(S.mood); showSliders(); });
-  moodIn.addEventListener("change", () => { save("mood"); unlock(); hush();
+  // Moving the slider takes over from Auto; ticking Auto again hands the mood back to the conversation.
+  moodIn.addEventListener("input", () => { S.mood = Number(moodIn.value); S.moodAuto = false; R.setMood?.(S.mood, true); showSliders(); });
+  moodAutoBox.addEventListener("change", () => {
+    S.moodAuto = moodAutoBox.checked; save("moodAuto");
+    if (S.moodAuto) autoMood = S.mood; else { S.mood = Math.round(autoMood * 20) / 20; save("mood"); }
+    R.setMood?.(curMood(), true); showSliders();
+  });
+  bargeBox.checked = S.callBarge;
+  bargeBox.addEventListener("change", () => { S.callBarge = bargeBox.checked; save("callBarge"); if (!S.callBarge) stopMonitor(); });
+  onMood = () => { if (!more.hidden) showSliders(); };
+  tick(30000, () => { if (S.moodAuto && !busy && !say.playing && Math.abs(autoMood - 0.5) > 0.02) nudgeMood(0.5, 0.12); });   // eases back when quiet
+  moodIn.addEventListener("change", () => { save("mood"); save("moodAuto"); unlock(); hush();
     speakLine(S.mood < 0.35 ? "[stoned] Mmm, nice and mellow now." : S.mood > 0.65 ? "[laugh] Oh yeah, I'm fired up now!" : "[happy] Back to easy going."); });
   pitchIn.addEventListener("input", () => { S.pitch = Number(pitchIn.value); showSliders(); });
   rateIn.addEventListener("change", () => { save("rate"); testLine(); });

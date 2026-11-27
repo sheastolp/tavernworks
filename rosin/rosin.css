@@ -183,3 +183,21 @@ body.lite #glow-back { filter: blur(8px); }
 #log p .stamp { font-size: 12px; opacity: 0.6; font-variant-numeric: tabular-nums; white-space: nowrap; }
 #subs[data-stamp]:not(:empty)::before { content: attr(data-stamp) " "; font-size: 0.6em; opacity: 0.7; vertical-align: middle; font-variant-numeric: tabular-nums; }
 body.obs #subs::before, html.buddy #subs::before { content: none !important; }
+
+/* ---------- hands-free call ---------- */
+#btn-call { flex: 0 0 auto; }
+#controls button#btn-call.hangup { background: #9b1c1c; border-color: #ef4444; color: #fff; }
+body.in-call #mic { border-color: #d0602a !important; }
+#callpill {
+  position: fixed; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  z-index: 20; pointer-events: none; display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border-radius: 999px; font-size: 14px; white-space: nowrap; max-width: calc(100vw - 32px);
+  overflow: hidden; text-overflow: ellipsis;
+  background: rgba(20, 10, 6, 0.88); border: 1px solid #d0602a; color: #ffe1c4;
+}
+#callpill::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #22c55e; flex: 0 0 auto; animation: callpulse 1.4s ease-in-out infinite; }
+#callpill[data-state="speaking"]::before { background: #ffb36b; }
+#callpill[data-state="thinking"]::before { background: #a3a3a3; }
+@keyframes callpulse { 50% { opacity: 0.3; } }
+body.obs #callpill, html.buddy #callpill { display: none !important; }
+@media (prefers-reduced-motion: reduce) { #callpill::before { animation: none; } }
