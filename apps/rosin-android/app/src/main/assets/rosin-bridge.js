@@ -1,3 +1,18 @@
+// Rosin talks with the app closed too, where nobody taps to start sound: keep every Web Audio context running.
+(function () {
+  var AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  function keep(ctx) {
+    function go() { if (ctx.state === "suspended") ctx.resume().catch(function () {}); }
+    ctx.addEventListener("statechange", function () { setTimeout(go, 250); });
+    go();
+    return ctx;
+  }
+  function Wrapped(opts) { return keep(opts === undefined ? new AC() : new AC(opts)); }
+  Wrapped.prototype = AC.prototype;
+  window.AudioContext = Wrapped;
+  if (window.webkitAudioContext) window.webkitAudioContext = Wrapped;
+})();
 // Older phone WebViews lack replaceChildren, which the Rosin page uses; without it Rosin never appears there.
 (function () {
   function rc() { while (this.lastChild) this.removeChild(this.lastChild); this.append.apply(this, arguments); }
