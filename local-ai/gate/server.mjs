@@ -30,9 +30,6 @@
 //                        status, gmail/search, gmail/read, calendar/events, drive/search, drive/read answer straight
 //                        away; prepare { kind: send|reply|change|event, … } only keeps the exact action and returns it
 //                        with an id, and confirm { id, as } runs it (the page calls that only when Sheamus taps).
-//   GET  /api/video/status  whether AI video making is connected (GATE_VIDEO_URL), and why not
-//   POST /api/video/make    { prompt, seconds?, width?, height? }  ->  the finished video, from the video backend that
-//                           GATE_VIDEO_URL names (meant for the AI Pool split; off until it's set)
 //   GET  /api/reply?id=…&from=N   the rest of a reply the browser lost hold of
 //   POST /api/stop?id=…           stop that reply
 //
@@ -84,13 +81,6 @@ const ONLY = (process.env.GATE_MODELS || "").split(",").map((s) => s.trim()).fil
 // from `tailscale ip -4`. GATE_POOL_FALLBACK names the Ollama model that answers when the pool can't.
 const POOL_SETTING = String(process.env.GATE_POOL_URL || "").trim();
 const POOL_FALLBACK = String(process.env.GATE_POOL_FALLBACK || "").trim();
-// Making new videos with AI: a slot for the AI Pool split (the GTX 1650 alone can't run a video model).
-// GATE_VIDEO_URL is the backend's address. It answers GET /health, and POST /generate with JSON
-// { prompt, seconds, width, height } -> the video itself (video/mp4 or video/webm), or JSON { error }.
-// Unset (or anything but an http(s) address): not connected, and the app says it needs the pool split.
-const VIDEO_URL = /^https?:\/\//.test(String(process.env.GATE_VIDEO_URL || "").trim()) ? String(process.env.GATE_VIDEO_URL).trim().replace(/\/+$/, "") : "";
-const VIDEO_WAIT_MS = Number(process.env.GATE_VIDEO_WAIT_MS || 20 * 60000);   // a video model can take many minutes
-const MAX_VIDEO_OUT = 200 * 1024 * 1024;
 const POOL_WAIT_MS = 300000;          // how long the pool may take to start answering before Ollama steps in (a 14B on the CPU is slow over a long first prompt)
 
 const MAX_BODY = 32 * 1024 * 1024;   // bytes per chat request (images ride along as base64)
@@ -120,8 +110,7 @@ const CHAT_PER_IP = { n: 60, ms: 10 * 60 * 1000 };
 const CHAT_ALL = { n: 400, ms: 10 * 60 * 1000 };
 const SEARCH_PER_IP = { n: 120, ms: 10 * 60 * 1000 };
 const HEAR_PER_IP = { n: 120, ms: 10 * 60 * 1000 };
-const SPEAK_PER_IP = { n: 600, ms: 10 * 60 * 1000 };
-const VIDEO_PER_IP = { n: 6, ms: 10 * 60 * 1000 };   // one request per sentence Rosin says
+const SPEAK_PER_IP = { n: 600, ms: 10 * 60 * 1000 };   // one request per sentence Rosin says
 
 // The chat's two web tools. A page's own version of these is never used: the model gets these, and,
 // once Google is set up here, Rosin's Google tools (see pickTools). Nothing else goes through.
@@ -503,35 +492,6 @@ async function transcribe(req, res, origin) {
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw fail(502, "The laptop's Whisper server said: " + String(j.detail || j.error?.message || j.error || r.status).slice(0, 200));
   return send(res, 200, { text: String(j.text || "").trim() }, origin);
-}
-
-// ── Making videos (the AI Pool split's job, once it has a video backend) ──
-const VIDEO_OFF = "Making videos with AI needs the AI Pool split. No video backend is connected yet.";
-async function videoStatus() {
-  if (!VIDEO_URL) return { ready: false, connected: false, why: VIDEO_OFF };
-  const r = await fetch(VIDEO_URL + "/health", { signal: AbortSignal.timeout(4000) }).catch(() => null);
-  return r && r.ok ? { ready: true, connected: true } : { ready: false, connected: true, why: "The video backend is set up but isn't answering right now." };
-}
-async function videoMake(req, res, origin) {
-  if (!VIDEO_URL) throw fail(503, VIDEO_OFF);
-  const b = await readJson(req);
-  const prompt = String(b.prompt || "").replace(/\s+/g, " ").trim().slice(0, 2000);
-  if (!prompt) throw fail(400, "Say what the video should show.");
-  const clamp = (v, lo, hi, d) => Math.min(hi, Math.max(lo, Math.round(Number(v) || d)));
-  const body = { prompt, seconds: clamp(b.seconds, 1, 20, 4), width: clamp(b.width, 256, 1280, 720), height: clamp(b.height, 256, 1280, 1280) };
-  const r = await fetch(VIDEO_URL + "/generate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(VIDEO_WAIT_MS) }).catch(() => null);
-  if (!r) throw fail(502, "The video backend didn't answer.");
-  const type = String(r.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-  if (!r.ok || !/^video\/(mp4|webm)$/.test(type)) {
-    const j = await r.json().catch(() => ({}));
-    throw fail(502, "The video backend said: " + String(j.error || j.detail || r.status).slice(0, 200));
-  }
-  if (Number(r.headers.get("content-length") || 0) > MAX_VIDEO_OUT) throw fail(502, "The video backend's video is over 200 MB.");
-  const chunks = []; let size = 0;
-  for await (const c of r.body) { size += c.length; if (size > MAX_VIDEO_OUT) throw fail(502, "The video backend's video is over 200 MB."); chunks.push(c); }
-  const out = Buffer.concat(chunks);
-  res.writeHead(200, { "content-type": type, "content-length": out.length, "cache-control": "no-store", vary: "Origin", ...cors(origin) });
-  res.end(out);
 }
 
 // ── Calendar feeds (Rosin's mood compass) ──
@@ -1685,7 +1645,7 @@ const server = http.createServer(async (req, res) => {
         pool().catch(() => null),
       ]);
       const voices = await ttsReady();
-      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search, whisper, voices, pool: !!poolUrl(), poolVision: !!p?.vision, video: !!VIDEO_URL, selfUpdate: !!GH_TOKEN, githubToken: GH_LOADED.shape, google: !!GOOGLE }, origin);
+      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search, whisper, voices, pool: !!poolUrl(), poolVision: !!p?.vision, selfUpdate: !!GH_TOKEN, githubToken: GH_LOADED.shape, google: !!GOOGLE }, origin);
     }
     // Everything past here needs the key.
     if (!KEY_HASH) return send(res, 503, { error: "The laptop's gate has no key set up yet, so it's closed. See the gate's README to add one.", locked: true }, origin);
@@ -1723,11 +1683,6 @@ const server = http.createServer(async (req, res) => {
       return await speak(req, res, origin);
     }
     if (req.method === "POST" && url.pathname === "/api/stop") return stopReply(url, res, origin);
-    if (req.method === "GET" && url.pathname === "/api/video/status") return send(res, 200, await videoStatus(), origin);
-    if (req.method === "POST" && url.pathname === "/api/video/make") {
-      if (!allowed("video:" + clientIp(req), VIDEO_PER_IP)) return send(res, 429, { error: "That's a lot of videos. Wait a few minutes." }, origin);
-      return await videoMake(req, res, origin);
-    }
     if (url.pathname === "/api/self" && req.method === "GET") return send(res, 200, await selfList(), origin);
     const selfKind = /^\/api\/self\/(draft|retry|dismiss|diff|approve|reject|undo|repos)$/.exec(url.pathname)?.[1];
     if (selfKind && req.method === "POST") {
