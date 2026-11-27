@@ -493,7 +493,7 @@
       const a = Math.PI * (0.05 + Math.random() * 0.9), rr = o.r * (front ? 0.95 + Math.random() * 0.35 : 0.85 + Math.random() * 0.45);
       const dir = Math.random() < 0.5 ? 1 : -1;
       l.parts.push({ a, rr, dir, rise: 0, life: 0, max: (front ? 5 : 7) + Math.random() * 5,
-                     s: o.r * (front ? 0.2 : 0.3) * (0.7 + Math.random() * 0.6), spin: (Math.random() - 0.5) * 0.6,
+                     s: o.r * (front ? 0.24 : 0.36) * (0.7 + Math.random() * 0.6), spin: (Math.random() - 0.5) * 0.6,
                      lit: Math.random() < (front ? 0.35 : 0.2), seed: Math.random() * 100 });
     }
     let last = performance.now(), acc = 0;
@@ -531,7 +531,7 @@
           p.px = x; p.py = y;
           if (p.ang === undefined) continue;
           g.save();
-          g.globalAlpha = fade * (isFront ? 0.35 : 0.75);
+          g.globalAlpha = fade * (isFront ? 0.45 : 0.95);
           g.translate(x, y); g.rotate(p.ang + p.spin * 0.3 * Math.sin(p.life + p.seed));
           g.scale(2.1, 0.6);    // long and thin along the way it's moving: wisps, not balls
           g.drawImage(p.lit ? LIT : DEEP, -sz, -sz, sz * 2, sz * 2);
