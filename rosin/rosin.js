@@ -307,8 +307,9 @@
     micStart();
   });
   micBtn.addEventListener("pointerup", micStop);
-  micBtn.addEventListener("pointercancel", micStop);
-  micBtn.addEventListener("lostpointercapture", micStop);
+  // On the website, a tap toggles listening, so a phone taking the touch away (pointercancel) mustn't end it.
+  micBtn.addEventListener("pointercancel", () => { if (!WEB) micStop(); });
+  micBtn.addEventListener("lostpointercapture", () => { if (!WEB) micStop(); });
   micBtn.addEventListener("contextmenu", e => e.preventDefault());   // long-press on phones
   micBtn.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && !e.repeat) { e.preventDefault(); micStart(); } });
   micBtn.addEventListener("keyup", e => { if (e.key === "Enter" || e.key === " ") micStop(); });
@@ -417,7 +418,7 @@
     pulse(v = 1) { webPulse = Math.max(webPulse, v); },
     thinking(on) { rosin.classList.toggle("thinking", !!on); if (on) setExpression("stoned", 0); },
     subs(text) { subsEl.textContent = text || ""; },
-    status(text) { statusEl.textContent = text; },
+    status(text, error) { statusEl.textContent = text; statusEl.classList.toggle("err", !!error); },
     micLive(on) { micBtn.classList.toggle("live", !!on); micBtn.setAttribute("aria-pressed", String(!!on)); },
     get expression() { return current; },
   };
@@ -449,4 +450,85 @@
     }
     requestAnimationFrame(emberLoop);
   })();
+
+  // ---------- smoke: its own layer, not part of Rosin ----------
+  // Soft red wisps curl around and up from Rosin's lower half, swirl slowly, rise and fade. They follow
+  // where Rosin is on the screen but not its float or sway, so Rosin bobs inside the smoke instead of carrying it.
+  // Two layers for depth: a denser one behind Rosin and a thin, faster one in front.
+  // Drawn at half resolution (smoke is soft anyway) and at most 30 frames a second, so phones keep up.
+  try { smoke(); } catch (e) { console.warn("Rosin's smoke couldn't start:", e); }   // smoke is decoration: never let it break the page
+  function smoke() {
+    if (q.get("smoke") === "0") return;
+    const SCALE = 0.5, FPS = 30;
+    const layer = (before) => {
+      const c = document.createElement("canvas");
+      c.className = "smoke"; c.setAttribute("aria-hidden", "true");
+      stage.parentNode.insertBefore(c, before ? stage : stage.nextSibling);
+      return { c, g: c.getContext("2d"), parts: [] };
+    };
+    const back = layer(true), front = layer(false);
+    const max = { back: LITE ? 16 : 30, front: LITE ? 6 : 12 };
+    // One soft puff, tinted twice: deep smoke and an ember-lit edge.
+    const puff = (inner, outer) => {
+      const c = document.createElement("canvas"); c.width = c.height = 64;
+      const g = c.getContext("2d"), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, inner); gr.addColorStop(0.45, outer); gr.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return c;
+    };
+    const DEEP = puff("rgba(150, 28, 14, 0.55)", "rgba(96, 16, 10, 0.22)");
+    const LIT = puff("rgba(235, 92, 34, 0.42)", "rgba(150, 34, 14, 0.16)");
+    let W = 0, H = 0;
+    function size() {
+      W = Math.ceil(innerWidth * SCALE); H = Math.ceil(innerHeight * SCALE);
+      for (const l of [back, front]) { l.c.width = W; l.c.height = H; }
+    }
+    addEventListener("resize", size); size();
+    // Where the orb is, from the layout (offset sizes ignore the float animation on purpose).
+    function orb() {
+      const h = rosin.offsetHeight, w = rosin.offsetWidth;
+      return { x: (rosin.offsetLeft + w * 0.533) * SCALE, y: (rosin.offsetTop + h * 0.524) * SCALE, r: h * 0.26 * SCALE };
+    }
+    function spawn(l, o, front) {
+      // Start on the lower half of a ring around the orb, mostly low and to the sides, where the sheet's smoke was.
+      const a = Math.PI * (0.05 + Math.random() * 0.9), rr = o.r * (front ? 0.95 + Math.random() * 0.35 : 0.85 + Math.random() * 0.45);
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      l.parts.push({ a, rr, dir, rise: 0, life: 0, max: (front ? 5 : 7) + Math.random() * 5,
+                     s: o.r * (front ? 0.22 : 0.32) * (0.7 + Math.random() * 0.6), spin: (Math.random() - 0.5) * 0.6,
+                     lit: Math.random() < (front ? 0.35 : 0.2), seed: Math.random() * 100 });
+    }
+    let last = performance.now(), acc = 0;
+    function frame(now) {
+      requestAnimationFrame(frame);
+      const dt = Math.min(0.1, (now - last) / 1000); last = now; acc += dt;
+      if (document.hidden || acc < 1 / FPS) return;
+      const step = acc; acc = 0;
+      const o = orb(), t = now / 1000, glow = Math.max(0, +getComputedStyle(root).getPropertyValue("--glow") || 0);
+      for (const [l, isFront] of [[back, false], [front, true]]) {
+        if (l.parts.length < max[isFront ? "front" : "back"] * (1 + glow * 0.6) && Math.random() < step * (isFront ? 1.6 : 3)) spawn(l, o, isFront);
+        const g = l.g; g.clearRect(0, 0, W, H);
+        for (let i = l.parts.length - 1; i >= 0; i--) {
+          const p = l.parts[i];
+          p.life += step;
+          if (p.life >= p.max) { l.parts.splice(i, 1); continue; }
+          const k = p.life / p.max;
+          // Swirl round the orb (front layer a little faster: parallax), drift outwards, rise, and wobble.
+          p.a += p.dir * step * (isFront ? 0.16 : 0.1) * (1 - k * 0.5);
+          p.rr += step * o.r * 0.05;
+          p.rise += step * o.r * (isFront ? 0.12 : 0.08) * (0.4 + k);
+          const wob = Math.sin(t * 0.7 + p.seed) * o.r * 0.06 + Math.sin(t * 1.9 + p.seed * 2) * o.r * 0.025;
+          const x = o.x + Math.cos(p.a) * p.rr + wob + (isFront ? Math.sin(t * 0.3) * o.r * 0.04 : 0);
+          const y = o.y + Math.sin(p.a) * p.rr * 0.8 - p.rise;
+          const fade = Math.min(1, k * 4) * (1 - k) * (1 - k);
+          const sz = p.s * (0.7 + k * 1.4);
+          g.save();
+          g.globalAlpha = fade * (isFront ? 0.5 : 0.85);
+          g.translate(x, y); g.rotate(p.a + p.spin * p.life + Math.PI / 2);
+          g.scale(1.7, 0.75);   // stretched along the way it's moving: wisps, not balls
+          g.drawImage(p.lit ? LIT : DEEP, -sz, -sz, sz * 2, sz * 2);
+          g.restore();
+        }
+      }
+    }
+    requestAnimationFrame(frame);
+  }
 })();

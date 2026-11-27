@@ -593,8 +593,10 @@
       add(g, CC + "sonnet", "Claude Code · Sonnet");
     }
     if (!sel.options.length) sel.innerHTML = `<option value="">${ollama.status === "fulfilled" ? "No models installed" : "Offline"}</option>`;
-    const saved = store.get(MODEL_KEY, "");
+    // The AI Pool (Sheamus's llama.cpp Qwen2.5 14B) is the default; a pick saved before Nov 27 gives way to it once.
+    const saved = store.get("localai.modelv", 0) >= 2 ? store.get(MODEL_KEY, "") : "";
     if ([...sel.options].some((o) => o.value === saved && o.value)) sel.value = saved;
+    else if ([...sel.options].some((o) => o.value === "pool")) { sel.value = "pool"; store.set(MODEL_KEY, "pool"); store.set("localai.modelv", 2); }
     if (ollama.status === "rejected" && ollama.reason) { lastError = ollama.reason; console.warn(ollama.reason); }
     const parts = [];
     const lockedOut = ollama.status === "rejected" && /^HTTP (401|429)/.test(ollama.reason?.message || "");
@@ -1318,7 +1320,7 @@
   $("openSettings").onclick = openSettings;
   $("menu").onclick = () => $("app").classList.add("open");
   $("scrim").onclick = closeMenu;
-  $("model").onchange = () => store.set(MODEL_KEY, $("model").value);
+  $("model").onchange = () => { store.set(MODEL_KEY, $("model").value); store.set("localai.modelv", 2); };
   function showWeb() {
     const b = $("webToggle");
     b.classList.toggle("on", webOn);

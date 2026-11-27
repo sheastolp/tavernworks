@@ -1,7 +1,7 @@
 /* rosin-web.js: Rosin's brain on tavernworks.dev/rosin/ (no Open-LLM-VTuber needed).
  *
  * - Thinks with Ollama on the FX705 through the Local AI gate (the same one tavernworks.dev/local-ai/chat/ uses).
- * - Talks with the browser's own voices (speechSynthesis) and listens with its speech recognition (hold to talk).
+ * - Talks with the browser's own voices (speechSynthesis). Listens with its speech recognition, or the laptop's Whisper (tap to talk).
  * - Picks Rosin's face from the [tags] in each reply, pulses the eye while talking, shows subtitles and a chat history.
  * - Optional: reads a Twitch channel's chat (anonymous, read-only) and answers it with rate limits and spam filters.
  * - Chats and settings stay in this browser (localStorage). Nothing is stored on the laptop.
@@ -31,17 +31,19 @@
   };
   const S = {
     name: store.get("name", ""),
-    model: store.get("model", ""),
+    // Picks saved before Nov 27 (Ollama's Qwen3 4B) give way once to the AI Pool, Sheamus's llama.cpp Qwen2.5 14B.
+    model: store.get("modelv", 0) >= 2 ? store.get("model", "") : "",
     voiceOn: q.get("voice") === "0" ? false : store.get("voiceOn", !R.MUTE),
     voice: store.get("voice", ""),
     web: store.get("web", false),
     channel: (q.get("channel") || store.get("channel", "")).replace(/^#/, "").toLowerCase(),
     twitchOn: q.get("channel") ? true : store.get("twitchOn", false),
     awake: store.get("awake", true),
+    stt: store.get("stt", "auto"),   // speech to text: auto, browser or laptop
   };
   const save = (k) => store.set(k, S[k]);
   const KA = window.KeepAwake;
-  const tick = (ms, fn) => (KA ? KA.ticker(ms, fn) : (setInterval(fn, ms), () => {}));
+  const tick = (ms, fn) => { if (KA) return KA.ticker(ms, fn); const t = setInterval(fn, ms); return () => clearInterval(t); };
   const later = (ms, fn) => { if (KA) return KA.after(ms, fn); const t = setTimeout(fn, ms); return () => clearTimeout(t); };
   KA?.hold("rosin");      // so Chrome doesn't freeze or discard the tab while Rosin's open
   const gopts = (o = {}) => (window.GateKey ? window.GateKey.opts(o) : o);
@@ -86,7 +88,7 @@
   function pickModel(list) {
     const names = list.map((m) => m.name).filter((n) => !/embed|vision|llava|bge|nomic/i.test(n));
     if (S.model && names.includes(S.model)) return S.model;
-    const prefs = [/qwen3.*instruct/i, /qwen3:4b/i, /qwen3/i, /gemma3/i, /llama3/i, /phi4|mistral/i];
+    const prefs = [/^pool$/, /qwen3.*instruct/i, /qwen3:4b/i, /qwen3/i, /gemma3/i, /llama3/i, /phi4|mistral/i];
     for (const re of prefs) { const hit = names.find((n) => re.test(n)); if (hit) return hit; }
     return names[0] || "";
   }
@@ -112,6 +114,7 @@
       online = models.length > 0;
       const chosen = pickModel(models);
       if (chosen !== S.model) { S.model = chosen; save("model"); }
+      if (chosen === "pool") store.set("modelv", 2);
       fillModels();
       if (!busy) R.status(online ? `Ready · ${modelName()}` : "The AI laptop has no models installed");
     } catch (e) {
@@ -136,16 +139,19 @@
   ];
 
   // One streamed request; onText gets each new piece of the answer.
-  async function streamChat(messages, tools, signal, onText) {
+  async function streamChat(messages, tools, signal, onText, onThink) {
     const body = { model: S.model, messages, stream: true, options: { num_ctx: tools ? 8192 : 4096 } };
     if (tools) body.tools = tools;
-    let content = "";
+    let content = "", thought = 0, done = false, reason = "";
     const calls = [];
     const take = (line) => {
       let c; try { c = JSON.parse(line); } catch { return; }
       if (c.error) throw new Error(String(c.error.message || c.error));
       if (c.note) lastNote = String(c.note);
+      if (c.done) { done = true; reason = String(c.done_reason || ""); }
       const m = c.message || {};
+      // A thinking model can spend the turn thinking (Ollama sends that apart from the answer). Count it, so it isn't silence.
+      if (m.thinking) { thought += m.thinking.length; if (!content) onThink?.(); }
       if (m.content) { content += m.content; onText(m.content); }
       if (Array.isArray(m.tool_calls)) calls.push(...m.tool_calls.filter((t) => t.function?.name));
     };
@@ -157,7 +163,7 @@
       if (m[1] === "401") { locked = true; online = false; throw new Error(LOCKED_MSG); }
       throw new Error(m[2] || "The laptop answered " + m[1]);
     }
-    return { content, calls };
+    return { content, calls, thought, done, reason };
   }
   async function runTool(call, signal) {
     let args = call.function?.arguments || {};
@@ -280,7 +286,16 @@
     R.thinking(true); R.status(S.model === "pool" ? "Rosin is thinking (the AI Pool is bigger, so it's slower)…" : "Rosin is thinking…");
     lastNote = "";
     say.streamDone = false;
-    let raw = "", spoken = 0;
+    let raw = "", spoken = 0, last = null;
+    // A big model on the laptop can take a while before its first word: show it's still working, never just go quiet.
+    const started = Date.now();
+    const slow = setInterval(() => {
+      if (raw || !busy) return;
+      const s = Math.round((Date.now() - started) / 1000);
+      R.status(`Rosin is still thinking… ${s} s` + (S.model === "pool" ? " (the 14B is slow on the laptop, the first answer takes longest)" : ""));
+    }, 5000);
+    let thinkingShown = false;
+    const onThink = () => { if (!thinkingShown) { thinkingShown = true; R.status("Rosin is thinking it over…"); } };
     const visible = () => {
       let t = raw.replace(/<think>[\s\S]*?<\/think>/g, "");
       const open = t.indexOf("<think>"); if (open !== -1) t = t.slice(0, open);
@@ -300,7 +315,7 @@
       for (let round = 0; ; round++) {
         if (round >= MAX_TOOL_ROUNDS) tools = null;
         let r;
-        try { r = await streamChat(messages, tools, ctl.signal, (piece) => { raw += piece; feed(false); }); }
+        try { r = last = await streamChat(messages, tools, ctl.signal, (piece) => { raw += piece; feed(false); }, onThink); }
         catch (e) {
           if (tools && /does not support tools/i.test(e.message)) { tools = null; S.web = false; save("web"); syncSettings(); round--; continue; }
           throw e;
@@ -312,7 +327,13 @@
       }
       feed(true);
       const answer = visible().trim();
-      if (!answer) throw new Error("Rosin went quiet (the model sent back nothing). Try again.");
+      if (!answer) {
+        const other = " Try again, or pick another model under ⋯.";
+        throw new Error(last?.thought ? "The model spent its whole turn thinking and never answered." + other
+          : last && !last.done ? "The reply stopped before Rosin said anything." + other
+          : last?.reason === "length" ? "The model ran out of room before answering." + other
+          : "Rosin went quiet: the model sent back an empty answer." + other);
+      }
       history.push({ role: "assistant", content: answer, at: Date.now() });
       saveHistory(); drawLog();
       R.status(lastNote || `Ready · ${modelName()}`);
@@ -320,13 +341,15 @@
       R.thinking(false);
       if (e.name === "AbortError") { R.status("Stopped"); }
       else {
-        const msg = e instanceof TypeError ? "Lost the connection to the AI laptop." : e.message;
-        R.status(msg); R.subs(""); R.setExpression("confused", 4000);
+        const msg = e instanceof TypeError ? "Lost the connection to the AI laptop." : (e.message || "Something went wrong talking to the AI laptop.");
+        R.status(msg, true); R.subs(R.OBS ? "" : msg); R.setExpression("confused", 4000);
+        if (!R.OBS) later(9000, () => { if (!busy && !say.playing) R.subs(""); });
       }
       if (history.length && history[history.length - 1].role === "user" && visible().trim()) {
         history.push({ role: "assistant", content: visible().trim() + " …", at: Date.now() }); saveHistory(); drawLog();
       }
     } finally {
+      clearInterval(slow);
       if (busy === ctl) busy = null;
       say.streamDone = true;
       if (!say.playing && say.onIdle) { const f = say.onIdle; say.onIdle = null; f(); }
@@ -340,41 +363,166 @@
   // Resolves when Rosin has finished saying the current reply.
   const whenQuiet = () => new Promise((ok) => { if (!busy && !say.playing) ok(); else say.onIdle = ok; });
 
-  // ---------- hold to talk (the browser's speech recognition) ----------
+  // ---------- talking to Rosin (tap to talk, tap again or go quiet to send; holding works too) ----------
+  // Two ways to turn speech into text:
+  //   browser: the browser's own speech recognition (Chrome, Edge, Safari). Words show up while you talk.
+  //   laptop:  record here, and the FX705's Whisper server (through the gate) writes it down.
+  // "auto" starts with the browser and moves to the laptop when the browser can't hear (no recogniser,
+  // its speech service fails, or it comes back empty) and the laptop's Whisper is up.
+  // Whatever is heard goes in the text box first, so if sending fails it's still there to send by hand.
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let rec = null, heard = "", holding = false;
+  const ANDROID = /Android/i.test(navigator.userAgent);
+  const sayBox = () => $("say-text");
+  const ear = { on: false, mode: "", pressedAt: 0, rec: null, heard: "", error: "", quiet: null, media: null, emptyRuns: 0 };
+  let whisperUp = null;   // null: not asked yet
+  async function checkWhisper() {
+    try {
+      const h = await fetch(GATE + "/health", { signal: timeout(6000), cache: "no-store" }).then((x) => x.json());
+      whisperUp = !!h.whisper;
+    } catch { whisperUp = false; }
+    return whisperUp;
+  }
+  function earMode() {
+    if (S.stt === "browser") return SR ? "browser" : "";
+    if (S.stt === "laptop") return navigator.mediaDevices?.getUserMedia && window.MediaRecorder ? "laptop" : "";
+    if (SR && !ear.browserBroken) return "browser";
+    return navigator.mediaDevices?.getUserMedia && window.MediaRecorder ? "laptop" : "";
+  }
+  function showHeard(text, final) {
+    const box = sayBox(); if (box) box.value = text;
+    $("subs").classList.toggle("listening", !final); R.subs(text);
+  }
+  // The mic button (and Space) call these: a press starts or finishes; letting go after a long hold finishes.
   function micStart() {
     unlock();
-    if (!SR) { R.status("Talking needs Chrome, Edge or Safari. You can type instead."); return; }
-    if (rec) return;
-    stop();
-    holding = true; heard = "";
-    rec = new SR();
-    rec.lang = navigator.language || "en-US";
-    rec.interimResults = true; rec.continuous = true;
-    rec.onresult = (e) => {
-      let finalText = "", interim = "";
-      for (const r of e.results) (r.isFinal ? (finalText += r[0].transcript) : (interim += r[0].transcript));
-      heard = (finalText + " " + interim).trim();
-      $("subs").classList.add("listening"); R.subs(heard);
-    };
-    rec.onerror = (e) => {
-      const why = { "not-allowed": "The microphone is blocked. Allow it for tavernworks.dev in the address bar.",
-                    "audio-capture": "No microphone was found.", "network": "The browser's speech service couldn't be reached.",
-                    "no-speech": "Didn't hear anything. Hold the button while you talk." }[e.error];
-      if (why) R.status(why);
-    };
-    rec.onend = () => {
-      R.micLive(false); $("subs").classList.remove("listening");
-      const text = heard.trim(); rec = null;
-      if (holding) { holding = false; }
-      if (text) ask(text); else R.subs("");
-    };
-    try { rec.start(); R.micLive(true); R.status("Listening… let go when you're done"); }
-    catch { rec = null; R.micLive(false); }
+    if (ear.on) { earFinish(); return; }
+    ear.pressedAt = Date.now();
+    earBegin();
   }
-  function micStop() { holding = false; if (rec) { try { rec.stop(); } catch {} } }
-  if (!SR) { const m = $("mic"); if (m) m.title = "Talking needs Chrome, Edge or Safari"; }
+  function micStop() {
+    if (ear.on && Date.now() - ear.pressedAt > 700) earFinish();   // a hold: done when you let go. A tap keeps listening.
+  }
+  async function earBegin() {
+    const mode = earMode();
+    if (!mode) { R.status(S.stt === "laptop" ? "This browser can't record for the laptop. Type instead." : "This browser can't turn speech into text. Pick Laptop under ⋯ → Speech to text, or type instead."); return; }
+    stop();
+    ear.on = true; ear.mode = mode; ear.heard = ""; ear.error = "";
+    R.micLive(true);
+    if (mode === "browser") browserBegin(); else await laptopBegin();
+  }
+  function earFinish() {
+    if (!ear.on) return;
+    if (ear.mode === "browser") { try { ear.rec?.stop(); } catch { browserDone(); } }
+    else laptopStop();
+  }
+  // What was heard goes to Rosin; nothing heard says why instead of going quiet.
+  async function earDone(text, why) {
+    ear.on = false; ear.rec = null; clearTimeout(ear.quiet);
+    R.micLive(false); $("subs").classList.remove("listening");
+    text = String(text || "").trim();
+    if (text) {
+      ear.emptyRuns = 0;
+      showHeard(text, true);
+      if (sayBox()) sayBox().value = "";
+      const sent = await ask(text);
+      if (sent === false) {   // the laptop couldn't take it: keep the words so Send can try again
+        if (sayBox() && !sayBox().value.trim()) sayBox().value = text;
+        R.status($("status").textContent + " What you said is in the box; press Send to try again.");
+      }
+      return;
+    }
+    R.subs("");
+    // The browser heard nothing: once its speech service fails, or comes back empty twice, use the laptop if it can.
+    if (ear.mode === "browser" && S.stt !== "browser") {
+      const broken = /network|service-not-allowed|language-not-supported|not-supported/.test(ear.error) || ++ear.emptyRuns >= 2;
+      if (broken && (whisperUp ?? (await checkWhisper()))) {
+        ear.browserBroken = true; ear.emptyRuns = 0;
+        R.status("Your browser's speech-to-text isn't hearing you, so I'll use the laptop's Whisper. Tap 🎙 Talk again.");
+        return;
+      }
+    }
+    R.status(why || "I didn't catch anything. Tap 🎙 Talk and speak, or type instead.");
+  }
+
+  // The browser's recogniser. Android's works best one phrase at a time (it stops by itself when you pause);
+  // elsewhere it keeps listening, and 1.8 seconds of quiet after some words counts as done.
+  function browserBegin() {
+    const rec = new SR(); ear.rec = rec;
+    rec.lang = navigator.language || "en-US";
+    rec.interimResults = true; rec.continuous = !ANDROID; rec.maxAlternatives = 1;
+    let finals = [];
+    rec.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finals[i] = t; else interim += t;
+      }
+      ear.heard = (finals.filter(Boolean).join(" ") + " " + interim).replace(/\s+/g, " ").trim();
+      showHeard(ear.heard, false);
+      clearTimeout(ear.quiet);
+      if (rec.continuous && ear.heard) ear.quiet = setTimeout(() => { try { rec.stop(); } catch {} }, 1800);
+    };
+    rec.onerror = (e) => { ear.error = e.error || "error"; };
+    rec.onend = browserDone;
+    try { rec.start(); R.status("Listening… tap 🎙 again when you're done, or just stop talking"); }
+    catch (e) { ear.error = "start"; browserDone(); }
+  }
+  function browserDone() {
+    if (!ear.on || ear.mode !== "browser") return;
+    const why = {
+      "not-allowed": "The microphone is blocked. Allow it for tavernworks.dev (the icon left of the address), then try again.",
+      "service-not-allowed": "This browser won't do speech-to-text here.",
+      "audio-capture": "No microphone was found, or another app is using it.",
+      "network": "The browser's speech service couldn't be reached.",
+      "no-speech": "Didn't hear anything. Tap 🎙 Talk and speak a little closer.",
+      "language-not-supported": "The browser's speech-to-text doesn't know this language.",
+      "start": "The mic couldn't start. Tap 🎙 Talk again.",
+    }[ear.error];
+    earDone(ear.heard, why);
+  }
+
+  // The laptop's Whisper: record (stops on its own after 1.5 s of quiet once you've spoken, or at 30 s).
+  async function laptopBegin() {
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+    catch (e) { return earDone("", e.name === "NotAllowedError" ? "The microphone is blocked. Allow it for tavernworks.dev, then try again." : "The microphone couldn't start."); }
+    if (!ear.on) { stream.getTracks().forEach((t) => t.stop()); return; }
+    const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"].find((t) => MediaRecorder.isTypeSupported?.(t)) || "";
+    const recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+    const parts = [];
+    recorder.ondataavailable = (e) => { if (e.data.size) parts.push(e.data); };
+    let ctx = null, spoke = false, lastLoud = Date.now(), started = Date.now(), meter = null;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const an = ctx.createAnalyser(); an.fftSize = 1024; ctx.createMediaStreamSource(stream).connect(an);
+      const buf = new Float32Array(an.fftSize);
+      meter = tick(100, () => {
+        an.getFloatTimeDomainData(buf);
+        let sum = 0; for (const v of buf) sum += v * v;
+        const rms = Math.sqrt(sum / buf.length);
+        if (rms > 0.02) { spoke = true; lastLoud = Date.now(); }
+        if ((spoke && Date.now() - lastLoud > 1500) || Date.now() - started > 30000) laptopStop();
+      });
+    } catch {}
+    recorder.onstop = async () => {
+      meter?.(); stream.getTracks().forEach((t) => t.stop()); ctx?.close().catch(() => {});
+      const blob = new Blob(parts, { type: recorder.mimeType || type || "audio/webm" });
+      if (!spoke && ctx) return earDone("", "Didn't hear anything. Tap 🎙 Talk and speak a little closer.");
+      R.status("Writing down what you said…"); showHeard("…", false);
+      try {
+        const r = await fetch(GATE + "/api/transcribe", gopts({ method: "POST", headers: { "Content-Type": blob.type }, body: blob, signal: timeout(60000) }));
+        const j = await r.json().catch(() => ({}));
+        if (r.status === 401) { locked = true; return earDone("", LOCKED_MSG); }
+        if (!r.ok) return earDone("", j.error || "The laptop couldn't write down what you said.");
+        earDone(j.text, "The laptop heard nothing it could write down. Try again a little closer.");
+      } catch { earDone("", "Couldn't reach the laptop to write down what you said."); }
+    };
+    ear.media = recorder;
+    recorder.start(250);
+    R.status("Listening (the laptop writes it down)… tap 🎙 again when you're done, or just stop talking");
+  }
+  function laptopStop() { const m = ear.media; ear.media = null; if (m && m.state !== "inactive") m.stop(); }
+  if (!SR) { const m = $("mic"); if (m) m.title = "Tap to talk: the laptop writes down what you say"; }
 
   // ---------- Twitch chat (optional, anonymous and read-only) ----------
   const tw = { ws: null, backoff: 2000, lastData: 0, pending: [], recent: [], lastUser: new Map(), lastSent: 0, cooldown: 20000, userCooldown: 90000 };
@@ -463,7 +611,7 @@
     else if (quiet > 4 * 60000) { try { ws.send("PING :tmi.twitch.tv"); } catch {} }
   });
   tick(1000, async () => {        // answer one chat line at a time, never while Rosin is busy
-    if (!S.twitchOn || busy || say.playing || rec) return;
+    if (!S.twitchOn || busy || say.playing || ear.on) return;
     const now = Date.now();
     if (now - tw.lastSent < tw.cooldown) return;
     tw.pending = tw.pending.filter((p) => now - p.t < 60000);
@@ -485,13 +633,15 @@
   const nameIn = Object.assign(document.createElement("input"), { type: "text", placeholder: "so Rosin knows who's talking", value: S.name, maxLength: 40, autocomplete: "nickname" });
   const modelSel = document.createElement("select");
   const voiceSel = document.createElement("select");
+  const sttSel = document.createElement("select");
+  sttSel.append(new Option("Automatic", "auto"), new Option("This browser (words show as you talk)", "browser"), new Option("The laptop's Whisper", "laptop"));
   const chanIn = Object.assign(document.createElement("input"), { type: "text", placeholder: "channel name", value: S.channel, maxLength: 25, autocapitalize: "off" });
   const [voiceChk, voiceBox] = check("Voice");
   const [webChk, webBox] = check("Web search");
   const [awakeChk, awakeBox] = check("Keep screen on");
   const [twChk, twBox] = check("Answer this Twitch chat");
   const newBtn = Object.assign(document.createElement("button"), { type: "button", textContent: "New chat" });
-  more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field("Model", modelSel), voiceChk, field("Rosin's voice", voiceSel), webChk,
+  more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field("Model", modelSel), voiceChk, field("Rosin's voice", voiceSel), field("Speech to text", sttSel), webChk,
                field("Twitch channel", chanIn), twChk, awakeChk, newBtn);
   function fillModels() {
     modelSel.replaceChildren(...(models.length ? models : [{ name: "" }]).map((m) => new Option(labelOf(m) || "No models (laptop asleep?)", m.name)));
@@ -514,7 +664,13 @@
   });
   window.addEventListener("gatekeychange", () => { keyIn.value = window.GateKey?.get() || ""; locked = false; R.status("Checking the key…"); lastCheck = Date.now(); checkLaptop(); });
   nameIn.addEventListener("change", () => { S.name = nameIn.value.trim(); save("name"); });
-  modelSel.addEventListener("change", () => { S.model = modelSel.value; save("model"); R.status(`Ready · ${modelName()}`); });
+  sttSel.value = S.stt;
+  sttSel.addEventListener("change", async () => {
+    S.stt = sttSel.value; save("stt"); ear.browserBroken = false;
+    if (S.stt === "laptop" && !(await checkWhisper())) R.status("The laptop's Whisper isn't answering yet. Its setup is on tavernworks.dev/local-ai/.");
+    else R.status(`Ready · ${modelName()}`);
+  });
+  modelSel.addEventListener("change", () => { S.model = modelSel.value; save("model"); store.set("modelv", 2); R.status(`Ready · ${modelName()}`); });
   voiceSel.addEventListener("change", () => { S.voice = voiceSel.value; save("voice"); unlock(); hush(); speakLine("[happy] Hey, it's me. Rosin."); });
   voiceBox.addEventListener("change", () => { S.voiceOn = voiceBox.checked; save("voiceOn"); if (!S.voiceOn) hush(); });
   webBox.addEventListener("change", () => { S.web = webBox.checked; save("web"); });
