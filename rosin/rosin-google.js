@@ -19,7 +19,8 @@
   let state = { ready: false, email: "", gmail: false, calendar: false, drive: false, error: "" };
   const enabled = () => H.store.get("google.on", true);
   const isSheamus = () => !H.name() || /^(stoned\s*)?sheamus$/i.test(H.name());
-  const live = (part) => () => state.ready && state[part] && enabled() && isSheamus() && !H.onAir() && !H.noTools();
+  const can = (part) => state.ready && state[part] && enabled() && isSheamus() && !H.onAir();
+  const live = (part) => () => can(part) && !H.noTools();
 
   async function call(kind, body = {}, ms = 30000) {
     const r = await fetch(H.GATE + "/api/google/" + kind, H.gopts({ method: "POST", headers: { "Content-Type": "application/json" },
@@ -158,6 +159,66 @@
       run: async (a) => { R.status("Reading a file…"); const f = await call("drive/read", { id: a.id }); return `${DATA_NOTE}\n\n${f.name}\n\n${f.text}${f.cut ? "\n(cut short)" : ""}`; } },
   ];
   H.extraTools.push(...tools);
+
+  // ---------- looking before Rosin answers ----------
+  // When Sheamus asks about his mail, calendar or Drive, the app fetches it first and hands Rosin the real results
+  // (or says plainly that it couldn't), so the answer never rests on the model choosing a tool, or guessing.
+  const ASKS = {
+    gmail: /\b(e-?mails?|mail|inbox|gmail|unread|messages? (?:from|in my))\b/i,
+    calendar: /\b(calendar|agenda|appointments?|meetings?|my schedule|schedule (?:today|tomorrow|this week)|am i (?:free|busy)|what'?s on (?:today|tonight|tomorrow|this week)|what (?:do|have) i (?:got|have)? ?(?:on )?(?:today|tonight|tomorrow|this week))\b/i,
+    drive: /\b(google drive|my drive|google docs?|my docs?|my files?|spreadsheets?|google sheets?)\b/i,
+  };
+  const LABEL = { gmail: "email", calendar: "calendar", drive: "Google Drive" };
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const STOP = new Set("a an the my in on of for to from find open read show me look check google drive docs doc file files sheet sheets spreadsheet spreadsheets what whats what's is are any about can you please rosin and or".split(" "));
+  function whyNot(part) {
+    if (!enabled()) return "Google is switched off under ⋯ (Rosin can use my Google)";
+    if (!isSheamus()) return "the name under ⋯ isn't Sheamus's, and only Sheamus's Google is opened";
+    if (H.onAir()) return "OBS or Twitch chat is on, so his private things stay off air";
+    if (!state.ready) return state.error ? "the laptop said: " + state.error : "Google isn't set up on the laptop yet";
+    if (!state[part]) return `the Google sign-in on the laptop doesn't include ${LABEL[part]}`;
+    return "";
+  }
+  async function fetchPart(part, text) {
+    const head = `[App: Sheamus's ${LABEL[part]}, fetched just now]`;
+    try {
+      if (part === "gmail") {
+        R.status("Checking your email…");
+        const query = /\bunread\b/i.test(text) ? "in:inbox is:unread" : "in:inbox";
+        const j = await call("gmail/search", { query, max: 8 });
+        return `${head}\nGmail search "${query}", newest first:\n` + (j.messages.length ? list(j) : "Nothing came back: there are no emails matching that.");
+      }
+      if (part === "calendar") {
+        R.status("Checking your calendar…");
+        const now = new Date(), tmrw = /\btomorrow\b/i.test(text), today = !tmrw && /\b(today|tonight)\b/i.test(text);
+        const from = new Date(now); if (tmrw) from.setDate(from.getDate() + 1);
+        const days = tmrw || today ? 1 : 7;
+        const j = await call("calendar/events", { from: ymd(from), days });
+        const span = days === 1 ? (tmrw ? "tomorrow" : "today") : "the next 7 days";
+        return `${head}\nEvents for ${span}:\n` + (j.events.length ? `${DATA_NOTE}\n\n` + j.events.map((e) => `${e.start}${e.allDay ? " (all day)" : " to " + e.end}: ${e.title}${e.location ? " at " + e.location : ""}`).join("\n") : "Nothing is on the calendar then.");
+      }
+      const words = (text.match(/[\w'-]+/g) || []).filter((w) => w.length > 2 && !STOP.has(w.toLowerCase())).slice(0, 6).join(" ");
+      if (!words) return `${head}\nNot searched: he didn't say which file. Ask him what it's called.`;
+      R.status("Looking in your Drive…");
+      const j = await call("drive/search", { query: words });
+      return `${head}\nDrive search "${words}":\n` + (j.files.length ? j.files.map((f, i) => `${i + 1}. id ${f.id}: ${f.name} (${f.type}, changed ${String(f.modified).slice(0, 10)})`).join("\n") : "No files match that.");
+    } catch (e) {
+      return `${head}\nThe fetch FAILED (${e.message}), so you have NOT seen his ${LABEL[part]}. Tell him it couldn't be checked and why, in plain words. Don't guess at any of it.`;
+    }
+  }
+  H.extraContext?.push(async (text) => {
+    const parts = Object.keys(ASKS).filter((k) => ASKS[k].test(text));
+    if (!parts.length) return "";
+    if (!state.ready && enabled() && isSheamus() && !H.onAir()) await refresh();
+    const notes = await Promise.all(parts.map((part) => {
+      const why = whyNot(part);
+      return why ? `[App: Sheamus's ${LABEL[part]}, NOT looked at]\nYou did not see his ${LABEL[part]} this time, because ${why}. Say so plainly and don't guess or make any of it up.` : fetchPart(part, text);
+    }));
+    R.status("Rosin is thinking…");
+    return notes.join("\n\n");
+  });
+  // Always in the prompt, Google set up or not: what Rosin may say about his private things, and where it comes from.
+  H.extraPrompt.push(() => "You only know about Sheamus's email, calendar and Drive files from what the app fetched for this message (a note starting [App: ...] or a tool result). Never make up emails, senders, subjects, events, files or cards on his screen. If nothing was fetched, or the note says it failed, tell him you can't see it right now and why.");
   H.extraPrompt.push(() => {
     if (!live("gmail")() && !live("calendar")() && !live("drive")()) return "";
     const has = [state.gmail && "Gmail", state.calendar && "Google Calendar", state.drive && "Google Drive"].filter(Boolean).join(", ");
@@ -181,14 +242,14 @@
     const why = !state.ready ? (state.error || `Not set up on the laptop yet. Steps: ${SETUP}`)
       : !isSheamus() ? "Only for Sheamus (your name under ⋯ is someone else's)."
       : H.onAir() ? "Off while OBS or Twitch chat is on, so nothing private goes out."
-      : H.noTools() ? "This model can't use tools. Pick another under ⋯."
+      : H.noTools() ? `Connected: ${state.email || "your account"}. This model can't use tools, so Rosin reads your mail, calendar and files when you ask, but can't write or change anything.`
       : `Connected: ${state.email || "your account"} (${[state.gmail && "Gmail", state.calendar && "Calendar", state.drive && "Drive"].filter(Boolean).join(", ")}). Sending and changes always wait for your tap.`;
     info.textContent = enabled() ? why : "Off. Rosin won't look at your Google.";
-    mailBtn.hidden = !(enabled() && live("gmail")());
+    mailBtn.hidden = !(enabled() && can("gmail"));
   }
   drawSetting();
   H.later(2500, refresh);
   H.tick(10 * 60 * 1000, () => { if (!state.ready) refresh(); else drawSetting(); });
 
-  B.google = { refresh, state: () => ({ ...state }), queue: () => queue.slice(), tools };
+  B.google = { refresh, state: () => ({ ...state }), queue: () => queue.slice(), tools, asks: ASKS };
 })();

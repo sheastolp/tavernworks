@@ -112,12 +112,28 @@ const SEARCH_PER_IP = { n: 120, ms: 10 * 60 * 1000 };
 const HEAR_PER_IP = { n: 120, ms: 10 * 60 * 1000 };
 const SPEAK_PER_IP = { n: 600, ms: 10 * 60 * 1000 };   // one request per sentence Rosin says
 
-// The chat's two web tools. Whatever tools a request asks for, the model
-// only ever gets these.
+// The chat's two web tools. A page's own version of these is never used: the model gets these, and,
+// once Google is set up here, Rosin's Google tools (see pickTools). Nothing else goes through.
 const WEB_TOOLS = [
   { type: "function", function: { name: "web_search", description: "Search the web with DuckDuckGo. Returns titles, links and short snippets of the top results.", parameters: { type: "object", properties: { query: { type: "string", description: "What to search for, worded like you'd type it into a search engine" } }, required: ["query"] } } },
   { type: "function", function: { name: "fetch_page", description: "Read a web page as plain text. Use it on a link from web_search when the snippets don't hold the answer.", parameters: { type: "object", properties: { url: { type: "string", description: "The page's full http(s) address" } }, required: ["url"] } } },
 ];
+
+// Rosin's Google tools (rosin/rosin-google.js) come from the page and go to the model when Google is set up here.
+// They only ask; the page runs them through /api/google, where nothing sends or changes without Sheamus's tap.
+const GOOGLE_TOOL_NAMES = new Set(["gmail_search", "gmail_read", "email_write", "email_change", "calendar_list", "calendar_add", "drive_search", "drive_read"]);
+function pickTools(asked) {
+  const names = asked.map((t) => String(t?.function?.name || ""));
+  const out = WEB_TOOLS.filter((t) => names.includes(t.function.name));
+  for (const t of asked) {
+    const f = t?.function, name = String(f?.name || "");
+    if (!GOOGLE_TOOL_NAMES.has(name) || !GOOGLE || out.some((x) => x.function.name === name)) continue;
+    const params = f.parameters && typeof f.parameters === "object" && f.parameters.type === "object" ? f.parameters : null;
+    if (!params || JSON.stringify(params).length > 2000) continue;
+    out.push({ type: "function", function: { name, description: String(f.description || "").slice(0, 400), parameters: params } });
+  }
+  return out.length ? out : WEB_TOOLS;   // older pages ask with other names: they get the web tools, as before
+}
 
 // ── Small helpers ──
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -284,7 +300,7 @@ async function cleanChat(b) {
   const out = { model, messages, stream: true, keep_alive: "30m", options };
   // Qwen3 thinks out loud by default and can spend the whole turn on it, which reads as no answer at all.
   if (/^qwen3(?!.*(instruct|coder))/i.test(model)) out.think = false;
-  if (Array.isArray(b.tools) && b.tools.length) out.tools = WEB_TOOLS;
+  if (Array.isArray(b.tools) && b.tools.length) out.tools = pickTools(b.tools);
   return out;
 }
 
