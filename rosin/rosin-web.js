@@ -359,11 +359,22 @@
       .replace(/[*_#`~>|]+/g, "").replace(/\s+/g, " ").trim();
   }
   const say = { queue: [], playing: false, streamDone: true, onIdle: null, gen: 0, src: null };
+  // Each reply's label: how long Rosin took to start answering, then the clock time, e.g. "12 s · 12:31 AM".
+  // Shown before the reply in the chat history and the subtitles, never spoken, and left out in OBS and the widget.
+  const clockOf = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const tookOf = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s} s` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+  const stampOf = (took, at) => (took >= 0 ? tookOf(took) + " · " : "") + clockOf(at);
+  let replyStamp = "";   // the label for the reply being spoken right now
+  const subsEl = $("subs");
+  function showSubs(text, stamp) {
+    if (stamp && !R.OBS) subsEl.dataset.stamp = `[${stamp}]`; else delete subsEl.dataset.stamp;
+    R.subs(text);
+  }
   function speakLine(raw) {
     const face = [...raw.matchAll(TAG_RE)].map((m) => m[1].toLowerCase()).find((t) => KNOWN.includes(t));
     const text = forSpeech(raw);
     if (!text && !face) return;
-    const item = { text, face };
+    const item = { text, face, stamp: replyStamp };
     const lv = text && S.voiceOn && !R.MUTE ? laptopVoice() : "";
     if (lv) item.clip = fetchClip(text, lv);   // start fetching now, while earlier lines are still playing
     say.queue.push(item);
@@ -381,7 +392,7 @@
     R.thinking(false);
     if (item.face) R.setExpression(item.face, 8000);
     if (!item.text) { nextLine(); return; }
-    R.subs(item.text);
+    showSubs(item.text, item.stamp);
     R.talking(true);
     const fallbackMs = (600 + item.text.length * 75) / Math.max(0.5, S.rate);
     if (item.clip && S.voiceOn && !R.MUTE) { playClip(item, fallbackMs); return; }
@@ -441,7 +452,8 @@
     R.thinking(true); R.status(idle ? "Rosin's got something to say…" : S.model === "pool" ? "Rosin is thinking (the AI Pool is bigger, so it's slower)…" : "Rosin is thinking…");
     lastNote = "";
     say.streamDone = false;
-    let raw = "", spoken = 0, last = null;
+    let raw = "", spoken = 0, last = null, tookMs = -1, firstAt = 0;
+    replyStamp = "";
     // A big model on the laptop can take a while before its first word: show it's still working, never just go quiet.
     const started = Date.now();
     // A stopwatch that ticks every second and names the model that's actually working on it.
@@ -475,7 +487,10 @@
       for (let round = 0; ; round++) {
         if (round >= MAX_TOOL_ROUNDS) tools = null;
         let r;
-        try { r = last = await streamChat(messages, tools, ctl.signal, (piece) => { raw += piece; feed(false); }, onThink); }
+        try { r = last = await streamChat(messages, tools, ctl.signal, (piece) => {
+          if (tookMs < 0 && piece.trim()) { firstAt = Date.now(); tookMs = firstAt - started; replyStamp = stampOf(tookMs, firstAt); }
+          raw += piece; feed(false);
+        }, onThink); }
         catch (e) {
           if (tools && /does not support tools/i.test(e.message)) { tools = null; S.web = false; save("web"); syncSettings(); round--; continue; }
           throw e;
@@ -494,7 +509,8 @@
           : last?.reason === "length" ? "The model ran out of room before answering." + other
           : "Rosin went quiet: the model sent back an empty answer." + other);
       }
-      history.push(idle ? { role: "assistant", content: answer, at: Date.now(), idle: true } : { role: "assistant", content: answer, at: Date.now() });
+      const meta = { at: firstAt || Date.now(), took: tookMs };
+      history.push(idle ? { role: "assistant", content: answer, ...meta, idle: true } : { role: "assistant", content: answer, ...meta });
       saveHistory(); drawLog();
       R.status(lastNote || `Ready · ${modelName()}`);
     } catch (e) {
@@ -503,14 +519,14 @@
       else if (idle) { R.status(online ? `Ready · ${modelName()}` : "Can't reach the AI laptop right now. It may be asleep; I'll keep trying."); }   // a line nobody asked for fails quietly
       else {
         const msg = e instanceof TypeError ? "Lost the connection to the AI laptop." : (e.message || "Something went wrong talking to the AI laptop.");
-        R.status(msg, true); R.subs(R.OBS ? "" : msg); R.setExpression("confused", 4000);
-        if (!R.OBS) later(9000, () => { if (!busy && !say.playing) R.subs(""); });
+        R.status(msg, true); showSubs(R.OBS ? "" : msg); R.setExpression("confused", 4000);
+        if (!R.OBS) later(9000, () => { if (!busy && !say.playing) showSubs(""); });
       }
       if (!idle && history.length && history[history.length - 1].role === "user" && visible().trim()) {
         history.push({ role: "assistant", content: visible().trim() + " …", at: Date.now() }); saveHistory(); drawLog();
       }
     } finally {
-      clearInterval(slow);
+      clearInterval(slow); replyStamp = "";
       if (busy === ctl) busy = null;
       say.streamDone = true;
       if (!say.playing && say.onIdle) { const f = say.onIdle; say.onIdle = null; f(); }
@@ -519,7 +535,7 @@
   }
   function stop() {
     if (busy) { busy.abort(); busy = null; R.status("Stopped"); }
-    hush(); R.thinking(false); R.subs("");
+    hush(); R.thinking(false); showSubs("");
   }
   // Resolves when Rosin has finished saying the current reply.
   const whenQuiet = () => new Promise((ok) => { if (!busy && !say.playing) ok(); else say.onIdle = ok; });
@@ -551,7 +567,7 @@
   }
   function showHeard(text, final) {
     const box = sayBox(); if (box) box.value = text;
-    $("subs").classList.toggle("listening", !final); R.subs(text);
+    $("subs").classList.toggle("listening", !final); showSubs(text);
   }
   // The mic button (and Space) call these: a press starts or finishes; letting go after a long hold finishes.
   function micStart() {
@@ -592,7 +608,7 @@
       }
       return;
     }
-    R.subs("");
+    showSubs("");
     // The browser heard nothing: once its speech service fails, or comes back empty twice, use the laptop if it can.
     if (ear.mode === "browser" && S.stt !== "browser") {
       const broken = /network|service-not-allowed|language-not-supported|not-supported/.test(ear.error) || ++ear.emptyRuns >= 2;
@@ -930,7 +946,7 @@
   else KA.screen(S.awake);
   chanIn.addEventListener("change", () => { S.channel = chanIn.value.trim().replace(/^#/, "").toLowerCase(); save("channel"); twitchConnect(); });
   twBox.addEventListener("change", () => { S.twitchOn = twBox.checked; save("twitchOn"); if (S.twitchOn && !S.channel) chanIn.focus(); twitchConnect(); if (!S.twitchOn) R.status(`Ready · ${modelName()}`); });
-  newBtn.addEventListener("click", () => { stop(); history = []; saveHistory(); drawLog(); R.subs(""); R.status("New chat. Rosin forgot everything. Mostly."); });
+  newBtn.addEventListener("click", () => { stop(); history = []; saveHistory(); drawLog(); showSubs(""); R.status("New chat. Rosin forgot everything. Mostly."); });
 
   // History tray and its button, next to the faces button.
   const log = document.createElement("div"); log.id = "log"; log.className = "tray"; log.hidden = true; log.setAttribute("aria-label", "Chat history");
@@ -949,7 +965,13 @@
     log.replaceChildren(...history.slice(-60).map((m) => {
       const p = document.createElement("p"); p.className = m.role === "user" ? "you" : "rosin";
       const b = document.createElement("b"); b.textContent = (m.role === "user" ? (m.who || "You") : "Rosin") + ": ";
-      p.append(b, m.role === "user" ? m.content : m.content.replace(/\[[a-zA-Z]+\]\s*/g, "").replace(/[*_`#]+/g, ""));
+      p.append(b);
+      if (m.role !== "user" && m.at) {
+        const t = document.createElement("span"); t.className = "stamp";
+        t.textContent = `[${stampOf(typeof m.took === "number" ? m.took : -1, m.at)}] `;
+        p.append(t);
+      }
+      p.append(m.role === "user" ? m.content : m.content.replace(/\[[a-zA-Z]+\]\s*/g, "").replace(/[*_`#]+/g, ""));
       return p;
     }));
     log.scrollTop = log.scrollHeight;
