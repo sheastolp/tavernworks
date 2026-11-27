@@ -911,17 +911,17 @@
   .back{font-size:14px;color:var(--muted)}
   .back:hover{color:var(--gold2)}
   header{padding:48px 0 32px;text-align:center}
-.orb{font-size:64px;line-height:1}
-.sign{display:inline-block;font-family:Cinzel,serif;font-size:13px;letter-spacing:.3em;color:var(--gold);border:1px solid var(--line);padding:6px 16px;border-radius:999px;background:rgba(0,0,0,.25);margin:20px 0 18px}
-h1{font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,8.5vw,72px);line-height:1.05;background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent}
-.tag{margin:16px auto 0;color:var(--muted);font-size:18px;max-width:600px}
-.divider{display:flex;align-items:center;gap:14px;margin:52px 0 22px;font-family:Cinzel,serif;color:var(--gold);letter-spacing:.15em;font-size:15px}
-.divider::before,.divider::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
-.scroll{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px}
-.scroll p{color:var(--muted)}
-.scroll p + p{margin-top:12px}
-footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
-footer span{color:var(--gold)}
+  .orb{font-size:64px;line-height:1}
+  .sign{display:inline-block;font-family:Cinzel,serif;font-size:13px;letter-spacing:.3em;color:var(--gold);border:1px solid var(--line);padding:6px 16px;border-radius:999px;background:rgba(0,0,0,.25);margin:20px 0 18px}
+  h1{font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,8.5vw,72px);line-height:1.05;background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#a8722a);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tag{margin:16px auto 0;color:var(--muted);font-size:18px;max-width:600px}
+  .divider{display:flex;align-items:center;gap:14px;margin:52px 0 22px;font-family:Cinzel,serif;color:var(--gold);letter-spacing:.15em;font-size:15px}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  .scroll{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px}
+  .scroll p{color:var(--muted)}
+  .scroll p + p{margin-top:12px}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:56px 0 40px}
+  footer span{color:var(--gold)}
 </style>
 </head>
 <body>
@@ -941,11 +941,6 @@ footer span{color:var(--gold)}
     <p>What it does, who it's for, and why it exists.</p>
   </div>
 
-  <div class="divider">VIDEO DEMOS</div>
-  <div class="scroll">
-    <p class="video-grid">${videoHtml}</p>
-  </div>
-
   <footer>Tavernworks · <span>tavernworks.dev</span> · Homebrewed by Stoned Sheamus<br><a href="/overlays/">Overlays</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
 </div>
 </body>
@@ -960,7 +955,6 @@ footer span{color:var(--gold)}
         <label class="f">Icon (emoji)<input type="text" id="np-icon" value="✨"></label>
         <label class="f">Key<input type="text" id="np-key" placeholder="dragons-hoard" spellcheck="false"></label>
         <label class="f">Card<select id="np-sec"><option value="workbench">The Workbench</option><option value="bots">The Bots</option><option value="">No card</option></select></label>
-        <label class="f">Video URL<input type="text" id="np-video" placeholder="https://example.com/video.mp4"></label>
       </div>
       <label class="f row"><input type="checkbox" id="np-page" checked> Start a page at <code id="np-path">/key/</code></label>
       <label class="f row"><input type="checkbox" id="np-change" checked> Add it to The Path So Far, dated today</label>
@@ -972,7 +966,6 @@ footer span{color:var(--gold)}
       name.focus();
       d.querySelector("#np-go").onclick = () => {
         const nm = name.value.trim(), k = slug(key.value), icon = d.querySelector("#np-icon").value.trim() || "✨", sec = d.querySelector("#np-sec").value;
-        const videoUrl = d.querySelector("#np-video").value.trim();
         const page = d.querySelector("#np-page").checked;
         if (!nm) { toast("Give it a name.", true); return; }
         if (!k || projectOf(k)) { toast(k ? "Another project already uses that key." : "Give it a key.", true); return; }
@@ -981,7 +974,6 @@ footer span{color:var(--gold)}
         data.projects.push({
           key: k, icon, name: nm, href, dir: page ? k : "",
           card: sec ? { section: sec, title: nm, text: "", href: "", url: page ? "tavernworks.dev/" + k : "", pill: "BETA", pillKind: "beta", links: [] } : null,
-          videoUrl: videoUrl,
         });
         if (d.querySelector("#np-change").checked) data.changes.push({ lane: k, date: today(), title: nm + " project page", href });
         dataChanged();
