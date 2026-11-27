@@ -1,9 +1,15 @@
 # Builds Rosin's Android app (APK with the home screen widget) and Windows app (installer + portable exe).
-# The files are attached to each run under "Artifacts".
+# The files are attached to each run under "Artifacts". Pushing a tag like rosin-v1.0.1 also publishes them
+# as a GitHub release, with fixed names so the "latest" links below always point at the newest build:
+#   https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin.apk
+#   https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin-Setup.exe
+#   https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin-Portable.exe
 name: Rosin apps
 
 on:
   push:
+    branches: ["**"]
+    tags: ["rosin-v*"]
     paths: ["apps/**", ".github/workflows/rosin-apps.yml"]
   workflow_dispatch:
 
@@ -62,3 +68,34 @@ jobs:
         with:
           name: Rosin-windows
           path: apps/rosin-desktop/dist/*.exe
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/rosin-v')
+    needs: [android, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: built
+      - name: Give the files fixed names
+        run: |
+          mkdir out
+          cp built/Rosin-android/*.apk out/Rosin.apk
+          cp built/Rosin-windows/Rosin-Setup-*.exe out/Rosin-Setup.exe
+          cp built/Rosin-windows/Rosin-Portable-*.exe out/Rosin-Portable.exe
+          ls -la out
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Rosin apps ${{ github.ref_name }}
+          make_latest: true
+          files: out/*
+          body: |
+            Rosin, Stoned Sheamus's AI co-host, as an app.
+
+            - **Rosin.apk**: Android app with a home screen widget (Talk and Type buttons, Rosin's face and last reply). Uses the phone's own voice and speech-to-text.
+            - **Rosin-Setup.exe**: Windows app, a floating see-through window that stays on top, with a tray icon. Ctrl+Alt+R show/hide, Ctrl+Alt+T talk, Ctrl+Alt+Y type.
+            - **Rosin-Portable.exe**: the same Windows app without installing.
+
+            Enter your laptop key once under the ⋯ menu in each app.

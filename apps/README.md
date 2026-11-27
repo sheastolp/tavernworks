@@ -11,3 +11,10 @@ changed on the site shows up in them too. The laptop key is entered once in each
 
 GitHub Actions (`.github/workflows/rosin-apps.yml`) builds both on every push that touches `apps/`.
 The APK and the Windows installer are under "Artifacts" on the run's page.
+
+Direct downloads (newest release):
+- Android: https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin.apk
+- Windows installer: https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin-Setup.exe
+- Windows portable: https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin-Portable.exe
+
+To publish a new release, push a tag starting with `rosin-v` (for example `rosin-v1.0.2`).
