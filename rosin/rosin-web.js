@@ -583,7 +583,7 @@
     const ctl = new AbortController(); busy = ctl;
     // "sent" is exactly what the model saw (with the app's note), replayed as is so the laptop's cache still matches it.
     if (!idle) {
-      const at = Date.now(), msg = { role: "user", content: (got.media === "video" ? "🎞 " : "") + text, sent: turnNote() + (extra ? extra + "\n\n" : "") + text, who: opts.who || S.name || "You", at };
+      const at = Date.now(), msg = { role: "user", content: (got.media === "video" ? "🎞 " : "") + text, sent: turnNote() + (extra ? extra + "\n\n" : "") + text, who: opts.who || S.name || "You", at, ...(opts.fromChat ? {} : { mine: true }) };
       if (pics.length) { msg.pics = pics.length; PICS.set(at, pics); }
       history.push(msg); saveHistory(); drawLog();
     }
@@ -703,6 +703,45 @@
       say.streamDone = true;
       if (!say.playing && say.onIdle) { const f = say.onIdle; say.onIdle = null; f(); }
     }
+    return true;
+  }
+  // ---------- sending the newest message again ----------
+  // The newest message from the person at this device: never a Twitch chat line, never Rosin's own quiet-moment lines.
+  // Older saved messages have no "mine" mark, so for those it goes by the name and the Twitch label.
+  const isMine = (m) => m.role === "user" && (m.mine === true ||
+    (m.mine === undefined && !/\(Twitch\)$/.test(m.who || "") && !/^\[Twitch chat\]/.test(m.content || "") && (m.who || "You") === (S.name || "You")));
+  function newestMine() { for (let i = history.length - 1; i >= 0; i--) if (isMine(history[i])) return i; return -1; }
+  // Sends it again just as it went (words, photos, and what Rosin was told about a video), and Rosin answers it fresh:
+  // the old answer to it is swapped for the new one, so the chat (and what Rosin remembers) doesn't hold the question twice.
+  // Never while Rosin is still working out a reply. If it can't go (laptop asleep, locked), nothing is taken away.
+  let resending = false;
+  async function resend() {
+    if (busy || resending) return false;
+    resending = true;
+    try { return await resendNow(); } finally { resending = false; }
+  }
+  async function resendNow() {
+    const i = newestMine(); if (i < 0) return false;
+    const m = history[i];
+    const video = /^🎞\uFE0F?\s/u.test(m.content || "");
+    const text = String(m.content || "").replace(/^🎞\uFE0F?\s/u, "");
+    // What came with it besides the words (a video's frames and sound, written out) sits between the app's note and the words.
+    let extra = "";
+    if (m.sent && m.sent.endsWith(text)) extra = m.sent.slice(0, m.sent.length - text.length).replace(/^\(\([^\n]*?\)\)\n\n/, "").trim();
+    const pics = (PICS.get(m.at) || []).slice();
+    const lost = m.pics && !PICS.has(m.at);   // photos only last until the page reloads
+    const images = Object.assign(pics, { extra, media: video ? "video" : "",
+      note: lost ? (m.pics > 1 ? "The photos didn't come along (they only last until the page reloads), so I resent the words." : "The photo didn't come along (it only lasts until the page reloads), so I resent the words.") : "" });
+    const cut = history[i + 1]?.role === "assistant" && !history[i + 1].idle ? 2 : 1;
+    const removed = history.splice(i, cut);
+    saveHistory(); drawLog();
+    const went = await ask(text, { images, who: m.who });
+    if (!went) {   // it never went out: put things back as they were
+      const at = Math.min(i, history.length);
+      history.splice(at, 0, ...removed); saveHistory(); drawLog();
+      return false;
+    }
+    PICS.delete(m.at);
     return true;
   }
   function stop() {
@@ -1329,6 +1368,7 @@
   function drawLog() {
     if (log.hidden) return;
     if (!history.length) { log.innerHTML = '<p class="empty">Nothing yet. Say hi to Rosin.</p>'; return; }
+    const mineAt = newestMine();
     log.replaceChildren(...history.slice(-60).map((m) => {
       const p = document.createElement("p"); p.className = m.role === "user" ? "you" : "rosin";
       const b = document.createElement("b"); b.textContent = (m.role === "user" ? (m.who || "You") : "Rosin") + ": ";
@@ -1349,6 +1389,13 @@
         v.addEventListener("click", () => window.dispatchEvent(new CustomEvent("rosin-video", { detail: m.video })));
         p.append(" ", v);
       }
+      if (m === history[mineAt]) {
+        const r = document.createElement("button"); r.type = "button"; r.className = "log-resend"; r.textContent = "↻ Resend";
+        r.setAttribute("aria-label", "Send this again so Rosin answers it again");
+        r.disabled = !!busy; r.title = busy ? "Rosin is still answering" : "Send this again so Rosin answers it again";
+        r.addEventListener("click", () => { unlock(); resend(); });
+        p.append(" ", r);
+      }
       return p;
     }));
     log.scrollTop = log.scrollHeight;
@@ -1359,6 +1406,8 @@
   setInterval(() => {
     const talking = !!busy || say.playing;
     if (sendBtn.dataset.stop !== String(talking)) { sendBtn.dataset.stop = String(talking); sendBtn.textContent = talking ? "Stop" : "Send"; }
+    const again = log.querySelector(".log-resend");   // greyed out while a reply is still being worked out
+    if (again && again.disabled !== !!busy) { again.disabled = !!busy; again.title = busy ? "Rosin is still answering" : "Send this again so Rosin answers it again"; }
   }, 250);
   sendBtn.addEventListener("click", (e) => {
     if (sendBtn.dataset.stop === "true" && !$("say-text").value.trim()) { e.preventDefault(); stop(); R.status("Stopped"); }
@@ -1384,7 +1433,7 @@
     videoSpec: null, tap: null,
     extraTools, extraPrompt, extraContext, noTools: () => noTools, history: () => history,
   };
-  window.RosinBrain = { say: (t) => { unlock(); ask(t); }, micStart, micStop, stop, ask, chatterNow, settings: S, _hooks: hooks,
+  window.RosinBrain = { say: (t) => { unlock(); ask(t); }, resend: () => { unlock(); return resend(); }, micStart, micStop, stop, ask, chatterNow, settings: S, _hooks: hooks,
     // The apps can switch this as they go, e.g. "android-widget" while a reply is for the home screen widget.
     get device() { return deviceNow(); },
     setDevice(kind) { kind = String(kind || "").toLowerCase(); forcedDevice = !!DEVICES[kind]; device = DEVICES[kind] ? kind : detectDevice(); return device; } };

@@ -348,9 +348,13 @@ html.buddy #g-card, html.buddy #btn-mail { display: none !important; }
 #pics .pic-wait.vid::after { content: attr(data-label); position: absolute; left: 0; right: 0; bottom: 0; padding: 1px 3px;
           font-size: 11px; text-align: center; background: rgba(0, 0, 0, 0.7); color: #fff; pointer-events: none; }
 #log .log-video { display: inline-block; margin-top: 4px; min-height: 36px; font-size: 14px; }
+/* resend on the newest message you sent: big enough to tap on a phone or the Legion Go 2 */
+#log .log-resend { display: inline-flex; align-items: center; margin-top: 4px; min-height: 44px; min-width: 44px; padding: 0 14px;
+          font-size: 14px; border-radius: 10px; white-space: nowrap; cursor: pointer; }
+#log .log-resend:disabled { opacity: 0.45; cursor: default; }
 #btn-clip[aria-pressed="true"] { background: #7a1b24; border-color: #ff9a8a; }
 @media (max-height: 500px) { #v-card .v-media iframe, #v-card .v-media > video { max-height: calc(100vh - 230px); } }
-body.obs #v-card, body.obs #btn-clip, body.obs #btn-make-video, body.obs .log-video { display: none !important; }
+body.obs #v-card, body.obs #btn-clip, body.obs #btn-make-video, body.obs .log-video, body.obs .log-resend { display: none !important; }
 html.buddy #v-card, html.buddy #btn-clip, html.buddy #btn-make-video { display: none !important; }
 
 /* initiative mode (rosin-initiative.js): ⋯ → Initiative, and the Auto-Mod card */
