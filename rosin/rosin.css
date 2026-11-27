@@ -232,3 +232,31 @@ body.obs #callpill, html.buddy #callpill { display: none !important; }
 }
 #compass button { min-height: 44px; }
 html.buddy #compass, body.obs #compass { display: none !important; }
+
+/* changes to Rosin's own app (rosin-self.js): ⋯ → Changes */
+#changes { flex-direction: column; flex-wrap: nowrap; align-items: stretch; max-height: 56vh; overflow-y: auto; overflow-x: hidden;
+           overscroll-behavior: contain; background: rgba(12, 10, 6, 0.92); border: 1px solid #3b2414; border-radius: 12px; padding: 10px 12px; }
+#changes > * { min-width: 0; }
+#changes p { margin: 0; font-size: 15px; line-height: 1.4; }
+#changes .field { flex: 0 0 auto; }
+#changes textarea { min-height: 44px; padding: 8px 10px; border-radius: 12px; border: 1px solid #6b3b1f; box-sizing: border-box;
+  background: rgba(20, 14, 8, 0.95); color: inherit; font: inherit; font-size: 16px; width: 100%; resize: vertical; }
+#changes button { min-height: 44px; }
+#changes .chg-dim { opacity: 0.72; font-size: 13px; }
+#changes .chg-note, #changes .chg-why { color: #ffcf8a; font-size: 13px; overflow-wrap: anywhere; }
+#changes .chg-list { display: flex; flex-direction: column; gap: 8px; }
+#changes .chg-item { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 10px; border: 1px solid #3b2414;
+  background: rgba(30, 20, 10, 0.7); font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+#changes .chg-item.ready { border-color: #d0602a; }
+#changes .chg-item.rejected, #changes .chg-item.undone { opacity: 0.65; }
+#changes .chg-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+#changes .chg-btns button { flex: 1 1 90px; }
+#changes .chg-primary { background: #8a3414; border-color: #d0602a; }
+#changes .chg-diff { margin: 0; max-height: 34vh; overflow: auto; font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace; white-space: pre;
+  background: rgba(0, 0, 0, 0.45); border-radius: 8px; padding: 8px; -webkit-overflow-scrolling: touch; }
+#changes .chg-diff .add { color: #9be29b; background: rgba(60, 140, 60, 0.18); }
+#changes .chg-diff .del { color: #ff9a8a; background: rgba(160, 50, 40, 0.18); }
+#changes .chg-diff .meta { color: #c9a26b; opacity: 0.8; }
+html.buddy #changes, body.obs #changes, html.buddy #btn-changes, body.obs #btn-changes { display: none !important; }
+#more .quick { flex-wrap: wrap; }
+#more .quick button { min-width: 72px; white-space: nowrap; }

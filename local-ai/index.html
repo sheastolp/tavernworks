@@ -263,6 +263,19 @@ sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart local-ai-gate</pr
 <pre>curl -s http://127.0.0.1:8793/health</pre>
         <p class="note">That last one should say <code>"voices":true</code>. Then in Rosin, open <b>⋯ → Rosin's voice</b> and pick one under <b>Natural voices from the laptop</b>. Each device keeps its own pick, speed and pitch.</p>
       </li>
+      <li id="changes">
+        <h4>Optional: let Rosin change its own app</h4>
+        <p>Ask Rosin for a change ("make the Talk button bigger") or type one under <b>⋯ → Changes</b>. The laptop's model drafts it as a pull request on GitHub that touches only Rosin's own page files, and it waits there until you tap <b>Approve</b> in Rosin. <b>Undo</b> puts it back. The gate needs a GitHub token that can only reach the tavernworks repo, and the token stays on the laptop.</p>
+        <p>First make the token on GitHub: your picture → <b>Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token</b>. Name it "Rosin self-updates", pick an expiry, set <b>Repository access</b> to <b>Only select repositories → tavernworks</b>, and under <b>Repository permissions</b> set <b>Contents</b> and <b>Pull requests</b> to <b>Read and write</b>. Generate it and copy it. Then on the laptop, one at a time as root. This one waits for you to paste the token and press Enter, without showing it:</p>
+<pre>read -rs -p "Paste the GitHub token: " T &amp;&amp; printf '%s' "$T" &gt; /etc/local-ai-gate/github-token &amp;&amp; unset T &amp;&amp; echo saved</pre>
+<pre>chmod 600 /etc/local-ai-gate/github-token</pre>
+<pre>printf '[Service]\nLoadCredential=github-token:/etc/local-ai-gate/github-token\n' &gt; /etc/systemd/system/local-ai-gate.service.d/github.conf</pre>
+<pre>curl -fsSL https://tavernworks.dev/local-ai/gate/server.mjs -o /opt/local-ai-gate/server.mjs</pre>
+<pre>systemctl daemon-reload</pre>
+<pre>systemctl restart local-ai-gate</pre>
+<pre>curl -s http://127.0.0.1:8793/health</pre>
+        <p class="note">That last one should say <code>"selfUpdate":true</code>. Drafting uses the AI Pool's model when it's up (or an Ollama model) and takes a few minutes; Rosin tells you when one is ready. The first reply after a draft is slower, because the model has to read Rosin's prompt again. To stop it, delete the token on GitHub or remove <code>github.conf</code> and restart the gate.</p>
+      </li>
       <li>
         <h4>Optional: Claude Code, for me only</h4>
         <p>The Claude Code bridge adds Claude Code to the chat's model list. It runs Claude Code on my Claude account as its own <code>claude-bridge</code> user, in a work folder on the laptop, and only answers requests carrying its token. It can run commands, so it stays on the tailnet and never goes through the gate. Setup in its <a href="https://github.com/sheastolp/tavernworks/tree/main/local-ai/claude-bridge" target="_blank" rel="noopener" style="color:var(--gold2)">README</a>; then paste the token into the chat's <b>⚙ Settings</b> on a device that's on the tailnet:</p>

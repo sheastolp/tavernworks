@@ -340,8 +340,10 @@
   btn.addEventListener("click", () => {
     const open = panel.hidden; panel.hidden = !open; btn.setAttribute("aria-expanded", String(open));
     if (open) {
-      const more = document.getElementById("more");   // one tray at a time keeps a phone screen usable
-      if (more && !more.hidden) { more.hidden = true; document.getElementById("btn-more")?.setAttribute("aria-expanded", "false"); }
+      for (const id of ["more", "changes"]) {   // one tray at a time keeps a phone screen usable
+        const t = document.getElementById(id);
+        if (t && !t.hidden) { t.hidden = true; document.querySelector(`[aria-controls="${id}"]`)?.setAttribute("aria-expanded", "false"); }
+      }
       refreshEvents(); draw(); fetchLink(false);
     }
     H.fit();

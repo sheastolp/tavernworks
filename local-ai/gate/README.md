@@ -25,6 +25,15 @@ delete models. This server only lets the chat through:
   directly. Only public internet addresses: nothing on the laptop, the home
   network or the tailnet. Up to 4 redirects, 3 MB, and it must be a calendar.
   It counts against the search limit.
+- `GET /api/self` and `POST /api/self/draft|approve|reject|undo|diff|retry|dismiss`
+  let Rosin change its own app. A model on the laptop drafts a request as
+  search-and-replace edits to `rosin/*.js|css|html` only; the gate checks them
+  (no outside web addresses, nothing touching the laptop key, the JavaScript
+  must still parse, at most 260 lines) and opens a pull request on a
+  `rosin-self/…` branch. Approve merges it, Reject closes it, Undo puts the
+  files back as they were. Needs a fine-grained GitHub token for the
+  tavernworks repo only (Contents and Pull requests: read and write), loaded
+  as the systemd credential `github-token`. Setup: tavernworks.dev/local-ai/#changes
 - Everything except `/health` needs the laptop key, sent as an `X-Gate-Key`
   header. With no key set up, the gate turns every chat away. 20 wrong keys
   from one address lock that address out for 10 minutes.
@@ -154,6 +163,10 @@ Environment variables, set with `Environment=` in the service file:
 | `WHISPER_MODEL` | `Systran/faster-distil-whisper-small.en` | Which Whisper model it uses |
 | `WHISPER_LANGUAGE` | `en` | The language it listens for |
 | `WHISPER_PROMPT` | names like Rosin and Sheamus | A hint that steers how Whisper spells names it would mishear |
+| `SELF_UPDATE_REPO` | `sheastolp/tavernworks` | The repo Rosin's own changes go to |
+| `SELF_UPDATE_BRANCH` | `main` | The branch they're drafted against and merged into |
+| `SELF_UPDATE_MODEL` | the AI Pool, else the usual fallback | An Ollama model to draft changes with when the pool is off |
+| `GITHUB_TOKEN_FILE` | (the `github-token` credential) | Another place to read the GitHub token from |
 | `TTS_URL` | same as `WHISPER_URL` | The speaches server that speaks Rosin's natural voices, for `POST /api/speak` |
 | `TTS_MODEL` | `speaches-ai/Kokoro-82M-v1.0-ONNX` | The voice model downloaded into it |
 | `GATE_ORIGINS` | `https://tavernworks.dev` | Websites allowed to use it, comma-separated |
