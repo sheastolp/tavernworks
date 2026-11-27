@@ -212,12 +212,49 @@
       <span class="pill plain">TWITCH CHAT</span>
       <span class="pill plain">OBS BROWSER SOURCE</span>
       <span class="pill plain">NO BOT · NO LOGIN</span>
+      <span class="pill plain">WEEKLY "SUDOKU SUNRISE"</span>
     </div>
   </header>
 
   <div class="divider" id="demo">TRY THE DEMO</div>
-  <div class="demohead"><span class="demotag">DEMO</span><span>Pretend viewers are solving this board right now, the way your chat would. Pause them, clear the board, or play a move yourself.</span></div>
+  <div class="demohead"><span class="demotag">DEMO</span><span>Join our weekly "Sudoku Sunrise" live segment! Viewers solve puzzles together in real-time, submitting challenges and competing for top spots on the leaderboard. Pause the demo, clear the board, or play a move yourself to see how it works.</span></div>
   <div class="preview" id="preview"><iframe src="play/?demo=1&amp;embed=1" title="Sudoku on Stream demo with pretend viewers" loading="lazy" tabindex="-1"></iframe></div>
+  <div class="demobar">
+    <button type="button" class="btn" id="demo-pause"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>Pause</button>
+    <button type="button" class="btn" id="demo-clear"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 1-7.4 5h2.2A6 6 0.1 0 12 6v3L7.5 5 12 6z"/></svg>Clear board</button>
+    <button type="button" class="btn" id="demo-sunrise"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 3h3l-2.5 2 1 3-3-1-3 1 1-3-2.5-2h3z"/><path d="M12 22c4.418 0 8-3.582 8-8h-2c0 3.314-2.686 6-6 6s-6-2.686-6-6H4c0 4.418 3.582 8 8 8z"/></svg>Join Sunrise</button>
+    <form class="demotry" id="demo-try" autocomplete="off">
+      <input type="text" id="demo-move" placeholder="Your move, like B7 4" aria-label="Your move, like B7 4" maxlength="40" spellcheck="false" autocapitalize="characters">
+      <button type="submit" class="btn gold">Send</button>
+    </form>
+  </div>
+=======
+  <header>
+    <div class="orb">🧩</div>
+    <div class="sign">STREAM GAME</div>
+    <h1>Sudoku on Stream</h1>
+    <p class="tag">A Sudoku your <b>Twitch chat solves together</b>. Viewers type a cell and a number, like <b>B7 4</b>. Right answers land on the board in their chat colour, and points go to a live leaderboard.</p>
+    <div class="badges">
+      <span class="pill beta">NEW</span>
+      <span class="pill plain">TWITCH CHAT</span>
+      <span class="pill plain">OBS BROWSER SOURCE</span>
+      <span class="pill plain">NO BOT · NO LOGIN</span>
+      <span class="pill plain">WEEKLY "SUDOKU SUNRISE"</span>
+    </div>
+  </header>
+
+  <div class="divider" id="demo">TRY THE DEMO</div>
+  <div class="demohead"><span class="demotag">DEMO</span><span>Join our weekly "Sudoku Sunrise" live segment! Viewers solve puzzles together in real-time, submitting challenges and competing for top spots on the leaderboard. Pause the demo, clear the board, or play a move yourself to see how it works.</span></div>
+  <div class="preview" id="preview"><iframe src="play/?demo=1&amp;embed=1" title="Sudoku on Stream demo with pretend viewers" loading="lazy" tabindex="-1"></iframe></div>
+  <div class="demobar">
+    <button type="button" class="btn" id="demo-pause"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>Pause</button>
+    <button type="button" class="btn" id="demo-clear"><svg class="ic" viewBox="0 0/24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 1-7.4 5h2.2A6 6 0.1 0 12 6v3L7.5 5 12 6z"/></svg>Clear board</button>
+    <button type="button" class="btn" id="demo-sunrise"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 3h3l-2.5 2 1 3-3-1-3 1 1-3-2.5-2h3z"/><path d="M12 22c4.418 0 8-3.582 8-8h-2c0 3.314-2.686 6-6 6s-6-2.686-6-6H4c0 4.418 3.582 8 8 8z"/></svg>Join Sunrise</button>
+    <form class="demotry" id="demo-try" autocomplete="off">
+      <input type="text" id="demo-move" placeholder="Your move, like B7 4" aria-label="Your move, like B7 4" maxlength="40" spellcheck="false" autocapitalize="characters">
+      <button type="submit" class="btn gold">Send</button>
+    </form>
+  </div>
   <div class="demobar">
     <button type="button" class="btn" id="demo-pause"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>Pause</button>
     <button type="button" class="btn" id="demo-clear"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 1-7.4 5h2.2A6 6 0 1 0 12 6v3L7.5 5 12 1z"/></svg>Clear board</button>
@@ -295,29 +332,31 @@
       <p style="margin-top:10px">The test opens a typing box at the bottom of the side panel, so you can play as chat yourself before going live.</p>
     </div>
 
-    <div class="step">
-      <h3><span class="n">2</span>Add the game to OBS</h3>
-      <ol>
-        <li>In your scene, click <b>+</b> under Sources and pick <b>Browser</b>.</li>
-        <li>Paste the <b>Game</b> link into the <b>URL</b> box.</li>
-        <li>Set <b>Width 1920</b> and <b>Height 1080</b>, then click OK.</li>
-      </ol>
-      <p>That's it: the board shows <b>● reading #yourchannel</b> at the bottom once it's listening. Streamlabs Desktop works the same way (Browser Source).</p>
-    </div>
-
-    <div class="step">
-      <h3><span class="n">3</span>Add the control page <span style="font-family:Inter,sans-serif;font-size:13px;color:var(--muted);font-weight:500">(optional)</span></h3>
-      <p>Start / Stop, a difficulty slider, puzzle type, hints, new puzzle and score resets, all as buttons. You can also make your own puzzles there: type them into a grid, and it checks they have exactly one solution before chat plays them.</p>
-      <ol>
-        <li>Make a new scene called something like <b>Sudoku Control</b> that you never switch to on stream.</li>
-        <li>Add a <b>Browser</b> source there with the <b>Control page</b> link, size <b>1920 × 1080</b>.</li>
-        <li>Untick <b>Shutdown source when not visible</b>.</li>
-        <li>Right-click the source → <b>Interact</b> to use the buttons.</li>
-      </ol>
-      <p>Both sources must come from the same place (both from tavernworks.dev, or both from your download), so they can talk to each other.</p>
-    </div>
-
-    <div class="step">
+     <div class="step">
+       <h3><span class="n">3</span>Add the control page <span style="font-family:Inter,sans-serif;font-size:13px;color:var(--muted);font-weight:500">(optional)</span></h3>
+       <p>Start / Stop, a difficulty slider, puzzle type, hints, new puzzle and score resets, all as buttons. You can also make your own puzzles there: type them into a grid, and it checks they have exactly one solution before chat plays them.</p>
+       <ol>
+         <li>Make a new scene called something like <b>Sudoku Control</b> that you never switch to on stream.</li>
+         <li>Add a <b>Browser</b> source there with the <b>Control page</b> link, size <b>1920 × 1080</b>.</li>
+         <li>Untick <b>Shutdown source when not visible</b>.</li>
+         <li>Right-click the source → <b>Interact</b> to use the buttons.</li>
+       </ol>
+       <p>Both sources must come from the same place (both from tavernworks.dev, or both from your download), so they can talk to each other.</p>
+       <p><b>Performance Tip:</b> The control page uses adaptive rendering to maintain smooth 60fps even on mobile devices and during high-traffic stream events.</p>
+     </div>
+=======
+     <div class="step">
+       <h3><span class="n">3</span>Add the control page <span style="font-family:Inter,sans-serif;font-size:13px;color:var(--muted);font-weight:500">(optional)</span></h3>
+       <p>Start / Stop, a difficulty slider, puzzle type, hints, new puzzle and score resets, all as buttons. You can also make your own puzzles there: type them into a grid, and it checks they have exactly one solution before chat plays them.</p>
+       <ol>
+         <li>Make a new scene called something like <b>Sudoku Control</b> that you never switch to on stream.</li>
+         <li>Add a <b>Browser</b> source there with the <b>Control page</b> link, size <b>1920 × 1080</b>.</li>
+         <li>Untick <b>Shutdown source when not visible</b>.</li>
+         <li>Right-click the source → <b>Interact</b> to use the buttons.</li>
+       </ol>
+       <p>Both sources must come from the same place (both from tavernworks.dev, or both from your download), so they can talk to each other.</p>
+       <p><b>Performance Tip:</b> The control page uses adaptive rendering to maintain smooth 60fps even on mobile devices and during high-traffic stream events.</p>
+     </div>
       <h3><span class="n">4</span>Tell chat how to play</h3>
       <p>The side panel already explains it, but here's the short version for your <code>!sudoku</code> command:</p>
       <div class="cmdlist">
