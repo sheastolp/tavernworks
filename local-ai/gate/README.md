@@ -31,15 +31,19 @@ delete models. This server only lets the chat through:
   they're left out and the reply starts with a note. `pool-eyes.sh` starts
   the pool with the vision file named like its model (see the Local AI page,
   "let Rosin see photos").
-- `GET /api/self` and `POST /api/self/draft|approve|reject|undo|diff|retry|dismiss`
-  let Rosin change its own app. A model on the laptop drafts a request as
-  search-and-replace edits to `rosin/*.js|css|html` only; the gate checks them
-  (no outside web addresses, nothing touching the laptop key, the JavaScript
-  must still parse, at most 260 lines) and opens a pull request on a
+- `GET /api/self` and `POST /api/self/draft|approve|reject|undo|diff|retry|dismiss|repos`
+  let Rosin change its own app and any other repo the GitHub token reaches.
+  The repo is the one picked, or the one the request names, else tavernworks.
+  A model on the laptop drafts search-and-replace edits; the gate checks them
+  (never workflows, dotfiles like `.env`, secrets, keys, settings or build
+  config, or the gate itself; code must still parse, JSON must be valid, at
+  most 260 lines; in Rosin's page also no outside web addresses or eval, which
+  in other repos show as warnings on the card) and opens a pull request on a
   `rosin-self/…` branch. Approve merges it, Reject closes it, Undo puts the
-  files back as they were. Needs a fine-grained GitHub token for the
-  tavernworks repo only (Contents and Pull requests: read and write), loaded
-  as the systemd credential `github-token`. Setup: tavernworks.dev/local-ai/#changes
+  files back as they were. Needs a fine-grained GitHub token for the repos
+  Rosin may change (Contents and Pull requests: read and write), loaded as the
+  systemd credential `github-token`, read once when the gate starts; stray
+  paste codes, quotes and spaces around it are removed. Setup: tavernworks.dev/local-ai/#changes
 - Everything except `/health` needs the laptop key, sent as an `X-Gate-Key`
   header. With no key set up, the gate turns every chat away. 20 wrong keys
   from one address lock that address out for 10 minutes.

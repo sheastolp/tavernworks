@@ -1,9 +1,10 @@
 /* rosin-self.js: Rosin changing its own app, with Sheamus's OK (load after rosin-web.js).
  *
  * Ask for a change under ⋯ → Changes, or just ask Rosin in conversation ("can you make the Talk button bigger?").
- * The laptop's gate has a model draft it as small edits to Rosin's own files (rosin/*.js, *.css, *.html only), checks
- * them, and opens a pull request on GitHub. Here you see what it'll do and the exact changes, then Approve (it goes live
- * on tavernworks.dev/rosin and in the apps), Reject, or later Undo. Nothing goes live without your Approve.
+ * It can be Rosin's own app or any other repo the laptop's GitHub token reaches: pick one, or let Rosin work it out
+ * from what you asked (the card always says which). The laptop's gate has a model draft it as small edits, checks
+ * them (never workflows, secrets or settings files), and opens a pull request on GitHub. Here you see what it'll do
+ * and the exact changes, then Approve (it merges), Reject, or later Undo. Nothing merges without your Approve.
  * The GitHub token stays on the laptop; this page only ever talks to the gate with the laptop key.
  */
 (() => {
@@ -12,7 +13,7 @@
   const { store } = H;
   const SEC = 1000, MIN = 60 * SEC;
   let on = store.get("self.on", true);
-  let items = [], ready = null, gateOld = false, lastErr = "";
+  let items = [], repos = [], ready = null, gateOld = false, lastErr = "";
   const seen = new Set(store.get("self.seen", []));   // changes Rosin has already told you about
   const justApproved = new Set();
 
@@ -28,6 +29,7 @@
     try {
       const j = await call("/api/self");
       gateOld = false; ready = !!j.ready; items = j.items || []; lastErr = "";
+      if (Array.isArray(j.repos) && j.repos.length) { repos = j.repos; drawRepos(); }
       announce();
     } catch (e) { if (!gateOld) lastErr = e.message; }
     draw();
@@ -35,17 +37,18 @@
   // Tell Sheamus once when a draft is ready (or couldn't be made), in Rosin's own voice. Never on air.
   function announce() {
     for (const it of items) {
-      const key = it.pr ? "pr" + it.pr : it.state === "failed" ? "f" + it.id : "";
+      const key = it.pr ? "pr:" + keyOf(it) : it.state === "failed" ? "f" + it.id : "";
       if (!key || seen.has(key) || !(it.state === "ready" || it.state === "failed")) continue;
       seen.add(key); store.set("self.seen", [...seen].slice(-200));
       if (H.onAir() || Date.now() - it.at > 30 * MIN) continue;
       const cue = it.state === "ready"
-        ? `App change: you've drafted "${clean(it.title)}" and it's waiting for their OK under the ⋯ menu, Changes. Tell them in one short, cheerful sentence. Don't say it's done.`
+        ? `${it.self === false ? `Change to their ${clean(it.repoName)} project` : "App change"}: you've drafted "${clean(it.title)}" and it's waiting for their OK under the ⋯ menu, Changes. Tell them in one short, cheerful sentence. Don't say it's done.`
         : `App change: you couldn't draft "${clean(it.request)}". The reason: ${clean(it.error)}. Tell them in one short sentence, and that they can reword it under the ⋯ menu, Changes.`;
       H.speakUp(cue);
       break;
     }
   }
+  const keyOf = (it) => (it.pr ? `${it.repo || ""}#${it.pr}` : it.id);
   const clean = (t) => String(t || "").replace(/[\[\]{}<>"]/g, "").replace(/\s+/g, " ").trim().slice(0, 160);
 
   // Rosin offering a change in conversation ("[change: …]" at the end of its reply).
@@ -54,14 +57,14 @@
     const want = String(e.detail?.want || "").trim();
     if (want.length < 4) return;
     const context = H.recent(6).map((m) => `${m.role === "user" ? m.who || "Sheamus" : "Rosin"}: ${m.text}`).join("\n");
-    try { await call("/api/self/draft", { request: want, from: "chat", context }); R.status("Drafting that change on the laptop. It'll wait for your OK under ⋯ → Changes."); }
+    try { await call("/api/self/draft", { request: want, from: "chat", context, repo: "auto" }); R.status("Drafting that change on the laptop. It'll wait for your OK under ⋯ → Changes."); }
     catch (err) { R.status(err.message, true); }
     refresh();
   });
 
   // ---------- the Changes panel (⋯ → Changes) ----------
   const panel = document.createElement("div"); panel.id = "changes"; panel.className = "tray"; panel.hidden = true;
-  panel.setAttribute("aria-label", "Changes to Rosin's app");
+  panel.setAttribute("aria-label", "Changes to Rosin's app and your repos");
   document.getElementById("controls").insertBefore(panel, document.getElementById("say"));
   const btn = Object.assign(document.createElement("button"), { type: "button", id: "btn-changes", textContent: "Changes" });
   btn.setAttribute("aria-expanded", "false"); btn.setAttribute("aria-controls", "changes");
@@ -81,14 +84,23 @@
 
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const button = (label, fn, cls) => { const b = el("button", cls, label); b.type = "button"; b.addEventListener("click", fn); return b; };
-  const intro = el("p", "chg-dim", "Ask for a change to Rosin's own app, here or just by asking Rosin. The laptop drafts it, and nothing goes live until you approve it here.");
+  const intro = el("p", "chg-dim", "Ask for a change to Rosin's app or any of your repos, here or just by asking Rosin. The laptop drafts it, and nothing merges until you approve it here.");
   const setup = el("p", "chg-note");
   const wantIn = Object.assign(document.createElement("textarea"), { rows: 2, placeholder: "e.g. make the Talk button bigger, or add a Stop button next to Send", maxLength: 600 });
+  // Which repo: "Let Rosin pick" works it out from the words (Rosin's own app when nothing else is named).
+  const repoIn = document.createElement("select"); repoIn.id = "chg-repo";
+  function drawRepos() {
+    const want = store.get("self.repo", "auto");
+    repoIn.replaceChildren(new Option("Let Rosin pick", "auto"), ...repos.map((r) => new Option(r.self ? `${r.name} (Rosin's app)` : r.name, r.full)));
+    repoIn.value = repos.some((r) => r.full === want) ? want : "auto";
+  }
+  drawRepos();
+  repoIn.addEventListener("change", () => store.set("self.repo", repoIn.value));
   const draftBtn = button("Draft it", async () => {
     const request = wantIn.value.trim();
     if (request.length < 4) { wantIn.focus(); return; }
     draftBtn.disabled = true;
-    try { await call("/api/self/draft", { request, from: "panel" }); wantIn.value = ""; lastErr = ""; }
+    try { await call("/api/self/draft", { request, from: "panel", repo: repoIn.value || "auto" }); wantIn.value = ""; lastErr = ""; }
     catch (e) { lastErr = e.message; }
     draftBtn.disabled = false; refresh();
   }, "chg-primary");
@@ -98,59 +110,75 @@
   const errEl = el("p", "chg-note");
   const list = el("div", "chg-list");
   const closeBtn = button("Close", () => { openPanel(false); btn.focus(); }, "chg-close");
-  panel.append(intro, setup, H.field("What should change?", wantIn), draftBtn, onChk, errEl, list, closeBtn);
+  panel.append(intro, setup, H.field("Where", repoIn), H.field("What should change?", wantIn), draftBtn, onChk, errEl, list, closeBtn);
 
-  const ago = (t) => { const s = Math.max(0, Math.round((Date.now() - t) / SEC)); return s < 60 ? `${s} s` : s < 3600 ? `${Math.round(s / 60)} min` : s < 86400 ? `${Math.round(s / 3600)} h` : `${Math.round(s / 86400)} d`; };
+  // A running clock (7 s, 1:05, 1:02:03; days after that), redrawn in place every second by the tick below.
+  const ago = (t) => {
+    const s = Math.max(0, Math.floor((Date.now() - t) / SEC)), mm = String(Math.floor(s / 60) % 60).padStart(2, "0"), ss = String(s % 60).padStart(2, "0");
+    return s < 60 ? `${s} s` : s < 3600 ? `${Math.floor(s / 60)}:${ss}` : s < 86400 ? `${Math.floor(s / 3600)}:${mm}:${ss}` : `${Math.floor(s / 86400)} d`;
+  };
+  const clock = (t, before = "", after = "") => { const e = el("span", "chg-t", before + ago(t) + after); e.dataset.since = t; e.dataset.before = before; e.dataset.after = after; return e; };
+  const openDiffs = new Set();   // diffs left open stay open when the list is redrawn
   async function act(kind, it, ask) {
     if (ask && !confirm(ask)) return;
-    errBox.delete(it.pr || it.id);
-    busyOn.add(it.pr || it.id); draw();
+    const key = keyOf(it);
+    errBox.delete(key);
+    busyOn.add(key); draw();
     try {
-      await call("/api/self/" + kind, it.pr ? { pr: it.pr } : { id: it.id });
-      if (kind === "approve") justApproved.add(it.pr);
-    } catch (e) { errBox.set(it.pr || it.id, e.message); }
-    busyOn.delete(it.pr || it.id);
+      await call("/api/self/" + kind, it.pr ? { repo: it.repo, pr: it.pr } : { id: it.id });
+      if (kind === "approve") justApproved.add(key);
+    } catch (e) { errBox.set(key, e.message); }
+    busyOn.delete(key);
     await refresh();
   }
   const errBox = new Map(), busyOn = new Set(), diffs = new Map();
   async function toggleDiff(it, box, b) {
-    if (!box.hidden) { box.hidden = true; b.textContent = "Show changes"; return; }
+    if (!box.hidden) { box.hidden = true; b.textContent = "Show changes"; openDiffs.delete(keyOf(it)); return; }
     b.textContent = "Loading…";
     try {
-      if (!diffs.has(it.pr)) diffs.set(it.pr, (await call("/api/self/diff", { pr: it.pr })).diff || "");
-      box.replaceChildren(...diffs.get(it.pr).split("\n").slice(0, 400).map((l) => el("span", /^\+(?!\+\+)/.test(l) ? "add" : /^-(?!--)/.test(l) ? "del" : /^@@|^diff |^index |^\+\+\+|^---/.test(l) ? "meta" : "", l + "\n")));
-      box.hidden = false; b.textContent = "Hide changes";
-    } catch (e) { b.textContent = "Show changes"; errBox.set(it.pr, e.message); draw(); }
+      const key = keyOf(it);
+      if (!diffs.has(key)) diffs.set(key, (await call("/api/self/diff", { repo: it.repo, pr: it.pr })).diff || "");
+      box.replaceChildren(...diffs.get(key).split("\n").slice(0, 400).map((l) => el("span", /^\+(?!\+\+)/.test(l) ? "add" : /^-(?!--)/.test(l) ? "del" : /^@@|^diff |^index |^\+\+\+|^---/.test(l) ? "meta" : "", l + "\n")));
+      box.hidden = false; b.textContent = "Hide changes"; openDiffs.add(key);
+    } catch (e) { b.textContent = "Show changes"; errBox.set(keyOf(it), e.message); draw(); }
   }
   function card(it) {
-    const c = el("div", "chg-item " + it.state), key = it.pr || it.id, busy = busyOn.has(key);
+    const c = el("div", "chg-item " + it.state), key = keyOf(it), busy = busyOn.has(key);
     const head = el("b", "", it.title || it.request);
+    // Which repo, always, so a change Rosin aimed at the wrong place is easy to spot before Approve.
+    const where = it.repoName ? el("div", "chg-repo" + (it.self === false ? " other" : ""), it.self === false ? "In " + it.repoName : "Rosin's app") : null;
     const row = el("div", "chg-btns");
     if (it.state === "queued" || it.state === "drafting") {
-      c.append(el("b", "", "Drafting: " + it.request), el("div", "chg-dim", `${it.step || "Waiting its turn"} · ${ago(it.started || it.at)}`));
+      const line = el("div", "chg-dim", `${it.step || "Waiting its turn"} · `); line.append(clock(it.started || it.at));
+      c.append(el("b", "", "Drafting: " + it.request), ...(where ? [where] : []), line);
       return c;
     }
     if (it.state === "failed") {
       c.append(el("b", "", "Couldn't draft: " + it.request), el("div", "chg-why", it.error));
       row.append(button("Try again", () => act("retry", it)), button("Dismiss", () => act("dismiss", it)));
     } else if (it.state === "ready") {
-      c.append(head, el("div", "", it.summary));
+      c.append(head, ...(where ? [where] : []), el("div", "", it.summary));
       if (it.request) c.append(el("div", "chg-dim", "You asked: " + it.request));
+      for (const w of it.warnings || []) c.append(el("div", "chg-why", "Look closely: " + w));
       const box = el("pre", "chg-diff"); box.hidden = true;
       const show = button("Show changes", () => toggleDiff(it, box, show));
+      if (openDiffs.has(key) && diffs.has(key)) { box.hidden = true; toggleDiff(it, box, show); }
       row.append(show,
-        button("Approve", () => act("approve", it, `Put "${it.title}" live on Rosin? It reaches the site and the apps in about a minute.`), "chg-primary"),
+        button("Approve", () => act("approve", it, it.self === false ? `Merge "${it.title}" into ${it.repoName}?` : `Put "${it.title}" live on Rosin? It reaches the site and the apps in about a minute.`), "chg-primary"),
         button("Reject", () => act("reject", it, `Turn down "${it.title}"?`)));
       c.append(row, box);
       if (busy) row.querySelectorAll("button").forEach((b) => (b.disabled = true));
       if (errBox.get(key)) c.append(el("div", "chg-why", errBox.get(key)));
       return c;
     } else if (it.state === "live") {
-      c.append(head, el("div", "chg-dim", (justApproved.has(it.pr) ? "Going live now. Reload Rosin in about a minute to get it." : `Live for ${ago(it.doneAt || it.at)}.`)));
-      if (justApproved.has(it.pr)) row.append(button("Reload Rosin", () => location.reload(), "chg-primary"));
-      row.append(button("Undo", () => act("undo", it, `Undo "${it.title}"? Rosin goes back to how it was before it.`)));
+      const fresh = justApproved.has(key), other = it.self === false;
+      const line = el("div", "chg-dim", fresh ? (other ? `Merged into ${it.repoName}.` : "Going live now. Reload Rosin in about a minute to get it.") : "");
+      if (!fresh) line.append(clock(it.doneAt || it.at, `${other ? "Merged" : "Live"} for `, "."));
+      c.append(head, ...(where ? [where] : []), line);
+      if (fresh && !other) row.append(button("Reload Rosin", () => location.reload(), "chg-primary"));
+      row.append(button("Undo", () => act("undo", it, other ? `Undo "${it.title}"? ${it.repoName} goes back to how it was before it.` : `Undo "${it.title}"? Rosin goes back to how it was before it.`)));
     } else {
-      c.append(head, el("div", "chg-dim", it.state === "undone" ? "Undone." : "Turned down."));
+      c.append(head, ...(where ? [where] : []), el("div", "chg-dim", it.state === "undone" ? "Undone." : "Turned down."));
     }
     if (row.childNodes.length) c.append(row);
     if (busy) row.querySelectorAll("button").forEach((b) => (b.disabled = true));
@@ -170,14 +198,16 @@
     const done = items.filter((x) => !open.includes(x)).slice(0, 6);
     list.replaceChildren(...(open.length || done.length ? [...open, ...done].map(card) : [el("p", "chg-dim", ready ? "No changes yet." : "")]));
   }
-  // Every few seconds while the panel is open or something is drafting, otherwise every couple of minutes for the count.
+  // The laptop is asked every 2 s while something is drafting, every 5 s while the panel is open, else every 2 minutes for the count.
   let lastPoll = 0;
-  H.tick(5000, () => {
-    const active = !panel.hidden || items.some((x) => x.state === "queued" || x.state === "drafting");
-    if (Date.now() - lastPoll < (active ? 5000 : 2 * MIN) - 200) { if (!panel.hidden) draw(); return; }
+  // The clocks on the cards move every second (in place, so an open diff or a tap isn't disturbed).
+  H.tick(1000, () => {
+    if (!panel.hidden) for (const t of panel.querySelectorAll(".chg-t")) t.textContent = t.dataset.before + ago(Number(t.dataset.since)) + t.dataset.after;
+    const drafting = items.some((x) => x.state === "queued" || x.state === "drafting"), active = drafting || !panel.hidden;
+    if (Date.now() - lastPoll < (drafting ? 2000 : active ? 5000 : 2 * MIN) - 200) return;   // a draft's step shows within 2 s
     lastPoll = Date.now(); refresh();
   });
   H.later(4000, refresh);
 
-  B.self = { refresh, items: () => items.slice(), open: () => openPanel(true), draw };
+  B.self = { refresh, items: () => items.slice(), repos: () => repos.slice(), open: () => openPanel(true), draw };
 })();
