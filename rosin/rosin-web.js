@@ -222,14 +222,15 @@
     // drop off. They only live in this tab's memory: after a reload Rosin remembers what it said about them.
     const users = list.filter((m) => m.role === "user");
     const recentUsers = new Set(users.slice(-PIC_TURNS));
-    return list.map((m) => {
-      const out = { role: m.role, content: m.sent || m.content };
-      if (m.pics && recentUsers.has(m) && PICS.has(m.at)) out.images = PICS.get(m.at);
-      return out;
-    });
+    let room = MAX_CTX_PICS;   // the laptop takes so many images per chat: the newest go, older ones drop off
+    return list.map((m) => ({ role: m.role, content: m.sent || m.content, m })).reverse().map((o) => {
+      const m = o.m; delete o.m;
+      if (m.pics && recentUsers.has(m) && PICS.has(m.at)) { const imgs = PICS.get(m.at).slice(0, room); if (imgs.length) { o.images = imgs; room -= imgs.length; } }
+      return o;
+    }).reverse();
   }
   // Photos sent to Rosin (base64 JPEG, no "data:" prefix), by the time of the message they came with.
-  const PICS = new Map(), PIC_TURNS = 4;
+  const PICS = new Map(), PIC_TURNS = 4, MAX_CTX_PICS = 8;
 
   // ---------- talking to the laptop ----------
   let models = [], online = false, locked = false, lastNote = "";
@@ -464,7 +465,7 @@
   const noteHeads = [...Object.values(LENS).map((l) => l.split(",")[0].split(":")[0]), ...Object.values(MOODS), ON_CALL, "reply in one short sentence", "reply in \\d+ (?:or|to) \\d+ (?:short |fun )?sentences"];
   const NOTE_BITS = new RegExp(`\\s*[:;,]?\\s*(?:on (?:a|an|the|his|your) [^:\\n]{1,60}:\\s*)?(?:${noteHeads.map((h, i) => i >= noteHeads.length - 2 ? h : esc(h)).join("|")})(?:[,:][^\\n)]{0,120}?(?:something|private|sentences?|words)\\b)*\\s*\\)?\\)?`, "gi");
   function tidy(t) {
-    return t.replace(/\[\s*change\s*:[^\]]*(?:\]|$)/gi, "")
+    return t.replace(/\[\s*change\s*:[^\]]*(?:\]|$)/gi, "").replace(/\[\s*video\s*:[^\]]*(?:\]|$)/gi, "")
       // Labels small models sometimes echo from the app's length note ("Small talk:", "(real help)"): never shown or said.
       .replace(/[(\[*_]*\b(?:small[\s-]?talk|real[\s-]?help)\b(?:\s+mode)?[)\]*_]*\s*[:\-–—][*_]*\s*/gi, "")
       .replace(/[(\[]\s*(?:small[\s-]?talk|real[\s-]?help)\s*[)\]]\s*/gi, "").replace(/\(\([\s\S]*?(?:\)\)|$)/g, "").replace(NOTE_BITS, "").replace(/\s*\)\)/g, "").replace(/\[\s*twitch chat\s*\]\s*(?:[\w-]{1,25}\s*:\s*)?/gi, "")
@@ -523,6 +524,7 @@
     if (!buf) { speakDevice(item, fallbackMs); return; }
     const ctx = R.audio(), src = ctx.createBufferSource();
     src.buffer = buf; src.connect(ctx.destination); say.src = src;
+    try { hooks.tap?.(src); } catch {}   // a clip being recorded (rosin-video.js) hears the laptop's voice too
     let finished = false;
     const m = curMood(), beat = tick(Math.round(220 - 120 * m), () => R.pulse(0.3 + 0.3 * m + Math.random() * 0.4));   // the eye flickers while it talks
     const done = () => { if (finished) return; finished = true; beat(); cancelGuard(); if (say.src === src) say.src = null; if (gen === say.gen) nextLine(); };
@@ -558,8 +560,10 @@
     text = String(text || "").trim();
     const idle = !!opts.idle;   // Rosin speaking up on its own: text is the hidden cue, never shown or kept
     // Photos waiting in the chat box (rosin-eyes.js) go with what this person says next, never with Twitch chat or idle lines.
-    const got = !idle && !opts.fromChat ? opts.images || hooks.takePics?.(text) || [] : [];
-    const pics = got.slice(0, 3), picNote = got.note || "";   // note: why waiting photos couldn't go
+    // A video waiting there (rosin-video.js) is watched first: its frames come as one picture, and "extra" says what's in it.
+    const got = !idle && !opts.fromChat ? opts.images || (await hooks.takePics?.(text)) || [] : [];
+    const pics = got.slice(0, 3), picNote = got.note || "", extra = got.extra || "";   // note: why waiting photos couldn't go
+    if (!text && got.media === "video") text = "Take a look at this video.";
     if (!text && pics.length) text = pics.length > 1 ? "Take a look at these." : "Take a look at this.";
     if (!text) return false;
     if (busy) { if (opts.fromChat || idle) return false; stop(); }
@@ -575,7 +579,7 @@
     const ctl = new AbortController(); busy = ctl;
     // "sent" is exactly what the model saw (with the app's note), replayed as is so the laptop's cache still matches it.
     if (!idle) {
-      const at = Date.now(), msg = { role: "user", content: text, sent: turnNote() + text, who: opts.who || S.name || "You", at };
+      const at = Date.now(), msg = { role: "user", content: (got.media === "video" ? "🎞 " : "") + text, sent: turnNote() + (extra ? extra + "\n\n" : "") + text, who: opts.who || S.name || "You", at };
       if (pics.length) { msg.pics = pics.length; PICS.set(at, pics); }
       history.push(msg); saveHistory(); drawLog();
     }
@@ -609,6 +613,7 @@
       else { BOUNDARY.lastIndex = spoken; let m; while ((m = BOUNDARY.exec(t))) end = m.index + m[0].length; }
       if (end > spoken) { const chunk = t.slice(spoken, end); spoken = end; if (chunk.trim()) speakLine(chunk); }
     };
+    let seen = text;   // what this turn showed Rosin (his words, fetched notes, tool results): the only places a video link may come from
     try {
       const messages = [{ role: "system", content: systemPrompt(S.model) }, ...contextHistory()];
       if (idle) messages.push({ role: "user", content: turnNote() + "[Quiet moment] " + text });
@@ -616,6 +621,7 @@
         const notes = (await Promise.all(extraContext.map(async (f) => { try { return (await f(text, ctl.signal)) || ""; } catch { return ""; } }))).filter(Boolean);
         const lastMsg = messages[messages.length - 1];
         if (notes.length && lastMsg?.role === "user") messages[messages.length - 1] = { ...lastMsg, content: notes.join("\n\n") + "\n\n" + lastMsg.content };
+        seen += "\n" + notes.join("\n");
       }
       // The same tools go with idle lines too (they're part of the cached start); Rosin just doesn't use them then.
       const extras = opts.fromChat ? [] : liveExtras().map((t) => t.def);   // idle lines get them too (cached start) but can't run them
@@ -633,7 +639,10 @@
         }
         if (!r.calls.length || !tools || idle) break;
         messages.push({ role: "assistant", content: r.content, tool_calls: r.calls });
-        for (const call of r.calls) messages.push({ role: "tool", tool_name: call.function.name, content: await runTool(call, ctl.signal, { idle, fromChat: !!opts.fromChat }) });
+        for (const call of r.calls) {
+          const out = await runTool(call, ctl.signal, { idle, fromChat: !!opts.fromChat });
+          messages.push({ role: "tool", tool_name: call.function.name, content: out }); seen += "\n" + out;
+        }
         R.status("Rosin is thinking…");
       }
       feed(true);
@@ -648,7 +657,11 @@
       // "[change: …]" at the end of a reply: Rosin offering to change its own app. Only from the person at this device.
       const want = !idle && !opts.fromChat ? /\[\s*change\s*:\s*([^\]\n]{4,300})\]/i.exec(raw.replace(/<think>[\s\S]*?<\/think>/g, "")) : null;
       if (want) window.dispatchEvent(new CustomEvent("rosin-change", { detail: { want: want[1].trim(), asked: text } }));
-      const meta = { at: firstAt || Date.now(), took: tookMs };
+      // "[video: link]": Rosin showing a video it found. Only a link this turn actually gave it, never one it made up.
+      const vidTag = !idle && !opts.fromChat ? /\[\s*video\s*:\s*([^\]\s]{4,400})\s*\]/i.exec(raw.replace(/<think>[\s\S]*?<\/think>/g, "")) : null;
+      const video = vidTag && hooks.videoSpec ? hooks.videoSpec(vidTag[1], seen) : null;
+      if (video) window.dispatchEvent(new CustomEvent("rosin-video", { detail: video }));
+      const meta = { at: firstAt || Date.now(), took: tookMs, ...(video ? { video } : {}) };
       history.push(idle ? { role: "assistant", content: answer, ...meta, idle: true } : { role: "assistant", content: answer, ...meta });
       saveHistory(); drawLog();
       R.status(lastNote || `Ready · ${modelName()}`);
@@ -1299,6 +1312,11 @@
       }
       if (m.pics && !PICS.has(m.at)) p.append(m.pics > 1 ? `(${m.pics} photos) ` : "(photo) ");
       p.append(m.role === "user" ? m.content : m.content.replace(/\[[a-zA-Z]+\]\s*/g, "").replace(/[*_`#]+/g, ""));
+      if (m.video?.title) {
+        const v = document.createElement("button"); v.type = "button"; v.className = "log-video"; v.textContent = "▶ " + m.video.title;
+        v.addEventListener("click", () => window.dispatchEvent(new CustomEvent("rosin-video", { detail: m.video })));
+        p.append(" ", v);
+      }
       return p;
     }));
     log.scrollTop = log.scrollHeight;
@@ -1328,6 +1346,7 @@
     onAir: () => deviceNow() === "obs" || R.OBS || !!(S.twitchOn && S.channel),
     deviceLen: () => deviceInfo().len, name: () => S.name.trim(),
     speakUp,
+    videoSpec: null, tap: null,
     extraTools, extraPrompt, extraContext, noTools: () => noTools, history: () => history,
   };
   window.RosinBrain = { say: (t) => { unlock(); ask(t); }, micStart, micStop, stop, ask, chatterNow, settings: S, _hooks: hooks,
