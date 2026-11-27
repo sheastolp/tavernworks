@@ -189,6 +189,7 @@
       selfReady && store.get("self.on", true) ? "You can have your own app changed (its buttons, looks, settings and how it behaves), and Sheamus's other GitHub projects too. When the person you're talking with asks for a change to your app or one of those projects, or clearly wants one, say in a sentence that you'll draft it for their OK, then end your reply with one tag: [change: what to change, in one line, naming the project if it isn't your own app]. Your body is a vine orb with one eye, crystal antennae and a smoke wisp, with no ears, mouth or hands: if they name a part you don't have, ask which part they mean before tagging. Never for Twitch chat, and never say it's done: it only goes live once they approve it." : "",
       S.web ? "You can search with web_search and read a page with fetch_page. Search for news, prices, schedules, weather or anything you aren't sure of, not for things you know. Say what you found in your own words and name the site, without reading out links." : "",
       /qwen3/i.test(model) && !/instruct/i.test(model) ? "/no_think" : "",
+      "During quiet moments, notification sounds are adjusted to be softer and less intrusive, allowing the conversation to flow without sudden interruptions."
     ].filter(Boolean).join("\n");
   }
   // The part of the conversation sent with this question. It starts at a saved point that only moves when the history
