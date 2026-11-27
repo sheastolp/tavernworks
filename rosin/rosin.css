@@ -104,7 +104,7 @@ body.obs #controls, body.obs #wake, body.hide-ui #controls { display: none !impo
 #status { font-size: 13px; opacity: 0.75; text-align: center; }
 #status.err { opacity: 1; color: #ffb36b; font-weight: 600; font-size: 15px; }
 #say, #controls .row, .tray { display: flex; gap: 8px; width: min(640px, 100%); }
-#controls .row { justify-content: center; }
+#controls .row { justify-content: center; flex-wrap: wrap; }   /* six buttons: wrap on narrow phones */
 .tray { flex-wrap: wrap; justify-content: center; }
 [hidden], .tray[hidden] { display: none !important; }
 #controls button, .chk {
