@@ -21,20 +21,30 @@ class CalendarBridge(private val app: Context) {
     private val main = Handler(Looper.getMainLooper())
     private fun granted() = app.checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
 
+    private val prefs = app.getSharedPreferences("rosin_calendar", Context.MODE_PRIVATE)
+
+    /** "granted", "denied" (said no last time it asked), or "ask". */
     @JavascriptInterface
-    fun status(): String = if (granted()) "granted" else "prompt"
+    fun status(): String = when {
+        granted() -> "granted"
+        prefs.getBoolean("denied", false) -> "denied"
+        else -> "ask"
+    }
 
     /** Asks for the calendar (needs the app's screen), then tells the page with a "rosin-calendar" event. */
     @JavascriptInterface
     fun request() {
         main.post {
-            val done = { RosinHost.js("window.dispatchEvent(new Event('rosin-calendar'))") }
+            val done = {
+                RosinHost.js("window.dispatchEvent(new CustomEvent('rosin-calendar', { detail: { status: '${status()}' } }))")
+            }
             val a = RosinHost.currentActivity()
-            if (granted() || a == null) done() else a.withCalendar { done() }
+            if (granted() || a == null) done()
+            else a.withCalendar { ok -> prefs.edit().putBoolean("denied", !ok).apply(); done() }
         }
     }
 
-    /** Events between two times (ms), as JSON: [{ title, start, end, allDay }]. */
+    /** Events between two times (ms), as JSON: [{ title, start, end, allDay, calendar }]. */
     @JavascriptInterface
     fun events(from: Double, to: Double): String {
         val out = JSONArray()
@@ -45,7 +55,8 @@ class CalendarBridge(private val app: Context) {
         }.build()
         val cols = arrayOf(
             CalendarContract.Instances.TITLE, CalendarContract.Instances.BEGIN, CalendarContract.Instances.END,
-            CalendarContract.Instances.ALL_DAY, CalendarContract.Instances.SELF_ATTENDEE_STATUS
+            CalendarContract.Instances.ALL_DAY, CalendarContract.Instances.SELF_ATTENDEE_STATUS,
+            CalendarContract.Instances.STATUS, CalendarContract.Instances.CALENDAR_DISPLAY_NAME
         )
         try {
             app.contentResolver.query(uri, cols, "${CalendarContract.Instances.VISIBLE} = 1", null,
@@ -53,11 +64,13 @@ class CalendarBridge(private val app: Context) {
                 val tz = TimeZone.getDefault()
                 while (c.moveToNext() && out.length() < 200) {
                     if (c.getInt(4) == CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED) continue
+                    if (!c.isNull(5) && c.getInt(5) == CalendarContract.Events.STATUS_CANCELED) continue
                     val allDay = c.getInt(3) == 1
                     var b = c.getLong(1); var e = c.getLong(2)
                     // All-day events are stored at midnight UTC; the page wants this phone's own midnight.
                     if (allDay) { b -= tz.getOffset(b); e -= tz.getOffset(e) }
-                    out.put(JSONObject().put("title", c.getString(0) ?: "").put("start", b).put("end", e).put("allDay", allDay))
+                    out.put(JSONObject().put("title", c.getString(0) ?: "").put("start", b).put("end", e).put("allDay", allDay)
+                        .put("calendar", c.getString(6) ?: ""))
                 }
             }
         } catch (_: Exception) {}

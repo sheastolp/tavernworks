@@ -13,14 +13,20 @@ finish() {
   echo "---- emulator memory:"; a shell cat /proc/meminfo | head -3
   exit "$1"
 }
+# shot NAME [X Y]: the whole screen, small; with X Y (pixels), a close-up around that point instead.
 shot() {
   if ! alive; then echo "!!!! the emulator stopped answering before shot $1"; finish 1; fi
   a shell screencap -p /data/local/tmp/s.png && a pull -q /data/local/tmp/s.png "shot-$1.png" >/dev/null
-  python3 - "shot-$1.png" "shot-$1.jpg" <<'PY'
+  python3 - "shot-$1.png" "shot-$1.jpg" "${2:-}" "${3:-}" <<'PY'
 import sys
 from PIL import Image
 im = Image.open(sys.argv[1]).convert("RGB")
-im.thumbnail((300, 700))
+if sys.argv[3]:
+    x, y, r = int(sys.argv[3]), int(sys.argv[4]), im.width // 5
+    im = im.crop((max(0, x - r), max(0, y - r), min(im.width, x + r), min(im.height, y + r)))
+    im.thumbnail((420, 420))
+else:
+    im.thumbnail((300, 700))
 im.save(sys.argv[2], quality=55)
 PY
   echo "ROSIN-SHOT-BEGIN $1"; base64 -w 0 "shot-$1.jpg"; echo; echo "ROSIN-SHOT-END $1"
@@ -45,11 +51,19 @@ sleep 5
 shot 3-bubble
 sleep 18
 shot 4-bubble-gone
-# Tap Rosin where it starts: right edge, a bit below the middle.
+# Rosin starts at the right edge, a bit below the middle.
 read W H < <(a shell wm size | tail -1 | tr -d '\r' | sed 's/.*: //; s/x/ /')
 D=$(a shell wm density | tail -1 | tr -d '\r' | sed 's/.*: //')
-S=$(( 118 * D / 160 )); M=$(( 8 * D / 160 ))
+S=$(( 128 * D / 160 )); M=$(( 8 * D / 160 ))
 X=$(( W - M - S / 2 )); Y=$(( H * 55 / 100 + S / 2 ))
+# Close-ups: Rosin should face the middle of the screen (to the left here), then up and to the right after a drag.
+shot 4b-rosin-right $X $Y
+LX=$(( W * 18 / 100 )); LY=$(( H * 25 / 100 ))
+a shell input swipe $X $Y $LX $LY 900
+sleep 3
+shot 4c-rosin-top-left $LX $LY
+a shell input swipe $LX $LY $X $Y 900
+sleep 3
 echo "screen ${W}x${H} density $D, tapping Rosin at $X,$Y"
 a shell input tap $X $Y
 sleep 4

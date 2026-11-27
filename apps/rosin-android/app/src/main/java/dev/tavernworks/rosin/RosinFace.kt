@@ -12,7 +12,8 @@ import kotlin.math.hypot
 /**
  * Floating Rosin's picture, whose eye can turn. The faces are flat pictures, so the eye is drawn a second time,
  * shifted a little, inside the eye's own outline: the slit moves and the rim shows on the far side, as if the eye
- * turned. lookAt() takes a direction from -1 to 1 on each axis; the eye eases there over a few frames.
+ * turned. The whole picture turns that way too, in 3D, a little less than the eye, so Rosin faces the spot with its eye
+ * leading. lookAt() takes a direction from -1 to 1 on each axis; Rosin eases there over a few frames.
  */
 class RosinFace(context: Context, private val onTurned: () -> Unit) : ImageView(context) {
 
@@ -24,6 +25,13 @@ class RosinFace(context: Context, private val onTurned: () -> Unit) : ImageView(
         private val OPEN_EYES = setOf("normal", "surprise", "anger", "confused")
         /** Where Rosin's eye is in the picture, as a fraction of its width and height. */
         const val EYE_X = CX / 384f; const val EYE_Y = CY / 384f
+        /** How far the whole of Rosin turns, in degrees, left-right and up-down. */
+        private const val TURN_Y = 24f; private const val TURN_X = 14f
+    }
+
+    init {
+        // Far enough away that turning reads as a turn, not a stretch.
+        cameraDistance = 9000f * resources.displayMetrics.density
     }
 
     private var face = ""
@@ -39,6 +47,7 @@ class RosinFace(context: Context, private val onTurned: () -> Unit) : ImageView(
 
     fun lookAt(x: Float, y: Float) {
         tx = x.coerceIn(-1f, 1f); ty = y.coerceIn(-1f, 1f)
+        animate().rotationY(tx * TURN_Y).rotationX(-ty * TURN_X).setDuration(350).start()
         postInvalidateOnAnimation()
     }
 

@@ -5,13 +5,14 @@ const api = window.rosinBuddy;
 const img = document.getElementById("rosin");
 const bubble = document.getElementById("bubble");
 const FACES = ["normal", "happy", "laugh", "surprise", "anger", "confused", "stoned"];
-const gaze = document.getElementById("gaze"), gazeImg = gaze.querySelector("img");
+const gaze = document.getElementById("gaze"), gazeImg = gaze.querySelector("img"), turn = document.getElementById("turn");
 const OPEN_EYES = ["normal", "surprise", "anger", "confused"];
 
 // ---------- the eye turns toward the middle of the screen, from wherever Rosin sits ----------
 api.onGaze((g) => {
   const x = Math.max(-1, Math.min(1, Number(g && g.x) || 0)), y = Math.max(-1, Math.min(1, Number(g && g.y) || 0));
   gazeImg.style.transform = `translate(${(x * 3.7).toFixed(2)}px, ${(y * 2.7).toFixed(2)}px)`;
+  turn.style.transform = `rotateY(${(x * 24).toFixed(1)}deg) rotateX(${(-y * 14).toFixed(1)}deg)`;
 });
 
 // ---------- what Rosin is doing, from the app window ----------

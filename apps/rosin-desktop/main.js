@@ -336,6 +336,10 @@ if (process.env.ROSIN_SHOTS) app.whenReady().then(() => setTimeout(async () => {
     buddy.webContents.send("rosin-state", { face: "happy", talking: true,
       subs: "Hey, it is me, Rosin. I sit on your desktop now, and this is my speech bubble." });
     await wait(1000); await save(buddy, "1-buddy");
+    // Rosin facing the middle of the screen: up and to the left, then down and to the right.
+    buddy.webContents.send("rosin-state", { face: "normal" });
+    buddy.webContents.send("rosin-gaze", { x: -0.9, y: -0.4 }); await wait(1200); await save(buddy, "1b-buddy-up-left");
+    buddy.webContents.send("rosin-gaze", { x: 0.9, y: 0.4 }); await wait(1200); await save(buddy, "1c-buddy-down-right");
     openApp(); await wait(3000); await save(win, "2-app");
     win.setBounds({ ...win.getBounds(), width: MIN[0], height: MIN[1] }); await wait(1500); await save(win, "3-app-smallest");
     await page(`document.getElementById("btn-more") && document.getElementById("btn-more").click(); true`);

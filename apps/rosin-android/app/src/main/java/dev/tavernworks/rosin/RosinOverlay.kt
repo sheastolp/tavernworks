@@ -42,10 +42,11 @@ class RosinOverlay(private val context: Context) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private fun dp(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, context.resources.displayMetrics).toInt()
 
-    private val size = dp(118f)
+    private val size = dp(128f)   // Rosin is 118 dp; the rest is room to turn in
     private val rosin = RosinFace(context) { turned() }.apply {
         setFace("normal", R.drawable.rosin_normal)
         scaleType = ImageView.ScaleType.FIT_CENTER
+        setPadding(dp(5f), dp(5f), dp(5f), dp(5f))
         contentDescription = "Rosin. Tap to open the app."
     }
     private val bubbleText = TextView(context).apply {
@@ -171,7 +172,7 @@ class RosinOverlay(private val context: Context) {
         val dm = context.resources.displayMetrics
         val bw = bubbleLp.width.takeIf { it > 0 } ?: return
         val bh = bubbleLp.height
-        val above = rosinLp.y + dp(10f) - bh
+        val above = rosinLp.y + dp(15f) - bh
         tail.visibility = if (above >= 0) View.VISIBLE else View.INVISIBLE
         val x = (rosinLp.x + size / 2 - bw / 2).coerceIn(dp(4f), (dm.widthPixels - bw - dp(4f)).coerceAtLeast(dp(4f)))
         val y = if (above >= 0) above else rosinLp.y + size - dp(6f)
@@ -194,8 +195,9 @@ class RosinOverlay(private val context: Context) {
     /** Rosin's eye turns toward the middle of the screen from wherever Rosin floats. */
     private fun aim() {
         val (w, h) = screen()
-        val ex = rosinLp.x + size * RosinFace.EYE_X
-        val ey = rosinLp.y + size * RosinFace.EYE_Y
+        val pad = dp(5f); val img = size - 2 * pad
+        val ex = rosinLp.x + pad + img * RosinFace.EYE_X
+        val ey = rosinLp.y + pad + img * RosinFace.EYE_Y
         var vx = (w / 2f - ex) / (w / 2f)
         var vy = (h / 2f - ey) / (h / 2f)
         val len = kotlin.math.hypot(vx, vy)
