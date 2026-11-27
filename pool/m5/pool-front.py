@@ -146,6 +146,28 @@ BUILTIN_MODEL_SOURCES = {
         "url": "https://huggingface.co/mradermacher/Huihui-Qwen3.5-35B-A3B-abliterated-i1-GGUF/resolve/main/Huihui-Qwen3.5-35B-A3B-abliterated.i1-IQ3_XXS.gguf",
         "sha256": "cea1e91f2cdba2eba8f1e3a2da3edcce0172aa37c8820c421680d330633c767a",
     },
+    # Qwen2.5 32B Instruct, abliterated: the 14B's big sibling, same
+    # family and style (huihui-ai's abliteration, mradermacher's quants).
+    # Dense, so every token runs all 32B — several times slower than the
+    # 35B-A3B on this pool. IQ4_XS (~18 GB) fits the split with or
+    # without the relayed MSI; Q4_K_M (~20 GB) matches the 14B's quant
+    # when the whole pool is online.
+    "Qwen2.5-32B-Instruct-abliterated.IQ4_XS.gguf": {
+        "url": "https://huggingface.co/mradermacher/Qwen2.5-32B-Instruct-abliterated-GGUF/resolve/main/Qwen2.5-32B-Instruct-abliterated.IQ4_XS.gguf",
+        "sha256": "f157190d92a442824100873e0251db96ed77b9ceccf3d80eed46fffda3912542",
+    },
+    "Qwen2.5-32B-Instruct-abliterated.Q4_K_S.gguf": {
+        "url": "https://huggingface.co/mradermacher/Qwen2.5-32B-Instruct-abliterated-GGUF/resolve/main/Qwen2.5-32B-Instruct-abliterated.Q4_K_S.gguf",
+        "sha256": "e0c1067d72f45f2ffc8dfd282e1d4d8575c689b6fa8edb5f402701de017dc51d",
+    },
+    "Qwen2.5-32B-Instruct-abliterated.Q4_K_M.gguf": {
+        "url": "https://huggingface.co/mradermacher/Qwen2.5-32B-Instruct-abliterated-GGUF/resolve/main/Qwen2.5-32B-Instruct-abliterated.Q4_K_M.gguf",
+        "sha256": "e63617fd56c8585fe78fe05bcbb3b36e0b5ef3857e11233cdd1dc9ba56f38001",
+    },
+    "Qwen2.5-32B-Instruct-abliterated.Q3_K_L.gguf": {
+        "url": "https://huggingface.co/mradermacher/Qwen2.5-32B-Instruct-abliterated-GGUF/resolve/main/Qwen2.5-32B-Instruct-abliterated.Q3_K_L.gguf",
+        "sha256": "8f4dafa2ca29eaf914d78f1af247dd368bc408addadde6b1f72d1a6eed469e1d",
+    },
 }
 # The full pool page (the repo's pool/index.html), served at "/" so
 # pool.tavernworks.dev is the pool's home. Looked for next to this

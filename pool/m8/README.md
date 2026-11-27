@@ -28,6 +28,16 @@ Thinking stays off through the host's existing chat-template flags.
 SHA-256 check; the front's `/model.json` sends workers to the same
 Hugging Face files for their pre-download.
 
+### Qwen2.5 32B (dense), the 14B's big sibling
+
+`get-model.sh 32b` fetches Qwen2.5-32B-Instruct-abliterated IQ4_XS
+(17.9 GB, mradermacher's quants of huihui-ai's abliteration);
+`32b-q4km` the Q4_K_M (19.9 GB). With FX705 RAM at 10 GB the split
+holds about 22 GB, so IQ4_XS fits with room for an 8k context. Being
+dense, it reads all ~18 GB of weights for every token, against ~2 GB
+for the 35B-A3B, so expect it several times slower (around 1 token/s
+on this pool, unmeasured).
+
 ## 3. The FX705's own RAM joins the split
 
 The Yoga (6 GB) + the MSI (relay) + the card's 3 GB is about 12-13 GB,
