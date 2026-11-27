@@ -1209,6 +1209,13 @@ class Worker:
             self.relay.ws.close()
         return True
 
+    def _seed_say_once(self, key, msg):
+        said = getattr(self, "_seed_said", set())
+        if key not in said:
+            said.add(key)
+            self._seed_said = said
+            log(msg)
+
     def _seed_say_skip(self, why):
         if self._seed_skip_said != why:
             self._seed_skip_said = why
@@ -1261,9 +1268,35 @@ class Worker:
         model, url = info["file"], info.get("url") or ""
         size = int(info.get("size_bytes") or 0)
         data = self._seed_load()
+        cache = rpc_cache_dir()
         if data.get("complete") and data.get("model") == model and \
                 data.get("size_bytes") == size:
-            return
+            # Trust seed.json only as far as the cache still holds its
+            # files: a cleanup tool, another user account (a different
+            # LOCALAPPDATA) or an empty earlier pass leaves it "complete"
+            # with nothing behind it, and this used to return silently.
+            missing = [n for n, h in data["tensors"].items()
+                       if not os.path.isfile(os.path.join(cache, h))]
+            if data["tensors"] and not missing:
+                self._seed_say_once("ready:" + model,
+                                    "pre-download: ready — " +
+                                    str(len(data["tensors"])) +
+                                    " tensors of " + model + " in " + cache)
+                return
+            if missing:
+                log("pre-download: " + str(len(missing)) + " of " +
+                    str(len(data["tensors"])) + " cached tensors are gone "
+                    "from " + cache + " — fetching them again")
+                for n in missing:
+                    del data["tensors"][n]
+            else:
+                log("pre-download: seed.json says done but lists no "
+                    "tensors — starting over")
+            data["complete"] = False
+            self._seed_save(data)
+        self._seed_say_once("check:" + model,
+                            "pre-download: checking " + model +
+                            " (cache " + cache + ")")
         if not url:
             if self._seed_warned != model:
                 log("pre-download: the pool has no download source for " +
@@ -1280,7 +1313,6 @@ class Worker:
             log("pre-download: the pool did not say how big " + model +
                 " is — skipping")
             return
-        cache = rpc_cache_dir()
         os.makedirs(cache, exist_ok=True)
         if data.get("model") != model or data.get("size_bytes") != size:
             if data.get("tensors"):
@@ -1335,6 +1367,17 @@ class Worker:
                 and n not in data["tensors"]]
         total_big = sum(1 for (_n, _o, b) in tensors
                         if b is not None and b > SEED_MIN_BYTES)
+        if not total_big:
+            resp.close()
+            unknown = sum(1 for (_n, _o, b) in tensors if b is None)
+            self._seed_say_once("none:" + model,
+                                "pre-download: found no tensor it can "
+                                "cache in " + model + "'s header (" +
+                                str(len(tensors)) + " tensors, " +
+                                str(unknown) + " of an unknown type) — "
+                                "the split will send this slice instead; "
+                                "tell the operator")
+            return
         if not todo:
             resp.close()
             data["complete"] = True
