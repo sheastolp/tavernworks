@@ -514,18 +514,26 @@
           if (p.life >= p.max) { l.parts.splice(i, 1); continue; }
           const k = p.life / p.max;
           // Swirl round the orb (front layer a little faster: parallax), drift outwards, rise, and wobble.
-          p.a += p.dir * step * (isFront ? 0.16 : 0.1) * (1 - k * 0.5);
+          p.a += p.dir * step * (isFront ? 0.11 : 0.07) * (1 - k * 0.5);
           p.rr += step * o.r * 0.05;
-          p.rise += step * o.r * (isFront ? 0.12 : 0.08) * (0.4 + k);
+          p.rise += step * o.r * (isFront ? 0.2 : 0.14) * (0.4 + k);
           const wob = Math.sin(t * 0.7 + p.seed) * o.r * 0.06 + Math.sin(t * 1.9 + p.seed * 2) * o.r * 0.025;
           const x = o.x + Math.cos(p.a) * p.rr + wob + (isFront ? Math.sin(t * 0.3) * o.r * 0.04 : 0);
           const y = o.y + Math.sin(p.a) * p.rr * 0.8 - p.rise;
           const fade = Math.min(1, k / 0.15) * Math.min(1, (1 - k) / 0.45);   // in quickly, out slowly
           const sz = p.s * (0.8 + k * 1.8);
+          // Point each wisp the way it's drifting (mostly up, curling round), turning smoothly.
+          if (p.px !== undefined) {
+            const want = Math.atan2(y - p.py, x - p.px);
+            if (p.ang === undefined) p.ang = want;
+            else p.ang += Math.atan2(Math.sin(want - p.ang), Math.cos(want - p.ang)) * Math.min(1, step * 3);
+          }
+          p.px = x; p.py = y;
+          if (p.ang === undefined) continue;
           g.save();
-          g.globalAlpha = fade * (isFront ? 0.4 : 0.9);
-          g.translate(x, y); g.rotate(p.a + p.spin * p.life + Math.PI / 2);
-          g.scale(2.6, 0.5);    // long and thin along the way it's moving: wisps, not balls
+          g.globalAlpha = fade * (isFront ? 0.35 : 0.75);
+          g.translate(x, y); g.rotate(p.ang + p.spin * 0.3 * Math.sin(p.life + p.seed));
+          g.scale(2.1, 0.6);    // long and thin along the way it's moving: wisps, not balls
           g.drawImage(p.lit ? LIT : DEEP, -sz, -sz, sz * 2, sz * 2);
           g.restore();
         }
