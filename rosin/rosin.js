@@ -498,23 +498,26 @@
       g.clearRect(0, 0, c.width, c.height);
       if (w < 4 || h < 4) return;
       // 1. Ripple each row sideways: little at the top where it leaves the orb, more down the tail.
-      const pad = Math.ceil(w * 0.06), ow = Math.ceil(w + pad * 2), oh = Math.ceil(h + pad * 2);
+      //    Rows and columns sit on whole pixels and never overlap, so the soft edges don't stack into stripes.
+      const pad = Math.ceil(w * 0.06), dw = Math.round(w), dh = Math.round(h * (1 + Math.sin(t * 0.7) * 0.025));
+      const ow = dw + pad * 2, oh = dh + pad * 2;
       if (off.width !== ow || off.height !== oh) { off.width = ow; off.height = oh; } else og.clearRect(0, 0, ow, oh);
-      const breath = 1 + Math.sin(t * 0.7) * 0.025;
-      const rows = Math.max(24, Math.round(h / (LITE ? 4 : 3))), rs = img.height / rows, rh = h * breath / rows;
-      for (let i = 0; i < rows; i++) {
-        const yn = i / rows, amp = w * (0.008 + yn * 0.028);
+      const RH = LITE ? 4 : 3;
+      for (let y = 0; y < dh; y += RH) {
+        const hh = Math.min(RH, dh - y), yn = y / dh, amp = w * (0.008 + yn * 0.028);
         const dx = amp * Math.sin(yn * 7 + t * 1.25) + amp * 0.45 * Math.sin(yn * 15 + t * 2.1 + 1.3);
-        og.drawImage(img, 0, i * rs, img.width, rs + 0.5, pad + dx, pad + i * rh, w, rh + 0.6);
+        og.drawImage(img, 0, yn * img.height, img.width, hh / dh * img.height, pad + dx, pad + y, dw, hh);
       }
       // 2. Ripple each column up and down, so the shape curls instead of just sliding.
-      const cols = Math.max(24, Math.round(ow / (LITE ? 5 : 4))), cw = ow / cols;
+      const CW = LITE ? 5 : 4;
       const sway = Math.sin(t * 0.23) * w * 0.012, bob = Math.sin(t * 0.31 + 1) * h * 0.012;
+      const left = Math.round(x0 - pad + sway), top = y0 - pad + bob;
       g.save();
       g.globalAlpha = Math.min(1, 0.88 + Math.sin(t * 0.9) * 0.06 + glow * 0.12);
-      for (let j = 0; j < cols; j++) {
-        const xn = j / cols, dy = h * 0.022 * Math.sin(xn * 6 - t * 0.9) + h * 0.01 * Math.sin(xn * 13 + t * 1.7);
-        g.drawImage(off, j * cw, 0, cw + 0.5, oh, x0 - pad + sway + j * cw, y0 - pad + bob + dy, cw + 0.6, oh);
+      for (let x = 0; x < ow; x += CW) {
+        const ww = Math.min(CW, ow - x), xn = x / ow;
+        const dy = h * 0.022 * Math.sin(xn * 6 - t * 0.9) + h * 0.01 * Math.sin(xn * 13 + t * 1.7);
+        g.drawImage(off, x, 0, ww, oh, left + x, top + dy, ww, oh);
       }
       // 3. Now and then a puff peels off the wisp and floats up, curling, then fades.
       if (puffs.length < MAXP * (1 + glow) && Math.random() < step * (0.9 + glow * 2)) {
