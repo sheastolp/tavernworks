@@ -302,3 +302,22 @@ html.buddy #pics, html.buddy #pic-btn, body.obs #pics { display: none !important
 .g-setting .g-info { margin: 2px 0 6px 26px; font-size: 13px; opacity: 0.85; overflow-wrap: anywhere; }
 body.obs #g-card { display: none !important; }
 html.buddy #g-card, html.buddy #btn-mail { display: none !important; }
+
+/* ---------- every panel opened from the controls: fits the screen and scrolls by touch ----------
+   A column panel that centres its content pushes the overflow off its top, where it can't be scrolled to,
+   and its rows shrink to fit instead of overflowing: start at the top and keep every row its full height.
+   --tray-max leaves room above for the subtitles and a sliver of Rosin, and below for the input rows. */
+:root { --tray-max: min(56vh, calc(100vh - 300px)); }
+@supports (height: 100dvh) { :root { --tray-max: min(56dvh, calc(100dvh - 300px)); } }
+#faces, #more, #log, #compass, #changes {
+  max-height: max(140px, var(--tray-max)); overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; box-sizing: border-box;
+}
+#log, #compass, #changes { justify-content: flex-start; }
+#log > *, #compass > *, #changes > *, #changes .chg-list > * { flex-shrink: 0; }
+#more, #faces { align-content: flex-start; }
+@media (max-height: 500px) {   /* phone sideways, Legion Go 2 with a short window */
+  :root { --tray-max: calc(100vh - 150px); }
+  @supports (height: 100dvh) { :root { --tray-max: calc(100dvh - 150px); } }
+  #faces, #more, #log, #compass, #changes { width: 100%; }
+}
