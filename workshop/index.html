@@ -637,29 +637,57 @@
   }
 
   const removedCards = new WeakMap(); // so ticking "Show a card" again brings it back
-  function tabDetails(p) {
-    const old = $("tab"), fresh = old.cloneNode(false);
-    old.replaceWith(fresh);
-    const c = p.card;
-    const field = (k, label, v, ph = "", hint = "") => `<label class="f">${label}<input type="text" data-p="${k}" value="${esc(v)}" placeholder="${esc(ph)}" spellcheck="false">${hint ? `<span class="hint">${hint}</span>` : ""}</label>`;
-    const cf = (k, label, v, ph = "") => `<label class="f">${label}<input type="text" data-c="${k}" value="${esc(v)}" placeholder="${esc(ph)}"></label>`;
-    $("tab").innerHTML = `<div class="split"><div class="stack">
-      <div class="grid2">
-        ${field("name", "Name", p.name)}
-        ${field("icon", "Icon (emoji)", p.icon)}
-        ${field("key", "Key", p.key, "", "Short id the path uses for this project.")}
-        ${field("href", "Link", p.href, "/page/ or https://…", "Where the lane's name and new changes point.")}
-        ${field("dir", "Folder in the repo", p.dir, "e.g. hushwave", 'Its files, for the Files tab. "." is the whole repo; empty if it lives elsewhere.')}
-      </div>
-      <div class="sec">CARD ON THE HOME PAGE</div>
-      <label class="f row"><input type="checkbox" id="has-card"${c ? " checked" : ""}> Show a card</label>
-      ${c ? `
-      <div class="grid2">
-        <label class="f">Section<select data-c="section"><option value="bots"${c.section === "bots" ? " selected" : ""}>The Bots</option><option value="workbench"${c.section === "workbench" ? " selected" : ""}>The Workbench</option></select></label>
-        ${cf("title", "Title", c.title, p.name)}
-        ${cf("url", "Line under the text", c.url, "tavernworks.dev/…")}
-        ${cf("href", "Card link", c.href, p.href)}
-        ${cf("pill", "Badge", c.pill, "LIVE, BETA, V1.0…")}
+   function tabDetails(p) {
+     const old = $("tab"), fresh = old.cloneNode(false);
+     old.replaceWith(fresh);
+     const c = p.card;
+     const field = (k, label, v, ph = "", hint = "") => `<label class="f">${label}<input type="text" data-p="${k}" value="${esc(v)}" placeholder="${esc(ph)}" spellcheck="false">${hint ? `<span class="hint">${hint}</span>` : ""}</label>`;
+     const cf = (k, label, v, ph = "") => `<label class="f">${label}<input type="text" data-c="${k}" value="${esc(v)}" placeholder="${esc(ph)}"></label>`;
+     $("tab").innerHTML = `<div class="split"><div class="stack">
+       <div class="grid2">
+         ${field("name", "Name", p.name)}
+         ${field("icon", "Icon (emoji)", p.icon)}
+         ${field("key", "Key", p.key, "", "Short id the path uses for this project.")}
+         ${field("href", "Link", p.href, "/page/ or https://…", "Where the lane's name and new changes point.")}
+         ${field("dir", "Folder in the repo", p.dir, "e.g. hushwave", 'Its files, for the Files tab. "." is the whole repo; empty if it lives elsewhere.')}
+       </div>
+       <div class="sec">CARD ON THE HOME PAGE</div>
+       <label class="f row"><input type="checkbox" id="has-card"${c ? " checked" : ""}> Show a card</label>
+       ${c ? `
+       <div class="grid2">
+         <label class="f">Section<select data-c="section"><option value="bots"${c.section === "bots" ? " selected" : ""}>The Bots</option><option value="workbench"${c.section === "workbench" ? " selected" : ""}>The Workbench</option></select></label>
+         ${cf("title", "Title", c.title, p.name)}
+         ${cf("url", "Line under the text", c.url, "tavernworks.dev/…")}
+         ${cf("href", "Card link", c.href, p.href)}
+         ${cf("pill", "Badge", c.pill, "LIVE, BETA, V1.0…")}
+       </div>` : `<p class="hint">No card configured.</p>`}
+       <div class="sec">ARCHIVE & REMINDER SETTINGS</div>
+       <div class="grid2">
+         <label class="f row"><input type="checkbox" id="auto-archive"${p.autoArchive ? " checked" : ""}> Auto-archive offers</label>
+         <label class="f row"><input type="checkbox" id="remind-me"${p.reminder ? " checked" : ""}> Set reminders for future deals</label>
+         ${field("archiveTag", "Archive Tag", p.archiveTag || "Ripe Fruit", "e.g. Ripe Fruit", "Tag used for archived emails and offers.")}
+         ${field("reminderInterval", "Reminder Interval", p.reminderInterval || "Weekly", "e.g. Weekly, Monthly", "How often to check for new offers.")}
+       </div>
+       <div class="actions"><button class="btn sm gold" id="save-settings">Save Settings</button></div>
+     </div>`;
+     // Wire up new settings
+     const inputs = fresh.querySelectorAll("input");
+     inputs.forEach((input) => {
+       input.addEventListener("change", () => {
+         const key = input.id.replace("auto-", "").replace("-me", "").replace(/([A-Z])/g, "-$1").toLowerCase();
+         const value = input.type === "checkbox" ? input.checked : input.value;
+         p[key] = value;
+         if (key === "autoArchive") p.autoArchive = input.checked;
+         if (key === "reminder") p.reminder = input.checked;
+         if (key === "archiveTag") p.archiveTag = value;
+         if (key === "reminderInterval") p.reminderInterval = value;
+       });
+     });
+     fresh.querySelector("#save-settings").onclick = () => {
+       toast("Settings saved for " + p.name, false);
+       // In a real app, this would persist to projects.js
+     };
+   }
         <label class="f">Badge colour<select data-c="pillKind">${["live", "beta", "soon"].map((k) => `<option value="${k}"${c.pillKind === k ? " selected" : ""}>${{ live: "Green (live)", beta: "Blue (beta)", soon: "Gold (soon)" }[k]}</option>`).join("")}</select></label>
       </div>
       <label class="f">Text<textarea data-c="text" rows="4">${esc(c.text)}</textarea><span class="hint">HTML is fine: &lt;i&gt;, &lt;code&gt;, &amp;amp;.</span></label>
