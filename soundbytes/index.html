@@ -215,46 +215,50 @@
     </div>
   </div>
 
-  <div class="divider">QUESTIONS AT THE BAR</div>
-  <div class="scroll faq">
-    <details>
-      <summary>How does it work?</summary>
-      <p>When someone types <code>!sound nat20</code>, GuildScribe posts a line that starts with <code>🔊 nat20</code>. The overlay reads your chat the same way a viewer does, without logging in, and plays the sound when one of GuildScribe's own messages starts with <code>🔊</code> and a sound name. Viewers typing <code>🔊</code> themselves does nothing.</p>
-    </details>
-    <details>
-      <summary>Can I make my own commands for sounds?</summary>
-      <p>Yes. Any GuildScribe custom command whose response starts with <code>🔊</code> and a sound name plays it. <code>!dndbot add crit 🔊 nat20 CRITICAL HIT from {user}!</code> plays the Nat 20 fanfare on <code>!crit</code>. Give it its own cooldown with <code>!dndbot cooldown crit 30</code>. If you make your own <code>!sound</code> command, yours wins over the built-in one.</p>
-    </details>
-    <details>
-      <summary>Can a sound play without a command?</summary>
-      <p>Yes, with a GuildScribe trigger, which fires on a word anywhere in chat: <code>!trigger add gg 🔊 coins {user} tips the bard!</code> Give it a cooldown with <code>!trigger cooldown gg 60</code>.</p>
-    </details>
-    <details>
-      <summary>What if a lot of people fire sounds at once?</summary>
-      <p>The channel cooldown keeps <code>!sound</code> in check, and chat is told how long until the next one. Sounds that do get through wait their turn and play one after another. Up to five can wait in line; anything past that is skipped so the stream doesn't turn into a cacophony.</p>
-    </details>
-    <details>
-      <summary>Can I hide the on-screen card, or turn Sound Bytes off?</summary>
-      <p>Untick <b>Show a card on screen</b> above before copying the link, and the overlay plays sound only. To turn Sound Bytes off altogether, switch off <b>Sound Bytes</b> on your GuildScribe dashboard: <code>!sound</code> goes quiet and the overlay stays empty.</p>
-    </details>
-    <details>
-      <summary>Nothing plays in OBS. What do I check?</summary>
-      <p>Open the test link above in OBS's browser source first: if the fanfare plays, the audio side works. Make sure <b>Control audio via OBS</b> is ticked and the source isn't muted in the mixer. If <code>!sound</code> gets no answer in chat, check that Sound Bytes is switched on in your GuildScribe dashboard. Add <code>&amp;debug=1</code> to the link to keep the connection status on screen.</p>
-    </details>
-  </div>
-
-  <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Homebrewed by Stoned Sheamus<br><a href="/overlays/">Overlays</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
-</div>
-<script src="/orrery-db.js"></script>
-<script src="/orrery-cast.js"></script>
-<script src="sounds.js"></script>
-<script>
-(function () {
-  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
-  const store = {
-    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
-  };
+   <div class="divider">QUESTIONS AT THE BAR</div>
+   <div class="scroll faq">
+     <details>
+       <summary>How does it work?</summary>
+       <p>When someone types <code>!sound nat20</code>, GuildScribe posts a line that starts with <code>🔊 nat20</code>. The overlay reads your chat the same way a viewer does, without logging in, and plays the sound when one of GuildScribe's own messages starts with <code>🔊</code> and a sound name. Viewers typing <code>🔊</code> themselves does nothing.</p>
+     </details>
+     <details>
+       <summary>Can I make my own commands for sounds?</summary>
+       <p>Yes. Any GuildScribe custom command whose response starts with <code>🔊</code> and a sound name plays it. <code>!dndbot add crit 🔊 nat20 CRITICAL HIT from {user}!</code> plays the Nat 20 fanfare on <code>!crit</code>. Give it its own cooldown with <code>!dndbot cooldown crit 30</code>. If you make your own <code>!sound</code> command, yours wins over the built-in one.</p>
+     </details>
+     <details>
+       <summary>Can a sound play without a command?</summary>
+       <p>Yes, with a GuildScribe trigger, which fires on a word anywhere in chat: <code>!trigger add gg 🔊 coins {user} tips the bard!</code> Give it a cooldown with <code>!trigger cooldown gg 60</code>.</p>
+     </details>
+     <details>
+       <summary>What if a lot of people fire sounds at once?</summary>
+       <p>The channel cooldown keeps <code>!sound</code> in check, and chat is told how long until the next one. Sounds that do get through wait their turn and play one after another. Up to five can wait in line; anything past that is skipped so the stream doesn't turn into a cacophony.</p>
+     </details>
+     <details>
+       <summary>Can I hide the on-screen card, or turn Sound Bytes off?</summary>
+       <p>Untick <b>Show a card on screen</b> above before copying the link, and the overlay plays sound only. To turn Sound Bytes off altogether, switch off <b>Sound Bytes</b> on your GuildScribe dashboard: <code>!sound</code> goes quiet and the overlay stays empty.</p>
+     </details>
+     <details>
+       <summary>Nothing plays in OBS. What do I check?</summary>
+       <p>Open the test link above in OBS's browser source first: if the fanfare plays, the audio side works. Make sure <b>Control audio via OBS</b> is ticked and the source isn't muted in the mixer. If <code>!sound</code> gets no answer in chat, check that Sound Bytes is switched on in your GuildScribe dashboard. Add <code>&amp;debug=1</code> to the link to keep the connection status on screen.</p>
+     </details>
+     <details>
+       <summary>How does Auto-Mod guide the chat?</summary>
+       <p>Auto-Mod acts as an independent guide, monitoring chat for specific triggers and automatically responding to user interactions. It filters messages, enforces community guidelines, and suggests relevant topics or commands without manual intervention, ensuring a smooth and engaging experience for all viewers.</p>
+     </details>
+   </div>
+ 
+   <footer><a href="/">Tavernworks</a> · <span>tavernworks.dev</span> · Homebrewed by Stoned Sheamus<br><a href="/overlays/">Overlays</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
+ </div>
+ <script src="/orrery-db.js"></script>
+ <script src="/orrery-cast.js"></script>
+ <script src="sounds.js"></script>
+ <script>
+ (function () {
+   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+   const store = {
+     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+     set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+   };
 
   // The soundboard.
   const board = document.getElementById("board");
