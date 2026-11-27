@@ -65,7 +65,11 @@
     "desktop": { label: "computer browser", where: "a web browser on their computer", len: "full" },
   };
   function detectDevice() {
-    const flag = (q.get("device") || "").toLowerCase(), app = (q.get("app") || "").toLowerCase();
+    // The apps set window.RosinDevice (and ?device=) and change it live, e.g. android-app <-> android-widget.
+    const now = new URLSearchParams(location.search);
+    const set = String(window.RosinDevice || "").toLowerCase(), flag = (now.get("device") || q.get("device") || "").toLowerCase();
+    const app = (q.get("app") || "").toLowerCase();
+    if (DEVICES[set]) return set;
     if (DEVICES[flag]) return flag;
     if (R.OBS || /\bOBS\//.test(navigator.userAgent)) return "obs";
     if (app === "android") return "android-app";
@@ -78,7 +82,14 @@
     return "desktop";
   }
   let device = detectDevice();
-  const deviceInfo = () => DEVICES[device] || DEVICES.desktop;
+  const deviceInfo = () => DEVICES[deviceNow()] || DEVICES.desktop;
+  // Read the device fresh for every reply, and follow the apps' "rosin-device" switches.
+  let forcedDevice = false;   // set by RosinBrain.setDevice(); the apps' own switches clear it
+  function deviceNow() { if (!forcedDevice) device = detectDevice(); return device; }
+  window.addEventListener("rosin-device", (e) => {
+    const k = String((e && e.detail) || window.RosinDevice || "").toLowerCase();
+    if (DEVICES[k]) { window.RosinDevice = k; device = k; forcedDevice = false; }
+  });
   // Speaking up on its own (set up further down): any activity starts the quiet over.
   const PACES = { often: [1, 3], sometimes: [2, 6], rarely: [8, 20] };   // minutes of quiet before Rosin speaks up
   const chatterWait = () => { const [a, b] = PACES[S.chatterPace] || PACES.sometimes; return (a + Math.random() * (b - a)) * 60000; };
@@ -845,6 +856,6 @@
   if (S.twitchOn && S.channel) twitchConnect();
   window.RosinBrain = { say: (t) => { unlock(); ask(t); }, micStart, micStop, stop, ask, chatterNow, settings: S,
     // The apps can switch this as they go, e.g. "android-widget" while a reply is for the home screen widget.
-    get device() { return device; },
-    setDevice(kind) { kind = String(kind || "").toLowerCase(); device = DEVICES[kind] ? kind : detectDevice(); return device; } };
+    get device() { return deviceNow(); },
+    setDevice(kind) { kind = String(kind || "").toLowerCase(); forcedDevice = !!DEVICES[kind]; device = DEVICES[kind] ? kind : detectDevice(); return device; } };
 })();
