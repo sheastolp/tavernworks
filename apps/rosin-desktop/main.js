@@ -248,7 +248,7 @@ ipcMain.on("rosin-desktop", (e, what) => {
   if (!win || e.sender !== win.webContents) return;
   if (what === "pin") { settings.onTop = !settings.onTop; win.setAlwaysOnTop(settings.onTop, "floating"); saveSettings(); refreshTray(); }
   else if (what === "buddy") setBuddy(true);
-  else if (what === "menu") tray && tray.popUpContextMenu();
+  else if (what === "menu") buddyMenu();
   else if (what === "ready") greetSoon();
 });
 ipcMain.handle("rosin-desktop-state", (e) => (win && e.sender === win.webContents ? { onTop: settings.onTop, buddy: settings.buddy } : null));
@@ -264,6 +264,17 @@ ipcMain.on("rosin-state", (e, s) => {
   if (buddy && !buddy.isDestroyed()) buddy.webContents.send("rosin-state", lastState);
 });
 
+// ---------- just Rosin: right-click ----------
+function buddyMenu() {
+  Menu.buildFromTemplate([
+    { label: "Open the app", click: openApp },
+    { label: "Talk to Rosin", click: talk },
+    { type: "separator" },
+    { label: "Close Rosin (bring it back from the tray icon or Ctrl+Alt+R)", click: () => { hidden = true; applyMode(false); } },
+    { label: "Quit Rosin", click: () => { quitting = true; app.quit(); } },
+  ]).popup({ window: buddy });
+}
+
 // ---------- just Rosin: the mouse ----------
 let dragFrom = null;
 ipcMain.on("rosin-buddy", (e, what) => {
@@ -275,7 +286,7 @@ ipcMain.on("rosin-buddy", (e, what) => {
   else if (what === "drag-start") dragFrom = buddy.getPosition();
   else if (what === "drag-end") { dragFrom = null; const [x, y] = buddy.getPosition(); settings.buddyPos = { x, y }; saveSettings(); }
   else if (what === "open") openApp();
-  else if (what === "menu") tray && tray.popUpContextMenu();
+  else if (what === "menu") buddyMenu();
 });
 ipcMain.on("rosin-buddy-drag", (e, dx, dy) => {
   if (!buddy || e.sender !== buddy.webContents || !dragFrom) return;

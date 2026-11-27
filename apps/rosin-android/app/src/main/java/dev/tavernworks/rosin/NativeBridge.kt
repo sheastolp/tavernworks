@@ -182,6 +182,16 @@ class NativeBridge(private val app: android.content.Context, private val web: We
     @JavascriptInterface
     fun isApp(): Boolean = true
 
+    /** Whether Rosin floats over other apps when the app is closed (the page's switch under ⋯). */
+    @JavascriptInterface
+    fun floating(): Boolean = RosinOverlay.enabled(app)
+
+    @JavascriptInterface
+    fun setFloating(on: Boolean) {
+        RosinOverlay.setEnabled(app, on)
+        main.post { RosinService.start(app) }   // refreshes floating Rosin and the notification's button
+    }
+
     fun shutdown() {
         main.removeCallbacksAndMessages(null)
         try { recognizer?.destroy() } catch (_: Exception) {}

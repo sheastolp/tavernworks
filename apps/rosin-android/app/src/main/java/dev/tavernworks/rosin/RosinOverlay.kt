@@ -73,6 +73,11 @@ class RosinOverlay(private val context: Context) {
     ).apply { gravity = Gravity.TOP or Gravity.START }
 
     private val rosinLp = params(true, size, size)
+    // The ✕ at the bottom of the screen while Rosin is dragged: drop Rosin on it to close floating Rosin.
+    private val closeSize = dp(64f)
+    private val closeTarget = ImageView(context).apply { setImageResource(R.drawable.close_target); contentDescription = "Drop Rosin here to close it" }
+    private val closeLp = params(false, closeSize, closeSize)
+    private var closeShown = false
     private val bubbleLp = params(false, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT)
     private var rosinShown = false
     private var bubbleShown = false
@@ -91,6 +96,7 @@ class RosinOverlay(private val context: Context) {
 
     fun stop() {
         RosinHost.unlisten(stateFn)
+        hideClose()
         main.removeCallbacksAndMessages(null)
         hideBubble()
         if (rosinShown) { try { wm.removeView(rosin) } catch (_: Exception) {}; rosinShown = false }
@@ -213,6 +219,49 @@ class RosinOverlay(private val context: Context) {
         placeBubble(); aim()
     }
 
+    private fun showClose() {
+        if (closeShown) return
+        val (w, h) = screen()
+        closeLp.x = w / 2 - closeSize / 2
+        closeLp.y = h - closeSize - dp(72f)
+        closeTarget.scaleX = 1f; closeTarget.scaleY = 1f; closeTarget.alpha = 0f
+        try { wm.addView(closeTarget, closeLp); closeShown = true } catch (_: Exception) { return }
+        closeTarget.animate().alpha(1f).setDuration(150).start()
+    }
+
+    private fun hideClose() {
+        if (!closeShown) return
+        closeShown = false
+        try { wm.removeView(closeTarget) } catch (_: Exception) {}
+    }
+
+    /** Whether Rosin's middle is over the ✕ (with some room, since a finger covers it). */
+    private fun overClose(): Boolean {
+        if (!closeShown) return false
+        val cx = rosinLp.x + size / 2f - (closeLp.x + closeSize / 2f)
+        val cy = rosinLp.y + size / 2f - (closeLp.y + closeSize / 2f)
+        return kotlin.math.hypot(cx, cy) < closeSize * 1.1f
+    }
+
+    private fun markClose(over: Boolean) {
+        val s = if (over) 1.25f else 1f
+        if (closeTarget.scaleX != s) closeTarget.animate().scaleX(s).scaleY(s).setDuration(120).start()
+    }
+
+    /** Dropped on the ✕: floating Rosin goes away until it's switched back on (notification or the app's ⋯ menu). */
+    private fun closeFloating() {
+        setEnabled(context, false)
+        render(RosinHost.state)
+        // Next time it's switched on, Rosin comes back where it was before the drag, not on the ✕.
+        val dm = context.resources.displayMetrics
+        rosinLp.x = prefs.getInt("x", dm.widthPixels - size - dp(8f))
+        rosinLp.y = prefs.getInt("y", (dm.heightPixels * 0.55f).toInt())
+        clamp()
+        RosinService.start(context)   // the notification's button now says "Show on screen"
+        android.widget.Toast.makeText(context, "Floating Rosin is closed. Tap \"Show on screen\" in Rosin's notification to bring it back.",
+            android.widget.Toast.LENGTH_LONG).show()
+    }
+
     private fun face(f: String) = when (f) {
         "stoned" -> R.drawable.rosin_stoned
         "happy" -> R.drawable.rosin_happy
@@ -230,17 +279,24 @@ class RosinOverlay(private val context: Context) {
         override fun onTouch(v: View, e: MotionEvent): Boolean {
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> { downX = e.rawX; downY = e.rawY; startX = rosinLp.x; startY = rosinLp.y; dragging = false }
+                MotionEvent.ACTION_CANCEL -> { if (dragging) { hideClose(); prefs.edit().putInt("x", rosinLp.x).putInt("y", rosinLp.y).apply() } }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = e.rawX - downX; val dy = e.rawY - downY
-                    if (!dragging && (abs(dx) > slop || abs(dy) > slop)) dragging = true
+                    if (!dragging && (abs(dx) > slop || abs(dy) > slop)) { dragging = true; showClose() }
                     if (dragging) {
                         rosinLp.x = startX + dx.toInt(); rosinLp.y = startY + dy.toInt(); clamp()
                         try { wm.updateViewLayout(rosin, rosinLp) } catch (_: Exception) {}
                         placeBubble(); aim()
+                        markClose(overClose())
                     }
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (dragging) prefs.edit().putInt("x", rosinLp.x).putInt("y", rosinLp.y).apply()
+                    if (dragging) {
+                        val close = overClose()
+                        hideClose()
+                        if (close) { closeFloating(); return true }
+                        prefs.edit().putInt("x", rosinLp.x).putInt("y", rosinLp.y).apply()
+                    }
                     else {
                         v.performClick()
                         context.startActivity(Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN)

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The ✕ that appears while floating Rosin is dragged: drop Rosin on it to close floating Rosin. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#CC1A0F0A" />
+            <stroke android:width="2dp" android:color="#FFF3DCC0" />
+        </shape>
+    </item>
+    <item android:gravity="center" android:width="22dp" android:height="22dp">
+        <vector android:width="22dp" android:height="22dp" android:viewportWidth="24" android:viewportHeight="24">
+            <path android:strokeColor="#FFF3DCC0" android:strokeWidth="3" android:strokeLineCap="round"
+                android:pathData="M5,5 L19,19 M19,5 L5,19" />
+        </vector>
+    </item>
+</layer-list>

@@ -104,6 +104,13 @@ object RosinHost {
         }
 
         w.webChromeClient = object : WebChromeClient() {
+            // The page's file buttons (a picture for Rosin to look at, a calendar file): the gallery, files or the camera.
+            override fun onShowFileChooser(view: WebView, callback: android.webkit.ValueCallback<Array<Uri>>,
+                                           params: FileChooserParams): Boolean {
+                val a = activity
+                if (a == null || Uri.parse(view.url ?: "").host != HOST) { callback.onReceiveValue(null); return true }
+                return a.chooseFiles(params, callback)
+            }
             override fun onPermissionRequest(request: PermissionRequest) {
                 val fromRosin = request.origin?.host == HOST
                 val wantsMic = request.resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)

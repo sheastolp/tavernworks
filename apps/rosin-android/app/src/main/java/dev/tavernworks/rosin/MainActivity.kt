@@ -31,6 +31,7 @@ class MainActivity : Activity() {
         private const val REQ_MIC = 7
         private const val REQ_NOTIF = 8
         private const val REQ_CAL = 9
+        private const val REQ_FILES = 10
     }
 
     private lateinit var box: FrameLayout
@@ -107,6 +108,65 @@ class MainActivity : Activity() {
         if (checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED) { done(true); return }
         calWaiters += done
         if (calWaiters.size == 1) requestPermissions(arrayOf(Manifest.permission.READ_CALENDAR), REQ_CAL)
+    }
+
+    // ---------- the page's file buttons ----------
+    private var fileCallback: android.webkit.ValueCallback<Array<Uri>>? = null
+    private var photoUri: Uri? = null
+
+    /** Opens the gallery or files, with the camera offered too when the page wants a picture. */
+    fun chooseFiles(params: android.webkit.WebChromeClient.FileChooserParams, callback: android.webkit.ValueCallback<Array<Uri>>): Boolean {
+        fileCallback?.onReceiveValue(null)
+        fileCallback = callback; photoUri = null
+        val types = params.acceptTypes.filter { it.isNotBlank() }
+        val images = types.isEmpty() || types.any { it.startsWith("image/") || it == "*/*" }
+        val camera = if (images) cameraIntent() else null
+        val pick = try { params.createIntent() } catch (_: Exception) { Intent(Intent.ACTION_GET_CONTENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE) }
+        if (params.mode == android.webkit.WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) pick.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        val intent = when {
+            camera != null && params.isCaptureEnabled -> camera
+            camera != null -> Intent.createChooser(pick, "Show Rosin").putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(camera))
+            else -> pick
+        }
+        return try { startActivityForResult(intent, REQ_FILES); true } catch (_: Exception) {
+            fileCallback = null; callback.onReceiveValue(null); true
+        }
+    }
+
+    /** The camera app, saving its photo into this app's cache (no camera permission needed for this). */
+    private fun cameraIntent(): Intent? {
+        val i = Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
+        if (i.resolveActivity(packageManager) == null) return null
+        return try {
+            val dir = java.io.File(cacheDir, "photos").apply { mkdirs() }
+            dir.listFiles()?.filter { System.currentTimeMillis() - it.lastModified() > 86_400_000L }?.forEach { it.delete() }
+            val f = java.io.File(dir, "rosin-${System.currentTimeMillis()}.jpg")
+            val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.files", f)
+            photoUri = uri
+            i.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, uri)
+                .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: Exception) { null }
+    }
+
+    @Deprecated("Still the simplest way for a plain Activity")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQ_FILES) return
+        val cb = fileCallback ?: return
+        fileCallback = null
+        var result: Array<Uri>? = null
+        if (resultCode == RESULT_OK) {
+            val clip = data?.clipData
+            result = when {
+                clip != null && clip.itemCount > 0 -> Array(clip.itemCount) { clip.getItemAt(it).uri }
+                data?.data != null -> arrayOf(data.data!!)
+                // The camera answers with nothing: the photo is where we asked it to go.
+                photoUri != null && java.io.File(cacheDir, "photos/" + photoUri!!.lastPathSegment).length() > 0 -> arrayOf(photoUri!!)
+                else -> null
+            }
+        }
+        photoUri = null
+        cb.onReceiveValue(result)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

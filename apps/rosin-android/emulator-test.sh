@@ -75,6 +75,15 @@ echo "---- resumed activity after tapping Rosin:"
 a shell dumpsys activity activities | grep -E "topResumedActivity|mResumedActivity" | head -3
 echo "---- Rosin's windows:"
 a shell dumpsys window windows | grep -E "Window #" | grep -i "$PKG" | head -10
+# Close floating Rosin by dropping it on the ✕ that shows at the bottom middle while it's dragged.
+a shell input keyevent KEYCODE_HOME
+sleep 5
+CX=$(( W / 2 )); CY=$(( H - (32 + 72) * D / 160 ))
+a shell input swipe $X $Y $CX $CY 1500
+sleep 3
+shot 6-closed
+echo "---- Rosin's windows after dropping it on the close mark (expect none):"
+a shell dumpsys window windows | grep -E "Window #" | grep -i "$PKG" | head -10
 echo "---- service:"
 a shell dumpsys activity services $PKG | grep -E "ServiceRecord|isForeground|foregroundId" | head -5
 finish 0
