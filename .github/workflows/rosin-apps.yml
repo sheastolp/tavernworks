@@ -1,6 +1,6 @@
 # Builds Rosin's Android app (APK with the home screen widget) and Windows app (installer + portable exe).
 # The files are attached to each run under "Artifacts". Pushing a tag like rosin-v1.0.1 also publishes them
-# as a GitHub release, with fixed names so the "latest" links below always point at the newest build:
+# as a GitHub release (so does running it by hand with "release" ticked), with fixed names so the "latest" links below always point at the newest build:
 #   https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin.apk
 #   https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin-Setup.exe
 #   https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin-Portable.exe
@@ -12,6 +12,14 @@ on:
     tags: ["rosin-v*"]
     paths: ["apps/**", ".github/workflows/rosin-apps.yml"]
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish a GitHub release with direct download links"
+        type: boolean
+        default: false
+      version:
+        description: "Release version (the tag becomes rosin-v<version>)"
+        default: "1.0.0"
 
 permissions:
   contents: read
@@ -70,7 +78,7 @@ jobs:
           path: apps/rosin-desktop/dist/*.exe
 
   release:
-    if: startsWith(github.ref, 'refs/tags/rosin-v')
+    if: startsWith(github.ref, 'refs/tags/rosin-v') || (github.event_name == 'workflow_dispatch' && inputs.release)
     needs: [android, windows]
     runs-on: ubuntu-latest
     permissions:
@@ -88,7 +96,9 @@ jobs:
           ls -la out
       - uses: softprops/action-gh-release@v2
         with:
-          name: Rosin apps ${{ github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('rosin-v{0}', inputs.version) || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: Rosin apps ${{ github.event_name == 'workflow_dispatch' && format('rosin-v{0}', inputs.version) || github.ref_name }}
           make_latest: true
           files: out/*
           body: |

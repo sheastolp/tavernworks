@@ -17,4 +17,4 @@ Direct downloads (newest release):
 - Windows installer: https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin-Setup.exe
 - Windows portable: https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin-Portable.exe
 
-To publish a new release, push a tag starting with `rosin-v` (for example `rosin-v1.0.2`).
+To publish a new release: Actions → Rosin apps → Run workflow, tick "release" and give a new version (or push a tag like `rosin-v1.0.2`).
