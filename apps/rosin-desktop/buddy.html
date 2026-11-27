@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- Just Rosin on the desktop: Rosin alone, no box, with a speech bubble above it while it talks.
+     Clicks pass through everywhere except Rosin. Click Rosin to open the app, drag Rosin to move it.
+     What Rosin says comes from the app window, where Rosin's brain (the tavernworks.dev page) runs. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'self'">
+<title>Rosin</title>
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; -webkit-user-select: none; }
+  #rosin { position: absolute; left: 50%; bottom: 6px; width: 150px; height: 150px; margin-left: -75px;
+           animation: bob 3s ease-in-out infinite alternate; pointer-events: none; }
+  html.hover #rosin { filter: drop-shadow(0 0 10px rgba(255, 150, 60, .65)); }
+  @keyframes bob { from { transform: translateY(-3px); } to { transform: translateY(3px); } }
+  #bubble { position: absolute; left: 50%; bottom: 152px; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 16px);
+            box-sizing: border-box; background: #f3dcc0; color: #2a1308; border: 2px solid #8c2c14; border-radius: 16px; padding: 8px 12px;
+            font: 15px/1.35 "Segoe UI", system-ui, sans-serif; opacity: 0; transition: opacity .15s; pointer-events: none; }
+  #bubble.on { opacity: 1; }
+  #bubble::after, #bubble::before { content: ""; position: absolute; left: 50%; border: solid transparent; border-bottom: 0; }
+  #bubble::after { bottom: -11px; margin-left: -10px; border-width: 11px 10px 0; border-top-color: #8c2c14; }
+  #bubble::before { bottom: -8px; margin-left: -8px; border-width: 9px 8px 0; border-top-color: #f3dcc0; z-index: 1; }
+  @media (prefers-reduced-motion: reduce) { #rosin { animation: none; } }
+</style>
+</head>
+<body>
+  <div id="bubble" role="status" aria-live="polite"></div>
+  <img id="rosin" src="assets/faces/normal.webp" alt="Rosin. Click to open the app." draggable="false">
+  <script src="buddy.js"></script>
+</body>
+</html>

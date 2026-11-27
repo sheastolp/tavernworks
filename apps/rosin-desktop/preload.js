@@ -1,85 +1,71 @@
-// Runs before tavernworks.dev/rosin/ loads in the desktop window.
+// Runs before tavernworks.dev/rosin/ loads in the Rosin app window (Rosin's brain).
 //
-// Two modes (main.js switches between them):
-//   just Rosin   Rosin alone on the desktop, no box. Clicks pass straight through to whatever is underneath,
-//                except on Rosin itself: click Rosin to open the app, drag Rosin to move it. What Rosin says
-//                shows in a speech bubble above it while it talks.
-//   the app      the full Rosin page with its controls, for talking and typing to Rosin. Esc, the ▾ button,
-//                or clicking away (with nothing typed) goes back to just Rosin.
+// The app window is a normal, solid, resizable window with the full Rosin page and its controls. Closing or
+// minimising it, Esc, or the ▾ button goes back to just Rosin on the desktop (buddy.html), and this page keeps
+// running hidden: it does the thinking, the chatter and the talking, and tells the buddy what Rosin is doing.
 const { ipcRenderer, webFrame } = require("electron");
 
 // Electron has no speech-to-text service behind the browser's recogniser (it always fails with "network"),
 // so take it away before the page looks. The page then records and asks the laptop's Whisper instead.
-webFrame.executeJavaScript(`try { window.SpeechRecognition = undefined; window.webkitSpeechRecognition = undefined; } catch (e) {}`);
+// The page also counts as showing while the window is hidden, so Rosin keeps chatting from the desktop.
+webFrame.executeJavaScript(`try {
+  window.SpeechRecognition = undefined; window.webkitSpeechRecognition = undefined;
+  Object.defineProperty(Document.prototype, "hidden", { configurable: true, get: () => false });
+  Object.defineProperty(Document.prototype, "visibilityState", { configurable: true, get: () => "visible" });
+  window.RosinDevice = "windows-app";   // so Rosin fits its replies to the Windows app (also ?device=windows-app)
+} catch (e) {}`);
 
-// Tell the page it is in the Windows app, so Rosin fits its replies to it (also ?device=windows-app).
-webFrame.executeJavaScript(`window.RosinDevice = "windows-app";`);
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !document.querySelector(".tray:not([hidden])")) ipcRenderer.send("rosin-desktop", "buddy");
+}, true);
 
-let buddy = false;
-ipcRenderer.on("rosin-mode", (_e, on) => {
-  buddy = !!on;
-  document.documentElement.classList.toggle("buddy", buddy);
-  if (!buddy) { over = false; document.documentElement.classList.remove("buddy-hover"); }
+// What Rosin is doing, posted by the page (below) and passed on to just-Rosin on the desktop.
+window.addEventListener("message", (e) => {
+  if (e.source !== window || !e.data || e.data.__rosinState !== true) return;
+  ipcRenderer.send("rosin-state", e.data.state);
 });
 
-// ---------- just Rosin: only Rosin itself takes the mouse ----------
-let over = false, press = null;
-function onRosin(x, y) {
-  const r = document.getElementById("rosin")?.getBoundingClientRect();
-  if (!r || !r.width) return false;
-  const cx = r.left + r.width / 2, cy = r.top + r.height * 0.46, rx = r.width * 0.44, ry = r.height * 0.48;
-  return ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
-}
-function setOver(o) {
-  if (o === over) return;
-  over = o;
-  document.documentElement.classList.toggle("buddy-hover", o);
-  ipcRenderer.send("rosin-desktop", o ? "over" : "out");
-}
-window.addEventListener("mousemove", (e) => { if (buddy && !press) setOver(onRosin(e.clientX, e.clientY)); }, true);
-window.addEventListener("mouseleave", () => { if (buddy && !press) setOver(false); }, true);
-window.addEventListener("pointerdown", (e) => {
-  if (!buddy) return;
-  e.preventDefault(); e.stopImmediatePropagation();
-  if (e.button !== 0 || !onRosin(e.clientX, e.clientY)) return;
-  press = { x: e.screenX, y: e.screenY, moved: false, id: e.pointerId };
-  try { document.documentElement.setPointerCapture(e.pointerId); } catch {}
-  ipcRenderer.send("rosin-desktop", "drag-start");
-}, true);
-window.addEventListener("pointermove", (e) => {
-  if (!buddy || !press) return;
-  const dx = e.screenX - press.x, dy = e.screenY - press.y;
-  if (!press.moved && Math.abs(dx) + Math.abs(dy) > 5) press.moved = true;
-  if (press.moved) ipcRenderer.send("rosin-desktop-drag", dx, dy);
-}, true);
-window.addEventListener("pointerup", (e) => {
-  if (!buddy || !press) return;
-  e.preventDefault(); e.stopImmediatePropagation();
-  const p = press; press = null;
-  ipcRenderer.send("rosin-desktop", p.moved ? "drag-end" : "open");
-  setOver(onRosin(e.clientX, e.clientY));
-}, true);
-for (const t of ["click", "dblclick", "contextmenu", "mousedown", "mouseup"]) {
-  window.addEventListener(t, (e) => { if (buddy) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
-}
-window.addEventListener("keydown", (e) => {
-  if (!buddy && e.key === "Escape" && !document.querySelector(".tray:not([hidden])")) ipcRenderer.send("rosin-desktop", "buddy");
-}, true);
-
-window.addEventListener("DOMContentLoaded", async () => {
-  document.documentElement.classList.add("rosin-desktop");
-  document.getElementById("badge")?.remove();
+window.addEventListener("DOMContentLoaded", () => {
+  document.documentElement.classList.add("rosin-desktop", "in-app");
   // No "Click to wake" screen: the app may play sound without a click.
   const wake = document.getElementById("wake");
   if (wake) { wake.remove(); webFrame.executeJavaScript(`window.Rosin && window.Rosin.audio && window.Rosin.audio()`); }
-  // Mark the page while Rosin talks, so the speech bubble shows only then.
+
   webFrame.executeJavaScript(`(() => {
     const R = window.Rosin; if (!R || R.__desk) return; R.__desk = true;
-    const t = R.talking;
-    R.talking = function (on) { document.documentElement.classList.toggle("rosin-talking", !!on); return t.apply(this, arguments); };
+    const plain = (t) => String(t || "").replace(/\\[[^\\]]*\\]/g, " ").replace(/[*_\`#]+/g, "").replace(/\\s+/g, " ").trim();
+    let talking = false, last = "";
+    function post() {
+      const subs = document.getElementById("subs");
+      const state = {
+        face: R.expression || "normal",
+        subs: plain(subs && subs.textContent),
+        heard: !!(subs && subs.classList.contains("listening")),
+        talking: talking || !!(window.speechSynthesis && window.speechSynthesis.speaking),
+        thinking: !!document.getElementById("rosin")?.classList.contains("thinking"),
+        busy: document.getElementById("send")?.dataset.stop === "true",
+        listening: !!document.getElementById("mic")?.classList.contains("live"),
+      };
+      const s = JSON.stringify(state);
+      if (s !== last) { last = s; window.postMessage({ __rosinState: true, state }, location.origin); }
+    }
+    let queued = false;
+    const soon = () => { if (!queued) { queued = true; Promise.resolve().then(() => { queued = false; post(); }); } };
+    for (const k of ["talking", "subs", "thinking", "setExpression", "status", "micLive"]) {
+      const f = R[k];
+      if (typeof f !== "function") continue;
+      R[k] = function (...a) { if (k === "talking") talking = !!a[0]; const r = f.apply(this, a); soon(); return r; };
+    }
+    const mo = new MutationObserver(soon);
+    for (const id of ["subs", "rosin", "send", "mic"]) {
+      const el = document.getElementById(id);
+      if (el) mo.observe(el, { attributes: true, childList: true, characterData: true, subtree: id === "subs" });
+    }
+    if (window.KeepAwake && window.KeepAwake.ticker) window.KeepAwake.ticker(1000, post); else setInterval(post, 1000);
+    post();
   })()`);
 
-  // A small bar in the top corner of the app: menu, pin on top, back to just Rosin, hide to the tray.
+  // A small bar in the top corner of the app: menu, pin on top, back to just Rosin.
   const bar = document.createElement("div");
   bar.id = "desk-bar";
   const btn = (label, title, what) => {
@@ -89,14 +75,12 @@ window.addEventListener("DOMContentLoaded", async () => {
     bar.append(b); return b;
   };
   btn("☰", "Rosin menu", "menu");
-  const pin = btn("📌", "Always on top", "pin");
+  const pin = btn("📌", "Keep the app on top", "pin");
   btn("▾", "Just Rosin on the desktop (Esc)", "buddy");
-  btn("–", "Hide Rosin (still in the tray, Ctrl+Alt+R)", "hide");
   document.body.append(bar);
   async function sync() {
     const s = await ipcRenderer.invoke("rosin-desktop-state");
-    if (!s) return;
-    pin.setAttribute("aria-pressed", String(s.onTop));
+    if (s) pin.setAttribute("aria-pressed", String(s.onTop));
   }
   sync();
   ipcRenderer.send("rosin-desktop", "ready");

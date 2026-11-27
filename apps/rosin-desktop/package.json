@@ -2,7 +2,7 @@
   "name": "rosin-desktop",
   "productName": "Rosin",
   "version": "1.0.0",
-  "description": "Rosin, Stoned Sheamus's AI co-host, as a floating always-on-top desktop window.",
+  "description": "Rosin, Stoned Sheamus's AI co-host: just Rosin on the Windows desktop, plus a full app window.",
   "author": "Stoned Sheamus",
   "license": "UNLICENSED",
   "private": true,
@@ -18,10 +18,33 @@
   "build": {
     "appId": "dev.tavernworks.rosin",
     "productName": "Rosin",
-    "directories": { "output": "dist" },
-    "files": ["main.js", "preload.js", "desktop.css", "assets/**"],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "desktop.css",
+      "buddy.html",
+      "buddy.js",
+      "buddy-preload.js",
+      "assets/**"
+    ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "build/icon.ico"
     },
     "nsis": {
@@ -32,6 +55,8 @@
       "shortcutName": "Rosin",
       "artifactName": "Rosin-Setup-${version}.${ext}"
     },
-    "portable": { "artifactName": "Rosin-Portable-${version}.${ext}" }
+    "portable": {
+      "artifactName": "Rosin-Portable-${version}.${ext}"
+    }
   }
 }

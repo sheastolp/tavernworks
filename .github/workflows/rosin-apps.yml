@@ -124,6 +124,30 @@ jobs:
           emulator-options: -no-window -no-snapshot -gpu ${{ matrix.gpu }} -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash apps/rosin-android/emulator-test.sh
 
+  # Opens the Windows app's two windows (just Rosin, and the app at its normal and smallest sizes) on Linux and
+  # prints small pictures of them into this job's log, between ROSIN-SHOT lines. It doesn't hold up a release.
+  desktop-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Open both windows and take pictures
+        working-directory: apps/rosin-desktop
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libnss3 libgbm1 libasound2t64 >/dev/null || true
+          python3 -m pip install --quiet pillow
+          npm install --no-audit --no-fund
+          mkdir -p shots
+          ROSIN_SHOTS=$PWD/shots timeout 120 xvfb-run -a -s "-screen 0 1600x1000x24" npx electron . --no-sandbox 2>&1 | grep -E "ROSIN-|Error|error" | head -40 || true
+          for f in shots/*.png; do
+            n=$(basename "$f" .png)
+            python3 -c "import sys;from PIL import Image;im=Image.open(sys.argv[1]).convert('RGBA');bg=Image.new('RGBA',im.size,(70,90,140,255));bg.alpha_composite(im);bg=bg.convert('RGB');bg.thumbnail((420,620));bg.save(sys.argv[2],quality=60)" "$f" "$n.jpg"
+            echo "ROSIN-SHOT-BEGIN $n"; base64 -w 0 "$n.jpg"; echo; echo "ROSIN-SHOT-END $n"
+          done
+
   windows:
     runs-on: windows-latest
     steps:
