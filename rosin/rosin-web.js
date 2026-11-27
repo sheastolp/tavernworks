@@ -1150,6 +1150,17 @@
                field("Speed", rateIn), field("Pitch", pitchIn), testBtn, field("Speech to text", sttSel), field("Pause before sending", pauseSel), bargeChk, webChk,
                chatChk, field("How often", paceSel),
                field("Twitch channel", chanIn), twChk, awakeChk, newBtn);
+  // In the Android app: Rosin floating over other apps (and the home screen) can be switched off here.
+  const RN = window.RosinNative;
+  if (RN && typeof RN.setFloating === "function") {
+    const [floatChk, floatBox] = check("Float over other apps");
+    try { floatBox.checked = !!RN.floating(); } catch {}
+    floatBox.addEventListener("change", () => {
+      try { RN.setFloating(floatBox.checked); R.status(floatBox.checked ? "Rosin floats over your other apps when you leave the app." : "Rosin won't float over other apps."); }
+      catch { floatBox.checked = !floatBox.checked; R.status("The app couldn't change that. Update the app.", true); }
+    });
+    awakeChk.after(floatChk);
+  }
   function fillModels() {
     modelSel.replaceChildren(...(models.length ? models : [{ name: "" }]).map((m) => new Option(labelOf(m) || "No models (laptop asleep?)", m.name)));
     modelSel.value = S.model;
