@@ -1,5 +1,6 @@
 :root {
-  --glow: 0;      /* 0..1, driven by voice volume */
+  --glow: 0;
+  --mood: 0.5;    /* 0 calm .. 1 fired up: how bright Rosin glows at rest */      /* 0..1, driven by voice volume */
   --blink: 0;     /* 0 open .. 1 shut */
 }
 * { box-sizing: border-box; }
@@ -26,7 +27,7 @@ canvas.smoke { position: fixed; inset: 0; width: 100%; height: 100%; pointer-eve
 }
 #rig, #rig .part, #rig .part img { position: absolute; }
 #rig { inset: 0; transform: scale(calc(1 + var(--glow) * 0.025));
-       filter: drop-shadow(0 0 calc(4px + var(--glow) * 16px) rgba(255, 90, 30, calc(0.25 + var(--glow) * 0.4))); }
+       filter: drop-shadow(0 0 calc(1px + var(--mood) * 6px + var(--glow) * 16px) rgba(255, 90, 30, calc(0.12 + var(--mood) * 0.26 + var(--glow) * 0.4))); }
 #rig .part img { inset: 0; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; will-change: transform;
                  animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
 
@@ -74,7 +75,7 @@ canvas.smoke { position: fixed; inset: 0; width: 100%; height: 100%; pointer-eve
 #glow-back {
   position: absolute; width: 80%; height: 66%; transform: translate(-50%, -50%) scale(calc(0.9 + var(--glow) * 0.2));
   background: radial-gradient(circle, rgba(255, 80, 20, 0.35) 0%, rgba(160, 20, 10, 0.15) 40%, transparent 70%);
-  filter: blur(18px); opacity: calc(0.35 + var(--glow) * 0.65);
+  filter: blur(18px); opacity: calc(0.15 + var(--mood) * 0.4 + var(--glow) * 0.65);
 }
 #glow-eye {
   position: absolute; transform: translate(-50%, -50%);

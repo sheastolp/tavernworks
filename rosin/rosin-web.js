@@ -42,7 +42,10 @@
     voiceOn: q.get("voice") === "0" ? false : store.get("voiceOn", !R.MUTE),
     voice: store.get("voice", ""),           // "" automatic, a device voice's name, or "laptop:<kokoro voice>"
     rate: store.get("rate", 1.02),            // speaking speed, 0.6 to 1.6
-    pitch: store.get("pitch", 0.9),           // device voices only (the laptop's voices keep their own pitch)
+    pitch: store.get("pitch", 0.9),            // device voices only (the laptop's voices keep their own pitch)
+    // Mood, 0 calm to 1 fired up (0.5 easy, the old behaviour): the eye's glow, the voice's tempo and a little the replies.
+    // Kept per device (this browser); ?mood=0..100 sets it for OBS, which has no menu.
+    mood: q.get("mood") ? Math.min(1, Math.max(0, Number(q.get("mood")) / 100 || 0)) : store.get("mood", 0.5),
     web: store.get("web", false),
     channel: (q.get("channel") || store.get("channel", "")).replace(/^#/, "").toLowerCase(),
     twitchOn: q.get("channel") ? true : store.get("twitchOn", false),
@@ -52,6 +55,10 @@
     chatterPace: store.get("chatterPace", "sometimes"),
   };
   const save = (k) => store.set(k, S[k]);
+  // The voice's tempo: the Speed setting, nudged by mood (calm 0.85×, easy 1×, fired up 1.15×).
+  const voiceRate = () => Math.min(2, Math.max(0.5, S.rate * (0.85 + 0.3 * S.mood)));
+  const moodWord = (m) => m < 0.2 ? "Mellow" : m < 0.4 ? "Calm" : m < 0.6 ? "Easy" : m < 0.8 ? "Lively" : "Fired up";
+  R.setMood?.(S.mood);
   S.deviceName = store.get("deviceName", "");
 
   // ---------- which device Rosin is on ----------
@@ -131,7 +138,8 @@
     const now = new Date();
     const when = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) + ", " +
       now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    return `\n\n((${when}, ${deviceNote()}))`;
+    const mood = S.mood < 0.35 ? "; mood: calm and mellow, slower and softer" : S.mood > 0.65 ? "; mood: fired up, extra lively and excited" : "";
+    return `\n\n((${when}, ${deviceNote()}${mood}))`;
   }
   // Fixed for the whole conversation (only settings change it), so the laptop can keep it cached. Kept short on purpose.
   function systemPrompt(model) {
@@ -351,7 +359,7 @@
   async function fetchClip(text, voice) {
     try {
       const r = await fetch(GATE + "/api/speak", gopts({ method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voice, speed: S.rate }), signal: timeout(25000) }));
+        body: JSON.stringify({ text, voice, speed: voiceRate() }), signal: timeout(25000) }));
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || "HTTP " + r.status); }
       return await R.audio().decodeAudioData(await r.arrayBuffer());
     } catch (e) {
@@ -419,7 +427,7 @@
     if (!item.text) { nextLine(); return; }
     showSubs(item.text, item.stamp);
     R.talking(true);
-    const fallbackMs = (600 + item.text.length * 75) / Math.max(0.5, S.rate);
+    const fallbackMs = (600 + item.text.length * 75) / voiceRate();
     if (item.clip && S.voiceOn && !R.MUTE) { playClip(item, fallbackMs); return; }
     speakDevice(item, fallbackMs);
   }
@@ -431,7 +439,7 @@
     const ctx = R.audio(), src = ctx.createBufferSource();
     src.buffer = buf; src.connect(ctx.destination); say.src = src;
     let finished = false;
-    const beat = tick(160, () => R.pulse(0.5 + Math.random() * 0.5));   // the eye flickers while it talks
+    const beat = tick(Math.round(220 - 120 * S.mood), () => R.pulse(0.3 + 0.3 * S.mood + Math.random() * 0.4));   // the eye flickers while it talks
     const done = () => { if (finished) return; finished = true; beat(); cancelGuard(); if (say.src === src) say.src = null; if (gen === say.gen) nextLine(); };
     const cancelGuard = later(buf.duration * 1000 + 3000, done);
     src.onended = done;
@@ -441,7 +449,7 @@
     if (!S.voiceOn || !SYN || R.MUTE) { say.cancelTimer = later(Math.min(7000, fallbackMs), nextLine); return; }
     const u = new SpeechSynthesisUtterance(item.text);
     const v = chosenVoice(); if (v) { u.voice = v; u.lang = v.lang; }
-    u.rate = S.rate; u.pitch = S.pitch;
+    u.rate = voiceRate(); u.pitch = S.pitch;
     let finished = false;
     const done = () => { if (finished) return; finished = true; cancelGuard(); nextLine(); };
     const cancelGuard = later(fallbackMs * 2 + 4000, done);   // some browsers never fire onend
@@ -886,7 +894,8 @@
   const modelSel = document.createElement("select");
   const voiceSel = document.createElement("select");
   const slider = (min, max, step, val) => Object.assign(document.createElement("input"), { type: "range", min, max, step, value: val });
-  const rateIn = slider(0.6, 1.6, 0.05, S.rate), pitchIn = slider(0.5, 1.5, 0.05, S.pitch);
+  const rateIn = slider(0.6, 1.6, 0.05, S.rate), pitchIn = slider(0.5, 1.5, 0.05, S.pitch), moodIn = slider(0, 1, 0.05, S.mood);
+  moodIn.setAttribute("aria-label", "Mood, from calm to fired up");
   const testBtn = Object.assign(document.createElement("button"), { type: "button", textContent: "Test voice" });
   const voiceNote = Object.assign(document.createElement("p"), { className: "voice-note" });
   const sttSel = document.createElement("select");
@@ -900,7 +909,7 @@
   const paceSel = document.createElement("select");
   paceSel.append(new Option("Often (every 1 to 3 min of quiet)", "often"), new Option("Sometimes (2 to 6 min)", "sometimes"), new Option("Rarely (8 to 20 min)", "rarely"));
   const newBtn = Object.assign(document.createElement("button"), { type: "button", textContent: "New chat" });
-  more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field(`This device (seen as ${deviceInfo().label})`, devIn), field("Model", modelSel), voiceChk, field("Rosin's voice", voiceSel), voiceNote,
+  more.prepend(field("Laptop key", keyIn), field("Your name", nameIn), field(`This device (seen as ${deviceInfo().label})`, devIn), field("Model", modelSel), field("Mood", moodIn), voiceChk, field("Rosin's voice", voiceSel), voiceNote,
                field("Speed", rateIn), field("Pitch", pitchIn), testBtn, field("Speech to text", sttSel), webChk,
                chatChk, field("How often", paceSel),
                field("Twitch channel", chanIn), twChk, awakeChk, newBtn);
@@ -909,6 +918,8 @@
     modelSel.value = S.model;
   }
   function showSliders() {
+    moodIn.closest(".field").firstChild.textContent = `Mood: ${moodWord(S.mood)} (calm ↔ fired up)`;
+    moodIn.setAttribute("aria-valuetext", moodWord(S.mood));
     rateIn.closest(".field").firstChild.textContent = `Speed ${S.rate.toFixed(2)}×`;
     pitchIn.closest(".field").firstChild.textContent = `Pitch ${S.pitch.toFixed(2)}`;
     rateIn.setAttribute("aria-valuetext", S.rate.toFixed(2) + " times"); pitchIn.setAttribute("aria-valuetext", S.pitch.toFixed(2));
@@ -959,6 +970,9 @@
   const testLine = () => { unlock(); hush(); speakLine("[happy] Hey, it's me, Rosin. How do I sound?"); };
   voiceSel.addEventListener("change", () => { S.voice = voiceSel.value; save("voice"); fillVoices(); testLine(); });
   rateIn.addEventListener("input", () => { S.rate = Number(rateIn.value); showSliders(); });
+  moodIn.addEventListener("input", () => { S.mood = Number(moodIn.value); R.setMood?.(S.mood); showSliders(); });
+  moodIn.addEventListener("change", () => { save("mood"); unlock(); hush();
+    speakLine(S.mood < 0.35 ? "[stoned] Mmm, nice and mellow now." : S.mood > 0.65 ? "[laugh] Oh yeah, I'm fired up now!" : "[happy] Back to easy going."); });
   pitchIn.addEventListener("input", () => { S.pitch = Number(pitchIn.value); showSliders(); });
   rateIn.addEventListener("change", () => { save("rate"); testLine(); });
   pitchIn.addEventListener("change", () => { save("pitch"); testLine(); });

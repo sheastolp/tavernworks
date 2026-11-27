@@ -194,6 +194,11 @@
     })();
   }
 
+  // Mood, 0 calm to 1 fired up (0.5 is the old default): calm glows dim and breathes slowly, fired up glows bright and
+  // flickers fast. Set by rosin-web.js (⋯ > Mood) or ?mood=0..100 (OBS has no menu).
+  let mood = 0.5;
+  function setMood(m) { m = Math.min(1, Math.max(0, Number(m))); if (!Number.isFinite(m)) return; mood = m; root.style.setProperty("--mood", m.toFixed(2)); }
+  if (q.get("mood") !== null && q.get("mood") !== "") setMood(Number(q.get("mood")) / 100);
   let smooth = 0, shown = -1, webTalk = false, webPulse = 0;
   (function tick() {
     let v = 0;
@@ -202,7 +207,9 @@
       let s = 0; for (const x of buf) s += x * x;
       v = Math.min(1, Math.sqrt(s / buf.length) * 5);
     }
-    if (webTalk) { const t = performance.now(); v = Math.max(v, webPulse, 0.3 + 0.55 * Math.abs(Math.sin(t / 95)) * (0.6 + 0.4 * Math.random())); }
+    const t = performance.now();
+    if (webTalk) v = Math.max(v, webPulse, 0.18 + 0.24 * mood + (0.4 + 0.3 * mood) * Math.abs(Math.sin(t / (135 - 80 * mood))) * (0.6 + 0.4 * Math.random()));
+    else v = Math.max(v, (0.02 + 0.12 * mood) * (0.5 + 0.5 * Math.sin(t / (2600 - 1800 * mood))));   // a slow breath while quiet
     webPulse *= 0.9;
     v = Math.max(v, fakeVol);
     smooth += (v - smooth) * (v > smooth ? 0.5 : 0.12);  // fast attack, slow release
@@ -420,6 +427,7 @@
     setExpression, blink, fit, audio,
     talking(on) { webTalk = !!on; if (on) rosin.classList.remove("thinking"); },
     pulse(v = 1) { webPulse = Math.max(webPulse, v); },
+    setMood, get mood() { return mood; },
     thinking(on) { rosin.classList.toggle("thinking", !!on); if (on) setExpression("stoned", 0); },
     subs(text) { subsEl.textContent = text || ""; },
     status(text, error) { statusEl.textContent = text; statusEl.classList.toggle("err", !!error); },
