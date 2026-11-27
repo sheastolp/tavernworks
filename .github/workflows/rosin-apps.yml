@@ -93,7 +93,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [30, 34]
+        include:
+          - api: 30
+            gpu: swiftshader_indirect
+          - api: 33
+            gpu: swiftshader_indirect
+          - api: 34
+            gpu: guest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -115,7 +121,7 @@ jobs:
           ram-size: 4096M
           disk-size: 4096M
           disable-animations: true
-          emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          emulator-options: -no-window -no-snapshot -gpu ${{ matrix.gpu }} -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash apps/rosin-android/emulator-test.sh
 
   windows:

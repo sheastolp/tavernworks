@@ -54,7 +54,6 @@ class RosinOverlay(private val context: Context) {
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
         maxLines = 6
         ellipsize = android.text.TextUtils.TruncateAt.END
-        maxWidth = dp(230f)
     }
     private val tail = ImageView(context).apply { setImageResource(R.drawable.bubble_tail_down) }
     private val bubble = LinearLayout(context).apply {
@@ -86,7 +85,6 @@ class RosinOverlay(private val context: Context) {
         rosinLp.y = prefs.getInt("y", (dm.heightPixels * 0.55f).toInt())
         clamp()
         rosin.setOnTouchListener(Dragger())
-        bubble.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> placeBubble() }
         RosinHost.listen(stateFn)
     }
 
@@ -136,12 +134,26 @@ class RosinOverlay(private val context: Context) {
 
     private fun showBubble() {
         if (!rosinShown) return
+        measureBubble()
         if (!bubbleShown) {
             bubble.alpha = 0f
+            placeBubble(update = false)
             try { wm.addView(bubble, bubbleLp); bubbleShown = true } catch (_: Exception) { return }
             bubble.animate().alpha(1f).setDuration(150).start()
-        }
-        placeBubble()
+        } else placeBubble()
+    }
+
+    /** Sizes the bubble's window to its words ourselves; left to Android, the window can come out a word wide. */
+    private fun measureBubble() {
+        val dm = context.resources.displayMetrics
+        val maxW = minOf(dp(240f), dm.widthPixels - dp(8f))
+        bubbleText.maxWidth = maxW
+        bubble.measure(
+            View.MeasureSpec.makeMeasureSpec(maxW, View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(dm.heightPixels / 2, View.MeasureSpec.AT_MOST)
+        )
+        bubbleLp.width = bubble.measuredWidth
+        bubbleLp.height = bubble.measuredHeight
     }
 
     private fun hideBubble() {
@@ -152,19 +164,17 @@ class RosinOverlay(private val context: Context) {
     }
 
     /** Above Rosin, centred on it, kept on screen; below Rosin if there's no room above. */
-    private fun placeBubble() {
-        if (!bubbleShown) return
+    private fun placeBubble(update: Boolean = true) {
+        if (update && !bubbleShown) return
         val dm = context.resources.displayMetrics
-        val bw = bubble.width.takeIf { it > 0 } ?: return
-        val bh = bubble.height
+        val bw = bubbleLp.width.takeIf { it > 0 } ?: return
+        val bh = bubbleLp.height
         val above = rosinLp.y + dp(10f) - bh
         tail.visibility = if (above >= 0) View.VISIBLE else View.INVISIBLE
         val x = (rosinLp.x + size / 2 - bw / 2).coerceIn(dp(4f), (dm.widthPixels - bw - dp(4f)).coerceAtLeast(dp(4f)))
         val y = if (above >= 0) above else rosinLp.y + size - dp(6f)
-        if (bubbleLp.x != x || bubbleLp.y != y) {
-            bubbleLp.x = x; bubbleLp.y = y
-            try { wm.updateViewLayout(bubble, bubbleLp) } catch (_: Exception) {}
-        }
+        bubbleLp.x = x; bubbleLp.y = y
+        if (update) try { wm.updateViewLayout(bubble, bubbleLp) } catch (_: Exception) {}
     }
 
     private fun clamp() {

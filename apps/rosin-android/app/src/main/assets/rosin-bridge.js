@@ -1,3 +1,10 @@
+// Older phone WebViews lack replaceChildren, which the Rosin page uses; without it Rosin never appears there.
+(function () {
+  function rc() { while (this.lastChild) this.removeChild(this.lastChild); this.append.apply(this, arguments); }
+  [window.Element, window.Document, window.DocumentFragment].forEach(function (C) {
+    if (C && C.prototype && !C.prototype.replaceChildren) C.prototype.replaceChildren = rc;
+  });
+})();
 /* Runs at the very start of tavernworks.dev pages inside the Rosin Android app, before the page's own scripts.
  *
  * Android's WebView has no working speech-to-text or text-to-speech of its own, so this hands both to the
