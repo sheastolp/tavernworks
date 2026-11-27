@@ -6,7 +6,7 @@
  * them exactly as it uses the browser's, so the site itself doesn't change.
  *
  * It also skips the "Tap to wake Rosin" screen (the app may play sound without a tap) and reports Rosin's
- * face, status and last reply to the app, which shows them on the home screen widget.
+ * face and what Rosin is saying to the app, which shows them on the home screen widget.
  */
 (() => {
   const N = window.RosinNative;
@@ -30,7 +30,20 @@
       fire(synth, "voiceschanged");
     },
     run(js) { try { return (0, eval)(js); } catch (e) { console.error(e); } },
+    // Which device Rosin is on: "android-app" (app on screen) or "android-widget" (app in the background, so
+    // Rosin's words only show in the home screen widget's speech bubbles and should be very short).
+    device(name) {
+      if (!name || window.RosinDevice === name) return;
+      window.RosinDevice = name;
+      try {
+        const u = new URL(location.href);
+        u.searchParams.set("device", name);
+        history.replaceState(history.state, "", u);
+      } catch {}
+      try { window.dispatchEvent(new CustomEvent("rosin-device", { detail: name })); } catch {}
+    },
   };
+  try { window.RosinDevice = new URL(location.href).searchParams.get("device") || "android-app"; } catch {}
 
   // ---------- text to speech ----------
   class Utterance extends EventTarget {
@@ -118,10 +131,13 @@
         for (let i = h.length - 1; i >= 0; i--) if (h[i].role === "assistant") { reply = plain(h[i].content); break; }
       } catch {}
       const send = document.getElementById("send");
+      const subsBox = document.getElementById("subs");
       const state = {
         face: R.expression || "normal",
         status: (document.getElementById("status")?.textContent || "").trim(),
-        subs: (document.getElementById("subs")?.textContent || "").trim(),
+        subs: (subsBox?.textContent || "").trim(),
+        heard: !!subsBox?.classList.contains("listening"),   // the subtitles are showing your words, not Rosin's
+        talking: !!synth.speaking,
         reply: reply.slice(0, 400),
         thinking: !!document.getElementById("rosin")?.classList.contains("thinking"),
         busy: send?.dataset.stop === "true",

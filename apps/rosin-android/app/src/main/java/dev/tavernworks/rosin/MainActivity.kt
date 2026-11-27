@@ -28,7 +28,7 @@ import androidx.webkit.WebViewFeature
 /**
  * Rosin for Android: tavernworks.dev/rosin/ in a WebView, with the phone's own speech-to-text and
  * text-to-speech plugged in (see NativeBridge and assets/rosin-bridge.js), and the home screen widget fed
- * with Rosin's face and last reply.
+ * with Rosin's face and what Rosin is saying.
  *
  * The laptop key is entered once under ⋯ → Laptop key, the same as in a browser. It stays in this app's
  * own storage on this phone.
@@ -37,7 +37,7 @@ class MainActivity : Activity() {
 
     companion object {
         const val HOST = "tavernworks.dev"
-        const val START_URL = "https://tavernworks.dev/rosin/?app=android"
+        const val START_URL = "https://tavernworks.dev/rosin/?app=android&device=android-app"
         const val ACTION_TALK = "dev.tavernworks.rosin.TALK"
         const val ACTION_TYPE = "dev.tavernworks.rosin.TYPE"
         const val ACTION_OPEN = "dev.tavernworks.rosin.OPEN"
@@ -171,6 +171,16 @@ class MainActivity : Activity() {
         }
     }
 
+    /**
+     * Tells the page which device Rosin is on, so replies fit it: "android-app" while the app is on screen,
+     * "android-widget" while it's in the background and Rosin's words only reach the home screen widget's
+     * speech bubbles (very short replies). The page sees it as ?device=… in its address, window.RosinDevice,
+     * and a "rosin-device" event.
+     */
+    private fun tellDevice(name: String) {
+        if (::web.isInitialized) web.evaluateJavascript("window.__rosinNative && window.__rosinNative.device('$name')", null)
+    }
+
     /** Asks for the microphone once, then tells every waiter. */
     fun withMic(done: (Boolean) -> Unit) {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { done(true); return }
@@ -208,12 +218,14 @@ class MainActivity : Activity() {
         visible = true
         web.onResume()
         web.resumeTimers()
+        tellDevice("android-app")
     }
 
     override fun onPause() {
         // The page keeps running in the background on purpose (no web.onPause / pauseTimers), so a reply that
         // is under way finishes and Rosin keeps reading Twitch chat if that's on.
         visible = false
+        tellDevice("android-widget")   // what Rosin says now only shows in the widget's speech bubbles
         super.onPause()
     }
 
@@ -229,6 +241,8 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         bridge.shutdown()
+        WidgetState.quiet(this)        // Rosin stopped, so no speech bubble should stay on the home screen
+        RosinWidget.refreshAll(this)
         RosinService.stop(this)
         web.destroy()
         super.onDestroy()

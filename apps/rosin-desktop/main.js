@@ -14,7 +14,7 @@ const path = require("path");
 const fs = require("fs");
 
 const HOST = "tavernworks.dev";
-const START_URL = `https://${HOST}/rosin/?app=desktop`;
+const START_URL = `https://${HOST}/rosin/?app=desktop&device=windows-app`;   // device: so Rosin fits its replies to the Windows app
 const SIZES = { Small: [300, 440], Medium: [400, 600], Large: [560, 820] };
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }

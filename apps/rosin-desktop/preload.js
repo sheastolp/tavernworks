@@ -5,6 +5,9 @@ const { ipcRenderer, webFrame } = require("electron");
 // so take it away before the page looks. The page then records and asks the laptop's Whisper instead.
 webFrame.executeJavaScript(`try { window.SpeechRecognition = undefined; window.webkitSpeechRecognition = undefined; } catch (e) {}`);
 
+// Tell the page it is in the Windows app, so Rosin fits its replies to it (also ?device=windows-app).
+webFrame.executeJavaScript(`window.RosinDevice = "windows-app";`);
+
 window.addEventListener("DOMContentLoaded", async () => {
   document.documentElement.classList.add("rosin-desktop");
   document.getElementById("badge")?.remove();

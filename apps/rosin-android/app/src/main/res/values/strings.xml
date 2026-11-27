@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_desc">Rosin\'s face, what Rosin last said, and buttons to talk or type</string>
-    <string name="talk">🎙 Talk</string>
-    <string name="type">⌨ Type</string>
-    <string name="waiting">Open Rosin to say hi</string>
+    <string name="widget_desc">Rosin on your home screen, with speech bubbles when Rosin talks. Tap Rosin to open the app.</string>
     <string name="notif_channel">Rosin talking</string>
     <string name="notif_text">Rosin is answering. Tap to open.</string>
 </resources>

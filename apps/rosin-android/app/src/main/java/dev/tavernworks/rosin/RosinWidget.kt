@@ -12,9 +12,9 @@ import android.os.Looper
 import android.widget.RemoteViews
 
 /**
- * The home screen widget. Resize it freely: small shows Rosin's face (tap to talk), wide or tall adds
- * what Rosin is doing, the last reply, and Talk / Type buttons. It shows whatever the app last saw;
- * tapping Rosin's face opens the app.
+ * The home screen widget: just Rosin, on a see-through background. While Rosin is talking (a reply, or idle
+ * chatter) its words show in a speech bubble, and the bubble goes away when it stops. Tapping Rosin opens
+ * the app. Tall or square widgets put the bubble above Rosin; wide ones put it beside Rosin.
  */
 class RosinWidget : AppWidgetProvider() {
 
@@ -44,58 +44,45 @@ class RosinWidget : AppWidgetProvider() {
             m.getAppWidgetIds(ComponentName(context, RosinWidget::class.java)).forEach { render(context, m, it) }
         }
 
-        private fun pending(context: Context, action: String, code: Int): PendingIntent {
-            val i = Intent(context, MainActivity::class.java).setAction(action)
+        private fun openApp(context: Context): PendingIntent {
+            val i = Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            return PendingIntent.getActivity(context, code, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            return PendingIntent.getActivity(context, 3, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         }
 
-        private fun shortStatus(raw: String): String {
-            val s = raw.trim().ifEmpty { "Rosin" }
-            return if (s.length > 48) s.take(46) + "…" else s
+        /** The newest part of what Rosin is saying, so a long line still fits the bubble. */
+        private fun bubbleText(raw: String, max: Int): String {
+            val t = raw.replace(Regex("\\s+"), " ").trim()
+            if (t.length <= max) return t
+            val cut = t.substring(t.length - max)
+            val sp = cut.indexOf(' ')
+            return "…" + (if (sp in 1..20) cut.substring(sp + 1) else cut)
         }
 
         fun render(context: Context, manager: AppWidgetManager, id: Int) {
             val o = manager.getAppWidgetOptions(id)
-            val w = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)
+            val w = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110)
             val h = o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 110)
-            val layout = when {
-                w < 150 || h < 90 -> R.layout.widget_small
-                w >= h * 1.2 -> R.layout.widget_wide
-                h >= 200 -> R.layout.widget_tall
-                else -> R.layout.widget_small
-            }
-            val v = RemoteViews(context.packageName, layout)
+            val wide = w >= h * 1.4f
+            val v = RemoteViews(context.packageName, if (wide) R.layout.widget_wide else R.layout.widget_tall)
             val s = WidgetState.load(context)
             val face = s?.optString("face", "normal") ?: "normal"
             val thinking = s?.optBoolean("thinking") == true
-            val busy = s?.optBoolean("busy") == true
-            val listening = s?.optBoolean("listening") == true
-            val subs = s?.optString("subs", "").orEmpty()
-            val reply = s?.optString("reply", "").orEmpty()
-            val status = when {
-                listening -> "Listening…"
-                thinking -> "Thinking…"
-                busy -> "Talking"
-                s == null -> "Rosin"
-                else -> shortStatus(s.optString("status", "Rosin"))
-            }
+            val listening = s?.optBoolean("listening") == true || s?.optBoolean("heard") == true
+            val talking = s?.optBoolean("busy") == true || s?.optBoolean("talking") == true
+            val words = s?.optString("subs", "").orEmpty()
+            val showBubble = talking && !thinking && !listening && words.isNotBlank()
+
             v.setImageViewResource(R.id.face, WidgetState.faceDrawable(if (thinking) "stoned" else face))
-            v.setTextViewText(R.id.status, if (layout == R.layout.widget_small && !thinking && !busy && !listening) "Tap to talk" else status)
-            if (layout != R.layout.widget_small) {
-                val line = when {
-                    (busy || listening) && subs.isNotBlank() -> subs
-                    reply.isNotBlank() -> reply
-                    else -> context.getString(R.string.waiting)
-                }
-                v.setTextViewText(R.id.line, line)
-                v.setOnClickPendingIntent(R.id.btn_talk, pending(context, MainActivity.ACTION_TALK, 1))
-                v.setOnClickPendingIntent(R.id.btn_type, pending(context, MainActivity.ACTION_TYPE, 2))
-                v.setOnClickPendingIntent(R.id.face, pending(context, MainActivity.ACTION_OPEN, 3))
-                v.setOnClickPendingIntent(R.id.line, pending(context, MainActivity.ACTION_OPEN, 3))
-            } else {
-                v.setOnClickPendingIntent(R.id.widget_root, pending(context, MainActivity.ACTION_TALK, 1))
-            }
+            v.setTextViewText(R.id.bubble, if (showBubble) bubbleText(words, if (wide) 150 else 110) else "")
+            v.setViewVisibility(R.id.bubble_box, when {
+                showBubble -> android.view.View.VISIBLE
+                wide -> android.view.View.INVISIBLE   // keeps Rosin in the same spot when the bubble goes
+                else -> android.view.View.GONE
+            })
+            v.setOnClickPendingIntent(R.id.widget_root, openApp(context))
+            v.setOnClickPendingIntent(R.id.face, openApp(context))
+            v.setOnClickPendingIntent(R.id.bubble, openApp(context))
             manager.updateAppWidget(id, v)
         }
     }
