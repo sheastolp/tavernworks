@@ -58,12 +58,13 @@ read W H < <(a shell wm size | tail -1 | tr -d '\r' | sed 's/.*: //; s/x/ /')
 D=$(a shell wm density | tail -1 | tr -d '\r' | sed 's/.*: //')
 S=$(( 128 * D / 160 )); M=$(( 8 * D / 160 ))
 X=$(( W - M - S / 2 )); Y=$(( H * 55 / 100 + S / 2 ))
-# Close-ups: Rosin should face the middle of the screen (to the left here), then up and to the right after a drag.
+# Close-ups: on the right Rosin should face left (mirrored, eye left of its middle), then right after a drag to the left.
 shot 4b-rosin-right $X $Y
 LX=$(( W * 18 / 100 )); LY=$(( H * 25 / 100 ))
 a shell input swipe $X $Y $LX $LY 900
 sleep 3
 shot 4c-rosin-top-left $LX $LY
+shot 4d-dragged-left
 a shell input swipe $LX $LY $X $Y 900
 sleep 3
 echo "screen ${W}x${H} density $D, tapping Rosin at $X,$Y"

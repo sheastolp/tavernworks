@@ -196,7 +196,7 @@ class RosinOverlay(private val context: Context) {
     private fun aim() {
         val (w, h) = screen()
         val pad = dp(5f); val img = size - 2 * pad
-        val ex = rosinLp.x + pad + img * RosinFace.EYE_X
+        val ex = rosinLp.x + pad + img * (if (rosin.facingLeft) 1f - RosinFace.EYE_X else RosinFace.EYE_X)
         val ey = rosinLp.y + pad + img * RosinFace.EYE_Y
         var vx = (w / 2f - ex) / (w / 2f)
         var vy = (h / 2f - ey) / (h / 2f)

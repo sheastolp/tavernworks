@@ -149,11 +149,11 @@
   function deviceNote() {
     const d = deviceInfo(), named = S.deviceName ? ` ("${S.deviceName.slice(0, 30)}")` : "";
     const len = {
-      tiny: "one short sentence, under 15 words; real help in two at most",
-      short: "small talk in 1 or 2 short sentences, real help in up to 4",
-      medium: "small talk in 1 to 3 short sentences, real help in up to 6",
-      full: "small talk in 1 to 3 short sentences, real help in up to 8",
-      stream: "viewers hear you: 1 or 2 fun sentences, nothing private, real help in up to 4",
+      tiny: "reply in one short sentence, under 15 words, or two if they asked how to do something",
+      short: "reply in 1 or 2 short sentences, up to 4 if they asked how to do something",
+      medium: "reply in 1 to 3 short sentences, up to 6 if they asked how to do something",
+      full: "reply in 1 to 3 short sentences, up to 8 if they asked how to do something",
+      stream: "viewers hear you: 1 or 2 fun sentences, nothing private, up to 4 if they asked how to do something",
     }[d.len];
     return `on ${d.where}${named}: ${len}`;
   }
@@ -181,7 +181,7 @@
       who,
       "Your words are spoken aloud, so write only what Rosin says, in casual spoken English: no lists, markdown, emoji, stage directions or actions in brackets or asterisks.",
       `Start every reply with one face tag from ${FACES}, then talk, like: [happy] Oh hey. The tag sets your face and isn't read out, so never describe your face or mood, and never start with a name and a colon.`,
-      "Keep small talk short, but when someone wants real help (a how-to, a plan, a recipe, a fact), give the useful answer.",
+      "Keep chatting short, but when someone asks how to do something, or for a plan, a recipe or a fact, give the useful answer.",
       "The newest message ends with a note from the app in double brackets, like ((Thu, 1:02 AM, on a phone: ...)): the time, where they're using you and how long to make your reply. Follow it, never repeat it, and only bring up the time or device if it fits.",
       S.chatter ? "A message starting \"[Quiet moment]\" isn't from anyone: nobody has spoken for a while, so say something on your own to the room, the way it asks." : "",
       S.twitchOn && S.channel ? "Messages starting \"[Twitch chat]\" and a name are viewers in Sheamus's Twitch chat: answer them by name in a sentence or two." : "",
@@ -412,7 +412,10 @@
   // What a model copies from the prompt by mistake: a "[Twitch chat] name:" label, a "Rosin:" speaker, tags that aren't faces.
   // Known face tags stay (lowercased) so the face can change; the rest goes before anything is shown or spoken.
   function tidy(t) {
-    return t.replace(/\[\s*change\s*:[^\]]*(?:\]|$)/gi, "").replace(/\(\([^)]{0,200}\)\)?/g, "").replace(/\[\s*twitch chat\s*\]\s*(?:[\w-]{1,25}\s*:\s*)?/gi, "")
+    return t.replace(/\[\s*change\s*:[^\]]*(?:\]|$)/gi, "")
+      // Labels small models sometimes echo from the app's length note ("Small talk:", "(real help)"): never shown or said.
+      .replace(/[(\[*_]*\b(?:small[\s-]?talk|real[\s-]?help)\b(?:\s+mode)?[)\]*_]*\s*[:\-–—][*_]*\s*/gi, "")
+      .replace(/[(\[]\s*(?:small[\s-]?talk|real[\s-]?help)\s*[)\]]\s*/gi, "").replace(/\(\([^)]{0,200}\)\)?/g, "").replace(/\[\s*twitch chat\s*\]\s*(?:[\w-]{1,25}\s*:\s*)?/gi, "")
       .replace(/(^|\]\s*|\n\s*)(?:rosin|name)\s*:\s*/gi, "$1")
       .replace(/\[([^\]\n]{0,30})\]/g, (m, w) => KNOWN.includes(w.trim().toLowerCase()) ? `[${w.trim().toLowerCase()}]` : "");
   }
