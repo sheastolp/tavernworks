@@ -12,7 +12,8 @@ mkdir -p "$WORK" vendor/lib vendor/include
 
 git clone --depth 1 --branch "$PIN" https://github.com/ggml-org/llama.cpp "$WORK/llama.cpp"
 
-cmake -S "$WORK/llama.cpp/ggml" -B "$WORK/build" -G Xcode \
+# From llama.cpp's root (ggml/ alone doesn't configure there), with everything but ggml off.
+cmake -S "$WORK/llama.cpp" -B "$WORK/build" -G Xcode \
   -DCMAKE_SYSTEM_NAME=iOS \
   -DCMAKE_OSX_SYSROOT=iphoneos \
   -DCMAKE_OSX_ARCHITECTURES=arm64 \
@@ -29,9 +30,16 @@ cmake -S "$WORK/llama.cpp/ggml" -B "$WORK/build" -G Xcode \
   -DGGML_NATIVE=OFF \
   -DGGML_OPENMP=OFF \
   -DGGML_BUILD_TESTS=OFF \
-  -DGGML_BUILD_EXAMPLES=OFF
+  -DGGML_BUILD_EXAMPLES=OFF \
+  -DLLAMA_BUILD_TESTS=OFF \
+  -DLLAMA_BUILD_TOOLS=OFF \
+  -DLLAMA_BUILD_EXAMPLES=OFF \
+  -DLLAMA_BUILD_SERVER=OFF \
+  -DLLAMA_BUILD_COMMON=OFF \
+  -DLLAMA_CURL=OFF \
+  -DLLAMA_OPENSSL=OFF
 
-cmake --build "$WORK/build" --config Release -- -quiet CODE_SIGNING_ALLOWED=NO
+cmake --build "$WORK/build" --config Release --target ggml -- -quiet CODE_SIGNING_ALLOWED=NO
 
 LIBS=$(find "$WORK/build" -name 'libggml*.a' -path '*Release-iphoneos*')
 echo "Static libraries:"; echo "$LIBS"

@@ -253,8 +253,7 @@ final class PoolWorker: ObservableObject {
                 phase = .connecting; detail = "Opening the relay to the pool"
                 let s = RelaySession(poolURL: poolURL, enrollmentId: enrollmentId, key: key, rpcPort: rpcPort)
                 s.log = { [weak self] line in Task { @MainActor in self?.addLog(line) } }
-                s.onChange = { [weak self, weak s] in
-                    let n = s?.streamCount ?? 0
+                s.onChange = { [weak self] n in
                     Task { @MainActor in self?.streams = n }
                 }
                 relay = s

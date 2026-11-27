@@ -17,11 +17,11 @@ final class RelaySession: NSObject, URLSessionWebSocketDelegate {
     private var pingTimer: DispatchSourceTimer?
     private(set) var connected = false
     private(set) var end: End = .running
-    var onChange: (() -> Void)?
+    /// Called on the relay's queue with the number of open split streams.
+    var onChange: ((Int) -> Void)?
     var log: ((String) -> Void)?
 
     var alive: Bool { if case .running = end { return true } else { return false } }
-    var streamCount: Int { q.sync { streams.count } }
 
     init(poolURL: String, enrollmentId: String, key: String, rpcPort: Int) {
         self.rpcPort = rpcPort
@@ -53,7 +53,7 @@ final class RelaySession: NSObject, URLSessionWebSocketDelegate {
             self.lastRx = Date()
             self.startPings()
             self.log?("relay connected, this device is in the pool")
-            self.onChange?()
+            self.onChange?(self.streams.count)
         }
     }
 
@@ -118,7 +118,7 @@ final class RelaySession: NSObject, URLSessionWebSocketDelegate {
         default:
             next()
         }
-        onChange?()
+        onChange?(streams.count)
     }
 
     private func open(_ sid: UInt32) {
@@ -152,12 +152,12 @@ final class RelaySession: NSObject, URLSessionWebSocketDelegate {
                 if let data, !data.isEmpty {
                     self.send(sid, 2, data) { ok in
                         if ok && !done && err == nil { self.pump(sid, conn) }
-                        else { self.closeStream(sid, notify: true); self.onChange?() }
+                        else { self.closeStream(sid, notify: true); self.onChange?(self.streams.count) }
                     }
                 } else if done || err != nil {
                     self.log?("split stream \(sid) closed: the RPC server closed it")
                     self.closeStream(sid, notify: true)
-                    self.onChange?()
+                    self.onChange?(self.streams.count)
                 } else {
                     self.pump(sid, conn)
                 }
@@ -211,6 +211,6 @@ final class RelaySession: NSObject, URLSessionWebSocketDelegate {
         for sid in Array(streams.keys) { closeStream(sid, notify: false) }
         task.cancel(with: .normalClosure, reason: nil)
         session.invalidateAndCancel()
-        onChange?()
+        onChange?(streams.count)
     }
 }

@@ -52,6 +52,15 @@ jobs:
         env:
           POOL_KEYSTORE_PASSWORD: ${{ secrets.POOL_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon assembleRelease
+      - name: Check the engine is inside the APK
+        run: |
+          APK=apps/pool-worker-android/app/build/outputs/apk/release/app-release.apk
+          unzip -l "$APK" | grep -E "lib/arm64-v8a/|assets/engine-gpu/" | tee contents.txt
+          for f in lib/arm64-v8a/libpoolrpc_cpu.so lib/arm64-v8a/libpoolrpc_gpu.so lib/arm64-v8a/libggml-rpc.so \
+                   assets/engine-gpu/libggml-opencl.so assets/engine-gpu/PIN; do
+            grep -q " $f$" contents.txt || { echo "missing from the APK: $f"; exit 1; }
+          done
+          ls -la "$APK"
       - name: Name the APK
         run: cp apps/pool-worker-android/app/build/outputs/apk/release/app-release.apk "PoolWorker-android-${{ github.run_number }}.apk"
       - uses: actions/upload-artifact@v4
