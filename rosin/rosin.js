@@ -360,8 +360,20 @@
       const open = panel.hidden; panel.hidden = !open; btn.setAttribute("aria-expanded", String(open)); fit();
     });
   }
+  const closeTray = (t) => { t.hidden = true; document.querySelector(`[aria-controls="${t.id}"]`)?.setAttribute("aria-expanded", "false"); };
   toggle("btn-faces", "faces");
-  toggle("btn-more", "more");
+  document.getElementById("btn-faces").addEventListener("click", () => {   // one tray at a time, like Compass and Changes
+    const more = document.getElementById("more");
+    if (!document.getElementById("faces").hidden && !more.hidden) { closeTray(more); fit(); }
+  });
+  // ⋯ with any other tray open (Faces, Changes, Compass, Chat) closes them all; otherwise it opens or closes the menu.
+  document.getElementById("btn-more").addEventListener("click", () => {
+    const more = document.getElementById("more");
+    const others = [...document.querySelectorAll(".tray")].filter((t) => t !== more && !t.hidden);
+    if (others.length) { others.forEach(closeTray); closeTray(more); }
+    else { const open = more.hidden; more.hidden = !open; document.getElementById("btn-more").setAttribute("aria-expanded", String(open)); }
+    fit();
+  });
   document.getElementById("btn-blink").addEventListener("click", () => blink());
 
   const subsBox = document.getElementById("opt-subs");
