@@ -451,94 +451,90 @@
     requestAnimationFrame(emberLoop);
   })();
 
-  // ---------- smoke: its own layer, not part of Rosin ----------
-  // Soft red wisps curl around and up from Rosin's lower half, swirl slowly, rise and fade. They follow
-  // where Rosin is on the screen but not its float or sway, so Rosin bobs inside the smoke instead of carrying it.
-  // Two layers for depth: a denser one behind Rosin and a thin, faster one in front.
-  // Drawn at half resolution (smoke is soft anyway) and at most 30 frames a second, so phones keep up.
+  // ---------- smoke: the sheet's own wisp under the orb, as its own layer ----------
+  // The red smoke drawn under Rosin on the concept sheet (img/smoke.*), cut out and animated apart from Rosin:
+  // it curls (a slow two-way ripple that travels up the wisp, so it looks like it's rising), drifts and breathes,
+  // and now and then a small puff peels off it and floats up. It sits behind Rosin, under the orb, and nowhere else.
+  // Rosin bobs above it instead of carrying it. At most 30 frames a second (24 on phones), paused while hidden.
   try { smoke(); } catch (e) { console.warn("Rosin's smoke couldn't start:", e); }   // smoke is decoration: never let it break the page
   function smoke() {
-    if (q.get("smoke") === "0") return;
-    const SCALE = 0.5, FPS = 30;
-    const layer = (before) => {
-      const c = document.createElement("canvas");
-      c.className = "smoke"; c.setAttribute("aria-hidden", "true");
-      stage.parentNode.insertBefore(c, before ? stage : stage.nextSibling);
-      return { c, g: c.getContext("2d"), parts: [] };
+    if (q.get("smoke") === "0" || !L.smoke) return;
+    const SM = L.smoke, FPS = LITE ? 24 : 30, DPR = Math.min(window.devicePixelRatio || 1, LITE ? 1.5 : 2);
+    const c = document.createElement("canvas");
+    c.className = "smoke"; c.setAttribute("aria-hidden", "true");
+    stage.parentNode.insertBefore(c, stage);
+    const g = c.getContext("2d");
+    const off = document.createElement("canvas"), og = off.getContext("2d");   // first half of the warp
+    const img = new Image();
+    img.src = `img/smoke.${IMG_EXT}`;
+    let seeds = [];    // spots on the wisp where puffs can peel off (fractions of the wisp's box) and their colour
+    img.onload = () => {
+      try {   // read the wisp once, small, to find where it's thick enough to shed a puff
+        const k = document.createElement("canvas"); k.width = 85; k.height = 54;
+        const kg = k.getContext("2d"); kg.drawImage(img, 0, 0, 85, 54);
+        const d = kg.getImageData(0, 0, 85, 54).data;
+        for (let y = 0; y < 54; y += 2) for (let x = 0; x < 85; x += 2) {
+          const i = (y * 85 + x) * 4;
+          if (d[i + 3] > 150) seeds.push({ x: x / 85, y: y / 54, rgb: `${d[i]},${d[i + 1]},${d[i + 2]}` });
+        }
+      } catch {}
+      if (!seeds.length) seeds = [{ x: 0.2, y: 0.5, rgb: "190,50,30" }, { x: 0.9, y: 0.75, rgb: "200,70,30" }];
+      size(); requestAnimationFrame(frame);
     };
-    const back = layer(true), front = layer(false);
-    const max = { back: LITE ? 30 : 48, front: LITE ? 10 : 18 };
-    // One soft puff, tinted twice: deep smoke and an ember-lit edge.
-    const puff = (inner, outer) => {
-      const c = document.createElement("canvas"); c.width = c.height = 64;
-      const g = c.getContext("2d"), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-      gr.addColorStop(0, inner); gr.addColorStop(0.45, outer); gr.addColorStop(1, "rgba(0,0,0,0)");
-      g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return c;
-    };
-    const DEEP = puff("rgba(165, 34, 24, 0.9)", "rgba(100, 18, 14, 0.4)");
-    const LIT = puff("rgba(240, 100, 48, 0.75)", "rgba(170, 40, 18, 0.3)");
-    let W = 0, H = 0;
-    function size() {
-      W = Math.ceil(innerWidth * SCALE); H = Math.ceil(innerHeight * SCALE);
-      for (const l of [back, front]) { l.c.width = W; l.c.height = H; }
-    }
-    addEventListener("resize", size); size();
-    // Where the orb is, from the layout (offset sizes ignore the float animation on purpose).
-    function orb() {
-      const h = rosin.offsetHeight, w = rosin.offsetWidth;
-      return { x: (rosin.offsetLeft + w * 0.533) * SCALE, y: (rosin.offsetTop + h * 0.524) * SCALE, r: h * 0.26 * SCALE };
-    }
-    function spawn(l, o, front) {
-      // Start on the lower half of a ring around the orb, mostly low and to the sides, where the sheet's smoke was.
-      const a = Math.PI * (0.05 + Math.random() * 0.9), rr = o.r * (front ? 0.95 + Math.random() * 0.35 : 0.85 + Math.random() * 0.45);
-      const dir = Math.random() < 0.5 ? 1 : -1;
-      l.parts.push({ a, rr, dir, rise: 0, life: 0, max: (front ? 5 : 7) + Math.random() * 5,
-                     s: o.r * (front ? 0.24 : 0.36) * (0.7 + Math.random() * 0.6), spin: (Math.random() - 0.5) * 0.6,
-                     lit: Math.random() < (front ? 0.35 : 0.2), seed: Math.random() * 100 });
-    }
+    function size() { c.width = Math.ceil(innerWidth * DPR); c.height = Math.ceil(innerHeight * DPR); }
+    addEventListener("resize", size);
+    const puffs = [], MAXP = LITE ? 6 : 10;
     let last = performance.now(), acc = 0;
     function frame(now) {
       requestAnimationFrame(frame);
       const dt = Math.min(0.1, (now - last) / 1000); last = now; acc += dt;
       if (document.hidden || acc < 1 / FPS) return;
       const step = acc; acc = 0;
-      const o = orb(), t = now / 1000, glow = Math.max(0, +getComputedStyle(root).getPropertyValue("--glow") || 0);
-      for (const [l, isFront] of [[back, false], [front, true]]) {
-        if (l.parts.length < max[isFront ? "front" : "back"] * (1 + glow * 0.6) && Math.random() < step * (isFront ? 1.6 : 3)) spawn(l, o, isFront);
-        const g = l.g; g.clearRect(0, 0, W, H);
-        // The front wisps add light (they glow like the eye); the back ones are plain smoke.
-        g.globalCompositeOperation = isFront ? "lighter" : "source-over";
-        for (let i = l.parts.length - 1; i >= 0; i--) {
-          const p = l.parts[i];
-          p.life += step;
-          if (p.life >= p.max) { l.parts.splice(i, 1); continue; }
-          const k = p.life / p.max;
-          // Swirl round the orb (front layer a little faster: parallax), drift outwards, rise, and wobble.
-          p.a += p.dir * step * (isFront ? 0.11 : 0.07) * (1 - k * 0.5);
-          p.rr += step * o.r * 0.05;
-          p.rise += step * o.r * (isFront ? 0.2 : 0.14) * (0.4 + k);
-          const wob = Math.sin(t * 0.7 + p.seed) * o.r * 0.06 + Math.sin(t * 1.9 + p.seed * 2) * o.r * 0.025;
-          const x = o.x + Math.cos(p.a) * p.rr + wob + (isFront ? Math.sin(t * 0.3) * o.r * 0.04 : 0);
-          const y = o.y + Math.sin(p.a) * p.rr * 0.8 - p.rise;
-          const fade = Math.min(1, k / 0.15) * Math.min(1, (1 - k) / 0.45);   // in quickly, out slowly
-          const sz = p.s * (0.8 + k * 1.8);
-          // Point each wisp the way it's drifting (mostly up, curling round), turning smoothly.
-          if (p.px !== undefined) {
-            const want = Math.atan2(y - p.py, x - p.px);
-            if (p.ang === undefined) p.ang = want;
-            else p.ang += Math.atan2(Math.sin(want - p.ang), Math.cos(want - p.ang)) * Math.min(1, step * 3);
-          }
-          p.px = x; p.py = y;
-          if (p.ang === undefined) continue;
-          g.save();
-          g.globalAlpha = fade * (isFront ? 0.45 : 0.95);
-          g.translate(x, y); g.rotate(p.ang + p.spin * 0.3 * Math.sin(p.life + p.seed));
-          g.scale(2.1, 0.6);    // long and thin along the way it's moving: wisps, not balls
-          g.drawImage(p.lit ? LIT : DEEP, -sz, -sz, sz * 2, sz * 2);
-          g.restore();
-        }
+      const t = now / 1000, glow = Math.max(0, +getComputedStyle(root).getPropertyValue("--glow") || 0);
+      // Where the wisp goes: the sheet's spot under the orb, from the layout (not the float, so it moves on its own).
+      const bw = rosin.offsetWidth * DPR, bh = rosin.offsetHeight * DPR;
+      const x0 = rosin.offsetLeft * DPR + SM.x / L.W * bw, y0 = rosin.offsetTop * DPR + SM.y / L.H * bh;
+      const w = SM.w / L.W * bw, h = SM.h / L.H * bh;
+      g.clearRect(0, 0, c.width, c.height);
+      if (w < 4 || h < 4) return;
+      // 1. Ripple each row sideways: little at the top where it leaves the orb, more down the tail.
+      const pad = Math.ceil(w * 0.06), ow = Math.ceil(w + pad * 2), oh = Math.ceil(h + pad * 2);
+      if (off.width !== ow || off.height !== oh) { off.width = ow; off.height = oh; } else og.clearRect(0, 0, ow, oh);
+      const breath = 1 + Math.sin(t * 0.7) * 0.025;
+      const rows = Math.max(24, Math.round(h / (LITE ? 4 : 3))), rs = img.height / rows, rh = h * breath / rows;
+      for (let i = 0; i < rows; i++) {
+        const yn = i / rows, amp = w * (0.008 + yn * 0.028);
+        const dx = amp * Math.sin(yn * 7 + t * 1.25) + amp * 0.45 * Math.sin(yn * 15 + t * 2.1 + 1.3);
+        og.drawImage(img, 0, i * rs, img.width, rs + 0.5, pad + dx, pad + i * rh, w, rh + 0.6);
       }
+      // 2. Ripple each column up and down, so the shape curls instead of just sliding.
+      const cols = Math.max(24, Math.round(ow / (LITE ? 5 : 4))), cw = ow / cols;
+      const sway = Math.sin(t * 0.23) * w * 0.012, bob = Math.sin(t * 0.31 + 1) * h * 0.012;
+      g.save();
+      g.globalAlpha = Math.min(1, 0.88 + Math.sin(t * 0.9) * 0.06 + glow * 0.12);
+      for (let j = 0; j < cols; j++) {
+        const xn = j / cols, dy = h * 0.022 * Math.sin(xn * 6 - t * 0.9) + h * 0.01 * Math.sin(xn * 13 + t * 1.7);
+        g.drawImage(off, j * cw, 0, cw + 0.5, oh, x0 - pad + sway + j * cw, y0 - pad + bob + dy, cw + 0.6, oh);
+      }
+      // 3. Now and then a puff peels off the wisp and floats up, curling, then fades.
+      if (puffs.length < MAXP * (1 + glow) && Math.random() < step * (0.9 + glow * 2)) {
+        const s = seeds[Math.floor(Math.random() * seeds.length)];
+        puffs.push({ x: s.x, y: s.y, rgb: s.rgb, life: 0, max: 2.5 + Math.random() * 2.5, r: 0.03 + Math.random() * 0.035,
+                     dir: Math.random() < 0.5 ? -1 : 1, seed: Math.random() * 9 });
+      }
+      for (let i = puffs.length - 1; i >= 0; i--) {
+        const p = puffs[i]; p.life += step;
+        if (p.life >= p.max) { puffs.splice(i, 1); continue; }
+        const k = p.life / p.max;
+        const px = x0 + sway + p.x * w + p.dir * Math.sin(k * 3 + p.seed) * w * 0.05 * k;
+        const py = y0 + bob + p.y * h - k * h * 0.45;
+        const r = p.r * w * (0.7 + k * 1.3), a = Math.min(1, k / 0.2) * (1 - k) * 0.5;
+        const gr = g.createRadialGradient(px, py, 0, px, py, r);
+        gr.addColorStop(0, `rgba(${p.rgb},${a})`); gr.addColorStop(1, `rgba(${p.rgb},0)`);
+        g.globalAlpha = 1; g.fillStyle = gr;
+        g.beginPath(); g.ellipse(px, py, r, r * 0.6, p.dir * 0.5 + Math.sin(t + p.seed) * 0.3, 0, Math.PI * 2); g.fill();
+      }
+      g.restore();
     }
-    requestAnimationFrame(frame);
   }
 })();
