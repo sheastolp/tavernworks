@@ -1,0 +1,7 @@
+# Filled by fetch-engine.sh at build time (llama.cpp's upstream release binaries).
+app/src/main/jniLibs/
+app/src/main/assets/engine-gpu/
+build/
+app/build/
+.gradle/
+local.properties

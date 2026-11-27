@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Three linked nodes: one model spread over many machines. -->
+    <path android:strokeColor="#FFE8B04A" android:strokeWidth="4" android:strokeLineCap="round"
+        android:pathData="M54,36 L36,68 M54,36 L72,68 M36,68 L72,68" />
+    <path android:fillColor="#FFE8B04A" android:pathData="M54,27a9,9 0,1 1,0 18a9,9 0,1 1,0 -18z" />
+    <path android:fillColor="#FFF3E3C0" android:pathData="M36,59a9,9 0,1 1,0 18a9,9 0,1 1,0 -18z" />
+    <path android:fillColor="#FFF3E3C0" android:pathData="M72,59a9,9 0,1 1,0 18a9,9 0,1 1,0 -18z" />
+</vector>

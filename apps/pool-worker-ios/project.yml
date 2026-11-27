@@ -1,0 +1,53 @@
+# XcodeGen spec (GitHub Actions runs `xcodegen` to make PoolWorker.xcodeproj).
+name: PoolWorker
+options:
+  bundleIdPrefix: dev.tavernworks
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  PoolWorker:
+    type: application
+    platform: iOS
+    sources:
+      - path: PoolWorker
+    info:
+      path: PoolWorker/Info.plist
+      properties:
+        CFBundleDisplayName: Pool Worker
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UIApplicationSupportsIndirectInputEvents: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        PoolEnginePin: b12359
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.tavernworks.poolworker
+        PRODUCT_NAME: PoolWorker
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        SWIFT_OBJC_BRIDGING_HEADER: PoolWorker/PoolWorker-Bridging-Header.h
+        HEADER_SEARCH_PATHS: $(PROJECT_DIR)/vendor/include
+        LIBRARY_SEARCH_PATHS: $(PROJECT_DIR)/vendor/lib
+        OTHER_LDFLAGS: -lggml-all -lc++
+        ENABLE_BITCODE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - sdk: Metal.framework
+      - sdk: MetalKit.framework
+      - sdk: Accelerate.framework
+      - sdk: Foundation.framework

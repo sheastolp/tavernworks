@@ -1,0 +1,4 @@
+# Built by build-ggml.sh / XcodeGen in GitHub Actions.
+vendor/
+build/
+PoolWorker.xcodeproj/

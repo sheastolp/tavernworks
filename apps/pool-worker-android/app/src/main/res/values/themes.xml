@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.PoolWorker" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#FF17120D</item>
+        <item name="android:statusBarColor">#FF17120D</item>
+        <item name="android:navigationBarColor">#FF17120D</item>
+    </style>
+</resources>

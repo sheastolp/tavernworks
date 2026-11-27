@@ -24,3 +24,12 @@ Direct downloads (newest release):
 - Windows portable: https://github.com/sheastolp/tavernworks/releases/latest/download/Rosin-Portable.exe
 
 To publish a new release: Actions → Rosin apps → Run workflow, tick "release" and give a new version (or push a tag like `rosin-v1.0.2`).
+
+# AI Pool worker apps
+
+- `pool-worker-android/`: phones join the AI Pool with one tap (Kotlin, Compose). Bundles llama.cpp's
+  rpc-server at the pool's pin; Adreno 7xx/8xx GPUs compute, other phones lend CPU and RAM.
+- `pool-worker-ios/`: iPhone and iPad (SwiftUI), the RPC server built in with Metal. Foreground only.
+
+Built by `.github/workflows/pool-worker-apps.yml`; releases are tagged `pool-worker-v…` and never
+marked "latest", so the Rosin links above keep pointing at Rosin.

@@ -1,0 +1,2 @@
+a2a0a953dfd671c3067f3979b62ce07fc875363a014e16612fee64ff9a044d7b  llama-b12359-bin-android-arm64.tar.gz
+8183b26d575a74fbc3ea75214669b622eb01b309013b0349814f7bad4dfe01e1  llama-b12359-bin-android-arm64-snapdragon.tar.gz
