@@ -88,11 +88,60 @@ DEFAULTS = {
     "predownload": True,
     # Android only: yield when the battery is this hot (deg C).
     "battery_temp_limit_c": 42,
+    # Keep this script current: every 10 min, while no split is using
+    # this machine, compare it with the pool shelf's pool-worker.py
+    # (SHA-256 from the shelf manifest, like the engine) and restart
+    # on the new copy when it changed.
+    "self_update": True,
 }
 
 
+LOG_MAX = 5 * 1024 * 1024
+_log_path = ""
+_log_lock = threading.Lock()
+
+
 def log(msg):
-    print("[pool-worker] " + msg, flush=True)
+    line = "[pool-worker] " + msg
+    print(line, flush=True)
+    # Also kept in <worker dir>/pool-worker.log, so the owner can send
+    # the operator what happened without copying a console window.
+    if _log_path:
+        with _log_lock:
+            try:
+                if os.path.getsize(_log_path) > LOG_MAX:
+                    os.replace(_log_path, _log_path + ".old")
+            except OSError:
+                pass
+            try:
+                with open(_log_path, "a", encoding="utf-8") as f:
+                    f.write(time.strftime("%Y-%m-%d %H:%M:%S ") + line + "\n")
+            except OSError:
+                pass
+
+
+def ws_mask(data, mask):
+    """XOR with the 4-byte WebSocket mask as one big integer. The old
+    per-byte Python loop managed ~15 MB/s: every split reply's
+    activations going back to the host (~16 MB for a 2k-token prompt)
+    sat in it for a second or more."""
+    n = len(data)
+    if not n:
+        return data
+    key = (mask * (n // 4 + 1))[:n]
+    return (int.from_bytes(data, "little") ^
+            int.from_bytes(key, "little")).to_bytes(n, "little")
+
+
+def nodelay(sock):
+    """RPC is many small request/response messages. With Nagle on, a
+    small write waits for the previous one's ACK (up to 40 ms on
+    Linux, 200 ms on Windows) before it leaves, on every hop of the
+    relay. llama.cpp turns Nagle off on its own sockets; so must we."""
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    except (OSError, AttributeError):
+        pass
 
 
 # ------------------------------------------------------------------
@@ -402,6 +451,8 @@ class Worker:
         self._seed_warned = ""
         self._seed_extra_seen = 0
         self._seed_thread = None
+        self._seed_skip_said = ""
+        self.restart = False
         self.android = is_android()
         self.rpc_device = ""
         if self.android and not os.path.isfile(cfg_path):
@@ -840,6 +891,7 @@ class Worker:
         tls = parsed.scheme == "https"
         port = parsed.port or (443 if tls else 80)
         raw = socket.create_connection((host, port), timeout=30)
+        nodelay(raw)
         if tls:
             ctx = ssl.create_default_context()
             raw = ctx.wrap_socket(raw, server_hostname=host)
@@ -1107,12 +1159,83 @@ class Worker:
         if self.rpc_proc and self.rpc_proc.poll() is None:
             self.rpc_proc.terminate()  # the monitor restarts it
 
+    def self_update_check(self):
+        """Swap in the shelf's newer pool-worker.py and restart on it.
+        Never while a split holds this machine: its RPC stream stays
+        open for the whole split, so this waits until it ends."""
+        if not self.cfg.get("self_update", True):
+            return False
+        if self.relay and self.relay.streams:
+            return False
+        me = os.path.abspath(__file__)
+        try:
+            manifest = self.fetch_manifest()
+        except Exception:
+            return False
+        comp = next((c for c in manifest.get("components", [])
+                     if c.get("name") == "pool-worker.py"), None)
+        want = (comp or {}).get("sha256") or ""
+        if not want or self._sha256(me) == want:
+            return False
+        new = me + ".new"
+        try:
+            if os.path.exists(new):
+                os.remove(new)
+            self.download("pool-worker.py", want, new)
+            with open(new, "rb") as f:
+                compile(f.read(), new, "exec")
+        except (Exception, SystemExit) as e:
+            log("self-update: could not fetch the newer pool-worker.py (" +
+                (str(e) or type(e).__name__) + ") — keeping this one")
+            try:
+                os.remove(new)
+            except OSError:
+                pass
+            return False
+        if self.relay and self.relay.streams:
+            os.remove(new)
+            return False
+        try:
+            os.replace(new, me)
+        except OSError as e:
+            log("self-update: can't replace " + me + " (" + str(e) +
+                ") — keeping this one")
+            return False
+        log("self-update: the pool has a newer pool-worker.py — "
+            "restarting on it")
+        self.restart = True
+        self.stop_flag.set()
+        if self.relay:
+            self.relay.ws.close()
+        return True
+
+    def _seed_say_skip(self, why):
+        if self._seed_skip_said != why:
+            self._seed_skip_said = why
+            log("pre-download is off: " + why)
+
     def seed_loop(self):
         while not self.stop_flag.is_set():
+            try:
+                if self.self_update_check():
+                    return
+            except Exception as e:
+                log("self-update check failed: " +
+                    (str(e) or type(e).__name__))
             try:
                 self.device_check()
             except Exception:
                 pass
+            if not self.cfg.get("predownload"):
+                self._seed_say_skip('"predownload" is false in ' +
+                                    self.cfg_path)
+            elif not self.cfg.get("rpc_cache"):
+                self._seed_say_skip('"rpc_cache" is false in ' +
+                                    self.cfg_path + " (the pre-download "
+                                    "fills rpc-server's cache)")
+            elif not self.rpc_cache_on:
+                self._seed_say_skip("rpc-server would not start with its "
+                                    "cache (-c); see " + self.rpc_log_path)
             if self.cfg.get("predownload") and self.cfg.get("rpc_cache") \
                     and self.rpc_cache_on:
                 try:
@@ -1466,7 +1589,7 @@ class WSConn:
             mask = self.read_exact(4) if masked else None
             data = self.read_exact(length) if length else b""
             if mask:
-                data = bytes(b ^ mask[i % 4] for i, b in enumerate(data))
+                data = ws_mask(data, mask)
             self.last_rx = time.time()
             if op in (0, 1, 2):
                 if opcode is None:
@@ -1490,7 +1613,7 @@ class WSConn:
             header.append(0x80 | 127)
             header += struct.pack(">Q", n)
         header += mask
-        masked = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+        masked = ws_mask(payload, mask)
         with self.send_lock:
             self.sock.sendall(bytes(header) + masked)
 
@@ -1594,6 +1717,7 @@ class RelaySession:
         # layers, and between requests); a timeout left on this socket
         # cut the stream after 10 quiet seconds and killed the split.
         local.settimeout(None)
+        nodelay(local)
         log("split stream " + str(sid) + " opened (the host connected)")
         with self.lock:
             self.streams[sid] = local
@@ -1661,6 +1785,9 @@ def main(argv):
         os.makedirs(wdir, exist_ok=True)
         cfg_path = os.path.join(wdir, "config.json")
     os.makedirs(os.path.dirname(cfg_path) or ".", exist_ok=True)
+    global _log_path
+    _log_path = os.path.join(os.path.dirname(cfg_path) or ".",
+                             "pool-worker.log")
     w = Worker(cfg_path)
     changed = False
     for key, val in (("name", args.name), ("offered_mb", args.offered_mb),
@@ -1700,6 +1827,14 @@ def main(argv):
     log("serving — rpc stays on localhost; the relay is the only "
         "way in. Ctrl+C / SIGTERM drains and exits.")
     w.serve()
+    if w.restart:
+        # Same arguments, the updated script. On Windows exec would
+        # leave the console to the .bat's "pause" mid-run, so wait on
+        # the new process instead.
+        cmd = [sys.executable, os.path.abspath(__file__)] + list(argv)
+        if platform.system() == "Windows":
+            return subprocess.call(cmd)
+        os.execv(sys.executable, cmd)
     return 0
 
 

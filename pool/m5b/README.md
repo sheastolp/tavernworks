@@ -186,3 +186,27 @@ skips sending the bytes.
   (connect, drop with reason, each split stream).
 - FX705 brain: `journalctl -u ai-pool-host -f` shows the model load
   across the devices.
+
+### Relay speed and self-update (Nov 27)
+
+- Every relay socket (front and worker) now turns Nagle off
+  (`TCP_NODELAY`). RPC is many small request/response messages, and
+  with Nagle on a small write waited for the previous one's ACK on
+  each hop, which stacked up on every token of a split.
+- WebSocket masking runs as one big-integer XOR instead of a per-byte
+  Python loop (~15 MB/s before, ~10x faster now), so a long prompt's
+  activations coming back from a relayed machine no longer cost
+  seconds.
+- The worker keeps itself current: every 10 minutes, while no split
+  holds the machine, it compares itself with the shelf's
+  `pool-worker.py` (SHA-256 from the shelf manifest) and restarts on
+  the new copy. `"self_update": false` in `config.json` turns it off.
+  A worker older than this needs one manual refresh (re-run the
+  installer) to get the updater.
+- The worker also writes its log to `pool-worker.log` in its folder,
+  and says once why the pre-download is off when it is (config flag,
+  or rpc-server refusing its cache).
+- A relayed machine still pays a round trip through Cloudflare for
+  every token. For a model that fits on the FX705 alone (the
+  Qwen3.5 35B-A3B IQ4_XS does), solo is faster than any split.
+

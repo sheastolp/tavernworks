@@ -1308,7 +1308,7 @@ class WSReader:
             mask = self.read_exact(4) if masked else None
             data = self.read_exact(length) if length else b""
             if mask:
-                data = bytes(b ^ mask[i % 4] for i, b in enumerate(data))
+                data = ws_unmask(data, mask)
             if op in (0, 1, 2):  # continuation / text / binary
                 if opcode is None:
                     opcode = op
@@ -1317,6 +1317,28 @@ class WSReader:
                     return opcode, payload
             else:  # control frame (ping/pong/close) — returned at once
                 return op, data
+
+
+def ws_unmask(data, mask):
+    """XOR a frame with its 4-byte mask as one big integer. The old
+    per-byte Python loop managed ~15 MB/s, so a long prompt's
+    activations coming back from a relayed worker (~16 MB for 2k
+    tokens) cost a second or more on every split reply."""
+    n = len(data)
+    key = (mask * (n // 4 + 1))[:n]
+    return (int.from_bytes(data, "little") ^
+            int.from_bytes(key, "little")).to_bytes(n, "little")
+
+
+def nodelay(sock):
+    """RPC is many small request/response messages: with Nagle on, a
+    small write waits for the previous one's ACK (up to 40 ms on
+    Linux, 200 ms on Windows) before it leaves. llama.cpp turns
+    Nagle off on its own sockets; the relay's sockets must too."""
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    except (OSError, AttributeError):
+        pass
 
 
 def ws_send(sock, lock, opcode, payload):
@@ -1423,6 +1445,7 @@ class RelayConn:
             except OSError:
                 return
             tcp.settimeout(None)
+            nodelay(tcp)
             with self.streams_lock:
                 self.next_sid += 1
                 sid = self.next_sid
@@ -1850,6 +1873,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Sec-WebSocket-Accept", ws_accept(key.strip()))
         self.end_headers()
         self.close_connection = True
+        nodelay(self.connection)
         conn = HUB.attach(rec, self.connection)
         conn.run()  # blocks until the worker disconnects
 
