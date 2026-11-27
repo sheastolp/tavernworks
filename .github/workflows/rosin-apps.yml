@@ -97,7 +97,7 @@ jobs:
           - api: 30
             gpu: swiftshader_indirect
           - api: 33
-            gpu: swiftshader_indirect
+            gpu: guest
           - api: 34
             gpu: guest
     steps:

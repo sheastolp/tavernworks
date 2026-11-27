@@ -37,7 +37,8 @@ shot 1-app
 a shell input keyevent KEYCODE_HOME
 sleep 8
 shot 2-home
-a shell am start -n $PKG/.MainActivity --es rosin.test_say "Hey, it's me. Rosin. I'm floating over your home screen now, and this is my speech bubble."
+# adb shell splits words again on the phone, so the line goes in its own single quotes.
+a shell am start -n $PKG/.MainActivity --es rosin.test_say "'Hey, it is me, Rosin. I am floating over your home screen now, and this is my speech bubble.'"
 sleep 4
 a shell input keyevent KEYCODE_HOME
 sleep 5
