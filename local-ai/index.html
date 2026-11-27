@@ -263,6 +263,22 @@ sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart local-ai-gate</pr
 <pre>curl -s http://127.0.0.1:8793/health</pre>
         <p class="note">That last one should say <code>"voices":true</code>. Then in Rosin, open <b>⋯ → Rosin's voice</b> and pick one under <b>Natural voices from the laptop</b>. Each device keeps its own pick, speed and pitch.</p>
       </li>
+      <li id="eyes">
+        <h4>Optional: let Rosin see photos</h4>
+        <p>Tap <b>📷</b> by Rosin's chat box to take or pick a photo (or paste one), then say or type something, or just tap <b>Send</b>. The AI Pool's Qwen3.5 35B-A3B can see, but only with its vision file (an "mmproj", about 610 MB), which llama-server loads beside the model. It stays in the laptop's RAM, so the model keeps its share of the 4 GB card. One at a time as root:</p>
+<pre>curl -fL -o /root/ai-pool/Huihui-Qwen3.5-35B-A3B-abliterated.mmproj-Q8_0.gguf https://huggingface.co/mradermacher/Huihui-Qwen3.5-35B-A3B-abliterated-GGUF/resolve/main/Huihui-Qwen3.5-35B-A3B-abliterated.mmproj-Q8_0.gguf</pre>
+<pre>curl -fsSL https://tavernworks.dev/local-ai/gate/pool-eyes.sh -o /opt/ai-pool/pool-eyes.sh</pre>
+<pre>chmod +x /opt/ai-pool/pool-eyes.sh</pre>
+<pre>mkdir -p /etc/systemd/system/ai-pool-solo.service.d</pre>
+<pre>printf '[Service]\nExecStart=\nExecStart=/opt/ai-pool/pool-eyes.sh\n' &gt; /etc/systemd/system/ai-pool-solo.service.d/eyes.conf</pre>
+<pre>curl -fsSL https://tavernworks.dev/local-ai/gate/server.mjs -o /opt/local-ai-gate/server.mjs</pre>
+<pre>systemctl daemon-reload</pre>
+<pre>systemctl restart ai-pool-solo</pre>
+<pre>systemctl restart local-ai-gate</pre>
+<pre>journalctl -u ai-pool-solo -n 60 --no-pager | grep -iE "eyes|mmproj|vision"</pre>
+<pre>curl -s http://127.0.0.1:8793/health</pre>
+        <p class="note">The journal line should say <code>Eyes: …mmproj-Q8_0.gguf</code>, and once the model has loaded (a minute or two) the last one should say <code>"poolVision":true</code>. <code>pool-eyes.sh</code> runs your usual <code>fx705-solo.sh</code> unchanged; it only adds the vision file when one in <code>/root/ai-pool</code> is named like the model, so switching to another model just starts it without eyes. Photos are shrunk to 896 px before they're sent, and the laptop takes some extra seconds on each one. To turn eyes off, delete the mmproj file and restart <code>ai-pool-solo</code>.</p>
+      </li>
       <li id="changes">
         <h4>Optional: let Rosin change its own app</h4>
         <p>Ask Rosin for a change ("make the Talk button bigger") or type one under <b>⋯ → Changes</b>. The laptop's model drafts it as a pull request on GitHub that touches only Rosin's own page files, and it waits there until you tap <b>Approve</b> in Rosin. <b>Undo</b> puts it back. The gate needs a GitHub token that can only reach the tavernworks repo, and the token stays on the laptop.</p>

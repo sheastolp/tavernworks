@@ -260,3 +260,17 @@ html.buddy #compass, body.obs #compass { display: none !important; }
 html.buddy #changes, body.obs #changes, html.buddy #btn-changes, body.obs #btn-changes { display: none !important; }
 #more .quick { flex-wrap: wrap; }
 #more .quick button { min-width: 72px; white-space: nowrap; }
+
+/* photos for Rosin (rosin-eyes.js): 📷 by the chat box, and the photos waiting to go with your next message */
+#controls #pic-btn { flex: 0 0 auto; padding: 8px 10px; font-size: 20px; }
+#pics { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: min(640px, 100%); }
+#pics .pic-wait { position: relative; width: 64px; height: 64px; border-radius: 10px; overflow: hidden; border: 1px solid #6b3b1f; }
+#pics .pic-wait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#controls #pics .pic-wait button {
+  position: absolute; top: 0; right: 0; min-width: 32px; min-height: 32px; padding: 0; border-radius: 0 0 0 10px;
+  font-size: 14px; background: rgba(20, 10, 5, 0.85);
+}
+#pics .pic-note { font-size: 13px; color: #ffb36b; }
+#log p img.pic { display: block; max-width: min(180px, 60%); max-height: 140px; border-radius: 8px; margin: 4px 0; }
+html.buddy #pics, html.buddy #pic-btn, body.obs #pics { display: none !important; }
+@media (max-height: 500px) { #pics .pic-wait { width: 48px; height: 48px; } }

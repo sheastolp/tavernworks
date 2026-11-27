@@ -25,6 +25,12 @@ delete models. This server only lets the chat through:
   directly. Only public internet addresses: nothing on the laptop, the home
   network or the tailnet. Up to 4 redirects, 3 MB, and it must be a calendar.
   It counts against the search limit.
+- Images in a chat (Ollama's `images`, base64) go to the AI Pool as OpenAI
+  `image_url` parts when its llama-server has a vision file (`/props` says
+  `modalities.vision`); `/health` reports that as `poolVision`. Without one
+  they're left out and the reply starts with a note. `pool-eyes.sh` starts
+  the pool with the vision file named like its model (see the Local AI page,
+  "let Rosin see photos").
 - `GET /api/self` and `POST /api/self/draft|approve|reject|undo|diff|retry|dismiss`
   let Rosin change its own app. A model on the laptop drafts a request as
   search-and-replace edits to `rosin/*.js|css|html` only; the gate checks them

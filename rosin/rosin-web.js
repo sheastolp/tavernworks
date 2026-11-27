@@ -205,12 +205,23 @@
       list = list.slice(Math.max(0, i));
       store.set("ctxFrom", list.length ? list[0].at || Date.now() : Date.now());
     }
-    return list.map((m) => ({ role: m.role, content: m.sent || m.content }));
+    // Photos ride along with the message they came with for a few turns (so "what colour is it?" still works), then
+    // drop off. They only live in this tab's memory: after a reload Rosin remembers what it said about them.
+    const users = list.filter((m) => m.role === "user");
+    const recentUsers = new Set(users.slice(-PIC_TURNS));
+    return list.map((m) => {
+      const out = { role: m.role, content: m.sent || m.content };
+      if (m.pics && recentUsers.has(m) && PICS.has(m.at)) out.images = PICS.get(m.at);
+      return out;
+    });
   }
+  // Photos sent to Rosin (base64 JPEG, no "data:" prefix), by the time of the message they came with.
+  const PICS = new Map(), PIC_TURNS = 4;
 
   // ---------- talking to the laptop ----------
   let models = [], online = false, locked = false, lastNote = "";
   let selfReady = false;   // the laptop can draft changes to Rosin's own app (it has a GitHub token)
+  let eyes = false;        // the AI Pool's model can see images (llama-server has its vision file)
   // "pool" is the AI Pool (one big model spread over Sheamus's machines). When it's off, the gate has an Ollama model stand in.
   const labelOf = (m) => !m ? "" : !m.pool ? m.name
     : `AI Pool · ${m.pool.label}${m.pool.state === "up" ? "" : m.pool.state === "loading" ? " (loading)" : " (off, Ollama stands in)"}`;
@@ -234,7 +245,7 @@
     try {
       // A gate from before the key and resume update can't take this page's requests: say so plainly.
       const h = await fetch(GATE + "/health", { signal: timeout(8000), cache: "no-store" }).then((x) => x.json()).catch(() => null);
-      if (h && h.ok) selfReady = !!h.selfUpdate;
+      if (h && h.ok) { selfReady = !!h.selfUpdate; eyes = !!h.poolVision; }
       if (h && h.ok && h.locked === undefined) {
         online = false; models = []; fillModels();
         if (!busy) R.status("The AI laptop's gate needs its update before Rosin can talk. Steps: tavernworks.dev/local-ai/");
@@ -504,8 +515,12 @@
 
   async function ask(text, opts = {}) {
     text = String(text || "").trim();
-    if (!text) return false;
     const idle = !!opts.idle;   // Rosin speaking up on its own: text is the hidden cue, never shown or kept
+    // Photos waiting in the chat box (rosin-eyes.js) go with what this person says next, never with Twitch chat or idle lines.
+    const got = !idle && !opts.fromChat ? opts.images || hooks.takePics?.(text) || [] : [];
+    const pics = got.slice(0, 3), picNote = got.note || "";   // note: why waiting photos couldn't go
+    if (!text && pics.length) text = pics.length > 1 ? "Take a look at these." : "Take a look at this.";
+    if (!text) return false;
     if (busy) { if (opts.fromChat || idle) return false; stop(); }
     if (idle && (!online || locked || !S.model)) return false;
     if (!idle) {
@@ -518,9 +533,13 @@
     hush();
     const ctl = new AbortController(); busy = ctl;
     // "sent" is exactly what the model saw (with the app's note), replayed as is so the laptop's cache still matches it.
-    if (!idle) { history.push({ role: "user", content: text, sent: text + turnNote(), who: opts.who || S.name || "You", at: Date.now() }); saveHistory(); drawLog(); }
+    if (!idle) {
+      const at = Date.now(), msg = { role: "user", content: text, sent: text + turnNote(), who: opts.who || S.name || "You", at };
+      if (pics.length) { msg.pics = pics.length; PICS.set(at, pics); }
+      history.push(msg); saveHistory(); drawLog();
+    }
     R.thinking(true); R.status(idle ? "Rosin's got something to say…" : S.model === "pool" ? "Rosin is thinking (the AI Pool is bigger, so it's slower)…" : "Rosin is thinking…");
-    lastNote = "";
+    lastNote = picNote;
     say.streamDone = false;
     let raw = "", spoken = 0, last = null, tookMs = -1, firstAt = 0;
     replyStamp = "";
@@ -1216,6 +1235,11 @@
         t.textContent = `[${stampOf(typeof m.took === "number" ? m.took : -1, m.at)}] `;
         p.append(t);
       }
+      if (m.pics) for (const b64 of PICS.get(m.at) || []) {
+        const im = document.createElement("img"); im.className = "pic"; im.alt = "Photo you sent"; im.src = "data:image/jpeg;base64," + b64;
+        p.append(im);
+      }
+      if (m.pics && !PICS.has(m.at)) p.append(m.pics > 1 ? `(${m.pics} photos) ` : "(photo) ");
       p.append(m.role === "user" ? m.content : m.content.replace(/\[[a-zA-Z]+\]\s*/g, "").replace(/[*_`#]+/g, ""));
       return p;
     }));
@@ -1236,7 +1260,7 @@
   // What the mood compass (rosin-compass.js) builds on.
   const hooks = {
     store, field, check, more, quick, fit: () => R.fit(), GATE, gopts, timeout, tick, later,
-    selfReady: () => selfReady, recent: (n = 6) => history.slice(-n).map((m) => ({ role: m.role, who: m.who || "", text: String(m.content || "").slice(0, 300) })),
+    selfReady: () => selfReady, eyes: () => eyes || (S.model && S.model !== "pool"), usingPool: () => S.model === "pool", takePics: null, recent: (n = 6) => history.slice(-n).map((m) => ({ role: m.role, who: m.who || "", text: String(m.content || "").slice(0, 300) })),
     mood: () => curMood(), moodAuto: () => S.moodAuto,
     busy: () => !!busy || say.playing || chatting || ear.on,
     ready: () => online && !locked && !!S.model,

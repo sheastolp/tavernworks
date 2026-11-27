@@ -9,6 +9,7 @@
 //   GET  /health          { ok, ollama, search }
 //   GET  /api/tags        the installed models (names and sizes only), plus "pool", the AI Pool
 //   POST /api/chat        { model, messages, tools?, options? }  ->  Ollama's NDJSON stream
+//                         (images on a message reach the pool when it has its vision file, see pool-eyes.sh)
 //                         model "pool" goes to the AI Pool's brain (llama-server on :8090), turned
 //                         into the same NDJSON; if the pool is off or fails, an Ollama model answers
 //                         instead and the stream starts with a { note } line saying so
@@ -180,16 +181,19 @@ async function pool(fresh = false) {
   if (!fresh && poolCache.s && Date.now() - poolCache.at < 10000) return poolCache.s;
   const h = await fetch(base + "/health", { signal: AbortSignal.timeout(2500) }).catch(() => null);
   const state = !h ? "off" : h.ok ? "up" : h.status === 503 ? "loading" : "off";
-  let file = poolCache.s?.file || "";
+  let file = poolCache.s?.file || "", vision = !!poolCache.s?.vision;
   if (state === "up") {
     const j = await fetch(base + "/v1/models", { signal: AbortSignal.timeout(2500) }).then((r) => r.json()).catch(() => null);
     file = String(j?.data?.[0]?.id || file).replace(/^.*[\\/]/, "");
-  }
+    // Eyes: llama-server started with --mmproj (a vision projector) says so in /props, and in /v1/models on newer builds.
+    const props = await fetch(base + "/props", { signal: AbortSignal.timeout(2500) }).then((r) => r.json()).catch(() => null);
+    vision = !!(props?.modalities?.vision || (j?.models || []).some((m) => (m.capabilities || []).includes("multimodal")));
+  } else if (state === "off") vision = false;
   const name = file.replace(/\.gguf$/i, "");
   // Quant suffix off first (".Q4_K_M", "-Q4_K_M"), then an "org_" prefix: Qwen2.5-14B-Instruct-abliterated, Qwen3-14B-abliterated.
   const short = name.replace(/[-_.](I?Q\d\w*|F16|BF16|F32)$/i, "").replace(/^[A-Za-z0-9-]+?_(?=[A-Za-z])/, "");
   const params = (name.match(/(?:^|[-_.])(\d+(?:\.\d+)?)B(?![a-z])/i) || [])[1];
-  poolCache = { at: Date.now(), s: { base, state, file, label: short || "the pool's model", params: params ? params + "B" : "" } };
+  poolCache = { at: Date.now(), s: { base, state, file, vision, label: short || "the pool's model", params: params ? params + "B" : "" } };
   return poolCache.s;
 }
 // The Ollama model that answers when the pool can't.
@@ -199,7 +203,12 @@ async function poolFallback() {
   for (const re of [/^qwen3(?!.*(instruct|coder))/i, /qwen3/i, /gemma3/i, /llama3/i]) { const hit = names.find((n) => re.test(n)); if (hit) return hit; }
   return names[0] || null;
 }
-// Ollama's chat body, in the OpenAI shape llama-server takes. The pool has no eyes, so images stay behind.
+// What kind of picture a base64 image is, from its first bytes (the pages send JPEG, but a pasted PNG can come through).
+function imageType(b64) {
+  return b64.startsWith("/9j/") ? "image/jpeg" : b64.startsWith("iVBOR") ? "image/png" : b64.startsWith("UklGR") ? "image/webp" : b64.startsWith("R0lGOD") ? "image/gif" : "image/jpeg";
+}
+// Ollama's chat body, in the OpenAI shape llama-server takes. Images go as image_url parts when the pool has eyes
+// (plan() leaves them out when it doesn't).
 function toOpenAI(o) {
   let n = 0; const open = [];
   const messages = o.messages.map((m) => {
@@ -208,6 +217,10 @@ function toOpenAI(o) {
       return { role: "assistant", content: m.content || "", tool_calls };
     }
     if (m.role === "tool") return { role: "tool", tool_call_id: open.shift() || "call_" + n++, content: m.content };
+    if (m.images?.length) return { role: m.role, content: [
+      ...m.images.map((b) => ({ type: "image_url", image_url: { url: `data:${imageType(b)};base64,${b}` } })),
+      { type: "text", text: m.content || "" },
+    ] };
     return { role: m.role, content: m.content };
   });
   // cache_prompt: llama-server reuses the part of the prompt it read last time (Rosin keeps its prompt's start the same).
@@ -414,13 +427,15 @@ async function plan(body) {
   const backup = async (why) => {
     const name = await poolFallback().catch(() => null);
     if (!name) return null;
-    const b = { ...body, model: name };
+    const b = { ...body, model: name, messages: body.messages.map(({ images, ...m }) => m) };   // most stand-ins have no eyes
     if (/^qwen3(?!.*(instruct|coder))/i.test(name)) b.think = false;   // the pool doesn't think out loud, so its stand-in doesn't either
     return { kind: "ollama", body: b, note: `The AI Pool ${why || "isn't answering"}, so ${name} answered instead.` };
   };
   if (!p || p.state !== "up") return [() => backup(p?.state === "loading" ? "is still loading its model" : "is off")];
-  const poolBody = { ...body, messages: body.messages.map(({ images, ...m }) => m) };
-  return [{ kind: "pool", base: p.base, body: poolBody, note: images ? "The AI Pool can't see images, so it only read the text." : "" }, backup];
+  // A pool started without its vision file can't take images (llama-server turns the whole chat away), so they stay behind.
+  const poolBody = p.vision ? body : { ...body, messages: body.messages.map(({ images, ...m }) => m) };
+  const note = images && !p.vision ? "The AI Pool can't see images yet, so it only read the text. Steps: tavernworks.dev/local-ai/#eyes" : "";
+  return [{ kind: "pool", base: p.base, body: poolBody, note }, backup];
 }
 async function resume(url, req, res, origin) {
   const r = REPLIES.get(replyId(url.searchParams.get("id")) || "");
@@ -866,13 +881,14 @@ const server = http.createServer(async (req, res) => {
     // Browsers on other sites are turned away; scripts without an Origin header still hit the rate limits.
     if (req.headers.origin && !origin) return send(res, 403, { error: "This site isn't allowed to use the Local AI gate" }, null);
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
-      const [ollama, search, whisper] = await Promise.all([
+      const [ollama, search, whisper, p] = await Promise.all([
         fetch(OLLAMA + "/api/version", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false),
         fetch(SEARCH + "/health", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false),
         fetch(WHISPER + "/health", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false),
+        pool().catch(() => null),
       ]);
       const voices = await ttsReady();
-      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search, whisper, voices, pool: !!poolUrl(), selfUpdate: !!GH_TOKEN }, origin);
+      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search, whisper, voices, pool: !!poolUrl(), poolVision: !!p?.vision, selfUpdate: !!GH_TOKEN }, origin);
     }
     // Everything past here needs the key.
     if (!KEY_HASH) return send(res, 503, { error: "The laptop's gate has no key set up yet, so it's closed. See the gate's README to add one.", locked: true }, origin);
@@ -888,7 +904,7 @@ const server = http.createServer(async (req, res) => {
       if (list instanceof Error && !p) throw list;
       const out = list instanceof Error ? [] : list.slice();
       // The pool is listed even when it's off, so a page that picked it keeps it; the gate falls back to Ollama.
-      if (p) out.unshift({ name: "pool", size: 0, details: { parameter_size: p.params }, pool: { state: p.state, label: p.label, file: p.file } });
+      if (p) out.unshift({ name: "pool", size: 0, details: { parameter_size: p.params }, pool: { state: p.state, label: p.label, file: p.file, vision: p.vision } });
       return send(res, 200, { models: out, ollama: !(list instanceof Error) }, origin);
     }
     if (req.method === "GET" && (url.pathname === "/search" || url.pathname === "/fetch")) {
