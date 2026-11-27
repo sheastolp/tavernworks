@@ -28,7 +28,11 @@
   .help h1{font-family:Cinzel,serif;color:#f5c873;font-size:24px;margin-bottom:8px}
   .help code{color:#f5c873}
   .help a{color:#f5c873}
-</style>
+  .pop{animation: breathe 4s ease-in-out infinite; transition: opacity 1.5s ease;}
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.05); opacity: 1; }
+  }
 </head>
 <body>
 <div class="stage"><div class="pop" id="pop" aria-live="polite"><div class="icon" id="pop-icon"></div><div><div class="name" id="pop-name"></div><div class="line" id="pop-line"></div></div></div></div>
@@ -50,19 +54,35 @@
   const channel = (q.get("channel") || "").trim().replace(/^#/, "").toLowerCase();
   const bot = (q.get("bot") || "guildscribebot").trim().replace(/^@/, "").toLowerCase();
   const volume = Math.max(0, Math.min(100, Number(q.get("volume") ?? 70) || 0)) / 100;
-  const caption = q.get("caption") !== "0";
+  const caption = q.get("caption') !== "0";
   const debug = q.get("debug") === "1";
   const MAX_QUEUE = 5;
+  const RESPONSE_DELAY = 2000; // Slower response timing
+  const ANIMATION_SPEED = 4000; // Slower animation speed
+  
   // Anchored to the start: GuildScribe echoes viewer text in some replies
   // (e.g. the !roll oracle), and those always start with "@user", so only a
   // custom command whose response begins with the tag can fire a sound.
   const TAG = /^🔊\s*!?([a-z0-9_-]{2,25})/i;
-
   if (!/^[a-z0-9_]{3,25}$/.test(channel)) {
     document.body.insertAdjacentHTML("beforeend",
       '<div class="help"><h1>🔊 Sound Bytes overlay</h1><p>Add your Twitch channel to the address, like <code>overlay.html?channel=yourchannel</code>, then use it as an OBS browser source. ' +
       'Set it up on the <a href="./">Sound Bytes page</a>.</p></div>');
     return;
+  }
+  
+  // Simulate slower response timing for Rosin
+  function simulateRosinResponse(message) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve(message);
+      }, RESPONSE_DELAY);
+    });
+  }
+  
+  // Apply slower animation to the pop element
+  const popElement = document.getElementById('pop');
+  popElement.style.animationDuration = `${ANIMATION_SPEED}ms`;
   }
 
   const status = document.createElement("div");
