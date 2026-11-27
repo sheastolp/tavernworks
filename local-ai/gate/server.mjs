@@ -26,6 +26,10 @@
 //                          request names, else Rosin's own), the gate checks it and opens a pull request. Workflows,
 //                          secrets, settings and the gate itself are never touched. /approve, /reject, /undo, /diff take
 //                          { repo, pr }; /retry and /dismiss take { id }; /repos lists the repos. Nothing merges until /approve.
+//   POST /api/google/…   Rosin and Sheamus's Google (set up with `node server.mjs google-setup`, see README.md):
+//                        status, gmail/search, gmail/read, calendar/events, drive/search, drive/read answer straight
+//                        away; prepare { kind: send|reply|change|event, … } only keeps the exact action and returns it
+//                        with an id, and confirm { id, as } runs it (the page calls that only when Sheamus taps).
 //   GET  /api/reply?id=…&from=N   the rest of a reply the browser lost hold of
 //   POST /api/stop?id=…           stop that reply
 //
@@ -35,14 +39,15 @@
 // With no key set up, the gate turns every chat away.
 //
 //   node server.mjs       run the gate (default port 8793)
+//   node server.mjs google-setup   sign in to Google once and keep the refresh token on the laptop
 //
 // No dependencies, Node 18 or newer. See README.md for the full setup.
 
 import http from "node:http";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual, randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { Readable } from "node:stream";
 import { execFileSync } from "node:child_process";
 import { lookup } from "node:dns/promises";
@@ -702,13 +707,19 @@ function pickContext(files, want, whole = [], budget = 11000) {
   }
   spots.sort((a, b) => b.s - a.s);
   if (spots.length) best = { path: spots[0].path, i: spots[0].i };
+  // Each file's best spot first, so one file full of long lines can't crowd out the others.
+  const firsts = new Set();
+  for (const sp of spots) if (!firsts.has(sp.path)) { firsts.add(sp.path); sp.first = true; }
+  spots.sort((a, b) => (b.first ? 1 : 0) - (a.first ? 1 : 0) || b.s - a.s);
   const ranges = {};
   for (const sp of spots) {
     if (whole.includes(sp.path)) continue;
     const list = (ranges[sp.path] ||= []);
     if (list.some(([a, b]) => sp.i >= a && sp.i <= b)) continue;
-    const lines = files[sp.path].split("\n"), a = Math.max(0, sp.i - 18), b = Math.min(lines.length - 1, sp.i + 18);
-    const size = lines.slice(a, b + 1).join("\n").length;
+    const lines = files[sp.path].split("\n");
+    let a = Math.max(0, sp.i - 18), b = Math.min(lines.length - 1, sp.i + 18);
+    let size = lines.slice(a, b + 1).join("\n").length;
+    if (size > 3500) { a = Math.max(0, sp.i - 5); b = Math.min(lines.length - 1, sp.i + 5); size = lines.slice(a, b + 1).join("\n").length; }   // long lines: a narrower window
     if (used + size > budget) continue;
     list.push([a, b]); used += size;
     if (used > budget - 400) break;
@@ -1255,6 +1266,332 @@ async function search(url, res, origin) {
   return send(res, r.status, j, origin);
 }
 
+// ── Google: Rosin reading Sheamus's Gmail, Calendar and Drive ──
+// Set up once with `node server.mjs google-setup` (see /local-ai/#google). That signs in with Sheamus's own Google
+// Cloud OAuth client and keeps the refresh token in /etc/local-ai-gate/google.json, which reaches the gate as the
+// systemd credential "google". The token never leaves the laptop: the page only ever gets results.
+//
+// Reading (search, read, calendar, Drive) answers straight away. Anything that changes something (send, reply,
+// save a draft, archive, trash, label, mark read, add an event) is only *prepared*: the gate keeps the exact
+// action and hands the page an id, the page shows exactly what will happen, and it runs only when Sheamus taps
+// to confirm it (/api/google/confirm with that id). A model can prepare; only a tap can run.
+const GOOGLE_SCOPES = {
+  gmail: "https://www.googleapis.com/auth/gmail.modify",          // read, draft, send, archive, label, trash (never delete for good)
+  calendar: "https://www.googleapis.com/auth/calendar.events",    // read and add events
+  drive: "https://www.googleapis.com/auth/drive.readonly",        // find and read files, change nothing
+};
+const GOOGLE_PER_IP = { n: 300, ms: 10 * 60 * 1000 };
+const GOOGLE_ACTIONS_PER_HOUR = { n: 40, ms: 60 * 60 * 1000 };
+function loadGoogle() {
+  const files = [process.env.CREDENTIALS_DIRECTORY && join(process.env.CREDENTIALS_DIRECTORY, "google"), process.env.GOOGLE_FILE].filter(Boolean);
+  for (const f of files) {
+    try { const j = JSON.parse(readFileSync(f, "utf8")); if (j.client_id && j.refresh_token) return j; } catch {}
+  }
+  return null;
+}
+let GOOGLE = loadGoogle();
+const gToken = { value: "", until: 0 };
+const gErr = (status, message) => Object.assign(new Error(message), { status });
+async function googleAccess() {
+  if (!GOOGLE) throw gErr(503, "Google isn't set up on the laptop yet. Steps: tavernworks.dev/local-ai/#google");
+  if (gToken.value && Date.now() < gToken.until) return gToken.value;
+  const r = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, signal: AbortSignal.timeout(20000),
+    body: new URLSearchParams({ client_id: GOOGLE.client_id, client_secret: GOOGLE.client_secret || "", refresh_token: GOOGLE.refresh_token, grant_type: "refresh_token" }),
+  }).catch(() => null);
+  const j = r ? await r.json().catch(() => ({})) : {};
+  if (!r || !r.ok || !j.access_token) {
+    console.error(new Date().toISOString(), "google: token refresh failed:", r ? r.status : "no answer", String(j.error || "").slice(0, 60));
+    throw gErr(502, j.error === "invalid_grant"
+      ? "Google turned down the laptop's sign-in (it was removed, or it expired). Run the Google setup again on the laptop."
+      : "Couldn't reach Google from the laptop just now.");
+  }
+  gToken.value = j.access_token; gToken.until = Date.now() + (Number(j.expires_in) || 3600) * 1000 - 60000;
+  return gToken.value;
+}
+async function gapi(url, opt = {}) {
+  const r = await fetch(url, { ...opt, headers: { authorization: "Bearer " + (await googleAccess()), ...(opt.body && typeof opt.body === "string" ? { "content-type": "application/json" } : {}), ...(opt.headers || {}) }, signal: AbortSignal.timeout(30000) }).catch(() => null);
+  if (!r) throw gErr(502, "Couldn't reach Google from the laptop just now.");
+  if (r.status === 204) return {};
+  if (opt.raw && r.ok) return r;
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = String(j.error?.message || j.error_description || "").slice(0, 160);
+    if (r.status === 401) { gToken.value = ""; throw gErr(502, "Google turned down the laptop's sign-in. Run the Google setup again on the laptop."); }
+    if (r.status === 403) throw gErr(403, /insufficient|scope/i.test(msg) ? "The laptop's Google sign-in doesn't cover that. Run the Google setup again and allow it." : `Google said no: ${msg || "not allowed"}`);
+    if (r.status === 404) throw gErr(404, "Google couldn't find that (it may have been deleted).");
+    if (r.status === 429) throw gErr(429, "Google says the laptop is asking too often. Wait a minute.");
+    throw gErr(502, `Google answered ${r.status}${msg ? ": " + msg : ""}`);
+  }
+  return j;
+}
+const GM = "https://gmail.googleapis.com/gmail/v1/users/me";
+const b64url = (s) => Buffer.from(s).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64 = (s) => Buffer.from(String(s || "").replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+const header = (msg, name) => (msg.payload?.headers || []).find((h) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
+const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+function htmlToText(h) {
+  return String(h).replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, " ").replace(/<br\s*\/?>|<\/(p|div|li|tr|h\d)>/gi, "\n").replace(/<\/?(b|i|u|em|strong|span|a|font|small|sup|sub)\b[^>]*>/gi, "").replace(/<[^>]+>/g, " ")
+    .replace(/&(#\d+|#x[0-9a-f]+|\w+);/gi, (m, e) => e[0] === "#" ? String.fromCodePoint(e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)) : ENTITIES[e.toLowerCase()] ?? m);
+}
+function bodyText(payload) {
+  let plain = "", html = "";
+  const attach = [];
+  (function walk(p) {
+    if (!p) return;
+    if (p.filename) { attach.push(p.filename); return; }
+    if (p.mimeType === "text/plain" && p.body?.data && !plain) plain = unb64(p.body.data);
+    else if (p.mimeType === "text/html" && p.body?.data && !html) html = unb64(p.body.data);
+    for (const c of p.parts || []) walk(c);
+  })(payload);
+  let t = plain || htmlToText(html);
+  // Leave out the earlier messages quoted under a reply, and squeeze the blank space.
+  t = t.replace(/\r/g, "").split(/\n(?:On .{6,200}wrote:|-{2,} ?Original Message ?-{2,}|From: .+\nSent: )/)[0];
+  t = t.split("\n").filter((l) => !/^\s*>/.test(l)).map((l) => l.trim()).join("\n").replace(/[ \t\u00a0]+/g, " ").replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
+  return { text: t, attach };
+}
+const brief = (m) => ({ id: m.id, thread: m.threadId, from: header(m, "From"), to: header(m, "To"), subject: header(m, "Subject") || "(no subject)", date: header(m, "Date"), snippet: htmlToText(m.snippet || "").slice(0, 200), unread: (m.labelIds || []).includes("UNREAD"), starred: (m.labelIds || []).includes("STARRED"), inbox: (m.labelIds || []).includes("INBOX") });
+async function gmailSearch(q, max) {
+  const n = Math.min(10, Math.max(1, Number(max) || 8));
+  const j = await gapi(`${GM}/messages?maxResults=${n}&q=${encodeURIComponent(String(q || "in:inbox").slice(0, 300))}`);
+  const ids = (j.messages || []).map((m) => m.id);
+  const list = await Promise.all(ids.map((id) => gapi(`${GM}/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`)));
+  return { messages: list.map(brief), more: !!j.nextPageToken };
+}
+const idOk = (id) => /^[A-Za-z0-9_-]{6,64}$/.test(String(id || ""));
+async function gmailMessage(id) {
+  if (!idOk(id)) throw gErr(400, "That isn't an email id from a search.");
+  return gapi(`${GM}/messages/${id}?format=full`);
+}
+async function gmailRead(id) {
+  const m = await gmailMessage(id);
+  const { text, attach } = bodyText(m.payload);
+  return { ...brief(m), cc: header(m, "Cc"), text: text.slice(0, 6000), cut: text.length > 6000, attachments: attach.slice(0, 10) };
+}
+let gProfile = null;
+async function myAddress() {
+  if (!gProfile) gProfile = await gapi(`${GM}/profile`);
+  return gProfile.emailAddress || "";
+}
+
+// ---- preparing an action, then running it on Sheamus's tap ----
+const EMAIL = /^[^\s@<>(),;:"\[\]\\]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+function addresses(v) {
+  const out = [];
+  for (const part of (Array.isArray(v) ? v : String(v || "").split(/[,;]/))) {
+    const s = String(part).trim();
+    if (!s) continue;
+    const m = /<([^<>]+)>\s*$/.exec(s), a = (m ? m[1] : s).trim();
+    if (!EMAIL.test(a)) throw gErr(400, `"${s.slice(0, 80)}" isn't an email address.`);
+    out.push(a);
+  }
+  return [...new Set(out.map((a) => a.toLowerCase()))].map((l) => out.find((a) => a.toLowerCase() === l));
+}
+const oneLine = (s, max) => String(s || "").replace(/[\r\n]+/g, " ").trim().slice(0, max);
+const mimeWord = (s) => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${Buffer.from(s).toString("base64")}?=`);
+function mime({ to, cc, subject, body, inReplyTo, references }) {
+  const head = [`To: ${to.join(", ")}`, cc.length ? `Cc: ${cc.join(", ")}` : "", `Subject: ${mimeWord(subject)}`,
+    inReplyTo ? `In-Reply-To: ${inReplyTo}` : "", references ? `References: ${references}` : "",
+    "MIME-Version: 1.0", 'Content-Type: text/plain; charset="UTF-8"', "Content-Transfer-Encoding: base64"].filter(Boolean);
+  return b64url(head.join("\r\n") + "\r\n\r\n" + Buffer.from(body.replace(/\r?\n/g, "\r\n")).toString("base64").replace(/.{76}/g, "$&\r\n"));
+}
+const PENDING = new Map();   // id -> { kind, show, run, at }
+const CHANGE_KINDS = { archive: "Archive", trash: "Move to Trash", mark_read: "Mark as read", mark_unread: "Mark as unread", star: "Star", unstar: "Unstar", label: "Add the label", unlabel: "Remove the label" };
+async function gPrepare(b) {
+  const kind = String(b.kind || "");
+  let show, run;
+  if (kind === "send" || kind === "reply") {
+    const body = String(b.body || "").replace(/\r/g, "").trim().slice(0, 20000);
+    if (!body) throw gErr(400, "The email has no text.");
+    let to, cc = [], subject, inReplyTo = "", references = "", threadId = "", about = "";
+    if (kind === "reply") {
+      const m = await gmailMessage(b.id), me = (await myAddress()).toLowerCase();
+      to = addresses(header(m, "Reply-To") || header(m, "From"));
+      if (b.all) cc = addresses([header(m, "To"), header(m, "Cc")].filter(Boolean).join(",")).filter((a) => a.toLowerCase() !== me && !to.some((t) => t.toLowerCase() === a.toLowerCase()));
+      if (to.length === 1 && to[0].toLowerCase() === me) to = addresses(header(m, "To"));   // replying to his own sent mail
+      const s = header(m, "Subject");
+      subject = /^re:/i.test(s) ? s : "Re: " + s;
+      inReplyTo = header(m, "Message-ID"); references = [header(m, "References"), inReplyTo].filter(Boolean).join(" ").slice(-2000);
+      threadId = m.threadId; about = `${header(m, "From")}: ${s}`;
+    } else {
+      to = addresses(b.to); cc = addresses(b.cc || "");
+      subject = oneLine(b.subject, 200);
+    }
+    if (!to.length) throw gErr(400, "Who should it go to? Give an email address.");
+    if (to.length + cc.length > 20) throw gErr(400, "That's too many people for one email from here.");
+    subject = oneLine(subject, 200);
+    const raw = mime({ to, cc, subject, body, inReplyTo, references });
+    show = { kind, to, cc, subject, body, about };
+    run = async (as) => {
+      if (as === "draft") { const d = await gapi(`${GM}/drafts`, { method: "POST", body: JSON.stringify({ message: { raw, ...(threadId ? { threadId } : {}) } }) }); return { done: "Saved as a draft in Gmail.", id: d.id }; }
+      const s = await gapi(`${GM}/messages/send`, { method: "POST", body: JSON.stringify({ raw, ...(threadId ? { threadId } : {}) }) });
+      return { done: `Sent to ${to.join(", ")}.`, id: s.id };
+    };
+  } else if (kind === "change") {
+    const what = String(b.action || "");
+    if (!CHANGE_KINDS[what]) throw gErr(400, "That isn't something Rosin can do to an email.");
+    const ids = [...new Set((Array.isArray(b.ids) ? b.ids : [b.ids]).map(String))].filter(idOk).slice(0, 25);
+    if (!ids.length) throw gErr(400, "Which emails? Give the ids from a search.");
+    let labelId = "", labelName = "";
+    if (what === "label" || what === "unlabel") {
+      labelName = oneLine(b.label, 100);
+      const labels = (await gapi(`${GM}/labels`)).labels || [];
+      const l = labels.find((x) => x.name.toLowerCase() === labelName.toLowerCase());
+      if (!l) throw gErr(400, `There's no Gmail label called "${labelName}". Labels: ${labels.filter((x) => x.type === "user").map((x) => x.name).slice(0, 20).join(", ") || "none yet"}.`);
+      labelId = l.id; labelName = l.name;
+    }
+    const metas = await Promise.all(ids.map((id) => gapi(`${GM}/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject`)));
+    show = { kind, action: what, verb: CHANGE_KINDS[what], label: labelName, emails: metas.map((m) => ({ from: header(m, "From"), subject: header(m, "Subject") || "(no subject)" })) };
+    const change = { archive: { removeLabelIds: ["INBOX"] }, mark_read: { removeLabelIds: ["UNREAD"] }, mark_unread: { addLabelIds: ["UNREAD"] }, star: { addLabelIds: ["STARRED"] }, unstar: { removeLabelIds: ["STARRED"] }, label: { addLabelIds: [labelId] }, unlabel: { removeLabelIds: [labelId] } }[what];
+    run = async () => {
+      if (what === "trash") for (const id of ids) await gapi(`${GM}/messages/${id}/trash`, { method: "POST" });
+      else await gapi(`${GM}/messages/batchModify`, { method: "POST", body: JSON.stringify({ ids, ...change }) });
+      return { done: `${CHANGE_KINDS[what]}${labelName ? ` "${labelName}"` : ""}: done for ${ids.length} email${ids.length > 1 ? "s" : ""}.` };
+    };
+  } else if (kind === "event") {
+    const title = oneLine(b.title, 200), tz = /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+){0,2}$/.test(String(b.tz || "")) ? b.tz : "UTC";
+    const allDay = !!b.all_day || /^\d{4}-\d{2}-\d{2}$/.test(String(b.start || ""));
+    const when = (v) => { const s = String(v || "").trim(); if (allDay ? !/^\d{4}-\d{2}-\d{2}/.test(s) : !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) throw gErr(400, "Give the time like 2026-11-28T15:00."); return allDay ? s.slice(0, 10) : s.slice(0, 16) + ":00"; };
+    if (!title) throw gErr(400, "The event needs a title.");
+    const start = when(b.start);
+    let end = b.end ? when(b.end) : "";
+    if (!end) {
+      if (allDay) { const d = new Date(start + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 1); end = d.toISOString().slice(0, 10); }
+      else { const d = new Date(start + "Z"); d.setUTCMinutes(d.getUTCMinutes() + 60); end = d.toISOString().slice(0, 16) + ":00"; }
+    }
+    if (end <= start) throw gErr(400, "The event ends before it starts.");
+    const ev = { summary: title, location: oneLine(b.location, 300) || undefined, description: String(b.notes || "").slice(0, 4000) || undefined,
+      start: allDay ? { date: start } : { dateTime: start, timeZone: tz }, end: allDay ? { date: end } : { dateTime: end, timeZone: tz } };
+    show = { kind, title, start, end, allDay, tz, location: ev.location || "", notes: ev.description || "" };
+    run = async () => { const e = await gapi("https://www.googleapis.com/calendar/v3/calendars/primary/events", { method: "POST", body: JSON.stringify(ev) }); return { done: `Added "${title}" to your calendar.`, id: e.id }; };
+  } else throw gErr(400, "Rosin can't prepare that.");
+  for (const [k, p] of PENDING) if (Date.now() - p.at > 30 * 60000) PENDING.delete(k);
+  if (PENDING.size > 30) PENDING.delete(PENDING.keys().next().value);
+  const id = randomUUID();
+  PENDING.set(id, { kind, show, run, at: Date.now() });
+  return { id, ...show };
+}
+async function gConfirm(b) {
+  const p = PENDING.get(String(b.id || ""));
+  if (!p) throw gErr(410, "That's gone (it was over 30 minutes old, already done, or the laptop restarted). Ask Rosin again.");
+  if (!allowed("google-actions", GOOGLE_ACTIONS_PER_HOUR)) throw gErr(429, "That's a lot of Google changes in an hour. Wait a bit.");
+  PENDING.delete(String(b.id));
+  const out = await p.run(b.as === "draft" ? "draft" : "");
+  console.log(new Date().toISOString(), "google:", p.kind, b.as === "draft" ? "draft" : "", "confirmed");
+  return { ok: true, ...out };
+}
+
+async function calendarEvents(b) {
+  const days = Math.min(31, Math.max(1, Number(b.days) || 7));
+  const from = b.from && /^\d{4}-\d{2}-\d{2}/.test(String(b.from)) ? new Date(String(b.from).slice(0, 10) + "T00:00:00") : new Date();
+  const to = new Date(from.getTime() + days * 86400000);
+  const q = b.query ? `&q=${encodeURIComponent(oneLine(b.query, 100))}` : "";
+  const j = await gapi(`https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=25&timeMin=${from.toISOString()}&timeMax=${to.toISOString()}${q}`);
+  return { events: (j.items || []).map((e) => ({ title: e.summary || "(no title)", start: e.start?.dateTime || e.start?.date, end: e.end?.dateTime || e.end?.date, location: e.location || "", allDay: !!e.start?.date, organizer: e.organizer?.self ? "" : e.organizer?.email || "" })) };
+}
+async function driveSearch(b) {
+  const words = oneLine(b.query, 100).replace(/['\\]/g, " ").trim();
+  if (!words) throw gErr(400, "What should Rosin look for in Drive?");
+  const q = `trashed = false and (name contains '${words}' or fullText contains '${words}')`;
+  const j = await gapi(`https://www.googleapis.com/drive/v3/files?pageSize=10&orderBy=modifiedTime desc&fields=files(id,name,mimeType,modifiedTime,owners(displayName))&q=${encodeURIComponent(q)}`);
+  return { files: (j.files || []).map((f) => ({ id: f.id, name: f.name, type: f.mimeType.replace("application/vnd.google-apps.", "Google "), modified: f.modifiedTime, owner: f.owners?.[0]?.displayName || "" })) };
+}
+async function driveRead(b) {
+  const id = String(b.id || "");
+  if (!/^[A-Za-z0-9_-]{10,80}$/.test(id)) throw gErr(400, "That isn't a Drive file id from a search.");
+  const f = await gapi(`https://www.googleapis.com/drive/v3/files/${id}?fields=id,name,mimeType,size`);
+  const exp = { "application/vnd.google-apps.document": "text/plain", "application/vnd.google-apps.spreadsheet": "text/csv", "application/vnd.google-apps.presentation": "text/plain" }[f.mimeType];
+  let text;
+  if (exp) text = await (await gapi(`https://www.googleapis.com/drive/v3/files/${id}/export?mimeType=${encodeURIComponent(exp)}`, { raw: true })).text();
+  else if (/^text\/|json|xml|csv|markdown/.test(f.mimeType) && Number(f.size || 0) < 2e6) text = await (await gapi(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, { raw: true })).text();
+  else throw gErr(415, `Rosin can only read Docs, Sheets, Slides and text files, and "${f.name}" is ${f.mimeType}.`);
+  return { name: f.name, text: text.slice(0, 8000), cut: text.length > 8000 };
+}
+async function googleStatus() {
+  if (!GOOGLE) return { ready: false };
+  const has = (s) => String(GOOGLE.scope || "").split(/\s+/).includes(s);
+  let email = GOOGLE.email || "";
+  try { email = (await myAddress()) || email; } catch (e) { return { ready: false, error: e.message, email }; }
+  return { ready: true, email, gmail: has(GOOGLE_SCOPES.gmail), calendar: has(GOOGLE_SCOPES.calendar), drive: has(GOOGLE_SCOPES.drive) };
+}
+async function googleRoute(kind, b) {
+  switch (kind) {
+    case "status": return googleStatus();
+    case "gmail/search": return gmailSearch(b.query, b.max);
+    case "gmail/read": return gmailRead(b.id);
+    case "calendar/events": return calendarEvents(b);
+    case "drive/search": return driveSearch(b);
+    case "drive/read": return driveRead(b);
+    case "prepare": return gPrepare(b);
+    case "confirm": return gConfirm(b);
+    case "cancel": PENDING.delete(String(b.id || "")); return { ok: true };
+  }
+  throw gErr(404, "Not here");
+}
+
+// `node server.mjs google-setup`: sign in to Google once, on the laptop, and keep the refresh token for the gate.
+async function googleSetup() {
+  const { createInterface } = await import("node:readline");
+  const { createServer } = await import("node:http");
+  const { mkdirSync, chmodSync, existsSync } = await import("node:fs");
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: !!process.stdin.isTTY });
+  const lines = [], waiting = [];
+  rl.on("line", (l) => (waiting.length ? waiting.shift()(l) : lines.push(l)));
+  rl.on("close", () => { while (waiting.length) waiting.shift()(""); });
+  const ask = async (q) => {
+    process.stdout.write(q);
+    const l = lines.length ? lines.shift() : await new Promise((ok) => waiting.push(ok));
+    if (!process.stdin.isTTY) process.stdout.write("\n");
+    return String(l).replace(/\x1b\[20[01]~|\^\[\[20[01]~|\[20[01]~/g, "").trim();
+  };
+  console.log("\nRosin's Google sign-in. Your Google Cloud OAuth client (a Desktop app) is in the console under APIs & Services > Credentials.\n");
+  const clientId = await ask("Client ID: ");
+  if (!/\.apps\.googleusercontent\.com$/.test(clientId)) { console.log("That doesn't look like a client ID (it ends in .apps.googleusercontent.com)."); process.exit(1); }
+  const clientSecret = await ask("Client secret: ");
+  const which = (await ask("Which parts? Enter for Gmail, Calendar and Drive, or type e.g. gmail calendar: ")).toLowerCase();
+  const parts = Object.keys(GOOGLE_SCOPES).filter((k) => !which || which.includes(k));
+  if (!parts.length) { console.log("Pick at least one of gmail, calendar, drive."); process.exit(1); }
+  const scope = parts.map((k) => GOOGLE_SCOPES[k]).join(" ");
+  const port = 8795, redirect = `http://127.0.0.1:${port}`;
+  const verifier = b64url(randomUUID() + randomUUID()), state = randomUUID().slice(0, 8);
+  const challenge = createHash("sha256").update(verifier).digest("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" + new URLSearchParams({ client_id: clientId, redirect_uri: redirect, response_type: "code", scope, access_type: "offline", prompt: "consent", code_challenge: challenge, code_challenge_method: "S256", state });
+  console.log(`\n1. Open this link on your phone, pick your Google account and allow it:\n\n${authUrl}\n`);
+  console.log("2. Google then sends you to a page that won't load (127.0.0.1). That's expected: copy the whole address from the address bar and paste it here.\n");
+  let caught = null;
+  const srv = createServer((req, res) => { const u = new URL(req.url, redirect); if (u.searchParams.get("code")) { caught = u.href; res.end("Done. Go back to the laptop's terminal."); } else res.end(); });
+  srv.on("error", () => {}); srv.listen(port, "127.0.0.1");
+  let pasted = await ask("Address: ");
+  srv.close();
+  if (!pasted && caught) pasted = caught;
+  let code = "", gotState = "";
+  try { const u = new URL(pasted); code = u.searchParams.get("code") || ""; gotState = u.searchParams.get("state") || ""; if (u.searchParams.get("error")) { console.log("Google said: " + u.searchParams.get("error")); process.exit(1); } }
+  catch { code = pasted; gotState = state; }
+  if (!code) { console.log("There's no code in that. Run the setup again and paste the whole address."); process.exit(1); }
+  if (gotState !== state) { console.log("That address is from another sign-in. Run the setup again and use the new link."); process.exit(1); }
+  const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirect, grant_type: "authorization_code", code_verifier: verifier }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.refresh_token) { console.log(`Google didn't give a sign-in to keep (${j.error || r.status}${j.error_description ? ": " + j.error_description : ""}). Run the setup again.`); process.exit(1); }
+  let email = "";
+  if (parts.includes("gmail")) email = (await fetch(`${GM}/profile`, { headers: { authorization: "Bearer " + j.access_token } }).then((x) => x.json()).catch(() => ({}))).emailAddress || "";
+  const file = process.env.GOOGLE_FILE || "/etc/local-ai-gate/google.json";
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify({ client_id: clientId, client_secret: clientSecret, refresh_token: j.refresh_token, scope: j.scope || scope, email }), { mode: 0o600 });
+  chmodSync(file, 0o600);
+  console.log(`\nSaved${email ? ` for ${email}` : ""}: ${parts.join(", ")}. The sign-in stays on this laptop in ${file}.`);
+  const dropin = "/etc/systemd/system/local-ai-gate.service.d/google.conf";
+  if (existsSync("/etc/systemd/system") && !process.env.GOOGLE_FILE) {
+    try {
+      mkdirSync(dirname(dropin), { recursive: true });
+      writeFileSync(dropin, `[Service]\nLoadCredential=google:${file}\n`);
+      execFileSync("systemctl", ["daemon-reload"]); execFileSync("systemctl", ["restart", "local-ai-gate"]);
+      console.log("The gate has restarted with it. Rosin can use Google now.");
+    } catch (e) { console.log(`Couldn't restart the gate (${e.message}). Run: systemctl daemon-reload, then systemctl restart local-ai-gate`); }
+  }
+  rl.close();
+}
+
 // ── Server ──
 const server = http.createServer(async (req, res) => {
   const origin = ORIGINS.includes(req.headers.origin) ? req.headers.origin : null;
@@ -1271,7 +1608,7 @@ const server = http.createServer(async (req, res) => {
         pool().catch(() => null),
       ]);
       const voices = await ttsReady();
-      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search, whisper, voices, pool: !!poolUrl(), poolVision: !!p?.vision, selfUpdate: !!GH_TOKEN, githubToken: GH_LOADED.shape }, origin);
+      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search, whisper, voices, pool: !!poolUrl(), poolVision: !!p?.vision, selfUpdate: !!GH_TOKEN, githubToken: GH_LOADED.shape, google: !!GOOGLE }, origin);
     }
     // Everything past here needs the key.
     if (!KEY_HASH) return send(res, 503, { error: "The laptop's gate has no key set up yet, so it's closed. See the gate's README to add one.", locked: true }, origin);
@@ -1315,6 +1652,11 @@ const server = http.createServer(async (req, res) => {
       if (!allowed("self:" + clientIp(req), SELF_ACTIONS)) return send(res, 429, { error: "Too many taps. Wait a few minutes." }, origin);
       return send(res, 200, await selfAction(selfKind, await readJson(req)), origin);
     }
+    const gKind = /^\/api\/google\/(status|gmail\/search|gmail\/read|calendar\/events|drive\/search|drive\/read|prepare|confirm|cancel)$/.exec(url.pathname)?.[1];
+    if (gKind && req.method === "POST") {
+      if (!allowed("google:" + clientIp(req), GOOGLE_PER_IP)) return send(res, 429, { error: "Too many Google requests. Wait a few minutes." }, origin);
+      return send(res, 200, await googleRoute(gKind, await readJson(req)), origin);
+    }
     if (req.method === "POST" && url.pathname === "/api/chat") {
       if (!allowed("chat:" + clientIp(req), CHAT_PER_IP)) return send(res, 429, { error: "You're going fast. Wait a few minutes, then try again." }, origin);
       if (!allowed("all", CHAT_ALL)) return send(res, 429, { error: "The laptop has had a busy night. Try again in a few minutes." }, origin);
@@ -1329,4 +1671,5 @@ const server = http.createServer(async (req, res) => {
 });
 server.requestTimeout = 0;   // long replies stream for minutes
 
-server.listen(PORT, HOST, () => console.log(`Local AI gate on http://${HOST}:${PORT} (Ollama ${OLLAMA}, search ${SEARCH}, Whisper ${WHISPER}, allowing ${ORIGINS.join(", ")}, AI Pool ${poolUrl() || "off"}, ${KEY_HASH ? "locked with a key" : "NO KEY SET UP: every chat is turned away"})`));
+if (process.argv[2] === "google-setup") { await googleSetup(); process.exit(0); }
+else server.listen(PORT, HOST, () => console.log(`Local AI gate on http://${HOST}:${PORT} (Ollama ${OLLAMA}, search ${SEARCH}, Whisper ${WHISPER}, allowing ${ORIGINS.join(", ")}, AI Pool ${poolUrl() || "off"}, ${KEY_HASH ? "locked with a key" : "NO KEY SET UP: every chat is turned away"})`));

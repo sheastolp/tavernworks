@@ -283,3 +283,22 @@ html.buddy #pics, html.buddy #pic-btn, body.obs #pics { display: none !important
 #chg-offer .chg-offer-btns { display: flex; gap: 8px; flex: 0 0 auto; }
 #chg-offer button { min-height: 44px; }
 #chg-offer .chg-primary { background: #8a3414; border-color: #d0602a; }
+
+/* Google: the card that shows exactly what will be sent or changed, before anything happens (rosin-google.js). */
+#g-card { width: min(640px, 100%); box-sizing: border-box; padding: 10px 12px; border: 1px solid #c9a14a; border-radius: 12px;
+          background: rgba(28, 22, 10, 0.95); display: flex; flex-direction: column; gap: 6px; }
+#g-card[hidden] { display: none; }
+#g-card .g-head { margin: 0; font-weight: 600; font-size: 16px; }
+#g-card .g-bad { color: #ff9a8a; }
+#g-card .g-row { margin: 0; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+#g-card .g-row b { color: #e8c877; font-weight: 600; }
+#g-card .g-body { margin: 0; max-height: min(30vh, 220px); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+                  font: 14px/1.4 inherit; font-family: inherit; padding: 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.35); }
+#g-card .g-list { margin: 0; padding-left: 20px; max-height: min(26vh, 180px); overflow: auto; font-size: 14px; overflow-wrap: anywhere; }
+#g-card .g-btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#g-card button { min-height: 44px; flex: 1 1 auto; }
+#g-card .g-primary { background: #6d5214; border-color: #c9a14a; }
+#g-card .g-more { font-size: 13px; opacity: 0.8; flex-basis: 100%; }
+.g-setting .g-info { margin: 2px 0 6px 26px; font-size: 13px; opacity: 0.85; overflow-wrap: anywhere; }
+body.obs #g-card { display: none !important; }
+html.buddy #g-card, html.buddy #btn-mail { display: none !important; }

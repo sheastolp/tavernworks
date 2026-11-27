@@ -156,6 +156,23 @@ To change the key (say a device is lost): run the `openssl` line again,
 `systemctl restart local-ai-gate`, and put the new key on your devices.
 Anyone with the key can chat with the laptop, so keep it to your own devices.
 
+## Google (optional)
+
+Rosin can read Sheamus's Gmail, Calendar and Drive through the gate. Make a Google Cloud project with the Gmail,
+Calendar and Drive APIs on, an External consent screen published to production, and a **Desktop app** OAuth client
+(steps: tavernworks.dev/local-ai/#google). Then, as root:
+
+```sh
+node /opt/local-ai-gate/server.mjs google-setup
+```
+
+It asks for the client ID and secret, prints a sign-in link, and takes the 127.0.0.1 address Google sends you to. The
+refresh token goes in `/etc/local-ai-gate/google.json` (mode 600), loaded as the systemd credential `google` through
+`local-ai-gate.service.d/google.conf`. Scopes: `gmail.modify` (read, draft, send, archive, label, trash, never delete
+for good), `calendar.events`, `drive.readonly`. Reading answers straight away; anything that sends or changes something
+is only prepared and runs on `/api/google/confirm`, which the page calls only when Sheamus taps the card showing it.
+Prepared actions expire after 30 minutes or when the gate restarts.
+
 ## Settings
 
 Environment variables, set with `Environment=` in the service file:
