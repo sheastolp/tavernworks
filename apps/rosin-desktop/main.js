@@ -155,6 +155,21 @@ function createWindows() {
   buddy.on("close", (e) => { if (!quitting) { e.preventDefault(); buddy.hide(); } });
   buddy.loadFile(path.join(__dirname, "buddy.html"));
   buddy.once("ready-to-show", () => applyMode(false));
+  buddy.on("move", aimEye);
+  buddy.on("show", aimEye);
+  for (const ev of ["display-metrics-changed", "display-added", "display-removed"]) screen.on(ev, aimEye);
+}
+
+/** Just Rosin's eye looks toward the middle of the screen it's on (buddy.js turns it). */
+function aimEye() {
+  if (!buddy || buddy.isDestroyed()) return;
+  const b = buddy.getBounds(), a = screen.getDisplayMatching(b).workArea;
+  // Rosin is 150 px square at the bottom middle of its window; the eye is a little right of and below its centre.
+  const ex = b.x + b.width / 2 + 0.0748 * 150, ey = b.y + b.height - 6 - 150 + 0.5736 * 150;
+  let x = (a.x + a.width / 2 - ex) / (a.width / 2), y = (a.y + a.height / 2 - ey) / (a.height / 2);
+  const len = Math.hypot(x, y);
+  if (len > 1) { x /= len; y /= len; }
+  buddy.webContents.send("rosin-gaze", { x, y });
 }
 
 function page(js) {
@@ -253,7 +268,7 @@ ipcMain.on("rosin-state", (e, s) => {
 let dragFrom = null;
 ipcMain.on("rosin-buddy", (e, what) => {
   if (!buddy || e.sender !== buddy.webContents) return;
-  if (what === "ready") buddy.webContents.send("rosin-state", lastState);
+  if (what === "ready") { buddy.webContents.send("rosin-state", lastState); aimEye(); }
   // take the mouse only while it's over Rosin, so clicks everywhere else reach the desktop
   else if (what === "over") buddy.setIgnoreMouseEvents(false);
   else if (what === "out") buddy.setIgnoreMouseEvents(true, { forward: true });

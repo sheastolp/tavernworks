@@ -30,10 +30,12 @@ class MainActivity : Activity() {
         const val ACTION_OPEN = "dev.tavernworks.rosin.OPEN"
         private const val REQ_MIC = 7
         private const val REQ_NOTIF = 8
+        private const val REQ_CAL = 9
     }
 
     private lateinit var box: FrameLayout
     private val micWaiters = mutableListOf<(Boolean) -> Unit>()
+    private val calWaiters = mutableListOf<(Boolean) -> Unit>()
     var isOnScreen = false; private set
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,9 +102,22 @@ class MainActivity : Activity() {
         if (micWaiters.size == 1) requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
     }
 
+    /** Asks to read the calendar once (the mood compass), then tells every waiter. */
+    fun withCalendar(done: (Boolean) -> Unit) {
+        if (checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED) { done(true); return }
+        calWaiters += done
+        if (calWaiters.size == 1) requestPermissions(arrayOf(Manifest.permission.READ_CALENDAR), REQ_CAL)
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_NOTIF) { RosinService.start(this); askToFloat(); return }
+        if (requestCode == REQ_CAL) {
+            val ok = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+            val waiters = calWaiters.toList(); calWaiters.clear()
+            waiters.forEach { it(ok) }
+            return
+        }
         if (requestCode != REQ_MIC) return
         val ok = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
         val waiters = micWaiters.toList(); micWaiters.clear()

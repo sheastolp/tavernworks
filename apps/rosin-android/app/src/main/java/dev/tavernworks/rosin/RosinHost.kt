@@ -76,6 +76,7 @@ object RosinHost {
         val b = NativeBridge(app, w)
         bridge = b
         w.addJavascriptInterface(b, "RosinNative")
+        w.addJavascriptInterface(CalendarBridge(app), "RosinCalendar")
         val shim = app.assets.open("rosin-bridge.js").bufferedReader().use { it.readText() }
         val startScript = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
         if (startScript) WebViewCompat.addDocumentStartJavaScript(w, shim, setOf("https://$HOST"))
@@ -155,6 +156,9 @@ object RosinHost {
         web?.evaluateJavascript("window.__rosinNative && window.__rosinNative.device('$d')", null)
         notifyListeners()
     }
+
+    /** The app's screen, while it's open (asking for a permission needs it). */
+    fun currentActivity(): MainActivity? = activity
 
     fun js(code: String) { main.post { web?.evaluateJavascript(code, null) } }
 

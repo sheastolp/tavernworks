@@ -43,8 +43,8 @@ class RosinOverlay(private val context: Context) {
     private fun dp(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, context.resources.displayMetrics).toInt()
 
     private val size = dp(118f)
-    private val rosin = ImageView(context).apply {
-        setImageResource(R.drawable.rosin_normal)
+    private val rosin = RosinFace(context) { turned() }.apply {
+        setFace("normal", R.drawable.rosin_normal)
         scaleType = ImageView.ScaleType.FIT_CENTER
         contentDescription = "Rosin. Tap to open the app."
     }
@@ -104,12 +104,14 @@ class RosinOverlay(private val context: Context) {
         if (!show) { hideBubble(); if (rosinShown) { try { wm.removeView(rosin) } catch (_: Exception) {}; rosinShown = false; bob?.cancel() }; return }
         if (!rosinShown) {
             try { wm.addView(rosin, rosinLp); rosinShown = true } catch (_: Exception) { return }
+            aim()
             bob = ObjectAnimator.ofFloat(rosin, View.TRANSLATION_Y, -dp(3f).toFloat(), dp(3f).toFloat()).apply {
                 duration = 3000; repeatMode = ValueAnimator.REVERSE; repeatCount = ValueAnimator.INFINITE; start()
             }
         }
         val thinking = s.optBoolean("thinking")
-        rosin.setImageResource(face(if (thinking) "stoned" else s.optString("face", "normal")))
+        val f = if (thinking) "stoned" else s.optString("face", "normal")
+        rosin.setFace(f, face(f))
 
         val talking = s.optBoolean("talking") || s.optBoolean("busy")
         val heard = s.optBoolean("listening") || s.optBoolean("heard")
@@ -177,10 +179,36 @@ class RosinOverlay(private val context: Context) {
         if (update) try { wm.updateViewLayout(bubble, bubbleLp) } catch (_: Exception) {}
     }
 
-    private fun clamp() {
+    private fun screen(): Pair<Int, Int> {
+        if (android.os.Build.VERSION.SDK_INT >= 30) wm.currentWindowMetrics.bounds.let { return it.width() to it.height() }
         val dm = context.resources.displayMetrics
-        rosinLp.x = rosinLp.x.coerceIn(-size / 3, dm.widthPixels - size * 2 / 3)
-        rosinLp.y = rosinLp.y.coerceIn(0, dm.heightPixels - size * 2 / 3)
+        return dm.widthPixels to dm.heightPixels
+    }
+
+    private fun clamp() {
+        val (w, h) = screen()
+        rosinLp.x = rosinLp.x.coerceIn(-size / 3, w - size * 2 / 3)
+        rosinLp.y = rosinLp.y.coerceIn(0, h - size * 2 / 3)
+    }
+
+    /** Rosin's eye turns toward the middle of the screen from wherever Rosin floats. */
+    private fun aim() {
+        val (w, h) = screen()
+        val ex = rosinLp.x + size * RosinFace.EYE_X
+        val ey = rosinLp.y + size * RosinFace.EYE_Y
+        var vx = (w / 2f - ex) / (w / 2f)
+        var vy = (h / 2f - ey) / (h / 2f)
+        val len = kotlin.math.hypot(vx, vy)
+        if (len > 1f) { vx /= len; vy /= len }
+        rosin.lookAt(vx, vy)
+    }
+
+    /** The screen turned: keep Rosin on it, the bubble by it, and the eye on the new middle. */
+    private fun turned() {
+        if (!rosinShown) return
+        clamp()
+        try { wm.updateViewLayout(rosin, rosinLp) } catch (_: Exception) {}
+        placeBubble(); aim()
     }
 
     private fun face(f: String) = when (f) {
@@ -206,7 +234,7 @@ class RosinOverlay(private val context: Context) {
                     if (dragging) {
                         rosinLp.x = startX + dx.toInt(); rosinLp.y = startY + dy.toInt(); clamp()
                         try { wm.updateViewLayout(rosin, rosinLp) } catch (_: Exception) {}
-                        placeBubble()
+                        placeBubble(); aim()
                     }
                 }
                 MotionEvent.ACTION_UP -> {

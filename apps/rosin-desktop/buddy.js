@@ -5,6 +5,14 @@ const api = window.rosinBuddy;
 const img = document.getElementById("rosin");
 const bubble = document.getElementById("bubble");
 const FACES = ["normal", "happy", "laugh", "surprise", "anger", "confused", "stoned"];
+const gaze = document.getElementById("gaze"), gazeImg = gaze.querySelector("img");
+const OPEN_EYES = ["normal", "surprise", "anger", "confused"];
+
+// ---------- the eye turns toward the middle of the screen, from wherever Rosin sits ----------
+api.onGaze((g) => {
+  const x = Math.max(-1, Math.min(1, Number(g && g.x) || 0)), y = Math.max(-1, Math.min(1, Number(g && g.y) || 0));
+  gazeImg.style.transform = `translate(${(x * 3.7).toFixed(2)}px, ${(y * 2.7).toFixed(2)}px)`;
+});
 
 // ---------- what Rosin is doing, from the app window ----------
 let lastWords = "", hideTimer = null, face = "normal";
@@ -16,7 +24,7 @@ function tailOf(t, max) {
 api.onState((s) => {
   s = s || {};
   const f = s.thinking ? "stoned" : (FACES.includes(s.face) ? s.face : "normal");
-  if (f !== face) { face = f; img.src = `assets/faces/${f}.webp`; }
+  if (f !== face) { face = f; img.src = gazeImg.src = `assets/faces/${f}.webp`; gaze.classList.toggle("on", OPEN_EYES.includes(f)); }
   const words = String(s.subs || "").replace(/\s+/g, " ").trim();
   const talking = (s.talking || s.busy) && !s.thinking && !s.listening && !s.heard && words;
   if (talking) {
@@ -32,7 +40,7 @@ api.onState((s) => {
 // ---------- the mouse: only on Rosin ----------
 let over = false, press = null;
 function onRosin(x, y) {
-  const r = img.getBoundingClientRect();
+  const r = img.getBoundingClientRect();   // the bob moves it a little; close enough
   const cx = r.left + r.width / 2, cy = r.top + r.height * 0.5, rx = r.width * 0.44, ry = r.height * 0.46;
   return ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
 }

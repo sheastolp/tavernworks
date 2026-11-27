@@ -9,9 +9,14 @@
 <title>Rosin</title>
 <style>
   html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; -webkit-user-select: none; }
-  #rosin { position: absolute; left: 50%; bottom: 6px; width: 150px; height: 150px; margin-left: -75px;
-           animation: bob 3s ease-in-out infinite alternate; pointer-events: none; }
-  html.hover #rosin { filter: drop-shadow(0 0 10px rgba(255, 150, 60, .65)); }
+  #rig { position: absolute; left: 50%; bottom: 6px; width: 150px; height: 150px; margin-left: -75px;
+         animation: bob 3s ease-in-out infinite alternate; pointer-events: none; }
+  #rosin { position: absolute; inset: 0; width: 150px; height: 150px; }
+  html.hover #rig { filter: drop-shadow(0 0 10px rgba(255, 150, 60, .65)); }
+  /* The eye again, inside its own outline, shifted toward the middle of the screen (buddy.js). */
+  #gaze { position: absolute; inset: 0; clip-path: ellipse(16.5px 12.5px at 86.2px 86px); display: none; }
+  #gaze.on { display: block; }
+  #gaze img { position: absolute; left: 0; top: 0; width: 150px; height: 150px; transition: transform .35s ease-out; }
   @keyframes bob { from { transform: translateY(-3px); } to { transform: translateY(3px); } }
   #bubble { position: absolute; left: 50%; bottom: 152px; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 16px);
             box-sizing: border-box; background: #f3dcc0; color: #2a1308; border: 2px solid #8c2c14; border-radius: 16px; padding: 8px 12px;
@@ -20,12 +25,15 @@
   #bubble::after, #bubble::before { content: ""; position: absolute; left: 50%; border: solid transparent; border-bottom: 0; }
   #bubble::after { bottom: -11px; margin-left: -10px; border-width: 11px 10px 0; border-top-color: #8c2c14; }
   #bubble::before { bottom: -8px; margin-left: -8px; border-width: 9px 8px 0; border-top-color: #f3dcc0; z-index: 1; }
-  @media (prefers-reduced-motion: reduce) { #rosin { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { #rig { animation: none; } #gaze img { transition: none; } }
 </style>
 </head>
 <body>
   <div id="bubble" role="status" aria-live="polite"></div>
-  <img id="rosin" src="assets/faces/normal.webp" alt="Rosin. Click to open the app." draggable="false">
+  <div id="rig">
+    <img id="rosin" src="assets/faces/normal.webp" alt="Rosin. Click to open the app." draggable="false">
+    <div id="gaze" class="on"><img src="assets/faces/normal.webp" alt="" draggable="false"></div>
+  </div>
   <script src="buddy.js"></script>
 </body>
 </html>

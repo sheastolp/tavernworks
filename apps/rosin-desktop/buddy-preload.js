@@ -5,6 +5,7 @@ const ASKS = new Set(["over", "out", "drag-start", "drag-end", "open", "menu"]);
 contextBridge.exposeInMainWorld("rosinBuddy", {
   send: (what) => { if (ASKS.has(what)) ipcRenderer.send("rosin-buddy", what); },
   drag: (dx, dy) => ipcRenderer.send("rosin-buddy-drag", Number(dx) || 0, Number(dy) || 0),
+  onGaze: (fn) => ipcRenderer.on("rosin-gaze", (_e, g) => { try { fn(g); } catch {} }),
   onState: (fn) => {
     ipcRenderer.on("rosin-state", (_e, s) => { try { fn(s); } catch {} });
     ipcRenderer.send("rosin-buddy", "ready");
