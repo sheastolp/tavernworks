@@ -40,6 +40,7 @@
         u.searchParams.set("device", name);
         history.replaceState(history.state, "", u);
       } catch {}
+      try { window.RosinBrain?.setDevice?.(name); } catch {}   // the page reads ?device= once, so tell it directly too
       try { window.dispatchEvent(new CustomEvent("rosin-device", { detail: name })); } catch {}
     },
   };
