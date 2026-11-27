@@ -1545,12 +1545,25 @@ async function googleSetup() {
     return String(l).replace(/\x1b\[20[01]~|\^\[\[20[01]~|\[20[01]~/g, "").trim();
   };
   console.log("\nRosin's Google sign-in. Your Google Cloud OAuth client (a Desktop app) is in the console under APIs & Services > Credentials.\n");
-  const clientId = await ask("Client ID: ");
-  if (!/\.apps\.googleusercontent\.com$/.test(clientId)) { console.log("That doesn't look like a client ID (it ends in .apps.googleusercontent.com)."); process.exit(1); }
-  const clientSecret = await ask("Client secret: ");
-  const which = (await ask("Which parts? Enter for Gmail, Calendar and Drive, or type e.g. gmail calendar: ")).toLowerCase();
+  // Asks again on an empty line or a wrong-looking answer: a paste on a phone often brings an extra Enter with it.
+  const askFor = async (q, check) => {
+    for (let i = 0; i < 6; i++) {
+      const a = await ask(q);
+      if (!a && process.stdin.readableEnded && !lines.length) break;
+      const why = check(a);
+      if (!why) return a;
+      if (why !== "skip") console.log(why);
+    }
+    console.log("Stopping here. Run the setup again when you have it."); process.exit(1);
+  };
+  const clientId = await askFor("Client ID: ", (a) => !a ? "skip" : /^[^\s/:]+\.apps\.googleusercontent\.com$/.test(a.replace(/\s+/g, "")) ? "" : "That doesn't look like a client ID (it ends in .apps.googleusercontent.com). Paste it again.").then((a) => a.replace(/\s+/g, ""));
+  const clientSecret = await askFor("Client secret: ", (a) => !a ? "skip"
+    : /googleusercontent\.com|:\/\//.test(a) ? "That's not the secret (it's on the same page, often starting with GOCSPX-). Paste the Client secret."
+    : /\s/.test(a.trim()) ? "The secret has no spaces in it. Paste just the Client secret." : "").then((a) => a.trim());
+  if (!/^GOCSPX-/.test(clientSecret)) console.log("(Google's secrets usually start with GOCSPX-. Carrying on with what you pasted.)");
+  const which = (await askFor("Which parts? Press Enter for Gmail, Calendar and Drive, or type e.g. gmail calendar: ",
+    (a) => !a || Object.keys(GOOGLE_SCOPES).some((k) => a.toLowerCase().includes(k)) ? "" : "Type any of gmail, calendar, drive, or just press Enter for all three.")).toLowerCase();
   const parts = Object.keys(GOOGLE_SCOPES).filter((k) => !which || which.includes(k));
-  if (!parts.length) { console.log("Pick at least one of gmail, calendar, drive."); process.exit(1); }
   const scope = parts.map((k) => GOOGLE_SCOPES[k]).join(" ");
   const port = 8795, redirect = `http://127.0.0.1:${port}`;
   const verifier = b64url(randomUUID() + randomUUID()), state = randomUUID().slice(0, 8);
@@ -1561,14 +1574,22 @@ async function googleSetup() {
   let caught = null;
   const srv = createServer((req, res) => { const u = new URL(req.url, redirect); if (u.searchParams.get("code")) { caught = u.href; res.end("Done. Go back to the laptop's terminal."); } else res.end(); });
   srv.on("error", () => {}); srv.listen(port, "127.0.0.1");
-  let pasted = await ask("Address: ");
+  let code = "";
+  await askFor("Address: ", (a) => {
+    if (!a && caught) a = caught;
+    if (!a) return "skip";
+    a = a.split(/(?=https?:\/\/(?:127\.0\.0\.1|localhost))/).filter(Boolean).pop();   // two addresses pasted on one line: the last one
+    let got = "";
+    try {
+      const u = new URL(a.replace(/\s+/g, ""));
+      if (u.searchParams.get("error")) { console.log("Google said: " + u.searchParams.get("error")); process.exit(1); }
+      code = u.searchParams.get("code") || ""; got = u.searchParams.get("state") || "";
+    } catch { code = a.replace(/\s+/g, ""); got = state; }
+    if (!code) return "There's no code in that. Paste the whole address from the address bar.";
+    if (got !== state) { code = ""; return `That address is from an earlier link. Open the link above (it ends in state=${state}), allow it, and paste the new address.`; }
+    return "";
+  });
   srv.close();
-  if (!pasted && caught) pasted = caught;
-  let code = "", gotState = "";
-  try { const u = new URL(pasted); code = u.searchParams.get("code") || ""; gotState = u.searchParams.get("state") || ""; if (u.searchParams.get("error")) { console.log("Google said: " + u.searchParams.get("error")); process.exit(1); } }
-  catch { code = pasted; gotState = state; }
-  if (!code) { console.log("There's no code in that. Run the setup again and paste the whole address."); process.exit(1); }
-  if (gotState !== state) { console.log("That address is from another sign-in. Run the setup again and use the new link."); process.exit(1); }
   const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirect, grant_type: "authorization_code", code_verifier: verifier }) });
   const j = await r.json().catch(() => ({}));
