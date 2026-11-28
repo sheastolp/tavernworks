@@ -11,13 +11,13 @@
  *   - Site updates: when tavernworks.dev/rosin changes, an open Rosin reloads itself the next time it's idle.
  *
  * Nothing here holds a secret: the laptop keeps the Spotify and Twitch sign-ins, and devices only use what it hands out.
- * URL: ?sync=0 keeps this page to itself.
+ * URL: ?sync=0 keeps this page to itself (its Twitch chip and ⋯ → Twitch still work, just for this page).
  */
 (() => {
   const B = window.RosinBrain, H = B && B._hooks, R = window.Rosin;
   if (!H || !R || window.ROSIN_MIRROR) return;
   const params = new URLSearchParams(location.search);
-  if (params.get("sync") === "0") return;
+  const ALONE = params.get("sync") === "0";
   const OBS = !!R.OBS || H.device() === "obs";
   const SEC = 1000, MIN = 60 * SEC;
   const store = H.store, GATE = H.GATE;
@@ -34,7 +34,7 @@
   // A device voice's name only means something in the browser that has it; "" (automatic) and the laptop's voices go everywhere.
   const shareable = (k, v) => KEYS.has(k) && !(k === "voice" && typeof v === "string" && v && !v.startsWith("laptop:"));
   // The OBS overlay takes its settings from its link (?channel=…), so it follows along but never changes the others.
-  const SEND = !OBS;
+  const SEND = !OBS && !ALONE;
 
   const id = (() => { let v = store.get("sync.id", ""); if (!/^[\w-]{8,40}$/.test(v)) { v = "d" + Math.random().toString(36).slice(2, 12) + Date.now().toString(36); store.set("sync.id", v); } return v; })();
   const LABELS = { "android-widget": "phone", "android-app": "phone app", phone: "phone", tablet: "tablet", "windows-app": "Windows app",
@@ -111,7 +111,7 @@
   const tw = { you: true, holder: null, status: null, poster: { linked: false }, beat: 0, takeNext: false, lastPost: "" };
   H.answerHere = () => !sync.ok || tw.you;   // laptop out of reach: each device decides for itself, as before
   async function heartbeat() {
-    if (OBS) return;   // the overlay reads chat for show, the apps and browsers answer it
+    if (OBS || ALONE) { drawTwitch(); return; }   // the overlay reads chat for show, the apps and browsers answer it
     const st = H.twitchStatus(), want = !!st.on;
     if (!want && !tw.you && !tw.wanted) return;
     tw.wanted = want;
@@ -276,7 +276,7 @@
       const m = src.lastMsg, a = src.lastAnswer;
       lastP.textContent = (m ? `Last message seen ${ago(m.at)}: ${m.user}: “${m.text}”` : "No chat messages yet since Rosin joined.")
         + (a ? ` Last answer ${ago(a.at)}${a.user ? " to " + a.user : ""}.` : "") + ` Seen ${src.seen || 0}, answered ${src.answered || 0}.`;
-      whoP.textContent = !sync.ok ? "Answering chat from this device (the laptop isn't reachable, so devices can't share who answers)."
+      whoP.textContent = ALONE ? "Answering chat from this device." : !sync.ok ? "Answering chat from this device (the laptop isn't reachable, so devices can't share who answers)."
         : tw.you ? `Answering chat from this device (${label()}). Your other devices just watch.`
         : tw.holder ? `${tw.holder.label} is answering chat. This device just watches.` : "Waiting to see which device answers.";
       takeBtn.hidden = !sync.ok || tw.you || OBS;
@@ -290,7 +290,7 @@
       : sync.persist === false ? "Typing in chat needs the laptop's gate update first (tavernworks.dev/local-ai/#sync)."
       : !sync.ok ? "Typing in chat needs the laptop, and it isn't reachable right now."
       : "Rosin says its answers out loud (on stream). To have it type them in chat too, link the Twitch account it should type as. A separate bot account is best, so viewers can tell Rosin's lines from yours.");
-    syncP.textContent = !sync.ok ? (sync.fails >= 99 ? "The laptop's gate is older than this page, so settings don't sync yet. Update the gate (tavernworks.dev/local-ai/#sync)." : "Can't reach the laptop right now, so changes here stay on this device until it's back.")
+    syncP.textContent = ALONE ? "Sync is off on this page, so its settings stay here." : !sync.ok ? (sync.fails >= 99 ? "The laptop's gate is older than this page, so settings don't sync yet. Update the gate (tavernworks.dev/local-ai/#sync)." : "Can't reach the laptop right now, so changes here stay on this device until it's back.")
       : sync.persist ? "Settings sync between your devices through the laptop, within a second or two."
       : "Settings sync between your devices, but the laptop forgets them when it restarts. Finish the gate update (tavernworks.dev/local-ai/#sync) to keep them.";
   }
@@ -319,7 +319,7 @@
   });
 
   B.sync = { id, state: () => ({ ok: sync.ok, persist: sync.persist, rev: sync.rev, you: tw.you, holder: tw.holder }), drawTwitch, heartbeat };
-  pull();
+  if (!ALONE) pull();
   H.later(2 * SEC, heartbeat);
   drawTwitch();
 })();
