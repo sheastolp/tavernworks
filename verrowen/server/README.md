@@ -20,7 +20,11 @@ delete models. This server only lets the game through:
   mode) is local git, and the database is built locally by the repo's
   own `tools/build.mjs` after any change. GitHub is a backup: commits
   are pushed up when they settle, but nothing waits on it and nothing
-  reads from it. If the local store can't be set up (no git, the clone
+  reads from it, except that every 5 minutes (and when the review page
+  opens) it fetches GitHub and merges anything pushed there straight to
+  `review` or `main` into the local `review` branch, so it waits on the
+  review page like any other change (`/health` shows it as
+  `orreryImport`). If the local store can't be set up (no git, the clone
   failed), the server falls back to the GitHub API exactly as before;
   `ORRERY_LOCAL=off` forces the API. `/health` reports which store is
   live as `orreryStore`. The served mirror sits in `orrery-host/` (the

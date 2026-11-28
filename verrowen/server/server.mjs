@@ -418,6 +418,41 @@ function noteLocalWrite() {
     backupTimer.unref?.();
   }
 }
+// Changes pushed straight to GitHub (by a Claude session, or an edit on
+// github.com) would otherwise never reach the laptop, since nothing here reads
+// from GitHub: the review page would say "nothing new" while they sat on
+// GitHub's review branch. So every few minutes the store fetches GitHub and
+// merges anything new on GitHub's review or main into the local review
+// branch, where it waits for the owner like any other change (local main is
+// never touched: only a publish moves it). A conflict leaves the local
+// review branch as it was and is logged and shown on /health.
+const IMPORT_EVERY_MS = 5 * 60_000;
+const imported = { at: 0, merged: [], error: "" };
+async function importFromGitHub() {
+  if (!localReady) return;
+  imported.at = Date.now();
+  try { await git(["fetch", "--quiet", "origin", LIVE, CLONE]); }
+  catch (e) { imported.error = "fetch: " + e.message; console.error(new Date().toISOString(), "orrery import from GitHub:", imported.error); return; }
+  imported.error = "";
+  const wt = wtOf(CLONE);
+  for (const ref of ["origin/" + CLONE, "origin/" + LIVE]) {
+    if (!(await gitOk(["rev-parse", "--verify", ref]))) continue;
+    if (await isAncestor(ref, CLONE)) continue;          // nothing new from GitHub here
+    if ((await git(["status", "--porcelain"], wt)) !== "") { imported.error = "the local review worktree has uncommitted changes"; break; }
+    const ok = await gitOk(["merge", "--quiet", "--no-edit", "-m", `Bring in changes made on GitHub (${ref.replace("origin/", "")})`, ref], wt);
+    if (!ok) {
+      await git(["merge", "--abort"], wt).catch(() => {});
+      imported.error = `${ref} conflicts with the local review branch; left as it was`;
+      console.error(new Date().toISOString(), "orrery import from GitHub:", imported.error);
+      continue;
+    }
+    const sha = await git(["rev-parse", CLONE]);
+    imported.merged.push({ from: ref, sha: sha.slice(0, 7), at: new Date().toISOString() });
+    imported.merged = imported.merged.slice(-10);
+    console.log(new Date().toISOString(), "orrery: brought", ref, "into", CLONE, "at", sha.slice(0, 7));
+    noteLocalWrite();
+  }
+}
 async function backupPush() {
   try { await git(["push", "--quiet", "origin", LIVE, CLONE]); console.log(new Date().toISOString(), "orrery backup pushed to GitHub"); }
   catch (e) { console.error(new Date().toISOString(), "orrery backup push failed (the laptop copy is canonical):", e.message); }
@@ -1708,7 +1743,10 @@ async function hostSync() {
   if (LOCAL_ON && localReady) {
     if (host.busy) return;
     host.busy = true;
-    try { await withLocal(() => hostSyncLocal()); }
+    try {
+      if (Date.now() - imported.at >= IMPORT_EVERY_MS) await withLocal(() => importFromGitHub());
+      await withLocal(() => hostSyncLocal());
+    }
     catch (e) { console.error(new Date().toISOString(), "orrery host sync:", e.message); }
     finally { host.busy = false; }
     return;
@@ -2165,7 +2203,7 @@ const server = http.createServer(async (req, res) => {
       const p = MODEL === POOL ? await pool() : null;
       // `ollama` means "a backend can narrate": the pool when it's picked and up, else Ollama.
       const up = p?.state === "up" || await fetch(OLLAMA + "/v1/models", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok, () => false);
-      return send(res, 200, { ok: true, game: "Wake in Verrowen", model: await labelFor(MODEL), pick: MODEL, pool: p ? p.state : null, ollama: up, resting: rest.on, orreryStore: LOCAL_ON ? (localReady ? "local" : "github-fallback") : "github" }, origin);
+      return send(res, 200, { ok: true, game: "Wake in Verrowen", model: await labelFor(MODEL), pick: MODEL, pool: p ? p.state : null, ollama: up, resting: rest.on, orreryStore: LOCAL_ON ? (localReady ? "local" : "github-fallback") : "github", orreryImport: LOCAL_ON && localReady ? { checked: imported.at ? new Date(imported.at).toISOString() : null, merged: imported.merged, error: imported.error || null } : null }, origin);
     }
     // Browsers on other sites are turned away; scripts without an Origin header still hit the rate limits.
     if (req.headers.origin && !origin) return send(res, 403, { error: "This site isn't allowed to use the narrator" }, null);
@@ -2292,6 +2330,8 @@ const server = http.createServer(async (req, res) => {
       // The review page reads the branch through here: the laptop's GitHub token
       // allows 5000 reads an hour, a browser without one only 60.
       if (url.pathname === "/admin/review-compare") {
+        // Opening the review page picks up what was pushed to GitHub at once (at most once a minute).
+        if (LOCAL_ON && localReady && Date.now() - imported.at >= 60_000) await withLocal(() => importFromGitHub()).catch(() => {});
         const r = await gh(`/compare/${LIVE}...${CLONE}`);
         return send(res, r.ok ? 200 : 502, r.ok ? r.j : { error: `GitHub couldn't compare the branches (${r.status})` }, origin);
       }
