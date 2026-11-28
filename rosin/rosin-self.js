@@ -164,6 +164,7 @@
   async function act(kind, it, ask) {
     if (ask && !confirm(ask)) return;
     const key = keyOf(it);
+    if (tryingKey === key && (kind === "approve" || kind === "reject")) stopTry();
     errBox.delete(key);
     busyOn.add(key); draw();
     try {
@@ -174,6 +175,30 @@
     await refresh();
   }
   const errBox = new Map(), busyOn = new Set(), diffs = new Map();
+  // "Try it on": a change to Rosin's look (rosin-look.css, look.json, art) shows on Rosin before it's approved. The
+  // panel closes so Rosin can be seen, and a small bar at the top stops it or goes back to the change.
+  const tryBar = el("div", "", ""); tryBar.id = "look-try"; tryBar.hidden = true;
+  const tryText = el("span", "look-try-text", "");
+  let tryingKey = "";
+  const stopTry = () => { window.RosinLook?.stop(); tryingKey = ""; tryBar.hidden = true; };
+  tryBar.append(tryText, button("Back to the change", () => { openPanel(true); draw(); }), button("Stop", () => { stopTry(); draw(); }, "chg-primary"));
+  document.body.append(tryBar);
+  async function tryOn(it, b) {
+    const key = keyOf(it);
+    if (tryingKey === key) { stopTry(); draw(); return; }
+    b.textContent = "Loading…"; b.disabled = true;
+    try {
+      const j = await call("/api/self/files", { repo: it.repo, pr: it.pr });
+      const tried = window.RosinLook.preview(j.files || {});
+      if (!tried.length && !Object.keys(j.files || {}).length) throw new Error("This change has nothing to try on: it only changes how Rosin works. Show changes to read it.");
+      tryingKey = key;
+      const rest = (j.skipped || []).map((p) => p.split("/").pop());
+      tryText.textContent = `Trying on: ${it.title}` + (rest.length ? ` (${rest.join(", ")} only shows after Approve)` : "");
+      tryBar.hidden = false;
+      openPanel(false);
+    } catch (e) { errBox.set(key, e.message); }
+    draw();
+  }
   async function toggleDiff(it, box, b) {
     if (!box.hidden) { box.hidden = true; b.textContent = "Show changes"; openDiffs.delete(keyOf(it)); return; }
     b.textContent = "Loading…";
@@ -205,6 +230,10 @@
       const box = el("pre", "chg-diff"); box.hidden = true;
       const show = button("Show changes", () => toggleDiff(it, box, show));
       if (openDiffs.has(key) && diffs.has(key)) { box.hidden = true; toggleDiff(it, box, show); }
+      if (it.look && it.self !== false && window.RosinLook) {
+        const t = button(tryingKey === key ? "Stop trying on" : "Try it on", () => tryOn(it, t));
+        row.append(t);
+      }
       row.append(show,
         button("Approve", () => act("approve", it, it.self === false ? `Merge "${it.title}" into ${it.repoName}?` : `Put "${it.title}" live on Rosin? It reaches the site and the apps in about a minute.`), "chg-primary"),
         button("Reject", () => act("reject", it, `Turn down "${it.title}"?`)));
@@ -257,7 +286,7 @@
   // The Android app keeps this page running for hours, so a change pushed to the site (an approved draft included)
   // would never reach it. Every 10 minutes it asks the site whether Rosin's files changed, and reloads itself once
   // nothing is going on: not talking or listening, nothing typed, no tray or offer open, quiet for a minute.
-  const FILES = ["index.html", "rosin.js", "rosin-web.js", "rosin-self.js", "rosin-compass.js", "rosin-eyes.js", "rosin-google.js", "rosin-video.js", "rosin-initiative.js", "rosin-spotify.js", "rosin.css", "layers.js"];
+  const FILES = ["index.html", "rosin.js", "rosin-look.js", "rosin-look.css", "look.json", "rosin-web.js", "rosin-self.js", "rosin-compass.js", "rosin-eyes.js", "rosin-google.js", "rosin-video.js", "rosin-initiative.js", "rosin-spotify.js", "rosin.css", "layers.js"];
   let shipped = null, newer = false;
   async function version() {
     const base = location.href.replace(/[?#].*$/, "").replace(/[^/]*$/, "");

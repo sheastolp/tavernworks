@@ -1,0 +1,4 @@
+{
+  "about": "Stickers: art laid over Rosin. Canvas is 1382 x 1698 px, same numbers as layers.js. art: art/<name>.svg (or img/...). x, y, w, h: the box on the canvas. on: the part it moves with (body, antenna-l, antenna-r, crystal-l, crystal-r, float-l, float-r, spark-1, spark-2, spark-3, charms). Optional: rotate (degrees), opacity (0..1), behind (true = under that part's painting), class (names for rosin-look.css).",
+  "stickers": []
+}

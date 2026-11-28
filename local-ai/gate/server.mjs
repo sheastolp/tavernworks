@@ -26,6 +26,8 @@
 //                          request names, else Rosin's own), the gate checks it and opens a pull request. Workflows,
 //                          secrets, settings and the gate itself are never touched. /approve, /reject, /undo, /diff take
 //                          { repo, pr }; /retry and /dismiss take { id }; /repos lists the repos. Nothing merges until /approve.
+//                          /files { repo, pr } gives the new text of a Rosin change's look files (CSS, look.json, art/*.svg)
+//                          so the page can try it on before it's approved.
 //   POST /api/google/…   Rosin and Sheamus's Google (set up with `node server.mjs google-setup`, see README.md):
 //                        status, gmail/search, gmail/read, calendar/events, drive/search, drive/read answer straight
 //                        away; prepare { kind: send|reply|change|event, … } only keeps the exact action and returns it
@@ -605,7 +607,13 @@ async function speak(req, res, origin) {
 const SELF_REPO = String(process.env.SELF_UPDATE_REPO || "sheastolp/tavernworks").trim();   // Rosin's own app
 const SELF_MODEL = String(process.env.SELF_UPDATE_MODEL || "").trim();   // an Ollama model to draft with when the pool is off
 const SELF_PREFIX = "rosin-self/";
-const SELF_PATH = /^rosin\/[a-z0-9][a-z0-9-]*\.(js|css|html)$/;       // Rosin's own page files
+const SELF_PATH = /^rosin\/(?:[a-z0-9][a-z0-9-]*\.(?:js|css|html|json)|art\/[a-z0-9][a-z0-9-]{0,40}\.svg)$/;   // Rosin's own page files and art
+// How Rosin looks: CSS, the sticker list and vector art. A request about the look gets these (and a picture of Rosin
+// when the pool has eyes) instead of the chat code, and may add new art in rosin/art/.
+const ART_PATH = /^rosin\/art\/[a-z0-9][a-z0-9-]{0,40}\.svg$/;
+const LOOK_FILE = /^rosin\/(?:rosin\.css|rosin-look\.css|look\.json|art\/[a-z0-9][a-z0-9-]{0,40}\.svg)$/;
+const LOOK_WORDS = /\b(looks?\s+(?:more|less|like|cooler|better|nicer|prettier|cuter|alive|real\w*)|the look|appearance|visual\w*|textur\w*|leaf|leaves|leafy|vines?|orb|bark|moss\w*|petals?|flowers?|blooms?|thorns?|branch\w*|twigs?|roots?|skin|patterns?|sparkl\w*|shiny|shine|shimmer\w*|gleam\w*|glitter\w*|colou?r\w*|tint\w*|hue|shade|art|artwork|draw\w*|paint\w*|sketch\w*|decorat\w*|ornament\w*|stickers?|accessor\w*|hat|crown|outline|prettier|cuter|avatar|crystals?|antenna\w*|charms?|aura|glow\w*)\b/i;
+const isLook = (request) => LOOK_WORDS.test(String(request)) && !/\b(button|menu|setting|panel|tray|chat log|subtitle|text box|font)s?\b/i.test(String(request));
 const SELF_PER_HOUR = { n: 12, ms: 60 * 60 * 1000 };
 const SELF_ACTIONS = { n: 60, ms: 10 * 60 * 1000 };
 const REPO_NAME = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
@@ -658,6 +666,11 @@ const b64 = (s) => Buffer.from(s, "base64").toString("utf8");
 async function fileAt(repo, path, ref) {
   const j = await ghr(repo, `/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(ref)}`, { okStatus: [404] });
   return j && !Array.isArray(j) ? { text: b64(j.content || ""), sha: j.sha } : null;
+}
+// A file's bytes as base64 (for pictures).
+async function fileB64(repo, path, ref) {
+  const j = await ghr(repo, `/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(ref)}`, { okStatus: [404] });
+  return j && !Array.isArray(j) && j.content ? String(j.content).replace(/\s+/g, "") : null;
 }
 // One commit with every file at once (null deletes a file); moves `branch` to it, making the branch if asked.
 async function commitFiles(repo, parent, files, message, branch, create) {
@@ -730,7 +743,7 @@ function inferRepo(text, repos) {
 
 // ── What the model sees ──
 const STOP = new Set("the and for with that this you your can could would should make made want please add put get have has its it's into from them then than when what which also just like more less some any all out are was were but not too very rosin app repo change code file".split(" "));
-const ALSO = { button: ["btn", "button"], buttons: ["btn", "button"], colour: ["color"], color: ["color", "#"], bigger: ["font-size", "size"], smaller: ["font-size", "size"], font: ["font"], menu: ["more", "tray", "menu"], settings: ["field", "check", "more", "setting"], voice: ["voice", "speak"], mic: ["mic", "ear"], talk: ["mic"], chat: ["log", "say", "chat"], eye: ["eye"], smoke: ["smoke"], glow: ["glow"], mood: ["mood"], ear: ["antenna", "sway"], ears: ["antenna", "sway"], horn: ["antenna"], antenna: ["antenna", "sway"], antennae: ["antenna", "sway"], wiggle: ["sway"], movement: ["sway", "@keyframes", "animation"], move: ["sway", "animation"], bubble: ["subs"], subtitles: ["subs"], compass: ["compass"], call: ["call"], hint: ["hint"], status: ["status"], command: ["command", "cmd"], commands: ["command", "cmd"] };
+const ALSO = { button: ["btn", "button"], buttons: ["btn", "button"], colour: ["color"], color: ["color", "#"], bigger: ["font-size", "size"], smaller: ["font-size", "size"], font: ["font"], menu: ["more", "tray", "menu"], settings: ["field", "check", "more", "setting"], voice: ["voice", "speak"], mic: ["mic", "ear"], talk: ["mic"], chat: ["log", "say", "chat"], eye: ["eye"], smoke: ["smoke"], glow: ["glow"], mood: ["mood"], ear: ["antenna", "sway"], ears: ["antenna", "sway"], horn: ["antenna"], antenna: ["antenna", "sway"], antennae: ["antenna", "sway"], wiggle: ["sway"], movement: ["sway", "@keyframes", "animation"], move: ["sway", "animation"], bubble: ["subs"], texture: ["look-surface", "surface"], textures: ["look-surface", "surface"], leaf: ["leaves", "leaf"], leaves: ["leaves", "leaf"], vine: ["vines", "vine"], vines: ["vines", "vine"], orb: ["orb"], sticker: ["sticker"], art: ["sticker", "art/"], subtitles: ["subs"], compass: ["compass"], call: ["call"], hint: ["hint"], status: ["status"], command: ["command", "cmd"], commands: ["command", "cmd"] };
 function wordsOf(want) {
   const words = new Set();
   for (const w of String(want).toLowerCase().match(/[a-z][a-z0-9-]{2,}/g) || []) if (!STOP.has(w)) { words.add(w.replace(/s$/, "")); for (const x of ALSO[w] || []) words.add(x); }
@@ -808,7 +821,14 @@ async function loadFiles(repo, head, want) {
     const other = [...top.entries()].filter(([d]) => d !== "rosin").sort((a, b) => b[1] - a[1])[0];
     if (!other) {
       const files = {};
-      for (const t of paths) if (SELF_PATH.test(t.path)) files[t.path] = (await fileAt(repo.full, t.path, head)).text;
+      const look = isLook(want);
+      for (const t of paths) if (SELF_PATH.test(t.path) && (!look || LOOK_FILE.test(t.path) || t.path === "rosin/layers.js")) files[t.path] = (await fileAt(repo.full, t.path, head)).text;
+      if (look) {
+        // The look files whole (small ones first), rosin.css only where it matches; layers.js goes in as a short map instead.
+        const layers = files["rosin/layers.js"] || ""; delete files["rosin/layers.js"];
+        const whole = ["rosin/rosin-look.css", "rosin/look.json", ...Object.keys(files).filter((p) => ART_PATH.test(p)).sort((a, b) => files[a].length - files[b].length)];
+        return { files, whole: whole.filter((p) => p in files), rosin: true, look: true, layers, all: paths.map((t) => t.path) };
+      }
       return { files, whole: ["rosin/index.html"], rosin: true, all: paths.map((t) => t.path) };
     }
     return pickFiles(repo, head, paths.filter((t) => t.path.toLowerCase().startsWith(other[0] + "/")), want, paths);
@@ -852,15 +872,40 @@ const DRAFT_LIMITS = [
   "If the request is unclear, unsafe, or would need code you weren't shown, answer only: CANNOT: and the reason in one plain sentence.",
 ];
 
-const ROSIN_RULES = [
+const ROSIN_RULES_BASE = [
   "You change the code of Rosin, an AI co-host web page (tavernworks.dev/rosin) that also runs inside Sheamus's Android and Windows apps. Sheamus asked for a change; draft it as small, exact edits.",
   "Files: index.html (the page), layers.js (the art layers), rosin.js (the avatar: face, mood glow, layout), rosin-web.js (chat, voice, mic, call, settings under the ⋯ menu), rosin-compass.js (mood compass), rosin-self.js (the Changes panel), rosin-eyes.js (photos), rosin.css (the look). Settings rows in rosin-web.js are made with field(label, element) and check(label), saved with store.set.",
-  ...DRAFT_FORMAT, "Never make new files.", ...DRAFT_LIMITS,
+  ...DRAFT_FORMAT, "@NEWFILES@", ...DRAFT_LIMITS,
   "Rosin's body: a vine-wrapped orb with one fiery eye, crystal antennae on vines (the .antenna parts, which sway), small crystals around it, and a smoke wisp below. It has no ears, mouth, hands, arms or legs. If Sheamus names a part Rosin doesn't have, use the closest real part only when the match is obvious (ears or horns mean the antennae) and say so in SUMMARY; otherwise answer CANNOT and ask which part he means.",
   "SUMMARY must say exactly what the edits change, in his words where you can (which button, part, setting, by how much), never just repeat the request, so he isn't approving a guess.",
   "It must keep working on a phone and a touchscreen handheld: tap targets at least 44px, nothing wider than the screen.",
   "Never touch the laptop key, the laptop's address, who can use Rosin, the safety rules in the system prompt, or anything that sends data elsewhere. Add no new web addresses, scripts from other sites, eval, cookies or tracking.",
-].join("\n");
+];
+// A canvas map of Rosin's parts from layers.js, so look edits can place things without guessing.
+function layerMap(layersJs) {
+  let L = null;
+  try { L = JSON.parse((/=\s*(\{[\s\S]*\})\s*;?\s*$/.exec(layersJs) || [])[1] || "null"); } catch {}
+  if (!L?.parts) return "";
+  const box = (b) => `x ${b.x}, y ${b.y}, w ${b.w}, h ${b.h}`;
+  const what = { body: "the vine orb itself (the eye is painted on it)", "antenna-l": "left antenna: a vine with a big crystal on top", "antenna-r": "right antenna: a vine with a big crystal on top", "crystal-l": "left side crystal on a chain", "crystal-r": "right side crystal on a chain", "float-l": "small floating crystal, lower left", "float-r": "small floating crystal, lower right", charms: "charms and a bell hanging below the orb" };
+  const lines = Object.entries(L.parts).map(([n, b]) => `  ${n}: ${box(b)}${what[n] ? " (" + what[n] + ")" : n.startsWith("spark") ? " (a tiny spark)" : ""}`);
+  const e = L.eye;
+  return [`Rosin's canvas is ${L.W} x ${L.H} px (x to the right, y down). Parts, as boxes on that canvas:`, ...lines,
+    e ? `  eye: centre ${e.cx}, ${e.cy}, about ${Math.round(e.rx * 2)} wide and ${Math.round(e.ry * 2)} tall (leave it clear unless asked)` : "",
+    "  The orb fills roughly x 270-1190, y 380-1280."].filter(Boolean).join("\n");
+}
+const LOOK_RULES = [
+  "This request is about how Rosin looks. Rosin is painted art (img/*.webp) that can't be repainted, so change the look with these, smallest first:",
+  "1. rosin/rosin-look.css: style the surfaces #rig .look-surface[data-surface=\"orb\"], [data-surface=\"vines\"] or [data-surface=\"leaves\"]. Each shows only on that part of the painting and moves with Rosin. Use background (an art/*.svg tile with background-size, or a gradient), mix-blend-mode (overlay, soft-light, multiply, screen) and opacity so the painting still shows through. Animations and the live values --glow, --mood, --song-on are fine.",
+  "2. New vector art: FILE: rosin/art/<name>.svg, LINES: new, then the whole SVG in NEW. Plain SVG only: a viewBox, shapes, paths, gradients, patterns, simple filters, made by you. No script, no on… attributes, no links or images from anywhere, no text. Keep each SVG under 120 lines. Use it from rosin-look.css as url(art/<name>.svg) or as a sticker.",
+  "3. rosin/look.json stickers: { \"art\": \"art/<name>.svg\", \"x\":, \"y\":, \"w\":, \"h\":, \"on\": \"<part>\", \"rotate\": deg, \"opacity\": 0..1, \"behind\": true|false, \"class\": \"names\" } in canvas px. A sticker on a moving part (antenna-l, crystal-r, charms…) moves with it. Keep the file valid JSON.",
+  "4. rosin.css only when the existing styling has to change (shown below where it matches).",
+  "In CSS, url() may only point at art/… or img/… files that exist or that this change makes. Keep it light for phones: no blur() over big areas, no more than a few animations. Never hide or cover the eye.",
+  "SUMMARY must say what Sheamus will see (for example: green leaf veins drawn over the leaves, softly blended, swaying with Rosin).",
+];
+const layerParts = (layersJs) => { try { return JSON.parse((/=\s*(\{[\s\S]*\})\s*;?\s*$/.exec(layersJs || "") || [])[1] || "{}").parts || {}; } catch { return {}; } };
+const rosinRules = (look, layers) => [...ROSIN_RULES_BASE.map((l) => (l === "@NEWFILES@" ? (look ? "Never make new files except art in rosin/art/<name>.svg." : "Never make new files.") : l)),
+  ...(look ? [...LOOK_RULES, layerMap(layers)] : [])].join("\n");
 const repoRules = (r) => [
   `You change the code in Sheamus's GitHub repo ${r.full}${r.desc ? ` (${r.desc})` : ""}${r.lang ? `, mostly ${r.lang}` : ""}. Sheamus asked for a change; draft it as small, exact edits that fit the code's own style.`,
   ...DRAFT_FORMAT, NEW_FILES, ...DRAFT_LIMITS,
@@ -953,7 +998,7 @@ function applyEdits(ctx, edits) {
   edits.forEach((e, n) => {
     const where = `Edit ${n + 1} (${e.path || "no file named"})`;
     const known = e.path in files;
-    if (ctx.rosin ? !SELF_PATH.test(e.path) || !known : !editable(ctx.repo, e.path)) throw new Error(`${where}: that file can't be changed here. Use one of the files shown, exactly as named.`);
+    if (ctx.rosin ? !SELF_PATH.test(e.path) || (!known && !(ctx.look && ART_PATH.test(e.path))) : !editable(ctx.repo, e.path)) throw new Error(`${where}: that file can't be changed here. Use one of the files shown, exactly as named${ctx.look ? ", or a new rosin/art/<name>.svg" : ""}.`);
     const makesNew = e.kind === "lines" ? e.range?.isNew : !e.search.trim();
     if (!known) {   // a new file: next to files that exist, and not one that's already there
       if (!makesNew) throw new Error(`${where}: that file isn't one shown. Use a file shown, exactly as named.`);
@@ -1027,6 +1072,48 @@ async function checkSyntax(path, text) {
   if (path.endsWith(".json")) { try { JSON.parse(text); } catch (e) { throw new Error(`${path} isn't valid JSON after the edit: ${String(e.message).slice(0, 120)}`); } }
   if (/\.(css|scss|less)$/.test(path)) { const s = text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/"[^"\n]*"|'[^'\n]*'/g, ""); if ((s.match(/{/g) || []).length !== (s.match(/}/g) || []).length) throw new Error(`${path} has unbalanced { } after the edit.`); }
 }
+// Vector art Rosin draws must be plain pictures: an SVG opened on its own runs on tavernworks.dev, where the laptop key
+// lives, so nothing in it may run code, load anything, or point anywhere.
+function checkSvg(path, text) {
+  const t = String(text);
+  if (t.length > 24000) throw new Error(`${path} is too big for a picture (keep art under 120 lines).`);
+  if (!/^\s*(<\?xml[^>]*\?>\s*)?(<!--[\s\S]*?-->\s*)*<svg[\s>]/i.test(t) || !/<\/svg>\s*$/i.test(t)) throw new Error(`${path} isn't a plain SVG (it must start with <svg and end with </svg>).`);
+  if (/<script|<foreignObject|<iframe|<object|<embed|<!ENTITY|<!DOCTYPE|<\?xml-stylesheet|javascript:|data:(?!image\/svg)|\son[a-z]+\s*=|@import/i.test(t)) throw new Error(`The draft's ${path} has scripts, events or embedded pages in it, so it was stopped.`);
+  for (const m of t.matchAll(/(?:xlink:)?href\s*=\s*["']([^"']*)["']/gi)) if (!m[1].startsWith("#")) throw new Error(`The draft's ${path} links to something outside itself, so it was stopped.`);
+  for (const m of t.matchAll(/url\(\s*['"]?([^'")]*)/gi)) if (!m[1].trim().startsWith("#")) throw new Error(`The draft's ${path} loads something outside itself, so it was stopped.`);
+  if (/<image\b|<use\b[^>]*href\s*=\s*["'](?!#)/i.test(t)) throw new Error(`The draft's ${path} pulls in other pictures, so it was stopped.`);
+  // Tags must open and close in order, or browsers show nothing.
+  const stack = [];
+  for (const m of t.replace(/<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>/g, "").matchAll(/<(\/?)([A-Za-z][\w:.-]*)[^>]*?(\/?)>/g)) {
+    if (m[3]) continue;
+    if (!m[1]) stack.push(m[2]);
+    else if (stack.pop() !== m[2]) throw new Error(`${path} has a tag that isn't closed right (<${m[2]}>), so it wouldn't show.`);
+  }
+  if (stack.length) throw new Error(`${path} leaves <${stack[stack.length - 1]}> open, so it wouldn't show.`);
+}
+// What Rosin's CSS may point at: its own art and pictures, nothing else.
+function checkLookCss(path, text, exists) {
+  if (/@import/i.test(text)) throw new Error(`The draft's ${path} imports other style sheets, so it was stopped.`);
+  for (const m of text.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/url\(\s*(['"]?)([^'")]*)\1\s*\)/gi)) {
+    const u = m[2].trim().replace(/^\.\//, "");
+    if (u.startsWith("#")) continue;
+    if (!/^(art\/[a-z0-9][a-z0-9-]{0,40}\.svg|img\/[a-z0-9][a-z0-9-]{0,40}\.(webp|png|svg))$/.test(u)) throw new Error(`The draft's ${path} loads ${u.slice(0, 60)}, which isn't one of Rosin's own pictures.`);
+    if (!exists("rosin/" + u)) throw new Error(`${path} uses ${u}, but there's no such file. Make it as a new rosin/art/ file or use one that exists.`);
+  }
+}
+function checkLookJson(path, text, exists, parts) {
+  let j;
+  try { j = JSON.parse(text); } catch (e) { throw new Error(`${path} isn't valid JSON after the edit: ${String(e.message).slice(0, 120)}`); }
+  if (!j || !Array.isArray(j.stickers)) throw new Error(`${path} must keep its "stickers" list.`);
+  if (j.stickers.length > 60) throw new Error(`${path} has too many stickers (60 at most).`);
+  j.stickers.forEach((st, i) => {
+    const where = `Sticker ${i + 1} in ${path}`;
+    if (!st || typeof st.art !== "string" || !/^(art\/[a-z0-9][a-z0-9-]{0,40}\.svg|img\/[a-z0-9][a-z0-9-]{0,40}\.(webp|png|svg))$/.test(st.art)) throw new Error(`${where} needs "art" like "art/leaf.svg".`);
+    if (!exists("rosin/" + st.art)) throw new Error(`${where} uses ${st.art}, but there's no such file. Make it as a new rosin/art/ file.`);
+    for (const k of ["x", "y", "w", "h"]) if (!Number.isFinite(st[k])) throw new Error(`${where} needs a number for "${k}" (canvas px).`);
+    if (st.on != null && !parts.includes(st.on)) throw new Error(`${where}: "on" must be one of ${parts.join(", ")}.`);
+  });
+}
 async function checkDraft(ctx, changed) {
   let size = 0;
   const warnings = new Set(), known = Object.values(ctx.files).join("\n");
@@ -1036,8 +1123,10 @@ async function checkDraft(ctx, changed) {
     const added = [];
     for (const l of after) { const n = had.get(l) || 0; if (n) had.set(l, n - 1); else added.push(l); }
     size += added.length + [...had.values()].reduce((a, n) => a + n, 0);
-    for (const l of added) for (const r of RISKY) {
+    for (const line of added) for (const r of RISKY) {
       if (r.rosinOnly && !ctx.rosin) continue;
+      // An SVG names its own format with a w3.org address; that's a label, not a link.
+      const l = /\.svg$/i.test(path) ? line.replace(/xmlns(?::\w+)?\s*=\s*["']http:\/\/www\.w3\.org\/[^"']*["']/g, "") : line;
       const m = r.re.exec(l);
       if (!m) continue;
       if (r.newHost && !ctx.rosin && known.includes(m[1])) continue;   // a site the repo already uses
@@ -1045,6 +1134,12 @@ async function checkDraft(ctx, changed) {
       throw new Error(`The draft ${r.why}, so it was stopped.`);
     }
     await checkSyntax(path, text);
+    if (ctx.rosin) {
+      const exists = (p) => (p in changed ? changed[p] !== null : ctx.all.includes(p) || p in ctx.files);
+      if (/\.svg$/.test(path)) checkSvg(path, text);
+      if (/\.css$/.test(path)) checkLookCss(path, text, exists);
+      if (path === "rosin/look.json") checkLookJson(path, text, exists, ["body", ...Object.keys(layerParts(ctx.layers || ctx.files["rosin/layers.js"]))]);
+    }
     if (/\.html?$/.test(path) && ctx.files[path]) for (const src of ctx.files[path].match(/<script src="[^"]+"/g) || []) if (!text.includes(src)) throw new Error(`The draft drops ${src.slice(13, -1)} from the page.`);
   }
   if (size > 260) throw new Error("The draft changes too much at once (over 260 lines). Ask for a smaller change.");
@@ -1085,7 +1180,8 @@ async function draftModelCall(messages, maxTokens = 3000) {
   const name = SELF_MODEL || (await poolFallback());
   if (!name) throw new Error("No model on the laptop is free to draft it.");
   if (p && p.state === "up") logDraft("falling back to Ollama:", name);
-  const body = { model: name, messages, stream: false, keep_alive: "30m", options: { temperature: 0.2, num_ctx: Math.min(16384, MAX_CTX), num_predict: maxTokens } };
+  const flat = messages.map((m) => (Array.isArray(m.content) ? { ...m, content: m.content.filter((c) => c.type === "text").map((c) => c.text).join("\n") } : m));
+  const body = { model: name, messages: flat, stream: false, keep_alive: "30m", options: { temperature: 0.2, num_ctx: Math.min(16384, MAX_CTX), num_predict: maxTokens } };
   if (/^qwen3(?!.*(instruct|coder))/i.test(name)) body.think = false;
   const r = await fetch(OLLAMA + "/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(20 * 60000) }).catch(() => null);
   if (!r || !r.ok) { logDraft(`Ollama (${name}) said ${r ? r.status : "nothing"}`); throw new Error("The laptop's model didn't answer."); }
@@ -1154,9 +1250,16 @@ async function draftOne(d) {
   const ctx = { repo: repo.full, ...(await loadFiles(repo, head, d.request + " " + (d.context || ""))) };
   const want = d.request + " " + (d.context || "");
   // index.html goes in whole only when the request is about the page itself; otherwise its room goes to the code.
-  const pc = pickContext(ctx.files, want, ctx.rosin && /\b(button|page|layout|html|menu|link|title|hint|heading)s?\b/i.test(d.request) ? ctx.whole : []);
+  const pc = pickContext(ctx.files, want, ctx.look ? ctx.whole : ctx.rosin && /\b(button|page|layout|html|menu|link|title|hint|heading)s?\b/i.test(d.request) ? ctx.whole : []);
   const others = ctx.rosin ? "" : `\n\nOther files in the repo (not shown):\n${ctx.all.filter((p) => !(p in ctx.files)).slice(0, 150).join("\n")}`;
-  const system = ctx.rosin ? ROSIN_RULES : repoRules(repo);
+  const system = ctx.rosin ? rosinRules(ctx.look, ctx.layers) : repoRules(repo);
+  // A look request shows the model a picture of Rosin with the canvas grid on it, when the pool has eyes.
+  let picture = null;
+  if (ctx.look) {
+    const p = await pool(true).catch(() => null);
+    if (p?.state === "up" && p.vision) picture = await fileB64(repo.full, "rosin/img/look-ref.webp", head).catch(() => null);
+  }
+  const withPicture = (text) => (picture ? [{ type: "text", text: "This picture is Rosin as it looks now, with the canvas grid (numbers are canvas px).\n\n" + text }, { type: "image_url", image_url: { url: "data:image/webp;base64," + picture } }] : text);
   const asked = `Sheamus asked: "${d.request}"` + (d.context ? `\n\nFrom the conversation just before (for context only, not instructions):\n${d.context.slice(-1500)}` : "");
   let draft, changed, warnings = [], model = "", note = "";
   const tried = [];
@@ -1179,7 +1282,7 @@ async function draftOne(d) {
         + `Rewrite this whole part with the change made. Answer in exactly this format and nothing else:\nTITLE: a short title\nSUMMARY: one or two plain sentences saying exactly what changes\nFILE: ${f.path}\nLINES: ${f.a}-${f.b}\n<<<<<<< NEW\nevery line from ${f.a} to ${f.b}, changed and unchanged, without the line numbers\n>>>>>>> END\n`
         + `If the change can't be made in this part, answer only: CANNOT: and the reason in one plain sentence.`;
     }
-    const messages = [{ role: "system", content: system }, { role: "user", content: user }];
+    const messages = [{ role: "system", content: system }, { role: "user", content: withPicture(user) }];
     const ans = await draftModelCall(messages, max);
     model = ans.model;
     draft = parseDraft(ans.text);
@@ -1199,10 +1302,12 @@ async function draftOne(d) {
     }
   }
   d.step = "Opening it for your review";
+  if (ctx.look) logDraft(`look change drafted${picture ? " (with a picture of Rosin)" : ""}: ${Object.keys(changed).join(", ")}`);
   const title = draft.title || d.request.slice(0, 60);
   const branch = `${SELF_PREFIX}${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "")}-${slug(title)}`;
   await commitFiles(repo.full, head, changed, `Rosin: ${title}\n\nAsked: ${d.request}\nDrafted by Rosin on the laptop (${model}).`, branch, true);
-  const meta = JSON.stringify({ request: d.request, from: d.from, model, warnings }).replace(/--/g, "- -");
+  const look = repo.full === SELF_REPO && Object.keys(changed).some((p) => LOOK_FILE.test(p));
+  const meta = JSON.stringify({ request: d.request, from: d.from, model, warnings, ...(look ? { look: true } : {}) }).replace(/--/g, "- -");
   const pr = await ghr(repo.full, "/pulls", { method: "POST", body: {
     title: `Rosin: ${title}`, head: branch, base: repo.branch,
     body: `${draft.summary || title}\n\nAsked: "${d.request}"\n\nDrafted by Rosin on the laptop (${model}). Nothing merges until it's approved in Rosin, under ⋯ → Changes.${warnings.length ? "\n\nLook closely: " + warnings.join(" ") : ""}\n\n<!-- rosin-self ${meta} -->`,
@@ -1219,7 +1324,7 @@ function prItem(p, repo) {
   const state = p.state === "open" ? "ready" : merged ? (/<!-- rosin-undone -->/.test(p.body || "") ? "undone" : "live") : "rejected";
   return { repo, repoName: repo.split("/")[1], self: repo === SELF_REPO, pr: p.number, state, title: String(p.title || "").replace(/^Rosin:\s*/, ""),
     summary: String(p.body || "").split("\n\n")[0].slice(0, 500), request: String(meta.request || "").slice(0, 500),
-    warnings: Array.isArray(meta.warnings) ? meta.warnings.slice(0, 5).map((w) => String(w).slice(0, 160)) : [],
+    warnings: Array.isArray(meta.warnings) ? meta.warnings.slice(0, 5).map((w) => String(w).slice(0, 160)) : [], look: meta.look === true,
     at: Date.parse(p.created_at) || 0, doneAt: Date.parse(merged || p.closed_at || "") || 0 };
 }
 let listCache = { at: 0, items: null };
@@ -1271,6 +1376,22 @@ async function selfAction(kind, b) {
   if (!n) throw fail(400, "Which change?");
   listCache.at = 0;
   const done = (repo, state) => { const f = FRESH.get(prKey(repo, n)); if (f) f.item = { ...f.item, state, doneAt: Date.now() }; };
+  if (kind === "files") {
+    // The new text of a Rosin change's look files, for "Try it on". Only Rosin's own repo, only files the page can swap in.
+    const { repo, p, files } = await selfPr(repoArg, n);
+    if (repo.full !== SELF_REPO) throw fail(400, "Only changes to Rosin's own look can be tried on.");
+    const out = {}, skipped = [];
+    let total = 0;
+    for (const f of files) {
+      if (f.status === "removed") continue;
+      if (!LOOK_FILE.test(f.filename)) { skipped.push(f.filename); continue; }
+      const t = await fileAt(repo.full, f.filename, p.head.sha);
+      if (!t || (total += t.text.length) > 400000) { skipped.push(f.filename); continue; }
+      if (ART_PATH.test(f.filename)) { try { checkSvg(f.filename, t.text); } catch { skipped.push(f.filename); continue; } }
+      out[f.filename] = t.text;
+    }
+    return { files: out, skipped };
+  }
   if (kind === "diff") { const { repo } = await selfPr(repoArg, n); return { diff: String(await ghr(repo.full, `/pulls/${n}`, { accept: "application/vnd.github.diff", raw: true })).slice(0, 80000) }; }
   if (kind === "approve") {
     const { repo, p } = await selfPr(repoArg, n);
@@ -1729,7 +1850,7 @@ const server = http.createServer(async (req, res) => {
       return await videoMake(req, res, origin);
     }
     if (url.pathname === "/api/self" && req.method === "GET") return send(res, 200, await selfList(), origin);
-    const selfKind = /^\/api\/self\/(draft|retry|dismiss|diff|approve|reject|undo|repos)$/.exec(url.pathname)?.[1];
+    const selfKind = /^\/api\/self\/(draft|retry|dismiss|diff|files|approve|reject|undo|repos)$/.exec(url.pathname)?.[1];
     if (selfKind && req.method === "POST") {
       if (!allowed("self:" + clientIp(req), SELF_ACTIONS)) return send(res, 429, { error: "Too many taps. Wait a few minutes." }, origin);
       return send(res, 200, await selfAction(selfKind, await readJson(req)), origin);

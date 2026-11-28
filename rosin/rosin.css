@@ -460,3 +460,23 @@ body.obs #initiative, body.obs #mod-card, html.buddy #initiative, html.buddy #bt
 #music .sp-foot button, #music .sp-close { align-self: flex-start; }
 @media (max-width: 380px) { #music .sp-ctl { gap: 4px; } #music .sp-ctl button { font-size: 18px; } #music .sp-art { width: 52px; height: 52px; } }
 body.obs #music, body.obs #btn-music, html.buddy #music, html.buddy #btn-music { display: none !important; }
+
+/* ---------- Rosin's look layer (rosin-look.js): surfaces masked to parts of the painting, and sticker art ----------
+   The styling itself lives in rosin-look.css, which Changes can edit; these are only the frames. */
+#rig .look-surface { position: absolute; inset: 0; pointer-events: none;
+  -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+#rig .look-surface[data-surface="orb"]    { -webkit-mask-image: url(img/mask-orb.webp);    mask-image: url(img/mask-orb.webp); }
+#rig .look-surface[data-surface="vines"]  { -webkit-mask-image: url(img/mask-vines.webp);  mask-image: url(img/mask-vines.webp); }
+#rig .look-surface[data-surface="leaves"] { -webkit-mask-image: url(img/mask-leaves.webp); mask-image: url(img/mask-leaves.webp); }
+#rig .look-sticker { position: absolute; pointer-events: none; }
+#rig .look-sticker img { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
+/* "Try it on" bar: a look change shown before it's approved */
+#look-try { position: fixed; z-index: 40; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + 8px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: min(640px, calc(100vw - 16px)); box-sizing: border-box;
+  padding: 8px 10px; border-radius: 12px; background: rgba(13, 19, 11, 0.9); border: 1px solid #d0602a; color: #f6e7c8; }
+#look-try[hidden] { display: none; }
+#look-try .look-try-text { flex: 1 1 200px; font-size: 14px; line-height: 1.3; overflow-wrap: anywhere; }
+#look-try button { min-height: 44px; flex: 0 0 auto; padding: 0 14px; border-radius: 10px; border: 1px solid #6b3b1f;
+  background: #1d120b; color: #f6e7c8; font: inherit; font-size: 15px; cursor: pointer; }
+#look-try .chg-primary { background: #8a3414; border-color: #d0602a; }
+html.look-preview #badge { display: none; }

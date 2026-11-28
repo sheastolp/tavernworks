@@ -1,0 +1,13 @@
+/* Rosin's look: textures, colours and art on top of the painting. Changes (⋯ → Changes, or asking Rosin) edits this file.
+ *
+ * Surfaces (rosin-look.js puts them over the body; each shows only on its part of the painting and moves with Rosin):
+ *   #rig .look-surface[data-surface="orb"]     the whole vine orb (not the eye)
+ *   #rig .look-surface[data-surface="vines"]   the woven vines and bark
+ *   #rig .look-surface[data-surface="leaves"]  the leaves on the vines
+ * Give one a background (an art/*.svg tile, a gradient), a mix-blend-mode (overlay, soft-light, multiply, screen) and
+ * an opacity, so the painting still shows through. They're empty (invisible) until styled here.
+ *
+ * Stickers (art laid over Rosin, listed in look.json): #rig .look-sticker, or .look-sticker[data-art="name"].
+ * Live values to animate with: --glow (0..1 while talking), --mood (0 calm..1 fired up), --song-on (0/1, music playing).
+ * Keep it light for phones: no big blur() filters, no more than a few animations.
+ */
