@@ -186,6 +186,7 @@ def plan(devices, layout, card_cap_mb, measured=None, relay_info=None,
         ri = relay_info.get(d["name"]) or {}
         lan = k == "relay" and ri.get("route") == "lan"
         ms_l = m.get("ms_per_layer")
+        lay_measured = ms_l is not None
         if ms_l is None:
             ms_l = DEFAULT_MS_PER_LAYER[k]
         if lan:
@@ -201,7 +202,7 @@ def plan(devices, layout, card_cap_mb, measured=None, relay_info=None,
         cands.append({"name": d["name"], "endpoint": d["endpoint"], "kind": k,
                       "cap_mb": float(d.get("offered_mb") or 0),
                       "ms_per_layer": round(float(ms_l), 2), "net_ms": round(float(net), 1),
-                      "measured": bool(m), "route": ("lan" if lan else
+                      "measured": lay_measured, "route": ("lan" if lan else
                                                      ("cloudflare" if k == "relay" else "")),
                       "layers": 0})
     card = {"name": "FX705 card", "endpoint": "CUDA0", "kind": "card",
