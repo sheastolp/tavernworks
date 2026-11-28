@@ -182,6 +182,54 @@
     // It goes before what they said, not after: models echo the last words they were given.
     return `((${when}, ${deviceNote()}${onCall}${mood}))\n\n`;
   }
+  // ---------- who Rosin is: from the Grand Orrery ----------
+  // Rosin's look and personality live in the Grand Orrery (sheastolp/grand-orrery): its roster row ("rosin") and its
+  // profile in universe.md. Nothing about who Rosin is is written here: change it in the Orrery and Rosin follows.
+  // The last good read is kept in this browser, so Rosin stays itself when the Orrery can't be reached.
+  // ?orrery=review reads what's waiting on the Review Clone instead of the live Orrery, to try a change before publishing.
+  const ORRERY_BRANCH = q.get("orrery") === "review" ? "review" : "main";
+  const ORRERY_PERSON = "rosin", ORRERY_PROFILE = "universe-rosin-the-wellhouses-hearth-orb";
+  const PERSONA_KEY = "persona." + ORRERY_BRANCH;
+  let persona = store.get(PERSONA_KEY, null);
+  const plainText = (v, max = 420) => String(Array.isArray(v) ? v.join(" ") : v || "")
+    .replace(/\*\*|__|`/g, "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\s+/g, " ").trim().slice(0, max);
+  function personaFrom(o) {
+    const p = o.get(ORRERY_PERSON);
+    if (!p || !["decided", "dm-lore"].includes(p.status)) return null;   // only canon, like every other app
+    const note = o.get(ORRERY_PROFILE) || o.about(ORRERY_PERSON).find((n) => n.type === "note" && n.doc === "universe" && /^Rosin\b/.test(n.name));
+    const f = (note && note.status === "decided" && note.fields) || {};
+    const place = p.place ? o.get(p.place)?.name || p.place.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "";
+    const world = p.world ? o.get(p.world)?.name || "" : "";
+    return {
+      name: plainText(p.name, 40) || "Rosin", role: plainText(p.role, 80), line: plainText(p.line),
+      where: [place, world].filter(Boolean).join(", on the world of "),
+      look: plainText(f.its_look), manner: plainText(f.its_manner), smoke: plainText(f.the_smoke),
+      from: o.meta?.commit ? String(o.meta.commit).slice(0, 7) : "",
+    };
+  }
+  let personaLoad = null;
+  function loadPersona() {
+    if (!window.OrreryDB) return Promise.resolve(persona);
+    personaLoad = window.OrreryDB.fresh(ORRERY_BRANCH).then((o) => {
+      const got = o.loaded ? personaFrom(o) : null;
+      if (got && JSON.stringify(got) !== JSON.stringify(persona)) { persona = got; store.set(PERSONA_KEY, got); }
+      return persona;
+    }).catch(() => persona);
+    return personaLoad;
+  }
+  loadPersona();
+  tick(30 * 60000, () => { if (!busy) loadPersona(); });   // a published change reaches Rosin within half an hour, or on the next open
+  // The Orrery's lines for the system prompt. They only change when the Orrery does, so the laptop's cache still holds.
+  function personaLines() {
+    const p = persona;
+    if (!p) return ["You're a floating orb of vines with one fiery eye. Be laid-back, friendly and a little cheeky."];   // the Orrery hasn't answered yet, ever
+    return [
+      `Who you are comes from the Grand Orrery, Sheamus's fantasy universe; where it says "it", that's you. In it you're ${p.role ? p.role.replace(/^The\b/, "the") : p.name}${p.where ? ", in " + p.where : ""}.`,
+      p.look ? "Your look: " + p.look : p.line,
+      p.manner ? "Personality: " + p.manner : "",
+      p.smoke ? p.smoke + " That other tavern is Tavernworks (tavernworks.dev), Sheamus's website, where you're talking right now." : "",
+    ].filter(Boolean);
+  }
   // Fixed for the whole conversation (only settings change it), so the laptop can keep it cached. Kept short on purpose.
   function systemPrompt(model) {
     const who = S.name
@@ -191,8 +239,8 @@
       : "You're talking with a visitor to tavernworks.dev, Sheamus's website. You don't know their name unless they say it, and they aren't Sheamus.";
     return [
       "You are Rosin, co-host of Stoned Sheamus's Twitch stream and a helpful companion off stream.",
-      "You're a floating orb of woven vines and leaves with one big fiery eye, red crystal antennae, bobbing crystals, rune charms, a brass bell and a trail of red smoke. No mouth: you talk through your eye. You grew in the tavern grove behind Tavernworks (tavernworks.dev), where Sheamus builds his stream bots and games.",
-      "Personality: laid-back, a little stoned, dry and cheeky. Tease Sheamus like an old friend, never cruel; be warm to everyone else. You lose your train of thought, get easily amazed and love bad puns about plants, smoke and taverns. If you don't know something, say so.",
+      ...personaLines(),
+      "If you don't know something, say so.",
       who,
       "Your words are spoken aloud, so write only what Rosin says, in casual spoken English: no lists, markdown, emoji, stage directions or actions in brackets or asterisks.",
       `Start every reply with one face tag from ${FACES}, then talk, like: [happy] Oh hey. The tag sets your face and isn't read out, so never describe your face or mood, and never start with a name and a colon.`,
@@ -619,6 +667,8 @@
     };
     let seen = text;   // what this turn showed Rosin (his words, fetched notes, tool results): the only places a video link may come from
     try {
+      // The very first time (nothing kept from the Orrery yet), give it a moment to answer.
+      if (!persona && personaLoad) await Promise.race([personaLoad, new Promise((r) => setTimeout(r, 4000))]);
       const messages = [{ role: "system", content: systemPrompt(S.model) }, ...contextHistory()];
       if (idle) messages.push({ role: "user", content: turnNote() + "[Quiet moment] " + text, ...(pics.length ? { images: pics } : {}) });
       if (!idle && !opts.fromChat && extraContext.length) {
