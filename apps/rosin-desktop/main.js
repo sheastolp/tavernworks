@@ -130,6 +130,7 @@ function createWindows() {
   win.setMenuBarVisibility(false);
 
   const wc = win.webContents;
+  wc.setUserAgent(`${wc.getUserAgent()} RosinApp/Windows Rosin/${app.getVersion()}`);   // the version, shown at the bottom of ⋯
   wc.setWindowOpenHandler(({ url }) => { if (!isRosinUrl(url)) shell.openExternal(url); return { action: "deny" }; });
   wc.on("will-navigate", (e, url) => { if (!isRosinUrl(url) && !isSpotifySignIn(url)) { e.preventDefault(); shell.openExternal(url); } });
   wc.on("dom-ready", () => wc.insertCSS(fs.readFileSync(path.join(__dirname, "desktop.css"), "utf8")));

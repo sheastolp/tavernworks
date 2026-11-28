@@ -497,3 +497,7 @@ html.look-preview #badge { display: none; }
 }
 .sp-handback-go { background: #14572b; border: 1px solid #1db954; color: #fff; font-weight: 600; }
 .sp-handback-stay { background: transparent; border: 1px solid #5a4a36; color: #f3dcc0; margin: 0; }
+
+/* Bottom of the ⋯ menu: which Rosin and which version (rosin-web.js). */
+#more .ver { order: 99; flex: 1 1 100%; margin: 6px 0 0; padding-top: 8px; border-top: 1px solid rgba(243, 220, 192, 0.15);
+             font-size: 14px; text-align: center; opacity: 0.8; overflow-wrap: anywhere; }

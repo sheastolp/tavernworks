@@ -70,7 +70,9 @@ object RosinHost {
             databaseEnabled = true
             mediaPlaybackRequiresUserGesture = false
             setSupportZoom(false)
-            userAgentString = "$userAgentString RosinApp/Android"
+            // RosinApp/Android tells the page it's in the app; Rosin/<version> is shown at the bottom of the ⋯ menu.
+            val ver = try { app.packageManager.getPackageInfo(app.packageName, 0).versionName } catch (_: Exception) { null } ?: "?"
+            userAgentString = "$userAgentString RosinApp/Android Rosin/$ver"
         }
         // Rosin keeps going while the app is closed, so don't let Android drop the page first.
         w.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
@@ -90,6 +92,11 @@ object RosinHost {
                 if (uri.scheme == "https" && uri.host == HOST) return false
                 // Spotify's sign-in opens inside the app, so the sign-in comes back to Rosin here and not to a browser.
                 if (uri.scheme == "https" && isSpotify(uri.host)) return false
+                // An app link from a sign-in page (Spotify's "open the app"): open that app if it's here, otherwise its own
+                // web fallback if that's Rosin's or Spotify's, and never a Play Store page.
+                if (uri.scheme == "intent") { openIntent(view, uri.toString()); return true }
+                // The Play Store only when it was tapped, not when a page jumps there by itself.
+                if ((uri.scheme == "market" || uri.host == "play.google.com") && !request.hasGesture()) return true
                 try { app.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
                 return true
             }
@@ -178,6 +185,16 @@ object RosinHost {
     fun currentActivity(): MainActivity? = activity
 
     fun js(code: String) { main.post { web?.evaluateJavascript(code, null) } }
+
+    private fun openIntent(view: WebView, url: String) {
+        val i = try { Intent.parseUri(url, Intent.URI_INTENT_SCHEME) } catch (_: Exception) { return }
+        val fallback = i.getStringExtra("browser_fallback_url")
+        i.addCategory(Intent.CATEGORY_BROWSABLE); i.component = null; i.selector = null
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try { app.startActivity(i); return } catch (_: Exception) {}
+        val f = fallback?.let { Uri.parse(it) } ?: return
+        if (f.scheme == "https" && (f.host == HOST || isSpotify(f.host))) view.loadUrl(f.toString())
+    }
 
     fun reload() { showingError = false; web?.loadUrl("$BASE_URL&device=$device") }
 

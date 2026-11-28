@@ -24,6 +24,10 @@ on:
 permissions:
   contents: read
 
+# The version shown in the apps (bottom of the ⋯ menu): the release's own number, else 1.0.<run number>.
+env:
+  ROSIN_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.release && inputs.version || '' }}
+
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -159,7 +163,7 @@ jobs:
         working-directory: apps/rosin-desktop
         shell: bash
         run: |
-          npm version "1.0.${{ github.run_number }}" --no-git-tag-version --allow-same-version
+          npm version "${ROSIN_VERSION:-1.0.${{ github.run_number }}}" --no-git-tag-version --allow-same-version
           npm install --no-audit --no-fund
           npx electron-builder --win --publish never
       - uses: actions/upload-artifact@v4
