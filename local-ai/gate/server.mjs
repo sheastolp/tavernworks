@@ -896,12 +896,13 @@ function layerMap(layersJs) {
 }
 const LOOK_RULES = [
   "This request is about how Rosin looks. Rosin is painted art (img/*.webp) that can't be repainted, so change the look with these, smallest first:",
-  "1. rosin/rosin-look.css: style the surfaces #rig .look-surface[data-surface=\"orb\"], [data-surface=\"vines\"] or [data-surface=\"leaves\"]. Each shows only on that part of the painting and moves with Rosin. Use background (an art/*.svg tile with background-size, or a gradient), mix-blend-mode (overlay, soft-light, multiply, screen) and opacity so the painting still shows through. Animations and the live values --glow, --mood, --song-on are fine.",
-  "2. New vector art: FILE: rosin/art/<name>.svg, LINES: new, then the whole SVG in NEW. Plain SVG only: a viewBox, shapes, paths, gradients, patterns, simple filters, made by you. No script, no on… attributes, no links or images from anywhere, no text. Keep each SVG under 120 lines. Use it from rosin-look.css as url(art/<name>.svg) or as a sticker.",
-  "3. rosin/look.json stickers: { \"art\": \"art/<name>.svg\", \"x\":, \"y\":, \"w\":, \"h\":, \"on\": \"<part>\", \"rotate\": deg, \"opacity\": 0..1, \"behind\": true|false, \"class\": \"names\" } in canvas px. A sticker on a moving part (antenna-l, crystal-r, charms…) moves with it. Keep the file valid JSON.",
+  "1. rosin/rosin-look.css: style the surfaces #rig .look-surface[data-surface=\"orb\"], [data-surface=\"vines\"] or [data-surface=\"leaves\"]. Each is already cut to exactly that part of the painting and moves with Rosin, so to change every leaf (or the vines, or the orb) style its surface; never cover the orb with a box. A texture is a SMALL tile repeated: background-image: url(art/<name>.svg); background-size: 2% to 8% (or 24px to 80px); background-repeat: repeat. Never cover, contain, 100% or no-repeat for a texture: one stretched picture shows as nothing. The painting is dark, so draw details in LIGHT colours (pale green #d9f5a0, gold, cream) and use mix-blend-mode normal, screen or overlay with opacity 0.5 to 0.85; soft-light and multiply barely show. A gradient or colour fill tints the whole part.",
+  "2. New vector art: FILE: rosin/art/<name>.svg, LINES: new, then the whole SVG in NEW. Plain SVG only: a viewBox, shapes, paths, gradients, patterns, simple filters, made by you. Leave the background see-through: no rect or fill covering the whole picture, draw only the thing itself (veins, a leaf, a flower). No script, no on… attributes, no links or images from anywhere, no text. Keep each SVG under 120 lines. Use it from rosin-look.css as url(art/<name>.svg) or as a sticker.",
+  "3. rosin/look.json stickers are for a few SMALL new things placed on Rosin (a leaf, a flower, a hat), 20 to 300 canvas px a side: { \"art\": \"art/<name>.svg\", \"x\":, \"y\":, \"w\":, \"h\":, \"on\": \"<part>\", \"rotate\": deg, \"opacity\": 0..1, \"behind\": true|false, \"class\": \"names\" } in canvas px. A sticker on a moving part (antenna-l, crystal-r, charms…) moves with it. Never a sticker over (or behind) the whole orb; that's what the surfaces are for. Keep the file valid JSON.",
   "4. rosin.css only when the existing styling has to change (shown below where it matches).",
+  "Example of leaf veins on every leaf: rosin/art/leaf-veins.svg = <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\"><g fill=\"none\" stroke=\"#d9f5a0\" stroke-linecap=\"round\"><path d=\"M6 58 C22 42 38 26 58 6\" stroke-width=\"1.6\"/><path d=\"M26 38 C26 30 22 24 16 20\" stroke-width=\"0.9\"/><path d=\"M26 38 C34 38 40 42 44 48\" stroke-width=\"0.9\"/></g></svg> and in rosin-look.css: #rig .look-surface[data-surface=\"leaves\"] { background-image: url(art/leaf-veins.svg); background-size: 3% auto; mix-blend-mode: overlay; opacity: 0.75; }",
   "In CSS, url() may only point at art/… or img/… files that exist or that this change makes. Keep it light for phones: no blur() over big areas, no more than a few animations. Never hide or cover the eye.",
-  "SUMMARY must say what Sheamus will see (for example: green leaf veins drawn over the leaves, softly blended, swaying with Rosin).",
+  "SUMMARY must say what Sheamus will see (for example: pale green leaf veins drawn over every leaf, swaying with Rosin).",
 ];
 const layerParts = (layersJs) => { try { return JSON.parse((/=\s*(\{[\s\S]*\})\s*;?\s*$/.exec(layersJs || "") || [])[1] || "{}").parts || {}; } catch { return {}; } };
 const rosinRules = (look, layers) => [...ROSIN_RULES_BASE.map((l) => (l === "@NEWFILES@" ? (look ? "Never make new files except art in rosin/art/<name>.svg." : "Never make new files.") : l)),
@@ -1091,6 +1092,31 @@ function checkSvg(path, text) {
   }
   if (stack.length) throw new Error(`${path} leaves <${stack[stack.length - 1]}> open, so it wouldn't show.`);
 }
+// Art that would show as a box: a shape that fills the whole picture (a background) hides the painting under it and,
+// as a texture, turns a whole part one flat colour. Sent back to the model to redraw with a see-through background.
+function checkArtLooks(path, text) {
+  const t = String(text), vb = /viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(t);
+  const W = vb ? +vb[1] : Number((/<svg[^>]*\swidth\s*=\s*["']([\d.]+)/i.exec(t) || [])[1]) || 0;
+  const H = vb ? +vb[2] : Number((/<svg[^>]*\sheight\s*=\s*["']([\d.]+)/i.exec(t) || [])[1]) || 0;
+  const attr = (tag, k) => { const m = new RegExp(`(?:^|\\s)${k}\\s*=\\s*["']([^"']*)["']`, "i").exec(tag); const st = new RegExp(`(?:^|;|\\s|")${k}\\s*:\\s*([^;"']+)`, "i").exec(tag); return (m ? m[1] : st ? st[1] : "").trim(); };
+  const size = (v, of) => (/%$/.test(v) ? (parseFloat(v) / 100) * of : v === "" ? NaN : parseFloat(v));
+  for (const m of t.replace(/<defs[\s\S]*?<\/defs>|<pattern[\s\S]*?<\/pattern>|<mask[\s\S]*?<\/mask>|<clipPath[\s\S]*?<\/clipPath>/gi, "").matchAll(/<rect\b[^>]*>/gi)) {
+    const tag = m[0], w = size(attr(tag, "width"), W), h = size(attr(tag, "height"), H);
+    if (!(W && H && w >= 0.8 * W && h >= 0.8 * H)) continue;
+    const fill = attr(tag, "fill").toLowerCase(), op = Math.min(...["opacity", "fill-opacity"].map((k) => { const v = attr(tag, k); return v === "" ? 1 : parseFloat(v); }));
+    if (fill === "none" || fill === "transparent" || op < 0.2) continue;
+    throw new Error(`${path} has a filled box behind the whole picture, so it would show as a solid square on Rosin. Leave the background see-through: no full-size rect, draw only the shapes themselves.`);
+  }
+}
+// Surfaces only show a texture as a small repeated tile; one picture stretched over a whole part shows as next to nothing.
+function checkSurfaceTiles(path, text) {
+  for (const m of String(text).replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const [, sel, body] = m;
+    if (!/look-surface/.test(sel) || !/url\(\s*['"]?(?:\.\/)?art\//i.test(body)) continue;
+    const bad = /\b(cover|contain|no-repeat)\b/i.exec(body) || (() => { for (const s of body.matchAll(/(\d+(?:\.\d+)?)(%|px)/g)) if (/background(-size)?\s*:[^;]*$/i.test(body.slice(0, s.index)) && (s[2] === "%" ? +s[1] > 20 : +s[1] > 240)) return [s[0]]; return null; })();
+    if (bad) throw new Error(`In ${path}, ${sel.trim().slice(0, 60)} stretches its art (${bad[0]}), so it would barely show. Use it as a small repeating tile: background-size 2% to 8% (or 24px to 80px) and background-repeat: repeat.`);
+  }
+}
 // What Rosin's CSS may point at: its own art and pictures, nothing else.
 function checkLookCss(path, text, exists) {
   if (/@import/i.test(text)) throw new Error(`The draft's ${path} imports other style sheets, so it was stopped.`);
@@ -1112,6 +1138,7 @@ function checkLookJson(path, text, exists, parts) {
     if (!exists("rosin/" + st.art)) throw new Error(`${where} uses ${st.art}, but there's no such file. Make it as a new rosin/art/ file.`);
     for (const k of ["x", "y", "w", "h"]) if (!Number.isFinite(st[k])) throw new Error(`${where} needs a number for "${k}" (canvas px).`);
     if (st.on != null && !parts.includes(st.on)) throw new Error(`${where}: "on" must be one of ${parts.join(", ")}.`);
+    if (st.w > 400 || st.h > 400 || st.w * st.h > 300 * 300) throw new Error(`${where} is ${Math.round(st.w)} x ${Math.round(st.h)} px, which would cover the orb like a box. Stickers are small new things (20 to 300 px a side); to change the whole orb, vines or leaves, style that surface in rosin-look.css instead.`);
   });
 }
 async function checkDraft(ctx, changed) {
@@ -1136,8 +1163,8 @@ async function checkDraft(ctx, changed) {
     await checkSyntax(path, text);
     if (ctx.rosin) {
       const exists = (p) => (p in changed ? changed[p] !== null : ctx.all.includes(p) || p in ctx.files);
-      if (/\.svg$/.test(path)) checkSvg(path, text);
-      if (/\.css$/.test(path)) checkLookCss(path, text, exists);
+      if (/\.svg$/.test(path)) { checkSvg(path, text); checkArtLooks(path, text); }
+      if (/\.css$/.test(path)) { checkLookCss(path, text, exists); checkSurfaceTiles(path, text); }
       if (path === "rosin/look.json") checkLookJson(path, text, exists, ["body", ...Object.keys(layerParts(ctx.layers || ctx.files["rosin/layers.js"]))]);
     }
     if (/\.html?$/.test(path) && ctx.files[path]) for (const src of ctx.files[path].match(/<script src="[^"]+"/g) || []) if (!text.includes(src)) throw new Error(`The draft drops ${src.slice(13, -1)} from the page.`);
