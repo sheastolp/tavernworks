@@ -69,6 +69,8 @@ shot 4e-music $X $Y
 shot 4f-music-whole
 echo "---- Rosin's windows with a song on (expect Rosin and the music bar):"
 a shell dumpsys window windows | grep -E "Window #.*$PKG" | head -6
+NOV=$(a shell dumpsys window windows | grep -E "Window #.*Window\{[0-9a-f]+ u0 $PKG\}" | wc -l)
+[ "$NOV" -ge 2 ] || { echo "!!!! the music bar didn't show with a song on ($NOV floating windows)"; finish 1; }
 # Tapping play/pause on the bar must not stop Rosin (the page answers it; here the test song just stays put).
 BY=$(( Y + S / 2 + 30 * D / 160 ))
 a shell input tap $X $BY

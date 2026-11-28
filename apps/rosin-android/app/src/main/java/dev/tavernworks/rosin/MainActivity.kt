@@ -84,6 +84,7 @@ class MainActivity : Activity() {
 
     private fun Intent.copyTestLine(from: Intent?) {
         from?.getStringExtra(RosinService.EXTRA_TEST_SAY)?.let { putExtra(RosinService.EXTRA_TEST_SAY, it) }
+        from?.getStringExtra(RosinService.EXTRA_TEST_MUSIC)?.let { putExtra(RosinService.EXTRA_TEST_MUSIC, it) }
     }
 
     private fun prefs() = getSharedPreferences("rosin_app", MODE_PRIVATE)
