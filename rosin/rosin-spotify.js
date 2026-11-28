@@ -96,7 +96,7 @@
     tok = null; store.set("spotify.token", null);
     try { player?.disconnect(); } catch {}
     player = null; rosinId = ""; sdk = { state: "off", note: "" };
-    state = null; devices = []; me = null;
+    state = null; devices = []; me = null; paintAntennae();
     setNote(note || "Disconnected. Rosin can't see your Spotify now.");
     drawAll();
   }
@@ -132,10 +132,24 @@
       state = await api("GET", "/me/player", { query: { additional_types: "episode" } }); stateAt = Date.now();
       liked = null;
       const uri = state?.item?.uri;
-      if (uri && /^spotify:track:/.test(uri)) api("GET", "/me/library/contains", { query: { uris: uri } }).then((a) => { if (state?.item?.uri === uri && Array.isArray(a)) { liked = !!a[0]; drawNow(); } }).catch(() => {});
+      if (uri && /^spotify:track:/.test(uri)) {
+        if (likedFor === uri) liked = likedWas;
+        else isLiked(uri).then((v) => { likedFor = uri; likedWas = v; if (state?.item?.uri === uri) { liked = v; drawNow(); } }).catch(() => {});
+      }
     } catch (e) { setNote(e.message); }
     drawNow();
     return state;
+  }
+  let likedFor = "", likedWas = null, savedSet = null, savedAt = 0;
+  async function isLiked(uri) {
+    try { const a = await api("GET", "/me/library/contains", { query: { uris: uri } }); if (Array.isArray(a)) return !!a[0]; } catch {}
+    // If that check isn't open to this app: his 100 newest Liked Songs, read every few minutes.
+    if (!savedSet || Date.now() - savedAt > 300000) {
+      const s = new Set();
+      for (let off = 0; off < 100; off += 50) { const j = await api("GET", "/me/tracks", { query: { limit: 50, offset: off } }); for (const x of j?.items || []) if (x?.track?.uri) s.add(x.track.uri); if (!j?.next) break; }
+      savedSet = s; savedAt = Date.now();
+    }
+    return savedSet.has(uri);
   }
   async function refreshDevices() {
     if (!connected()) return [];
@@ -256,7 +270,7 @@
       const body = { uris: [it.uri] };
       try { await api(on ? "PUT" : "DELETE", "/me/library", { body }); }
       catch (e) { if (e.status !== 400) throw e; await api(on ? "PUT" : "DELETE", "/me/library", { query: { uris: it.uri } }); }
-      liked = on; drawNow();
+      liked = on; likedFor = it.uri; likedWas = on; if (savedSet) on ? savedSet.add(it.uri) : savedSet.delete(it.uri); drawNow();
       return on ? `Saved ${describe(it)} to your Liked Songs.` : `Took ${describe(it)} out of your Liked Songs.`;
     },
     async move(where) {
@@ -429,6 +443,73 @@
     else if (!on && ducked) { clearTimeout(R.talking.t); R.talking.t = setTimeout(() => { if (ducked) { ducked = false; player?.setVolume(localVol).catch(() => {}); } }, 600); }
   };
 
+  // ---------- Rosin's top antennae follow the music ----------
+  // While a song plays (anywhere on his Spotify), the crystals in the two top antennae take the song's colour, from its
+  // album art, and breathe with a glow; a song in his Liked Songs glows warm gold. Paused: a dim glow. Nothing on: as drawn.
+  // Spotify no longer gives apps a song's beat, and the music playing inside Rosin can't be listened to by the page,
+  // so the glow breathes at a steady pace rather than on the beat.
+  const GOLD = "#ffbf3f";
+  const antOn = () => store.get("spotify.antennae", true);
+  const root = document.documentElement;
+  function addGems() {   // once Rosin is drawn: a tint and a glow over each top crystal, swaying with its antenna
+    for (const side of ["l", "r"]) {
+      const part = document.querySelector(`#rig .part[data-part="antenna-${side}"]`);
+      if (!part || part.querySelector(".gem")) continue;
+      for (const cls of ["gem", "gem-glow"]) {
+        const g = el("div", `${cls} ${cls}-${side}`); g.setAttribute("aria-hidden", "true");
+        g.style.transformOrigin = part.querySelector("img")?.style.transformOrigin || "";
+        part.append(g);
+      }
+    }
+  }
+  const artColor = new Map();
+  function hueOf(uri) { let h = 0; for (const c of String(uri)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 85% 58%)`; }
+  function colorFromArt(url, uri) {
+    if (!url) return Promise.resolve(hueOf(uri));
+    if (artColor.has(url)) return Promise.resolve(artColor.get(url));
+    return new Promise((done) => {
+      const im = new Image(); im.crossOrigin = "anonymous"; im.decoding = "async";
+      const fallback = () => done(hueOf(uri));
+      im.onerror = fallback;
+      im.onload = () => {
+        try {
+          const c = document.createElement("canvas"); c.width = c.height = 16;
+          const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(im, 0, 0, 16, 16);
+          const d = g.getImageData(0, 0, 16, 16).data;
+          let r = 0, gg = 0, b = 0, w = 0;
+          for (let i = 0; i < d.length; i += 4) {   // the vivid pixels count most, so the colour is the art's, not its grey
+            const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+            const k = ((mx - mn) / 255) ** 2 * (mx / 255) + 0.002;
+            r += d[i] * k; gg += d[i + 1] * k; b += d[i + 2] * k; w += k;
+          }
+          r /= w; gg /= w; b /= w;
+          const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), dd = mx - mn || 1;
+          let h = mx === r ? ((gg - b) / dd) % 6 : mx === gg ? (b - r) / dd + 2 : (r - gg) / dd + 4; h = Math.round((h * 60 + 360) % 360);
+          const col = mx - mn < 12 ? "hsl(200 30% 75%)" : `hsl(${h} 90% 58%)`;   // grey art: a cool silver
+          artColor.set(url, col); done(col);
+        } catch { fallback(); }   // the art's server didn't allow reading it
+      };
+      im.src = url;
+    });
+  }
+  let paintedFor = "";
+  async function paintAntennae() {
+    addGems();
+    const it = state?.item;
+    if (!antOn() || !connected() || !it) { root.style.setProperty("--song-on", "0"); root.classList.remove("song-playing"); paintedFor = ""; return; }
+    const imgs = it.album?.images || it.images || [];
+    const key = it.uri + "|" + liked;
+    if (key !== paintedFor) {
+      paintedFor = key;
+      const col = liked ? GOLD : await colorFromArt((imgs[imgs.length - 1] || imgs[0])?.url, it.uri);
+      if (paintedFor !== key) return;
+      root.style.setProperty("--song", col);
+      root.classList.toggle("song-liked", !!liked);
+    }
+    root.style.setProperty("--song-on", state.is_playing ? "1" : "0.45");
+    root.classList.toggle("song-playing", !!state.is_playing);
+  }
+
   // ---------- the 🎵 Music panel ----------
   const music = el("div", "tray"); music.id = "music"; music.hidden = true; music.setAttribute("aria-label", "Spotify");
   document.getElementById("controls").insertBefore(music, document.getElementById("say"));
@@ -496,9 +577,11 @@
   inAppBox.checked = store.get("spotify.inApp", true);
   const [duckChk, duckBox] = H.check("Lower the music while Rosin talks");
   duckBox.checked = store.get("spotify.duck", true);
+  const [antChk, antBox] = H.check("Antennae glow with the music (gold for liked songs)");
+  antBox.checked = antOn();
   const who = el("p", "sp-small");
   const outBtn = btn("Disconnect Spotify");
-  foot.append(inAppChk, duckChk, who, outBtn);
+  foot.append(inAppChk, duckChk, antChk, who, outBtn);
   playerBox.append(now, bar, times, ctl, settingsRow, findRow, tabs, listHead, list, foot);
   const closeBtn = btn("Close", "Close the music panel", "sp-close");
   music.append(setup, playerBox, noteEl, closeBtn);
@@ -540,6 +623,7 @@
     drawNow();
   });
   duckBox.addEventListener("change", () => store.set("spotify.duck", duckBox.checked));
+  antBox.addEventListener("change", () => { store.set("spotify.antennae", antBox.checked); paintedFor = ""; paintAntennae(); });
   outBtn.addEventListener("click", () => signOut());
 
   const asRow = (it) => ({ kind: it?.type === "episode" ? "episode" : "track", uri: it?.uri, name: it?.name || "", by: artistsOf(it), art: (it?.album?.images || it?.images || []).slice(-1)[0]?.url || "" });
@@ -575,6 +659,7 @@
     const rOpt = [...devSel.options].find((o) => o.value === "rosin"); if (rOpt) rOpt.disabled = sdk.state === "error";
   }
   function drawNow() {
+    paintAntennae();
     const it = state?.item;
     art.hidden = !it; const img = (it?.album?.images || it?.images || [])[1] || (it?.album?.images || it?.images || [])[0];
     if (img) art.src = img.url;
@@ -608,8 +693,9 @@
   }
 
   // ---------- keeping it up to date ----------
+  let slowTicks = 0;   // panel closed: every 10 s, so the antennae catch a new song
   H.tick(1000, () => { if (!music.hidden && state?.is_playing) drawBar(); });
-  H.tick(5000, () => { if (!music.hidden && connected() && !document.hidden) refreshState(); });
+  H.tick(5000, () => { if (!connected() || document.hidden) return; if (!music.hidden) refreshState(); else if (antOn() && ++slowTicks % 2 === 0) refreshState(); });
   H.tick(60000, () => { if (connected() && !music.hidden) refreshDevices(); });
 
   // ---------- start ----------

@@ -48,6 +48,28 @@ canvas.smoke { position: fixed; inset: 0; width: 100%; height: 100%; pointer-eve
   filter: brightness(calc(1 + var(--glow) * 0.35));
 }
 
+/* Spotify (rosin-spotify.js): while a song plays, the crystals in the two top antennae take its colour (--song) and
+   breathe with a glow; liked songs are gold. --song-on is 0 with no music, 0.45 paused, 1 playing. */
+#rig .part .gem, #rig .part .gem-glow {
+  position: absolute; inset: 0; pointer-events: none; background: var(--song, transparent);
+  -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  animation-timing-function: ease-in-out; animation-iteration-count: infinite; opacity: 0; transition: opacity 0.8s;
+}
+#rig .gem-l, #rig .gem-glow-l { -webkit-mask-image: url(img/gem-l.webp); mask-image: url(img/gem-l.webp); }
+#rig .gem-r, #rig .gem-glow-r { -webkit-mask-image: url(img/gem-r.webp); mask-image: url(img/gem-r.webp); }
+#rig .part .gem { mix-blend-mode: color; opacity: calc(var(--song-on, 0) * 0.95); }
+#rig .part .gem-glow { mix-blend-mode: screen; opacity: calc(var(--song-on, 0) * 0.35); }
+#rig .gem-l, #rig .gem-glow-l { animation-name: sway-l; animation-duration: 5.3s; }
+#rig .gem-r, #rig .gem-glow-r { animation-name: sway-r; animation-duration: 4.6s; }
+html.song-playing #rig .gem-glow-l { animation: sway-l 5.3s ease-in-out infinite, song-breathe 1.8s ease-in-out infinite; }
+html.song-playing #rig .gem-glow-r { animation: sway-r 4.6s ease-in-out infinite, song-breathe 1.8s ease-in-out -0.6s infinite; }
+@keyframes song-breathe { 0%, 100% { opacity: 0.12; } 50% { opacity: 0.6; } }
+html.song-playing .part[data-part="antenna-l"], html.song-playing .part[data-part="antenna-r"] {
+  filter: brightness(calc(1 + var(--glow) * 0.35)) drop-shadow(0 0 6px var(--song));
+}
+body.lite #rig .gem-glow { display: none; }
+html.song-playing body.lite .part[data-part^="antenna"] { filter: none; }
+
 @keyframes float  { 0%, 100% { transform: translateY(-1.5%) rotate(-1deg); } 50% { transform: translateY(1.5%) rotate(1deg); } }
 @keyframes sway-l { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2deg); } }
 @keyframes sway-r { 0%, 100% { transform: rotate(2.5deg); }  50% { transform: rotate(-2deg); } }
@@ -153,7 +175,7 @@ body.lite .part[data-part^="crystal"], body.lite .part[data-part^="float"], body
 body.lite #glow-back { filter: blur(8px); }
 
 @media (prefers-reduced-motion: reduce) {
-  #rosin, #rig .part img { animation: none !important; }
+  #rosin, #rig .part img, #rig .gem, #rig .gem-glow { animation: none !important; }
 }
 
 /* ---------- settings and chat history (used by rosin-web.js on tavernworks.dev) ---------- */
