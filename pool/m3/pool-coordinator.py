@@ -778,7 +778,9 @@ def act(name, fields):
                 " + this card, tensor split " + st["split"] +
                 " — loading takes a few minutes.")
     if name == "start_chain":
-        return start_chain()
+        # A running chain must restart to load a new plan (a plain
+        # start does nothing when the unit is already up).
+        return start_chain(restart=unit_state("ai-pool-chain") == "active")
     if name == "stop":
         sh(["systemctl", "stop", "ai-pool-solo", "ai-pool-host"] +
            (["ai-pool-chain"] if pool_chain else []), timeout=60)
