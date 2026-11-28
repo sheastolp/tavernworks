@@ -86,4 +86,9 @@ echo "---- Rosin's windows after dropping it on the close mark (expect none):"
 a shell dumpsys window windows | grep -E "Window #" | grep -i "$PKG" | head -10
 echo "---- service:"
 a shell dumpsys activity services $PKG | grep -E "ServiceRecord|isForeground|foregroundId" | head -5
+# A Spotify sign-in that ended in a web browser comes back through rosin://spotify-callback: it should open Rosin.
+echo "---- rosin://spotify-callback opens:"
+a shell am start -W -a android.intent.action.VIEW -d "'rosin://spotify-callback?state=rosina-emulatortest&error=access_denied'" | grep -E "Status|Activity|Error" | head -4
+sleep 3
+shot 7-spotify-callback
 finish 0

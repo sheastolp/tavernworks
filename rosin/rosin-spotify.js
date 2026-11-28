@@ -46,7 +46,10 @@
     const id = clientId();
     if (!id) throw new Error("Paste your Spotify app's Client ID first.");
     if (!crypto.subtle) throw new Error("This page needs to be opened over https to sign in.");
-    const verifier = randomText(64), state = randomText(24);
+    // In the Android or Windows app, the state names the app: if the sign-in ends in a web browser instead (Spotify's
+    // "Continue with Google", the Spotify app, an older app version), that page hands it back to the app (handBack).
+    const inApp = { android: "a", desktop: "w" }[(new URLSearchParams(location.search).get("app") || "").toLowerCase()];
+    const verifier = randomText(64), state = (inApp ? "rosin" + inApp + "-" : "") + randomText(24);
     const challenge = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
     const back = new URL(location.href); for (const k of ["code", "state", "error"]) back.searchParams.delete(k);
     store.set("spotify.pending", { verifier, state, back: back.href, id, at: Date.now() });
@@ -71,7 +74,7 @@
     const q = new URLSearchParams(location.search), state = q.get("state");
     if (!state || (!q.get("code") && !q.get("error"))) return false;
     const p = store.get("spotify.pending", null);
-    if (!p || p.state !== state) return false;
+    if (!p || p.state !== state) return handBack(q);
     store.set("spotify.pending", null);
     if (q.get("error")) { store.set("spotify.note", q.get("error") === "access_denied" ? "Spotify sign-in was cancelled." : "Spotify said: " + q.get("error")); location.replace(p.back); return true; }
     R.status("Finishing the Spotify sign-in…");
@@ -80,6 +83,31 @@
       store.set("spotify.note", "Spotify is connected.");
     } catch (e) { store.set("spotify.note", "Spotify sign-in didn't finish: " + e.message); }
     location.replace(p.back);
+    return true;
+  }
+  // A sign-in started in the Rosin app that ended in this web browser: only the app holds the key that finishes it,
+  // so send Spotify's answer back to the app (rosin://spotify-callback, which the 1.0.9 apps and later open).
+  const APP_LINK = { a: "Android", w: "Windows" };
+  function handBack(q) {
+    const m = /^rosin([aw])-[\w-]+$/.exec(q.get("state") || "");
+    if (!m || q.get("app")) return false;   // already in the app (an old or stray answer): nothing to hand back
+    const params = new URLSearchParams();
+    for (const k of ["code", "state", "error"]) if (q.get(k)) params.set(k, q.get(k));
+    const link = m[1] === "a"
+      ? `intent://spotify-callback?${params}#Intent;scheme=rosin;package=dev.tavernworks.rosin;end`
+      : `rosin://spotify-callback?${params}`;
+    const box = el("div", "sp-handback");
+    box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Finish connecting Spotify in the Rosin app");
+    const h = el("p", "sp-handback-title", "Almost there");
+    const t = el("p", "", `Spotify sent you to the browser. Tap below to finish connecting Spotify in the Rosin ${APP_LINK[m[1]]} app.`);
+    const go = el("a", "sp-handback-go", "Open the Rosin app");
+    go.href = link;
+    const small = el("p", "sp-handback-small", "Nothing happens? Update the Rosin app to 1.0.9 or newer, then press Connect Spotify in the app again.");
+    const stay = el("button", "sp-handback-stay", "Stay in the browser"); stay.type = "button";
+    stay.addEventListener("click", () => { box.remove(); history.replaceState(null, "", location.pathname); });
+    box.append(h, t, go, small, stay);
+    document.body.append(box);
+    setTimeout(() => { try { location.href = link; } catch {} }, 300);   // most browsers open the app straight away
     return true;
   }
   let refreshing = null;

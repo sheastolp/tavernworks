@@ -59,6 +59,7 @@ class MainActivity : Activity() {
 
         RosinHost.attach(this, box)
         RosinService.start(this) { copyTestLine(intent) }
+        spotifyCallback(intent)
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
             !prefs().getBoolean("askedNotif", false)) {
             prefs().edit().putBoolean("askedNotif", true).apply()
@@ -70,6 +71,15 @@ class MainActivity : Activity() {
         super.onNewIntent(intent)
         setIntent(intent)
         RosinService.start(this) { copyTestLine(intent) }
+        spotifyCallback(intent)
+    }
+
+    /** A Spotify sign-in that ended in a web browser, handed back to the app (see RosinHost.finishSpotifySignIn). */
+    private fun spotifyCallback(i: Intent?) {
+        val uri = i?.data ?: return
+        if (i.action != Intent.ACTION_VIEW || uri.scheme != "rosin") return
+        RosinHost.finishSpotifySignIn(uri)
+        setIntent(Intent(i).setData(null))   // used once, not again when the screen is rebuilt
     }
 
     private fun Intent.copyTestLine(from: Intent?) {

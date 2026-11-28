@@ -34,6 +34,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- A Spotify sign-in that ended in a web browser comes back here (rosin/rosin-spotify.js handBack). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="rosin" android:host="spotify-callback" />
+            </intent-filter>
         </activity>
 
         <!-- Keeps Rosin on while the app is closed: the floating Rosin over other apps, idle chatter and talking. -->

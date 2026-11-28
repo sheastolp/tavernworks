@@ -30,7 +30,8 @@ import org.json.JSONObject
 object RosinHost {
     const val HOST = "tavernworks.dev"
     private const val BASE_URL = "https://tavernworks.dev/rosin/?app=android"
-    private val SPOTIFY_SIGN_IN = setOf("accounts.spotify.com", "challenge.spotify.com", "auth-callback.spotify.com")
+    // Spotify's sign-in pages, on spotify.com and its subdomains (accounts, challenge, www…).
+    private fun isSpotify(host: String?) = host == "spotify.com" || host?.endsWith(".spotify.com") == true
 
     private val main = Handler(Looper.getMainLooper())
     private lateinit var app: Context
@@ -88,7 +89,7 @@ object RosinHost {
                 if (!request.isForMainFrame) return false   // frames inside the page (Spotify's player) stay in the page
                 if (uri.scheme == "https" && uri.host == HOST) return false
                 // Spotify's sign-in opens inside the app, so the sign-in comes back to Rosin here and not to a browser.
-                if (uri.scheme == "https" && SPOTIFY_SIGN_IN.any { uri.host == it }) return false
+                if (uri.scheme == "https" && isSpotify(uri.host)) return false
                 try { app.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
                 return true
             }
@@ -179,6 +180,22 @@ object RosinHost {
     fun js(code: String) { main.post { web?.evaluateJavascript(code, null) } }
 
     fun reload() { showingError = false; web?.loadUrl("$BASE_URL&device=$device") }
+
+    /**
+     * Spotify's answer handed back from a web browser (rosin://spotify-callback?code=…&state=…): when the sign-in left the
+     * app (Spotify's "Continue with Google", the Spotify app), the browser's page sends it here, and Rosin's page, which
+     * holds the sign-in's key, finishes it. Only code, state and error are passed on.
+     */
+    fun finishSpotifySignIn(uri: Uri) {
+        if (uri.scheme != "rosin" || uri.host != "spotify-callback") return
+        val state = uri.getQueryParameter("state") ?: return
+        if (!Regex("^rosin[aw]-[A-Za-z0-9_-]{8,64}$").matches(state)) return
+        val q = StringBuilder("$BASE_URL&device=$device&state=").append(Uri.encode(state))
+        uri.getQueryParameter("code")?.let { q.append("&code=").append(Uri.encode(it)) }
+        uri.getQueryParameter("error")?.let { q.append("&error=").append(Uri.encode(it)) }
+        showingError = false
+        web?.loadUrl(q.toString())
+    }
 
     private var pinnedUntil = 0L
 

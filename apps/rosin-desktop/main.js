@@ -45,7 +45,37 @@ let hidden = false;  // "Hide Rosin": both windows away, still in the tray
 
 const isRosinUrl = (u) => { try { const x = new URL(u); return x.protocol === "https:" && x.hostname === HOST; } catch { return false; } };
 // Spotify's sign-in (rosin/rosin-spotify.js) opens in Rosin's window, so it comes back to Rosin and not to a browser.
-const isSpotifySignIn = (u) => { try { const x = new URL(u); return x.protocol === "https:" && ["accounts.spotify.com", "challenge.spotify.com"].includes(x.hostname); } catch { return false; } };
+const isSpotifySignIn = (u) => { try { const x = new URL(u); return x.protocol === "https:" && (x.hostname === "spotify.com" || x.hostname.endsWith(".spotify.com")); } catch { return false; } };
+
+// A Spotify sign-in that ended in a web browser (Spotify's "Continue with Google", say) comes back as
+// rosin://spotify-callback?code=…&state=… (rosin/rosin-spotify.js handBack), and Rosin's page, which holds the
+// sign-in's key, finishes it. Only code, state and error are passed on.
+function registerLink() {
+  try {
+    const exe = process.env.PORTABLE_EXECUTABLE_FILE;   // the portable .exe, not the copy it runs from
+    if (exe) app.setAsDefaultProtocolClient("rosin", exe, []);
+    else if (!process.defaultApp) app.setAsDefaultProtocolClient("rosin");
+  } catch {}
+}
+function spotifyCallbackUrl(argv) {
+  const raw = (argv || []).find((a) => typeof a === "string" && a.toLowerCase().startsWith("rosin://spotify-callback"));
+  if (!raw) return "";
+  try {
+    const q = new URL(raw).searchParams, state = q.get("state") || "";
+    if (!/^rosin[aw]-[A-Za-z0-9_-]{8,64}$/.test(state)) return "";
+    const out = new URL(START_URL);
+    out.searchParams.set("state", state);
+    for (const k of ["code", "error"]) if (q.get(k)) out.searchParams.set(k, q.get(k));
+    return out.href;
+  } catch { return ""; }
+}
+function finishSpotify(argv) {
+  const url = spotifyCallbackUrl(argv);
+  if (!url || !win || win.isDestroyed()) return false;
+  win.loadURL(url);
+  openApp();
+  return true;
+}
 
 function onScreen(b) {
   if (!b) return false;
@@ -312,7 +342,7 @@ function greetSoon() {
   setTimeout(check, 3000);
 }
 
-app.on("second-instance", () => openApp());   // opening Rosin again opens the app
+app.on("second-instance", (_e, argv) => { if (!finishSpotify(argv)) openApp(); });   // opening Rosin again opens the app
 
 app.whenReady().then(() => {
   app.setAppUserModelId("dev.tavernworks.rosin");
@@ -327,7 +357,9 @@ app.whenReady().then(() => {
   ses.setPermissionCheckHandler((wc, permission, origin) =>
     (permission === "media" || permission === "speaker-selection") && isRosinUrl(origin));
 
+  registerLink();
   createWindows();
+  finishSpotify(process.argv);   // started by the link itself
 
   const icon = nativeImage.createFromPath(path.join(__dirname, "assets", "tray.png"));
   icon.addRepresentation({ scaleFactor: 2, buffer: fs.readFileSync(path.join(__dirname, "assets", "tray@2x.png")) });

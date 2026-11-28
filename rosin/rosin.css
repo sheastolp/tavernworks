@@ -480,3 +480,20 @@ body.obs #music, body.obs #btn-music, html.buddy #music, html.buddy #btn-music {
   background: #1d120b; color: #f6e7c8; font: inherit; font-size: 15px; cursor: pointer; }
 #look-try .chg-primary { background: #8a3414; border-color: #d0602a; }
 html.look-preview #badge { display: none; }
+
+/* Spotify sign-in that ended in a web browser instead of the Rosin app: one card that sends it back to the app. */
+.sp-handback {
+  position: fixed; z-index: 1000; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(420px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box;
+  padding: 20px; border-radius: 16px; background: #10180e; border: 2px solid #1db954; color: #f3dcc0;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); font: 16px/1.45 system-ui, sans-serif; text-align: center;
+}
+.sp-handback p { margin: 0 0 12px; }
+.sp-handback-title { font-size: 20px; font-weight: 600; }
+.sp-handback-small { font-size: 13px; opacity: 0.8; }
+.sp-handback-go, .sp-handback-stay {
+  display: flex; align-items: center; justify-content: center; min-height: 48px; width: 100%; box-sizing: border-box;
+  margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; font: inherit; text-decoration: none; cursor: pointer;
+}
+.sp-handback-go { background: #14572b; border: 1px solid #1db954; color: #fff; font-weight: 600; }
+.sp-handback-stay { background: transparent; border: 1px solid #5a4a36; color: #f3dcc0; margin: 0; }
