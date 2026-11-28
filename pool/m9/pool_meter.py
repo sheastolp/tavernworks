@@ -1186,6 +1186,7 @@ def data(meter, state=None, public=False, n_replies=100):
                   if meter.bench and meter.bench.alive else {"running": False}),
         "runs": runs,
         "replies": replies,
+        "replies_total": (meter.store.query("SELECT COUNT(*) AS n FROM replies") or [{"n": 0}])[0]["n"],
     }
     if public:
         if out["load"]:
@@ -1286,6 +1287,13 @@ cursor:pointer;text-decoration:none;display:inline-block;font-size:.95rem;min-he
 button.alt,a.btn.alt{background:var(--bg2);color:var(--text);border:1px solid var(--line)}
 .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
 .solo{color:var(--blue)} .split{color:var(--gold2)} .bad{color:var(--red)} .ok{color:var(--green)}
+details.fold{margin-top:1.6rem}
+details.fold>summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;min-height:44px}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary h2{margin:0;display:inline}
+details.fold>summary h2::before{content:"▸ ";color:var(--muted)}
+details.fold[open]>summary h2::before{content:"▾ "}
+details.fold[open]>summary{margin-bottom:.5rem}
 svg{width:100%;height:110px;background:var(--bg2);border-radius:10px;border:1px solid var(--line)}
 </style></head><body><main>
 <h1 id="nm">__NAME__</h1>
@@ -1375,9 +1383,13 @@ function render(d){
     hist.push(`<tr><td>${r.id}</td><td>${esc(r.started_time)}</td><td>${esc(r.status)}</td><td class="solo"><b>${tt("solo")}</b></td><td class="split"><b>${tt("split")}</b></td><td>${cell("solo")} / ${cell("split")}</td><td>${esc(Object.values(sm).map(m => (m.medium||m.short||{}).model).filter(Boolean)[0] || "")}</td></tr>`);
   }
   h += hist.length ? table(["Run","Started","Status","Solo first token (medium)","Split first token (medium)","Gen tok/s solo / split","Model"], hist) : `<p class="fine">None yet.</p>`;
-  h += `</div><h2>Recent replies</h2><div class="card">`;
-  h += table(["Time","Source","Mode","In → out","First token","Slowest before first token","Gen tok/s","Total","Draft","Network","Slowest overall"], (d.replies||[]).slice(0,50).map(r => `<tr><td>${esc((r.time||"").replace("T"," ").slice(5,19))}</td><td>${esc(r.source)}${r.case_name ? " " + esc(r.case_name) : ""}</td><td class="${esc(r.mode)}">${esc(r.mode)}</td><td>${r.prompt_n} → ${r.gen_n}</td><td><b>${s(r.ttft_ms)}</b></td><td>${esc(r.ttft_bottleneck || "")}</td><td>${f(r.gen_tps,2)}</td><td>${s(r.total_ms)}</td><td>${r.draft_rate !== null && r.draft_rate !== undefined ? f(r.draft_rate*100,0) + "%" : "—"}</td><td>${s(r.net_ms)}</td><td>${esc(r.bottleneck)}${r.overlap ? " (overlapped)" : ""}</td></tr>`));
-  h += `<div class="row" style="margin-top:.8rem"><a class="btn alt" href="${EXPORT_URL}?what=replies&fmt=csv">Replies CSV</a><a class="btn alt" href="${EXPORT_URL}?what=replies&fmt=json">Replies JSON</a><a class="btn alt" href="${EXPORT_URL}?what=runs&fmt=csv">Benchmarks CSV</a><a class="btn alt" href="${EXPORT_URL}?what=runs&fmt=json">Benchmarks JSON</a></div>`;
+  h += `</div>`;
+  const reps = d.replies || [], total = d.replies_total || reps.length;
+  const shown = SHOW_ALL ? reps : reps.slice(0, 20);
+  h += `<details class="card fold" id="recent"${REPLIES_OPEN ? " open" : ""}><summary><h2>Recent replies</h2><span class="fine">${total ? (SHOW_ALL ? "all " + reps.length : "latest " + shown.length) + " of " + total : "none yet"}</span></summary>`;
+  h += table(["#","Time","Source","Mode","In → out","First token","Slowest before first token","Gen tok/s","Total","Draft","Network","Slowest overall"], shown.map((r, i) => `<tr><td>${i + 1}</td><td>${esc((r.time||"").replace("T"," ").slice(5,19))}</td><td>${esc(r.source)}${r.case_name ? " " + esc(r.case_name) : ""}</td><td class="${esc(r.mode)}">${esc(r.mode)}</td><td>${r.prompt_n} → ${r.gen_n}</td><td><b>${s(r.ttft_ms)}</b></td><td>${esc(r.ttft_bottleneck || "")}</td><td>${f(r.gen_tps,2)}</td><td>${s(r.total_ms)}</td><td>${r.draft_rate !== null && r.draft_rate !== undefined ? f(r.draft_rate*100,0) + "%" : "—"}</td><td>${s(r.net_ms)}</td><td>${esc(r.bottleneck)}${r.overlap ? " (overlapped)" : ""}</td></tr>`));
+  if (total > 20 || SHOW_ALL) h += `<div class="row" style="margin-top:.8rem"><button class="alt" type="button" onclick="toggleAll()">${SHOW_ALL ? "Show the latest 20" : "View all (" + total + ")"}</button>${SHOW_ALL && total > reps.length ? `<span class="fine">The page holds the latest ${reps.length}; the CSV has the rest.</span>` : ""}</div>`;
+  h += `</details><div class="card"><div class="row"><a class="btn alt" href="${EXPORT_URL}?what=replies&fmt=csv">Replies CSV</a><a class="btn alt" href="${EXPORT_URL}?what=replies&fmt=json">Replies JSON</a><a class="btn alt" href="${EXPORT_URL}?what=runs&fmt=csv">Benchmarks CSV</a><a class="btn alt" href="${EXPORT_URL}?what=runs&fmt=json">Benchmarks JSON</a></div>`;
   h += `</div><h2>Test your own setup</h2><div class="card"><p>SwarmBench runs the same test on any llama.cpp, Ollama, LM Studio, vLLM or other OpenAI-style server, on one machine or a split, and gives a score you can compare with the numbers here.</p>
 <div class="row" style="margin-top:.6rem"><a class="btn" href="https://pool.tavernworks.dev/downloads/swarmbench.exe">Windows app (.exe)</a><a class="btn alt" href="https://pool.tavernworks.dev/downloads/swarmbench.bat">Windows launcher (.bat)</a><a class="btn alt" href="https://pool.tavernworks.dev/downloads/swarmbench.py">swarmbench.py</a><a class="btn alt" href="https://${esc(d.host)}/board">Leaderboard</a></div>
 <p class="fine" style="margin-top:.6rem">On Windows, the .exe needs nothing else: double-click it to test the server on that PC. If Windows warns that it doesn't know the app, click More info, then Run anyway. The .bat launcher does the same with your own Python. On Linux and Mac, swarmbench.py needs Python 3.8 or newer. Run <code>python swarmbench.py</code> to test the server on that computer, <code>python swarmbench.py http://host:port</code> for another, and add <code>--rpc host:port,host:port</code> for the machines in a llama.cpp split (the .exe takes the same options). Score: 1000 means a 1.0 s first token and 10 tokens/s on the medium case, with the first token counting twice as much.</p>`;
@@ -1389,7 +1401,10 @@ function render(d){
   }
   document.getElementById("app").innerHTML = h;
 }
-async function load(){ try { const r = await fetch(DATA_URL, {cache:"no-store"}); render(await r.json()); } catch(e) { document.getElementById("app").innerHTML = '<p class="fine">Could not load the data just now.</p>'; } }
+let REPLIES_OPEN = false, SHOW_ALL = false;
+document.addEventListener("toggle", e => { if (e.target && e.target.id === "recent") REPLIES_OPEN = e.target.open; }, true);
+function toggleAll(){ SHOW_ALL = !SHOW_ALL; REPLIES_OPEN = true; load(); }
+async function load(){ try { const r = await fetch(DATA_URL + (SHOW_ALL ? "?replies=all" : ""), {cache:"no-store"}); render(await r.json()); } catch(e) { document.getElementById("app").innerHTML = '<p class="fine">Could not load the data just now.</p>'; } }
 load(); setInterval(load, 15000);
 </script></body></html>"""
 

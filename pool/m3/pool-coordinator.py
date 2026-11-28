@@ -972,10 +972,11 @@ def bench_card(st):
             'Public read-only page: https://' + escape(host) + '/</p></div>')
 
 
-def meter_data(public):
+def meter_data(public, all_replies=False):
     """The meter's data, cached for 10 s: the public page polls it,
-    and pool_state() probes every machine."""
-    key = "public" if public else "full"
+    and pool_state() probes every machine. Normally the latest 20
+    replies; "View all" asks for up to 1000 (the CSV export has more)."""
+    key = ("public" if public else "full") + ("-all" if all_replies else "")
     hit = _METER_CACHE.get(key)
     if hit and time.time() - hit[0] < 10:
         return hit[1]
@@ -983,7 +984,8 @@ def meter_data(public):
         st = pool_state()
     except Exception:
         st = None
-    body = json.dumps(pool_meter.data(METER, st, public=public), indent=1)
+    body = json.dumps(pool_meter.data(METER, st, public=public,
+                                      n_replies=1000 if all_replies else 20), indent=1)
     _METER_CACHE[key] = (time.time(), body)
     return body
 
@@ -1306,7 +1308,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, pool_meter.page(public=True, data_url="data.json",
                                             export_url="export"))
         elif path in ("/bench/data.json", "/bench/public.json"):
-            self._send(200, meter_data(public), "application/json")
+            self._send(200, meter_data(public, (q.get("replies") or [""])[0] == "all"), "application/json")
         elif path in ("/bench/export", "/bench/public-export"):
             what = (q.get("what") or ["replies"])[0]
             fmt = (q.get("fmt") or ["csv"])[0]

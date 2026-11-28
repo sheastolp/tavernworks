@@ -2179,7 +2179,9 @@ class Handler(BaseHTTPRequestHandler):
         if sub is None:
             self._send(404, "Not here")
             return
-        url = COORD_URL.rsplit("/", 1)[0] + sub + ("?" + query if query and sub.endswith("export") else "")
+        url = COORD_URL.rsplit("/", 1)[0] + sub + ("?" + query if query and sub.endswith("export") else
+                                                       "?replies=all" if sub.endswith("public.json") and
+                                                       (parse_qs(query or "").get("replies") or [""])[0] == "all" else "")
         try:
             with urllib.request.urlopen(url, timeout=20) as r:
                 body = r.read()
