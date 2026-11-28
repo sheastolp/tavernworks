@@ -11,3 +11,15 @@
  * Live values to animate with: --glow (0..1 while talking), --mood (0 calm..1 fired up), --song-on (0/1, music playing).
  * Keep it light for phones: no big blur() filters, no more than a few animations.
  */
+
+/* Botanical leaf texture for the orb's leaves surface */
+#rig .look-surface[data-surface="leaves"] {
+  background: url(art/leaf-texture.svg) center/cover no-repeat;
+  mix-blend-mode: soft-light;
+  opacity: 0.85;
+  transition: opacity 0.6s ease;
+}
+
+#rig .look-surface[data-surface="leaves"]:hover {
+  opacity: 1;
+}

@@ -1,4 +1,17 @@
 {
-  "about": "Stickers: art laid over Rosin. Canvas is 1382 x 1698 px, same numbers as layers.js. art: art/<name>.svg (or img/...). x, y, w, h: the box on the canvas. on: the part it moves with (body, antenna-l, antenna-r, crystal-l, crystal-r, float-l, float-r, spark-1, spark-2, spark-3, charms). Optional: rotate (degrees), opacity (0..1), behind (true = under that part's painting), class (names for rosin-look.css).",
-  "stickers": []
+  "about": "Stickers: art laid over Rosin. Canvas is 1382 x 1698 px, same numbers as layers.js. art: art/<name>.svg (or img/...). x, y, w, h: the box on the canvas. on: the part it moves with (body, antenna-l, antenna-r, crystal-l, crystal-r, float-l, float-r, spark-1,spark-2,spark-3, charms). Optional: rotate (degrees), opacity (0..1), behind (true = under that part's painting), class (names for rosin-look.css).",
+  "stickers": [
+    {
+      "art": "art/leaf-texture.svg",
+      "x": 270,
+      "y": 380,
+      "w": 920,
+      "h": 900,
+      "on": "body",
+      "rotate": 0,
+      "opacity": 0.85,
+      "behind": true,
+      "class": "leaves-surface"
+    }
+  ]
 }
