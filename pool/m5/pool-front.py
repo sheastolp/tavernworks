@@ -1517,7 +1517,7 @@ def board_page(setup=None):
             "<h1>" + name + " leaderboard</h1>"
             "<p class='fine'>Results people posted from SwarmBench, best first. Score: 1000 means a 1.0 s first token "
             "and 10 tokens/s on the medium case of the " + BOARD_SUITE + " test, with the first token counting twice as much. "
-            "<a href='./'>Back to " + name + "</a> · <a href='https://pool.tavernworks.dev/downloads/swarmbench.py'>Get SwarmBench</a></p>"
+            "<a href='./'>Back to " + name + "</a> · Get SwarmBench: <a href='https://pool.tavernworks.dev/downloads/swarmbench.exe'>Windows app</a>, <a href='https://pool.tavernworks.dev/downloads/swarmbench.bat'>Windows launcher</a> or <a href='https://pool.tavernworks.dev/downloads/swarmbench.py'>swarmbench.py</a></p>"
             "<p class='tabs'>" + tabs + "</p><div class='scroll'>" + table + "</div>"
             "<p class='fine'>Only scores, model and hardware names are posted, never an address.</p></div></body></html>")
 

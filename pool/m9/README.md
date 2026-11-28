@@ -49,7 +49,16 @@ Everything is stored in SQLite at `/root/ai-pool/pool-meter.db`.
 that needs only Python 3.8 or newer. It runs on Windows, Linux and Mac
 against llama.cpp `llama-server`, Ollama, LM Studio, vLLM, koboldcpp or any
 other OpenAI-style server, whether that's a single machine or a llama.cpp
-RPC split. `swarmbench.bat` is a double-click launcher for Windows.
+RPC split. For Windows there are two more ways to run it:
+
+- **`swarmbench.exe`:** portable, needs no Python and no install. Double-click
+  it, or run it with the same options as the .py. GitHub builds it from
+  `swarmbench.py` on every change (`.github/workflows/swarmbench-windows.yml`),
+  tests it against stand-in servers, and publishes it as the release
+  `swarmbench-v<VERSION>`. It isn't signed, so Windows may warn the first
+  time: click More info, then Run anyway.
+- **`swarmbench.bat`:** a double-click launcher that runs `swarmbench.py`
+  with the PC's own Python.
 
 ```
 python swarmbench.py                          # finds a server on this computer
@@ -71,9 +80,13 @@ python swarmbench.py http://host:8080 --rpc a:50052,b:50052   # a split
   (score = 1000 × (1 s / TTFT)^(2/3) × (tok/s / 10)^(1/3)). The pool's own
   benchmark shows the same score.
 - **Where to get it:** the public page links the downloads at
-  `https://pool.tavernworks.dev/downloads/swarmbench.py` and `.bat`, so both
-  files go on the FX705's shelf (`/root/ai-pool/downloads/`). The workers
-  ignore them.
+  `https://pool.tavernworks.dev/downloads/swarmbench.exe`, `.bat` and `.py`,
+  so all three files go on the FX705's shelf (`/root/ai-pool/downloads/`).
+  The workers ignore them. The .exe comes from the GitHub release:
+
+  ```
+  curl -fsSL https://github.com/sheastolp/tavernworks/releases/download/swarmbench-v1.0.0/swarmbench.exe -o /root/ai-pool/downloads/swarmbench.exe
+  ```
 
 ## Leaderboard
 

@@ -1,0 +1,79 @@
+# Builds swarmbench.exe: SwarmBench as one portable Windows file that needs no Python and no install.
+# Every build is tested against stand-in llama.cpp, Ollama and OpenAI-style servers. A build from main
+# is published as the GitHub release swarmbench-v<VERSION> (VERSION from pool/m9/swarmbench.py), so
+# the download link stays the same until the version changes. It never becomes the repo's "latest"
+# release, so Rosin's latest links keep working.
+name: SwarmBench for Windows
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["pool/m9/swarmbench.py", "pool/m9/tests/**", ".github/workflows/swarmbench-windows.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build swarmbench.exe
+        run: |
+          python -m pip install --disable-pip-version-check pyinstaller==6.11.1
+          python -m PyInstaller --onefile --console --clean --name swarmbench --distpath dist pool/m9/swarmbench.py
+          ls -la dist
+      - name: Test it with no Python on the path
+        run: |
+          set -e
+          ./dist/swarmbench.exe --help
+          for mode in llama ollama openai; do
+            python pool/m9/tests/fake_server.py $mode 18555 & pid=$!
+            sleep 2
+            env PATH=/c/Windows/System32:/c/Windows ./dist/swarmbench.exe http://127.0.0.1:18555 --quick --no-share --out "r-$mode.json"
+            kill $pid || true
+            python -c "import json,sys; r=json.load(open('r-$mode.json')); m=r['summary']['medium']; print('$mode', m['ttft_ms'], m['gen_tps']); assert m['ttft_ms'] > 0 and m['gen_tps'] > 0"
+          done
+      - name: Version
+        id: v
+        run: echo "version=$(python -c "import re;print(re.search(r'^VERSION = \"([^\"]+)\"', open('pool/m9/swarmbench.py').read(), re.M).group(1))")" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swarmbench-windows
+          path: dist/swarmbench.exe
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: exe
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: swarmbench-windows
+          path: out
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: swarmbench-v${{ needs.exe.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: SwarmBench ${{ needs.exe.outputs.version }} for Windows
+          make_latest: false
+          files: out/swarmbench.exe
+          body: |
+            SwarmBench measures time to first token and speed on any llama.cpp, Ollama, LM Studio, vLLM or other OpenAI-style server, on one machine or a llama.cpp RPC split.
+
+            **swarmbench.exe** is portable: no Python and no install. Double-click it to test the model server on this PC, or run `swarmbench.exe http://host:port` for another, with `--rpc host:port,host:port` for the machines in a split.
+
+            Windows may warn that it doesn't know this app, because the file isn't signed. Click More info, then Run anyway.
+
+            Results: https://swarmbench.tavernworks.dev/board

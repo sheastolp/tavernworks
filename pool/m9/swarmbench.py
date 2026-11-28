@@ -45,6 +45,7 @@ import urllib.request
 
 VERSION = "1.0.0"
 SUITE_VERSION = "standard-v1"
+RUN_AS = "swarmbench.exe" if getattr(sys, "frozen", False) else "python swarmbench.py"
 RESULTS_PAGE = "https://swarmbench.tavernworks.dev/"
 SUBMIT_URL = os.environ.get("SWARMBENCH_SUBMIT_URL", RESULTS_PAGE + "submit")
 
@@ -624,7 +625,7 @@ def main():
             if sys.stdin.isatty() and not a.yes:
                 url = input("No model server found on this computer. Its address (like http://192.168.1.20:8080): ").strip()
             if not url:
-                raise SystemExit("Start your model server, or give its address: python swarmbench.py http://host:port")
+                raise SystemExit("Start your model server, or give its address: " + RUN_AS + " http://host:port")
     be = detect(url, a.model, ask=not a.yes)
     if not be:
         raise SystemExit("Nothing at " + url + " answered like llama.cpp, Ollama or an OpenAI-style server.")
@@ -759,9 +760,34 @@ def post_result(result, nick):
         say("Couldn't reach the leaderboard (" + str(e) + "). Your result is still saved.")
 
 
+def own_console():
+    """True when Windows opened a console just for us (the exe was
+    double-clicked), so the window would close before anyone reads it."""
+    if os.name != "nt" or not getattr(sys, "frozen", False):
+        return False
+    try:
+        import ctypes
+        buf = (ctypes.c_uint * 8)()
+        n = ctypes.windll.kernel32.GetConsoleProcessList(buf, 8)
+        return 0 < n <= 2      # the exe's launcher and SwarmBench itself
+    except Exception:
+        return False
+
+
 if __name__ == "__main__":
+    code = 0
     try:
         main()
     except KeyboardInterrupt:
         print("\nStopped.")
-        sys.exit(130)
+        code = 130
+    except SystemExit as e:
+        code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
+        if e.code is not None and not isinstance(e.code, int):
+            print(e.code, file=sys.stderr)
+    if own_console():
+        try:
+            input("\nPress Enter to close.")
+        except Exception:
+            pass
+    sys.exit(code)
