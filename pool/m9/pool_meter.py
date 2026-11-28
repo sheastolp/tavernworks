@@ -48,6 +48,7 @@ POOL_DIR = os.environ.get("POOL_DIR", os.path.join(HOME, "ai-pool"))
 DB_PATH = os.environ.get("POOL_METER_DB", os.path.join(POOL_DIR, "pool-meter.db"))
 NAME_PATH = os.path.join(POOL_DIR, "bench-name.json")
 RELAY_STATS_PATH = os.path.join(POOL_DIR, "relay-stats.json")
+BOARD_DB = os.path.join(POOL_DIR, "swarmbench-board.db")   # kept by pool-front.py
 RELAY_PROBE_PATH = os.path.join(POOL_DIR, "relay-probe.json")
 RPC_PATH = os.path.join(POOL_DIR, "pool-rpc.txt")
 SPLIT_PATH = os.path.join(POOL_DIR, "pool-split.txt")
@@ -1192,7 +1193,45 @@ def data(meter, state=None, public=False, n_replies=100):
         for r in out["replies"]:
             r["devices"] = _scrub_devices(r.get("devices"))
         out.pop("meter_status", None)
+    else:
+        out["board_admin"] = board_admin_rows()
     return out
+
+
+def board_admin_rows(n=50):
+    """The leaderboard's newest entries, hidden ones too, for the
+    operator's control page."""
+    if not os.path.exists(BOARD_DB):
+        return []
+    try:
+        db = sqlite3.connect(BOARD_DB, timeout=10)
+        db.row_factory = sqlite3.Row
+        rows = [dict(r) for r in db.execute(
+            "SELECT id, ts, score, ttft_ms, gen_tps, setup, machines, model, gpu, cpu, nick, hidden "
+            "FROM entries ORDER BY id DESC LIMIT ?", (n,))]
+        db.close()
+    except sqlite3.Error:
+        return []
+    for r in rows:
+        r["time"] = iso(r["ts"])
+    return rows
+
+
+def board_set_hidden(entry_id, hidden):
+    try:
+        eid = int(entry_id)
+    except (TypeError, ValueError):
+        return "That isn't a leaderboard entry."
+    if not os.path.exists(BOARD_DB):
+        return "The leaderboard has no entries yet."
+    db = sqlite3.connect(BOARD_DB, timeout=10)
+    n = db.execute("UPDATE entries SET hidden=? WHERE id=?", (1 if hidden else 0, eid)).rowcount
+    db.commit()
+    db.close()
+    if not n:
+        return "No leaderboard entry " + str(eid) + "."
+    return ("Entry " + str(eid) + " is hidden from the leaderboard." if hidden
+            else "Entry " + str(eid) + " is back on the leaderboard.")
 
 
 def export(meter, what="replies", fmt="csv", days=30, public=False):
@@ -1340,9 +1379,14 @@ function render(d){
   h += table(["Time","Source","Mode","In → out","First token","Slowest before first token","Gen tok/s","Total","Draft","Network","Slowest overall"], (d.replies||[]).slice(0,50).map(r => `<tr><td>${esc((r.time||"").replace("T"," ").slice(5,19))}</td><td>${esc(r.source)}${r.case_name ? " " + esc(r.case_name) : ""}</td><td class="${esc(r.mode)}">${esc(r.mode)}</td><td>${r.prompt_n} → ${r.gen_n}</td><td><b>${s(r.ttft_ms)}</b></td><td>${esc(r.ttft_bottleneck || "")}</td><td>${f(r.gen_tps,2)}</td><td>${s(r.total_ms)}</td><td>${r.draft_rate !== null && r.draft_rate !== undefined ? f(r.draft_rate*100,0) + "%" : "—"}</td><td>${s(r.net_ms)}</td><td>${esc(r.bottleneck)}${r.overlap ? " (overlapped)" : ""}</td></tr>`));
   h += `<div class="row" style="margin-top:.8rem"><a class="btn alt" href="${EXPORT_URL}?what=replies&fmt=csv">Replies CSV</a><a class="btn alt" href="${EXPORT_URL}?what=replies&fmt=json">Replies JSON</a><a class="btn alt" href="${EXPORT_URL}?what=runs&fmt=csv">Benchmarks CSV</a><a class="btn alt" href="${EXPORT_URL}?what=runs&fmt=json">Benchmarks JSON</a></div>`;
   h += `</div><h2>Test your own setup</h2><div class="card"><p>SwarmBench runs the same test on any llama.cpp, Ollama, LM Studio, vLLM or other OpenAI-style server, on one machine or a split, and gives a score you can compare with the numbers here.</p>
-<div class="row" style="margin-top:.6rem"><a class="btn" href="https://pool.tavernworks.dev/downloads/swarmbench.py">Download swarmbench.py</a><a class="btn alt" href="https://pool.tavernworks.dev/downloads/swarmbench.bat">Windows launcher</a></div>
+<div class="row" style="margin-top:.6rem"><a class="btn" href="https://pool.tavernworks.dev/downloads/swarmbench.py">Download swarmbench.py</a><a class="btn alt" href="https://pool.tavernworks.dev/downloads/swarmbench.bat">Windows launcher</a><a class="btn alt" href="https://${esc(d.host)}/board">Leaderboard</a></div>
 <p class="fine" style="margin-top:.6rem">Needs Python 3.8 or newer, nothing else. Run <code>python swarmbench.py</code> to test the server on that computer, <code>python swarmbench.py http://host:port</code> for another, and add <code>--rpc host:port,host:port</code> for the machines in a llama.cpp split. On Windows, put both files in one folder and double-click the launcher. Score: 1000 means a 1.0 s first token and 10 tokens/s on the medium case, with the first token counting twice as much.</p>`;
   h += `<p class="fine" style="margin-top:.5rem">Suite ${esc(d.suite)}: ${(d.suite_cases||[]).map(c => c.case + " (~" + Math.round(c.prompt_words*1.3) + " tokens in, " + c.n_predict + " out)").join(", ")}, ${d.suite_cases && d.suite_cases[0] ? d.suite_cases[0].reps : 2} runs each, greedy, no prompt cache. Exports cover the last 30 days.</p></div>`;
+  if (d.board_admin) {
+    h += `<h2>Leaderboard entries (only you see this)</h2><div class="card">`;
+    h += d.board_admin.length ? table(["#","Posted","Score","First token","Gen tok/s","Setup","Model","Hardware","By",""], d.board_admin.map(e => `<tr><td>${e.id}</td><td>${esc((e.time||"").slice(0,16).replace("T"," "))}</td><td><b>${e.score}</b></td><td>${s(e.ttft_ms)}</td><td>${f(e.gen_tps,1)}</td><td>${esc(e.setup)}${e.machines > 1 ? " (" + e.machines + ")" : ""}</td><td>${esc(e.model)}</td><td>${esc(e.gpu || e.cpu || "")}</td><td>${esc(e.nick || "")}</td><td><form method="post" action="/action"><input type="hidden" name="action" value="${e.hidden ? "bench_board_show" : "bench_board_hide"}"><input type="hidden" name="id" value="${e.id}"><button class="alt" type="submit">${e.hidden ? "Show again" : "Hide"}</button></form></td></tr>`)) : `<p class="fine">Nobody has posted a result yet.</p>`;
+    h += `<p class="fine" style="margin-top:.5rem">Hide takes an entry off the public leaderboard; it stays here so you can show it again.</p></div>`;
+  }
   document.getElementById("app").innerHTML = h;
 }
 async function load(){ try { const r = await fetch(DATA_URL, {cache:"no-store"}); render(await r.json()); } catch(e) { document.getElementById("app").innerHTML = '<p class="fine">Could not load the data just now.</p>'; } }

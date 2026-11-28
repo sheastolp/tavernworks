@@ -56,7 +56,9 @@ import base64
 import hashlib
 import json
 import os
+import re
 import socket
+import sqlite3
 import struct
 import secrets
 import threading
@@ -1237,6 +1239,300 @@ def bench_host():
     return _BENCH_HOST[1]
 
 
+# ---------------- SwarmBench leaderboard ----------------
+#
+# swarmbench.py can post a result here when its user says yes. Only
+# numbers and hardware/model names are kept (never an address: the
+# client strips them and this code keeps only listed fields, then drops
+# anything that looks like an IP, a URL or an email). The sender's
+# address is stored only as a salted hash, for the rate limit. The
+# operator hides entries from the coordinator's /bench page.
+
+BOARD_DB = os.path.join(POOL_DIR, "swarmbench-board.db")
+BOARD_MAX_BYTES = 65536
+BOARD_SUITE = "standard-v1"
+# case -> (words in the prompt, tokens to generate), as in swarmbench.py
+BOARD_CASES = {"short": (40, 64), "medium": (450, 128), "long": (1500, 64)}
+BOARD_KEEP = 5000
+BOARD_LIMITS = ((600, 3), (86400, 10))   # per sender: (seconds, posts)
+BOARD_DAY_MAX = 300                       # all senders together, per day
+_board_lock = threading.Lock()
+_board_hits = {}
+_board_day = [0, 0]
+
+
+def board_db():
+    db = sqlite3.connect(BOARD_DB, timeout=10)
+    db.row_factory = sqlite3.Row
+    db.executescript("""
+CREATE TABLE IF NOT EXISTS entries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts REAL NOT NULL,
+  sender TEXT,              -- salted hash of the sender's address
+  digest TEXT UNIQUE,       -- the same result can't be posted twice
+  score INTEGER, first_token_score INTEGER,
+  ttft_ms REAL, gen_tps REAL, prompt_tps REAL,
+  setup TEXT,               -- single | split
+  machines INTEGER,
+  server TEXT, model TEXT, quant TEXT,
+  os TEXT, cpu TEXT, gpu TEXT, ram_gb INTEGER,
+  nick TEXT, client TEXT,
+  detail_json TEXT,
+  hidden INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS entries_score ON entries(hidden, score);
+CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
+""")
+    return db
+
+
+def _board_salt(db):
+    row = db.execute("SELECT v FROM meta WHERE k='salt'").fetchone()
+    if row:
+        return row[0]
+    salt = secrets.token_hex(16)
+    db.execute("INSERT INTO meta(k,v) VALUES('salt',?)", (salt,))
+    db.commit()
+    return salt
+
+
+_RE_ADDR = re.compile(r"(\b\d{1,3}(\.\d{1,3}){3}\b|\b[0-9a-f]{0,4}(:[0-9a-f]{0,4}){3,}\b|"
+                      r"https?://\S*|www\.\S*|\S+@\S+|\b\S+\.(ts\.net|local|lan|home|internal)\b)", re.I)
+
+
+def _btext(v, n, allowed=r"[^A-Za-z0-9 ()@._+:/\-]"):
+    if not isinstance(v, str):
+        return ""
+    v = _RE_ADDR.sub("", v)
+    v = re.sub(allowed, "", v)
+    v = re.sub(r"\s+", " ", v).strip()
+    return v[:n]
+
+
+def _bnum(v, lo, hi):
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    if f != f or f < lo or f > hi:
+        return None
+    return f
+
+
+def board_score(ttft_ms, gen_tps):
+    return int(round(1000.0 * ((1000.0 / ttft_ms) ** (2.0 / 3.0)) * ((gen_tps / 10.0) ** (1.0 / 3.0))))
+
+
+def board_rate_ok(sender):
+    now = time.time()
+    with _board_lock:
+        day = int(now // 86400)
+        if _board_day[0] != day:
+            _board_day[0], _board_day[1] = day, 0
+        if _board_day[1] >= BOARD_DAY_MAX:
+            return False
+        hits = [t for t in _board_hits.get(sender, []) if now - t < 86400]
+        for win, n in BOARD_LIMITS:
+            if len([t for t in hits if now - t < win]) >= n:
+                _board_hits[sender] = hits
+                return False
+        hits.append(now)
+        _board_hits[sender] = hits
+        _board_day[1] += 1
+        if len(_board_hits) > 5000:
+            for k in list(_board_hits)[:1000]:
+                _board_hits.pop(k, None)
+        return True
+
+
+def board_clean(p):
+    """The stored entry, built only from fields this code knows, or
+    (None, reason)."""
+    if not isinstance(p, dict) or p.get("suite") != BOARD_SUITE:
+        return None, "This result isn't from the " + BOARD_SUITE + " test. Update SwarmBench and run it again."
+    summ = p.get("summary")
+    if not isinstance(summ, dict) or not isinstance(summ.get("medium"), dict):
+        return None, "The result has no medium case, so it can't be scored."
+    cases = {}
+    for name, (words, n_predict) in BOARD_CASES.items():
+        c = summ.get(name)
+        if not isinstance(c, dict):
+            continue
+        ttft = _bnum(c.get("ttft_ms"), 1, 3600000)
+        gen = _bnum(c.get("gen_tps"), 0.01, 5000)
+        ptps = _bnum(c.get("prompt_tps"), 0.01, 10000000)
+        pn = _bnum(c.get("prompt_n"), 1, 100000)
+        gn = _bnum(c.get("gen_n"), 0, 100000)
+        if ttft is None or gen is None:
+            return None, "The " + name + " case has impossible numbers."
+        if pn is not None and not (words * 0.6 <= pn <= words * 4 + 60):
+            return None, "The " + name + " case didn't use the standard prompt."
+        if gn is not None and gn > n_predict * 1.5:
+            return None, "The " + name + " case generated more than the test asks for."
+        cases[name] = {"ttft_ms": round(ttft, 1), "gen_tps": round(gen, 2),
+                       "prompt_tps": round(ptps, 1) if ptps else None,
+                       "prompt_n": int(pn) if pn else None, "gen_n": int(gn) if gn is not None else None}
+    m = cases["medium"]
+    srv = p.get("server") if isinstance(p.get("server"), dict) else {}
+    info = srv.get("info") if isinstance(srv.get("info"), dict) else {}
+    comp = p.get("computer") if isinstance(p.get("computer"), dict) else {}
+    net = p.get("network") if isinstance(p.get("network"), dict) else {}
+    split = net.get("split") if isinstance(net.get("split"), list) else []
+    rtts = []
+    for w in split[:16]:
+        r = _bnum(w.get("rtt_ms") if isinstance(w, dict) else w, 0, 60000)
+        if r is not None:
+            rtts.append(round(r, 1))
+    gpus = comp.get("gpus") if isinstance(comp.get("gpus"), list) else []
+    gpu_names = []
+    for g in gpus[:8]:
+        if isinstance(g, dict):
+            nm = _btext(g.get("name"), 48)
+            vr = _bnum(g.get("vram_mb"), 0, 4000000)
+            if nm:
+                gpu_names.append(nm + (" " + str(int(round(vr / 1024.0))) + " GB" if vr else ""))
+    model = srv.get("model") if isinstance(srv.get("model"), str) else ""
+    model = re.split(r"[\\/]", model)[-1]
+    ram = _bnum(comp.get("ram_mb"), 0, 100000000)
+    on_gpu = _bnum(info.get("on_gpu_pct"), 0, 100)
+    entry = {
+        "score": board_score(m["ttft_ms"], m["gen_tps"]),
+        "first_token_score": int(round(1000000.0 / m["ttft_ms"])),
+        "ttft_ms": m["ttft_ms"], "gen_tps": m["gen_tps"], "prompt_tps": m["prompt_tps"],
+        "setup": "split" if split else "single",
+        "machines": (len(split) + 1) if split else 1,
+        "server": _btext(srv.get("kind"), 24),
+        "model": _btext(model, 80),
+        "quant": _btext(info.get("quant"), 16),
+        "os": _btext(comp.get("os"), 40),
+        "cpu": _btext(comp.get("cpu"), 60),
+        "gpu": ", ".join(gpu_names)[:120],
+        "ram_gb": int(round(ram / 1024.0)) if ram else None,
+        "nick": _btext(p.get("nick"), 24, r"[^A-Za-z0-9 _.\-]"),
+        "client": _btext(p.get("swarmbench"), 12),
+        "detail_json": json.dumps({"cases": cases, "split_rtt_ms": rtts,
+                                   "on_gpu_pct": on_gpu,
+                                   "cpu_threads": int(_bnum(comp.get("cpu_threads"), 0, 4096) or 0) or None}),
+    }
+    return entry, None
+
+
+def board_submit(raw, ip):
+    try:
+        p = json.loads(raw)
+    except ValueError:
+        return 400, {"error": "That isn't a SwarmBench result."}
+    entry, why = board_clean(p)
+    if not entry:
+        return 422, {"error": why}
+    db = board_db()
+    try:
+        sender = hashlib.sha256((_board_salt(db) + "|" + (ip or "")).encode()).hexdigest()[:20]
+        if not board_rate_ok(sender):
+            return 429, {"error": "Too many results from here for now. Try again later."}
+        digest = hashlib.sha256(json.dumps([entry["detail_json"], entry["model"], entry["nick"]]).encode()).hexdigest()
+        try:
+            cols = list(entry) + ["ts", "sender", "digest"]
+            cur = db.execute("INSERT INTO entries(" + ",".join(cols) + ") VALUES(" + ",".join("?" * len(cols)) + ")",
+                             [entry[c] for c in entry] + [time.time(), sender, digest])
+        except sqlite3.IntegrityError:
+            return 409, {"error": "That result is already on the board."}
+        eid = cur.lastrowid
+        db.execute("DELETE FROM entries WHERE id NOT IN (SELECT id FROM entries ORDER BY id DESC LIMIT ?)",
+                   (BOARD_KEEP,))
+        db.commit()
+        rank = db.execute("SELECT COUNT(*) FROM entries WHERE hidden=0 AND score>?",
+                          (entry["score"],)).fetchone()[0] + 1
+        return 200, {"ok": True, "id": eid, "score": entry["score"], "rank": rank,
+                     "url": "https://" + bench_host() + "/board#e" + str(eid)}
+    finally:
+        db.close()
+
+
+def board_rows(limit=100, setup=None):
+    db = board_db()
+    try:
+        q = "SELECT * FROM entries WHERE hidden=0"
+        args = []
+        if setup in ("single", "split"):
+            q += " AND setup=?"
+            args.append(setup)
+        q += " ORDER BY score DESC, id ASC LIMIT ?"
+        args.append(limit)
+        out = []
+        for r in db.execute(q, args):
+            d = dict(r)
+            d.pop("sender", None)
+            d.pop("digest", None)
+            d.pop("hidden", None)
+            try:
+                d["detail"] = json.loads(d.pop("detail_json") or "{}")
+            except ValueError:
+                d["detail"] = {}
+            d["time"] = datetime.fromtimestamp(d["ts"], timezone.utc).strftime("%Y-%m-%d")
+            out.append(d)
+        return out
+    finally:
+        db.close()
+
+
+def _bms(v):
+    if v is None:
+        return "—"
+    return str(int(round(v))) + " ms" if v < 1000 else "%.2f s" % (v / 1000.0)
+
+
+def board_page(setup=None):
+    rows = board_rows(200, setup)
+    trs = []
+    for i, r in enumerate(rows, 1):
+        hw = r["gpu"] or r["cpu"] or "—"
+        if r["ram_gb"]:
+            hw += " · " + str(r["ram_gb"]) + " GB RAM"
+        setup_txt = "single machine" if r["setup"] == "single" else str(r["machines"]) + " machines"
+        rtt = (r.get("detail") or {}).get("split_rtt_ms") or []
+        if rtt:
+            setup_txt += " (links " + ", ".join(_bms(x) for x in rtt[:4]) + ")"
+        trs.append(
+            '<tr id="e' + str(r["id"]) + '"><td>' + str(i) + '</td><td><b>' + str(r["score"]) + '</b></td><td>' +
+            _bms(r["ttft_ms"]) + '</td><td>' + ("%.1f" % r["gen_tps"]) + '</td><td>' + escape(r["model"] or "—") +
+            (" " + escape(r["quant"]) if r["quant"] and r["quant"] not in (r["model"] or "") else "") +
+            '</td><td>' + escape(setup_txt) + '</td><td>' + escape(hw) + '</td><td>' + escape(r["server"] or "") +
+            '</td><td>' + escape(r["nick"] or "") + '</td><td>' + escape(r["time"]) + '</td></tr>')
+    name = escape(bench_name())
+    tabs = ('<a href="board"' + (' class="on"' if not setup else '') + '>All</a> '
+            '<a href="board?setup=single"' + (' class="on"' if setup == "single" else '') + '>Single machine</a> '
+            '<a href="board?setup=split"' + (' class="on"' if setup == "split" else '') + '>Split</a>')
+    table = ('<table><tr><th>#</th><th>Score</th><th>First token</th><th>Gen tok/s</th><th>Model</th>'
+             '<th>Setup</th><th>Hardware</th><th>Server</th><th>By</th><th>Date</th></tr>' + "".join(trs) +
+             '</table>') if trs else '<p class="fine">No results yet. Be the first: run SwarmBench and say yes when it asks to post.</p>'
+    return ("<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+            "<title>" + name + " leaderboard</title><style>"
+            "body{background:#1b1410;color:#f1e4cf;font:15px/1.45 system-ui,sans-serif;margin:0;padding:16px}"
+            "h1{font-size:1.4rem;margin:.2rem 0}a{color:#f5c873}.fine{color:#b9a68f;font-size:.85rem}"
+            ".wrap{max-width:1100px;margin:0 auto}.tabs a{margin-right:.8rem;text-decoration:none}.tabs a.on{text-decoration:underline}"
+            ".scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}"
+            "th,td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid #3a2c22;white-space:nowrap}th{color:#b9a68f;font-weight:500}"
+            "tr:target{background:#3a2c22}</style></head><body><div class='wrap'>"
+            "<h1>" + name + " leaderboard</h1>"
+            "<p class='fine'>Results people posted from SwarmBench, best first. Score: 1000 means a 1.0 s first token "
+            "and 10 tokens/s on the medium case of the " + BOARD_SUITE + " test, with the first token counting twice as much. "
+            "<a href='./'>Back to " + name + "</a> · <a href='https://pool.tavernworks.dev/downloads/swarmbench.py'>Get SwarmBench</a></p>"
+            "<p class='tabs'>" + tabs + "</p><div class='scroll'>" + table + "</div>"
+            "<p class='fine'>Only scores, model and hardware names are posted, never an address.</p></div></body></html>")
+
+
+def bench_name():
+    try:
+        with open(BENCH_NAME_PATH) as f:
+            n = str(json.load(f).get("name") or "").strip()
+            if n:
+                return n
+    except Exception:
+        pass
+    return os.environ.get("POOL_BENCH_NAME") or "SwarmBench"
+
+
 def relay_log(msg):
     print("[relay] " + now_iso() + " " + msg, flush=True)
 
@@ -1866,7 +2162,16 @@ class Handler(BaseHTTPRequestHandler):
         """The benchmark's public, read-only page: its own hostname
         (bench-name.json, default swarmbench.tavernworks.dev) or /bench/
         on any host. Everything comes from the coordinator's scrubbed
-        public endpoints — no controls, no addresses."""
+        public endpoints — no controls, no addresses — except the
+        leaderboard, which this front keeps itself."""
+        if path in ("/board", "/board/"):
+            setup = (parse_qs(query or "").get("setup") or [""])[0]
+            self._send(200, board_page(setup if setup in ("single", "split") else None))
+            return
+        if path == "/board.json":
+            setup = (parse_qs(query or "").get("setup") or [""])[0]
+            self._json(200, {"suite": BOARD_SUITE, "entries": board_rows(500, setup or None)})
+            return
         sub = {"": "/bench/public-page", "/": "/bench/public-page",
                "/index.html": "/bench/public-page",
                "/data.json": "/bench/public.json",
@@ -2064,8 +2369,31 @@ class Handler(BaseHTTPRequestHandler):
         conn = HUB.attach(rec, self.connection)
         conn.run()  # blocks until the worker disconnects
 
+    def board_post(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length <= 0 or length > BOARD_MAX_BYTES:
+            self._json(413, {"error": "A SwarmBench result is small; this isn't one."})
+            return
+        raw = self.rfile.read(length).decode("utf-8", "replace")
+        peer = self.client_address[0] if self.client_address else ""
+        # Through the Cloudflare tunnel every request comes from
+        # cloudflared on this machine; the real sender is in its header.
+        ip = (self.headers.get("CF-Connecting-IP") or peer) if peer in ("127.0.0.1", "::1") else peer
+        try:
+            code, obj = board_submit(raw, ip)
+        except Exception:
+            code, obj = 500, {"error": "The leaderboard couldn't save that just now."}
+        self._json(code, obj)
+
     def do_POST(self):
         parsed = urlparse(self.path)
+        host = (self.headers.get("Host") or "").split(":")[0].strip().lower()
+        if (parsed.path == "/submit" and host == bench_host()) or parsed.path == "/bench/submit":
+            self.board_post()
+            return
         if parsed.path not in ("/enroll", "/register", "/link", "/v1/chat/completions", "/mcp"):
             self._send(404, "Not here")
             return

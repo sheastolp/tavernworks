@@ -17,6 +17,10 @@ Options:
     --out FILE          where to save the result (default: a dated JSON file)
     --api-key KEY       for servers that need one (or env SWARMBENCH_API_KEY)
     --timeout SEC       per request (default 900)
+    --share / --no-share
+                        post the result to the public leaderboard, or don't
+                        (without either, SwarmBench asks)
+    --nick NAME         the name to show on the leaderboard (optional)
 
 Python 3.8 or newer, nothing to install. Every run uses the same fixed
 test ("standard-v1"), so results from different setups compare.
@@ -42,6 +46,7 @@ import urllib.request
 VERSION = "1.0.0"
 SUITE_VERSION = "standard-v1"
 RESULTS_PAGE = "https://swarmbench.tavernworks.dev/"
+SUBMIT_URL = os.environ.get("SWARMBENCH_SUBMIT_URL", RESULTS_PAGE + "submit")
 
 # ---------------- the standard test (same as the AI Pool's) ----------------
 
@@ -600,6 +605,9 @@ def main():
     ap.add_argument("--api-key")
     ap.add_argument("--timeout", type=int, default=900)
     ap.add_argument("--yes", action="store_true", help="don't ask anything")
+    ap.add_argument("--share", action="store_true", help="post to the public leaderboard")
+    ap.add_argument("--no-share", action="store_true", help="don't post or ask")
+    ap.add_argument("--nick", help="name to show on the leaderboard")
     a = ap.parse_args()
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -698,7 +706,57 @@ def main():
         json.dump(result, f, indent=1)
     say("")
     say("Saved " + os.path.abspath(out))
-    say("Compare with the AI Pool's results at " + RESULTS_PAGE)
+    share = a.share
+    if not share and not a.no_share and not a.yes and sys.stdin.isatty() and "medium" in summary:
+        say("")
+        say("Post this result to the public SwarmBench leaderboard? It sends only the scores, the")
+        say("model name and your CPU/GPU names, never an address.")
+        share = input("Post it? [y/N] ").strip().lower() in ("y", "yes")
+        if share and not a.nick:
+            a.nick = input("Name to show (optional, Enter for none): ").strip()
+    if share:
+        post_result(result, a.nick or "")
+    else:
+        say("Compare at " + RESULTS_PAGE + "board")
+
+
+def share_payload(result, nick):
+    """Only what the leaderboard shows: no addresses, hosts or paths."""
+    comp = result.get("computer") or {}
+    srv = result.get("server") or {}
+    info = srv.get("info") or {}
+    return {
+        "swarmbench": result.get("swarmbench"), "suite": result.get("suite"),
+        "nick": nick[:24],
+        "summary": {c: {k: v.get(k) for k in ("ttft_ms", "gen_tps", "prompt_tps", "prompt_n", "gen_n")}
+                    for c, v in (result.get("summary") or {}).items()},
+        "server": {"kind": srv.get("kind"),
+                   "model": os.path.basename((srv.get("model") or "").replace("\\", "/")),
+                   "info": {"quant": info.get("quant"), "on_gpu_pct": info.get("on_gpu_pct")}},
+        "computer": {"os": comp.get("os"), "cpu": comp.get("cpu"), "cpu_threads": comp.get("cpu_threads"),
+                     "ram_mb": comp.get("ram_mb"),
+                     "gpus": [{"name": g.get("name"), "vram_mb": g.get("vram_mb")} for g in comp.get("gpus") or []]},
+        "network": {"split": [{"rtt_ms": w.get("rtt_ms")} for w in (result.get("network") or {}).get("split") or []]},
+    }
+
+
+def post_result(result, nick):
+    body = json.dumps(share_payload(result, nick)).encode()
+    req = urllib.request.Request(SUBMIT_URL, data=body, headers={
+        "Content-Type": "application/json", "User-Agent": "SwarmBench/" + VERSION})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            ans = json.loads(r.read().decode("utf-8", "replace"))
+        say("Posted: score " + str(ans.get("score")) + ", number " + str(ans.get("rank")) +
+            " on the leaderboard. " + str(ans.get("url") or RESULTS_PAGE + "board"))
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.loads(e.read().decode("utf-8", "replace")).get("error")
+        except Exception:
+            msg = None
+        say("The leaderboard didn't take it: " + (msg or "error " + str(e.code)).rstrip(".") + ". Your result is still saved.")
+    except Exception as e:
+        say("Couldn't reach the leaderboard (" + str(e) + "). Your result is still saved.")
 
 
 if __name__ == "__main__":

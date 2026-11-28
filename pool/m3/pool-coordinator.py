@@ -652,6 +652,11 @@ def act(name, fields):
         if name == "bench_cancel":
             return METER.cancel_bench()
         return METER.run_bench((fields.get("plan") or ["current"])[0])
+    if name in ("bench_board_hide", "bench_board_show"):
+        if not METER:
+            return "The benchmark isn't installed (pool_meter.py next to this script)."
+        _METER_CACHE.clear()
+        return pool_meter.board_set_hidden((fields.get("id") or [""])[0], name == "bench_board_hide")
     if name == "start_solo":
         sh(["systemctl", "start", "ai-pool-solo"], timeout=30)
         return "Starting the solo brain — loading takes a few minutes."

@@ -75,6 +75,29 @@ python swarmbench.py http://host:8080 --rpc a:50052,b:50052   # a split
   files go on the FX705's shelf (`/root/ai-pool/downloads/`). The workers
   ignore them.
 
+## Leaderboard
+
+When a run finishes, swarmbench.py asks whether to post the result. You can
+also pass `--share` (with an optional `--nick NAME`) or `--no-share`. A
+posted result shows at `https://swarmbench.tavernworks.dev/board`, best
+score first, with tabs for single machines and splits.
+
+- **What gets sent:** only the scores, the model name and the CPU/GPU names.
+  The client strips everything else. `pool-front.py` keeps only the fields
+  it knows, removes anything that looks like an address, URL or email, and
+  works out the score again from the raw numbers.
+- **The sender's address:** stored only as a salted hash, for the rate limit.
+- **Limits:**
+  - 64 KB per post.
+  - 3 posts per sender per 10 minutes, and 10 per day.
+  - 300 posts a day in total.
+  - The same result can't be posted twice.
+  - Numbers have to be possible, and the prompts have to be the standard
+    ones.
+- **Removing entries:** the control page `/bench` lists the newest entries
+  with Hide and Show again buttons.
+- **Storage:** `/root/ai-pool/swarmbench-board.db`.
+
 ## The name is one setting
 
 The default name is SwarmBench and its link is swarmbench.tavernworks.dev.
