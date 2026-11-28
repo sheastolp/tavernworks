@@ -1,0 +1,47 @@
+# Runs Rosin's page in Chrome against the real gate (local-ai/gate/server.mjs) on this runner: settings sync between
+# devices, the Twitch chip and ⋯ → Twitch panel, the stream window, the mic picker and "Rosin, …", at phone, Legion Go 2
+# and PC sizes. Twitch chat is faked; nothing leaves the runner. Screenshots are attached to the run.
+name: Rosin page tests
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["rosin/**", "local-ai/gate/**", ".github/rosin-tests/**", ".github/workflows/rosin-page-tests.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  page:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Playwright
+        working-directory: .github/rosin-tests
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
+      - name: Start the gate and the site
+        run: |
+          mkdir -p "$RUNNER_TEMP/gstate" "$RUNNER_TEMP/shots"
+          GATE_KEY=testkey1234567890 GATE_PORT=18900 GATE_HOST=127.0.0.1 GATE_ORIGINS=http://127.0.0.1:8099 \
+            GATE_POOL_URL=off STATE_DIRECTORY="$RUNNER_TEMP/gstate" nohup node local-ai/gate/server.mjs > "$RUNNER_TEMP/gate.log" 2>&1 &
+          nohup python3 -m http.server 8099 --bind 127.0.0.1 > "$RUNNER_TEMP/site.log" 2>&1 &
+          for i in $(seq 30); do curl -sf -o /dev/null http://127.0.0.1:8099/rosin/ && curl -s -o /dev/null http://127.0.0.1:18900/health && break; sleep 1; done
+      - name: Test
+        working-directory: .github/rosin-tests
+        run: SHOTS="$RUNNER_TEMP/shots" node test_sync.js
+      - name: Gate log
+        if: always()
+        run: tail -n 80 "$RUNNER_TEMP/gate.log" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rosin-page-shots
+          path: ${{ runner.temp }}/shots
