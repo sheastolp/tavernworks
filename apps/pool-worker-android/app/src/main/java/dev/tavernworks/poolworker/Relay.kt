@@ -10,6 +10,10 @@ import okio.ByteString.Companion.toByteString
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.nio.ByteBuffer
+import java.security.MessageDigest
+import java.security.SecureRandom
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -19,14 +23,26 @@ import java.util.concurrent.TimeUnit
  * it to a localhost port on the host; llama-server's RPC traffic travels down it as binary frames:
  *   [stream id: u32 big-endian][type: u8][data]   type 1 = open, 2 = data, 3 = close
  * Each stream is one TCP connection to the local rpc-server.
+ *
+ * Local route (chain mode, Nov 28): with [lan] set, the session goes straight to the pool's
+ * home-network address instead of through Cloudflare. The key never crosses that network: the
+ * phone proves its enrollment with an HMAC of a fresh nonce (keyed by the key's SHA-256), and only
+ * trusts a front that answers with its own HMAC of that nonce.
  */
 class RelaySession(
     client: OkHttpClient,
     poolUrl: String,
-    enrollmentId: String,
+    private val enrollmentId: String,
     key: String,
     private val rpcPort: Int,
+    val lan: Pair<String, Int>? = null,
 ) : WebSocketListener() {
+
+    /** The pool's home-network addresses, from the Cloudflare relay's answer ("" when none). */
+    @Volatile var lanHint: String = ""
+        private set
+    private val keyHash = sha256Hex(key)
+    private val nonce = ByteArray(16).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
 
     @Volatile var alive = true
         private set
@@ -45,12 +61,24 @@ class RelaySession(
     val streamCount: Int get() = streams.size
 
     init {
-        val req = Request.Builder()
-            .url("$poolUrl/relay")
-            .header("User-Agent", "pool-worker-android")
-            .header("X-Enrollment-Id", enrollmentId)
-            .header("X-Enrollment-Key", key)
-            .build()
+        val req = if (lan == null) {
+            Request.Builder()
+                .url("$poolUrl/relay")
+                .header("User-Agent", "pool-worker-android")
+                .header("X-Enrollment-Id", enrollmentId)
+                .header("X-Enrollment-Key", key)
+                .build()
+        } else {
+            val ts = (System.currentTimeMillis() / 1000).toString()
+            Request.Builder()
+                .url("http://${lan.first}:${lan.second}/relay-lan")
+                .header("User-Agent", "pool-worker-android")
+                .header("X-Enrollment-Id", enrollmentId)
+                .header("X-Lan-Time", ts)
+                .header("X-Lan-Nonce", nonce)
+                .header("X-Lan-Proof", hmac(keyHash, "tw-lan-v1", enrollmentId, ts, nonce))
+                .build()
+        }
         ws = client.newWebSocket(req, this)
     }
 
@@ -68,6 +96,20 @@ class RelaySession(
     }
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
+        if (lan != null) {
+            val want = hmac(keyHash, "tw-lan-srv-v1", enrollmentId, nonce)
+            if (!MessageDigest.isEqual(want.toByteArray(), (response.header("X-Lan-Server-Proof") ?: "").toByteArray())) {
+                refusedCode = -1
+                closeReason = "the home-network answer did not prove it is this pool"
+                webSocket.cancel()
+                return
+            }
+            connected = true
+            WorkerState.log("relay connected over the home network (${lan.first}), skipping Cloudflare")
+            return
+        }
+        lanHint = (response.header("X-Pool-Lan") ?: "").split(",").map { it.trim() }
+            .filter { parseTarget(it) != null }.joinToString(",").take(200)
         connected = true
         WorkerState.log("relay connected, this phone is in the pool")
     }
@@ -108,7 +150,7 @@ class RelaySession(
     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = finish("relay closed")
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-        if (response != null && !connected) refusedCode = response.code
+        if (response != null && !connected && refusedCode == 0) refusedCode = response.code
         finish("relay dropped: " + (t.message ?: t.javaClass.simpleName))
     }
 
@@ -181,5 +223,26 @@ class RelaySession(
     companion object {
         const val CHUNK = 262144
         const val MAX_QUEUE = 4L * 1024 * 1024
+
+        fun sha256Hex(s: String): String =
+            MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }
+
+        fun hmac(keyHex: String, vararg parts: String): String {
+            val mac = Mac.getInstance("HmacSHA256")
+            mac.init(SecretKeySpec(keyHex.toByteArray(), "HmacSHA256"))
+            return mac.doFinal(parts.joinToString("|").toByteArray()).joinToString("") { "%02x".format(it) }
+        }
+
+        /** "ip:port" when ip is a private home-network IPv4 (not loopback or Tailscale's 100.64/10). */
+        fun parseTarget(s: String): Pair<String, Int>? {
+            val ip = s.substringBeforeLast(':', "")
+            val port = s.substringAfterLast(':', "").toIntOrNull() ?: return null
+            if (port !in 1..65535) return null
+            val parts = ip.split(".").map { it.toIntOrNull() ?: return null }
+            if (parts.size != 4 || parts.any { it !in 0..255 }) return null
+            val (a, b) = parts
+            val private = a == 10 || (a == 172 && b in 16..31) || (a == 192 && b == 168)
+            return if (private) ip to port else null
+        }
     }
 }

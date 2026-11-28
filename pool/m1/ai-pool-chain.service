@@ -1,0 +1,14 @@
+[Unit]
+Description=AI Pool chain — cost-aware pooled llama-server with batch checking (FX705 card + RPC workers)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+Conflicts=ai-pool-solo.service ai-pool-host.service
+
+[Service]
+Type=simple
+ExecStart=/opt/ai-pool/fx705-chain.sh
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

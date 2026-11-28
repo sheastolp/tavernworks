@@ -24,6 +24,14 @@
 #                       connection to a per-machine localhost port
 #                       that llama-server can target with --rpc.
 #                       Revoking the enrollment cuts the relay.
+#   GET  /relay-lan     (chain mode, Nov 28) the same relay over the
+#                       home network: served ONLY on the FX705's own
+#                       private LAN addresses (port 8093), never through
+#                       the tunnel. A worker proves its enrollment with
+#                       an HMAC instead of sending its key, and checks
+#                       the front's HMAC back. The Cloudflare relay tells
+#                       workers where it is (X-Pool-Lan), so a phone on
+#                       the same Wi-Fi skips Cloudflare's round trips.
 #
 #   M6 accounts + shares:
 #   GET  /register      signup page (the key is shown once)
@@ -54,12 +62,15 @@
 # POOL_FRONT_BIND, POOL_FRONT_PORT, POOL_COORD_URL.
 import base64
 import hashlib
+import hmac
+import ipaddress
 import json
 import os
 import re
 import socket
 import sqlite3
 import struct
+import subprocess
 import secrets
 import threading
 import time
@@ -1658,8 +1669,9 @@ def ws_send(sock, lock, opcode, payload):
 
 
 class RelayConn:
-    def __init__(self, hub, rec, sock):
+    def __init__(self, hub, rec, sock, route="cloudflare"):
         self.hub = hub
+        self.route = route         # cloudflare | lan (chain mode's local route)
         self.id = rec["id"]
         self.name = rec["name"]
         self.sock = sock
@@ -1740,7 +1752,7 @@ class RelayConn:
             r = list(self.rtts)
             probe = {k: v for k, v in self.probe.items() if k != "seqs"}
             return {"id": self.id, "name": self.name, "port": self.port,
-                    "since": self.since, "ex": self.ex,
+                    "since": self.since, "route": self.route, "ex": self.ex,
                     "turn_ms": round(self.turn_ms, 1),
                     "bytes_up": self.bytes_up, "bytes_down": self.bytes_down,
                     "open": len(self.pending),
@@ -1990,19 +2002,19 @@ class RelayHub:
             port += 1
         raise RuntimeError("no relay port free")
 
-    def attach(self, rec, sock):
+    def attach(self, rec, sock, route="cloudflare"):
         with self.lock:
             old = self.conns.pop(rec["id"], None)
             if old:
                 relay_log(rec["name"] + ": reconnected — replacing the "
                           "previous relay (any split stream on it ends)")
                 old.close()
-            conn = RelayConn(self, rec, sock)
+            conn = RelayConn(self, rec, sock, route)
             conn.port = self._alloc_port(rec["id"])
             self.conns[rec["id"]] = conn
         conn.start_listener(conn.port)
         relay_log(rec["name"] + ": relay connected on 127.0.0.1:" +
-                  str(conn.port))
+                  str(conn.port) + (" over the local network" if route == "lan" else ""))
         self.write_state()
         return conn
 
@@ -2023,7 +2035,8 @@ class RelayHub:
     def write_state(self):
         state = {"machines": [
             {"id": c.id, "name": c.name, "port": c.port,
-             "rpc": "127.0.0.1:" + str(c.port), "since": c.since}
+             "rpc": "127.0.0.1:" + str(c.port), "since": c.since,
+             "route": c.route}
             for c in self.conns.values() if c.port],
             "generated": now_iso()}
         try:
@@ -2102,6 +2115,184 @@ def relay_authorize(enrollment_id, key):
                 return rec
             return None
     return None
+
+
+# ---------------- local routes (chain mode) ----------------
+# The relay's round trip through Cloudflare costs ~100-200 ms per
+# token per relayed worker. A worker on the FX705's own Wi-Fi/LAN can
+# reach the front directly in a few ms, so the front also answers the
+# relay on its private LAN addresses. Nothing joins the tailnet, and
+# nothing listens on a public or tailnet address.
+LAN_PORT = int(os.environ.get("POOL_LAN_PORT", "8093"))
+LAN_ROUTES = os.environ.get("POOL_LAN_ROUTES", "on").lower() not in ("off", "0", "no")
+LAN_MAX_SKEW = 120          # seconds a LAN proof stays valid
+LAN_NONCES = {}             # nonce -> time seen (replay guard)
+LAN_NONCE_LOCK = threading.Lock()
+_LAN_ADDRS = [0.0, []]      # (checked at, ["192.168.1.20", ...])
+LAN_LISTENING = []          # addresses the LAN relay actually bound
+
+
+def _lan_ok(ip):
+    try:
+        a = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    if a.version != 4 or not a.is_private or a.is_loopback or a.is_link_local:
+        return False
+    if a in ipaddress.ip_network("100.64.0.0/10"):   # Tailscale's range
+        return False
+    return True
+
+
+def lan_addresses():
+    """The FX705's own private home-network IPv4 addresses (not
+    loopback, not the tailnet, not container bridges)."""
+    now = time.time()
+    if now - _LAN_ADDRS[0] < 60:
+        return list(_LAN_ADDRS[1])
+    found = []
+    try:
+        out = subprocess.run(["ip", "-4", "-o", "addr", "show", "scope", "global"],
+                             capture_output=True, text=True, timeout=5).stdout
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) < 4:
+                continue
+            dev = parts[1]
+            if dev.startswith(("tailscale", "docker", "br-", "veth", "virbr", "lxc", "cni", "flannel", "zt")):
+                continue
+            ip = parts[3].split("/")[0]
+            if _lan_ok(ip) and ip not in found:
+                found.append(ip)
+    except Exception:
+        pass
+    if not found:
+        # Fallback: the address the default route leaves from. A UDP
+        # connect sends nothing.
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("192.0.2.1", 9))
+            ip = s.getsockname()[0]
+            s.close()
+            if _lan_ok(ip):
+                found.append(ip)
+        except OSError:
+            pass
+    _LAN_ADDRS[0], _LAN_ADDRS[1] = now, found
+    return list(found)
+
+
+def lan_hint():
+    """'ip:port,ip:port' of the LAN relay, or '' when it is off."""
+    if not LAN_ROUTES or not LAN_LISTENING:
+        return ""
+    return ",".join(ip + ":" + str(LAN_PORT) for ip in LAN_LISTENING)
+
+
+def lan_proof(key_hash, *parts):
+    """HMAC-SHA256 keyed by the enrollment key's SHA-256 (the front
+    stores only that; the worker can compute it from its key), so the
+    key itself never crosses the home network."""
+    msg = "|".join(str(p) for p in parts).encode()
+    return hmac.new(key_hash.encode(), msg, hashlib.sha256).hexdigest()
+
+
+def lan_authorize(eid, ts, nonce, proof):
+    """The approved enrollment record when the proof is good and
+    fresh, else None."""
+    if not (eid and ts and nonce and proof) or len(nonce) > 64:
+        return None
+    try:
+        t = float(ts)
+    except ValueError:
+        return None
+    now = time.time()
+    if abs(now - t) > LAN_MAX_SKEW:
+        return None
+    for rec in load_enrollments()["enrollments"]:
+        if rec.get("id") != eid:
+            continue
+        if rec.get("status") != "approved" or not rec.get("key_hash"):
+            return None
+        want = lan_proof(rec["key_hash"], "tw-lan-v1", eid, ts, nonce)
+        if not secrets.compare_digest(want, str(proof)):
+            return None
+        with LAN_NONCE_LOCK:
+            for k in [k for k, v in LAN_NONCES.items() if now - v > 2 * LAN_MAX_SKEW]:
+                LAN_NONCES.pop(k, None)
+            if nonce in LAN_NONCES:
+                return None
+            LAN_NONCES[nonce] = now
+        return rec
+    return None
+
+
+class LanHandler(BaseHTTPRequestHandler):
+    """The LAN listener answers ONE thing: the HMAC relay upgrade."""
+    def log_message(self, *args):
+        pass
+
+    def _no(self, code):
+        self.send_response(code)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_GET(self):
+        if urlparse(self.path).path != "/relay-lan":
+            return self._no(404)
+        if (self.headers.get("Upgrade") or "").lower() != "websocket":
+            return self._no(400)
+        eid = self.headers.get("X-Enrollment-Id") or ""
+        nonce = self.headers.get("X-Lan-Nonce") or ""
+        rec = lan_authorize(eid, self.headers.get("X-Lan-Time") or "",
+                            nonce, self.headers.get("X-Lan-Proof") or "")
+        if rec is None:
+            return self._no(403)
+        key = self.headers.get("Sec-WebSocket-Key")
+        if not key:
+            return self._no(400)
+        self.send_response(101)
+        self.send_header("Upgrade", "websocket")
+        self.send_header("Connection", "Upgrade")
+        self.send_header("Sec-WebSocket-Accept", ws_accept(key.strip()))
+        # The worker checks this before it trusts the connection: only
+        # the real pool knows its key's hash.
+        self.send_header("X-Lan-Server-Proof",
+                         lan_proof(rec["key_hash"], "tw-lan-srv-v1", eid, nonce))
+        self.end_headers()
+        self.close_connection = True
+        nodelay(self.connection)
+        conn = HUB.attach(rec, self.connection, route="lan")
+        conn.run()
+
+    def do_POST(self):
+        self._no(404)
+
+
+def lan_serve():
+    """Bind the LAN relay on each private address (re-checked every
+    minute, so a Wi-Fi that comes up later is picked up)."""
+    if not LAN_ROUTES:
+        return
+    servers = {}
+    while True:
+        for ip in lan_addresses():
+            if ip in servers:
+                continue
+            try:
+                srv = ThreadingHTTPServer((ip, LAN_PORT), LanHandler)
+            except OSError as e:
+                relay_log("local route: can't listen on " + ip + ":" + str(LAN_PORT) +
+                          " (" + (str(e) or type(e).__name__) + ")")
+                servers[ip] = None
+                continue
+            srv.daemon_threads = True
+            servers[ip] = srv
+            LAN_LISTENING.append(ip)
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            relay_log("local route: relay also answers on " + ip + ":" + str(LAN_PORT) +
+                      " (home network only)")
+        time.sleep(60)
 
 
 LANDING = """<!doctype html>
@@ -2365,6 +2556,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Upgrade", "websocket")
         self.send_header("Connection", "Upgrade")
         self.send_header("Sec-WebSocket-Accept", ws_accept(key.strip()))
+        lan = lan_hint()
+        if lan:
+            # Over the tunnel's TLS, so the worker can trust it: where
+            # this pool also answers on the home network.
+            self.send_header("X-Pool-Lan", lan)
         self.end_headers()
         self.close_connection = True
         nodelay(self.connection)
@@ -2450,6 +2646,7 @@ def main():
     threading.Thread(target=HUB.enforce_approvals, daemon=True).start()
     threading.Thread(target=HUB.stats_loop, daemon=True).start()
     threading.Thread(target=earn_loop, daemon=True).start()
+    threading.Thread(target=lan_serve, daemon=True).start()
     bind = os.environ.get("POOL_FRONT_BIND", "127.0.0.1")
     srv = ThreadingHTTPServer((bind, PORT), Handler)
     print("AI Pool front door on http://" + bind + ":" + str(PORT) +

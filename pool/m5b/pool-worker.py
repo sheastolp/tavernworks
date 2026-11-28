@@ -35,6 +35,7 @@
 # rejoin_delay_sec, drain_grace_sec, temp_limit_c.
 import base64
 import hashlib
+import hmac
 import json
 import os
 import platform
@@ -93,6 +94,13 @@ DEFAULTS = {
     # (SHA-256 from the shelf manifest, like the engine) and restart
     # on the new copy when it changed.
     "self_update": True,
+    # Local route (chain mode, Nov 28): when this machine is on the
+    # FX705's own Wi-Fi/LAN, reach the pool front there and skip
+    # Cloudflare's round trips. The front tells us where it answers
+    # (over the Cloudflare TLS connection); the key never crosses the
+    # home network, both sides prove themselves with an HMAC.
+    "lan_route": True,
+    "lan_hint": "",             # filled in by the pool; "ip:port,..."
 }
 
 
@@ -131,6 +139,23 @@ def ws_mask(data, mask):
     key = (mask * (n // 4 + 1))[:n]
     return (int.from_bytes(data, "little") ^
             int.from_bytes(key, "little")).to_bytes(n, "little")
+
+
+def lan_ip_ok(ip):
+    """A private home-network IPv4 (not loopback, not Tailscale's
+    100.64/10), the only kind of address the local route will use."""
+    try:
+        import ipaddress
+        a = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return (a.version == 4 and a.is_private and not a.is_loopback and
+            not a.is_link_local and a not in ipaddress.ip_network("100.64.0.0/10"))
+
+
+def lan_proof(key_hash, *parts):
+    msg = "|".join(str(p) for p in parts).encode()
+    return hmac.new(key_hash.encode(), msg, hashlib.sha256).hexdigest()
 
 
 def nodelay(sock):
@@ -455,6 +480,8 @@ class Worker:
         self.restart = False
         self.android = is_android()
         self.rpc_device = ""
+        self.route = "cloudflare"
+        self.lan_off_until = 0.0     # backoff after a LAN refusal
         if self.android and not os.path.isfile(cfg_path):
             # A phone's storage rarely has room for a whole ~20 GB
             # model; its slice arrives over the network at the first
@@ -885,7 +912,110 @@ class Worker:
         return env
 
     # ---------------------------------------------------------- relay
+    def _handshake(self, raw, host, path, extra):
+        key = base64.b64encode(secrets.token_bytes(16)).decode()
+        lines = [
+            "GET " + path + " HTTP/1.1",
+            "Host: " + host,
+            "Upgrade: websocket",
+            "Connection: Upgrade",
+            "Sec-WebSocket-Key: " + key,
+            "Sec-WebSocket-Version: 13",
+        ] + extra + ["", ""]
+        raw.sendall("\r\n".join(lines).encode())
+        resp = b""
+        while b"\r\n\r\n" not in resp:
+            chunk = raw.recv(4096)
+            if not chunk:
+                raise ConnectionError("relay handshake: connection closed")
+            resp += chunk
+            if len(resp) > 65536:
+                raise ConnectionError("relay handshake: reply too long")
+        head, _, rest = resp.partition(b"\r\n\r\n")
+        status = head.split(b"\r\n")[0].decode(errors="replace")
+        if " 101" not in status:
+            raw.close()
+            raise ConnectionError("relay refused: " + status)
+        headers = {}
+        for line in head.split(b"\r\n")[1:]:
+            k, _, v = line.partition(b":")
+            headers[k.strip().lower().decode(errors="replace")] = \
+                v.strip().decode(errors="replace")
+        want = base64.b64encode(hashlib.sha1(
+            (key + WS_GUID).encode()).digest()).decode()
+        if headers.get("sec-websocket-accept", "") != want:
+            raw.close()
+            raise ConnectionError("relay handshake: bad accept key "
+                                  "(not the real pool front?)")
+        return headers, rest
+
+    def lan_targets(self):
+        """Home-network addresses the pool said it answers on, if the
+        local route is on and not backing off."""
+        if not self.cfg.get("lan_route", True) or time.time() < self.lan_off_until:
+            return []
+        out = []
+        for part in str(self.cfg.get("lan_hint") or "").split(","):
+            ip, _, port = part.strip().rpartition(":")
+            if ip and port.isdigit() and lan_ip_ok(ip):
+                out.append((ip, int(port)))
+        return out[:4]
+
+    def ws_connect_lan(self, ip, port, timeout=2.0):
+        """The relay over the home network. Plain TCP on a private
+        address, so both sides prove themselves: we send an HMAC of a
+        fresh nonce keyed by our key's SHA-256, and only accept a
+        front that answers with its own HMAC of that nonce."""
+        eid = self.cfg["enrollment_id"]
+        key_hash = hashlib.sha256(self.cfg["key"].encode()).hexdigest()
+        ts = str(int(time.time()))
+        nonce = secrets.token_hex(16)
+        proof = lan_proof(key_hash, "tw-lan-v1", eid, ts, nonce)
+        raw = socket.create_connection((ip, port), timeout=timeout)
+        try:
+            nodelay(raw)
+            raw.settimeout(timeout + 3)
+            headers, rest = self._handshake(raw, ip + ":" + str(port), "/relay-lan", [
+                "X-Enrollment-Id: " + eid,
+                "X-Lan-Time: " + ts,
+                "X-Lan-Nonce: " + nonce,
+                "X-Lan-Proof: " + proof,
+            ])
+        except Exception:
+            raw.close()
+            raise
+        want = lan_proof(key_hash, "tw-lan-srv-v1", eid, nonce)
+        if not hmac.compare_digest(headers.get("x-lan-server-proof", ""), want):
+            raw.close()
+            raise ConnectionError("local route: the answer did not prove it is "
+                                  "this pool — ignoring it")
+        raw.settimeout(RELAY_IO_TIMEOUT)
+        return WSConn(raw, rest)
+
     def ws_connect(self):
+        """Home network first (when the pool said where), Cloudflare
+        otherwise. Sets self.route to which one it used."""
+        for ip, port in self.lan_targets():
+            try:
+                ws = self.ws_connect_lan(ip, port)
+                if self.route != "lan":
+                    log("local route: connected to the pool over the home "
+                        "network (" + ip + ":" + str(port) + "), skipping Cloudflare")
+                self.route = "lan"
+                return ws
+            except ConnectionError as e:
+                if "403" in str(e) or "prove" in str(e):
+                    log("local route refused (" + str(e) + ") — using Cloudflare, "
+                        "trying the home network again in 10 min")
+                    self.lan_off_until = time.time() + 600
+                    break
+            except OSError:
+                continue      # not on that network right now: normal
+        ws = self.ws_connect_cloudflare()
+        self.route = "cloudflare"
+        return ws
+
+    def ws_connect_cloudflare(self):
         parsed = urlparse(self.cfg["pool_url"])
         host = parsed.hostname
         tls = parsed.scheme == "https"
@@ -895,42 +1025,33 @@ class Worker:
         if tls:
             ctx = ssl.create_default_context()
             raw = ctx.wrap_socket(raw, server_hostname=host)
-        key = base64.b64encode(secrets.token_bytes(16)).decode()
-        lines = [
-            "GET /relay HTTP/1.1",
-            "Host: " + host,
-            "Upgrade: websocket",
-            "Connection: Upgrade",
-            "Sec-WebSocket-Key: " + key,
-            "Sec-WebSocket-Version: 13",
+        headers, rest = self._handshake(raw, host, "/relay", [
             "X-Enrollment-Id: " + self.cfg["enrollment_id"],
             "X-Enrollment-Key: " + self.cfg["key"],
-            "", "",
-        ]
-        raw.sendall("\r\n".join(lines).encode())
-        resp = b""
-        while b"\r\n\r\n" not in resp:
-            chunk = raw.recv(4096)
-            if not chunk:
-                raise ConnectionError("relay handshake: connection closed")
-            resp += chunk
-        head, _, rest = resp.partition(b"\r\n\r\n")
-        status = head.split(b"\r\n")[0].decode(errors="replace")
-        if " 101" not in status:
-            raw.close()
-            raise ConnectionError("relay refused: " + status)
-        accept = ""
-        for line in head.split(b"\r\n")[1:]:
-            if line.lower().startswith(b"sec-websocket-accept:"):
-                accept = line.split(b":", 1)[1].strip().decode()
-        want = base64.b64encode(hashlib.sha1(
-            (key + WS_GUID).encode()).digest()).decode()
-        if accept != want:
-            raw.close()
-            raise ConnectionError("relay handshake: bad accept key "
-                                  "(not the real pool front?)")
+        ])
+        # Only trust the home-network hint when it came over TLS from
+        # the real front.
+        hint = headers.get("x-pool-lan", "") if tls else ""
+        hint = ",".join(h for h in (x.strip() for x in hint.split(","))
+                        if h and lan_ip_ok(h.rpartition(":")[0]))[:200]
+        if hint != (self.cfg.get("lan_hint") or ""):
+            self.cfg["lan_hint"] = hint
+            try:
+                self.save_cfg()
+            except OSError:
+                pass
         raw.settimeout(RELAY_IO_TIMEOUT)
         return WSConn(raw, rest)
+
+    def lan_reachable(self):
+        """A quick TCP check (no handshake) of the home-network route."""
+        for ip, port in self.lan_targets():
+            try:
+                with socket.create_connection((ip, port), timeout=1.5):
+                    return True
+            except OSError:
+                pass
+        return False
 
     # ---------------------------------------------------------- rpc
     @property
@@ -1578,7 +1699,8 @@ class Worker:
                 backoff = min(30, backoff * 2)
                 continue
             backoff = 2
-            log("relay connected — this machine is in the pool")
+            log("relay connected" + (" over the home network" if self.route == "lan" else "") +
+                " — this machine is in the pool")
             session = RelaySession(self, ws)
             self.relay = session
             yield_flag = []
@@ -1823,9 +1945,20 @@ class RelaySession:
             self.ws.close()
 
     def _heartbeat(self):
+        beats = 0
         while self.alive:
             time.sleep(30)
             if not self.alive:
+                return
+            beats += 1
+            # On Cloudflare but the home-network route answers (e.g. the
+            # phone just joined the FX705's Wi-Fi): switch over while no
+            # split is using this machine.
+            if (beats % 4 == 0 and self.worker.route == "cloudflare" and
+                    not self.streams and self.worker.lan_reachable()):
+                log("local route: the pool answers on the home network now — "
+                    "switching to it")
+                self.ws.close()
                 return
             if time.time() - self.ws.last_rx > 90:
                 log("relay silent for 90s — reconnecting")

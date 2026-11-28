@@ -54,7 +54,13 @@ RPC_PATH = os.path.join(POOL_DIR, "pool-rpc.txt")
 SPLIT_PATH = os.path.join(POOL_DIR, "pool-split.txt")
 CONFIG_PATH = os.path.join(POOL_DIR, "pool-config.json")
 RELAY_STATE_PATH = os.path.join(POOL_DIR, "relay-state.json")
-UNITS = {"ai-pool-solo.service": "solo", "ai-pool-host.service": "split"}
+CHAIN_RPC_PATH = os.path.join(POOL_DIR, "pool-chain-rpc.txt")
+CHAIN_SPLIT_PATH = os.path.join(POOL_DIR, "pool-chain-split.txt")
+UNITS = {"ai-pool-solo.service": "solo", "ai-pool-host.service": "split",
+         "ai-pool-chain.service": "chain"}
+POOLED = ("split", "chain")      # modes that spread layers over machines
+MODE_UNIT = {"solo": "ai-pool-solo.service", "split": "ai-pool-host.service",
+             "chain": "ai-pool-chain.service"}
 DEFAULT_NAME = "SwarmBench"
 DEFAULT_HOST = "swarmbench.tavernworks.dev"
 SUITE_VERSION = "standard-v1"
@@ -90,7 +96,7 @@ CREATE TABLE IF NOT EXISTS replies (
   run_id INTEGER,              -- bench_runs.id for bench replies
   case_name TEXT,              -- bench case (short/medium/long)
   rep INTEGER,
-  mode TEXT,                   -- solo | split
+  mode TEXT,                   -- solo | split | chain
   model TEXT,
   draft TEXT,                  -- draft model file / mtp / ''
   slot INTEGER, task INTEGER,
@@ -424,11 +430,13 @@ class LoadInfo:
         # this start, else what the coordinator's files say now.
         self.rpc = []
         self.shares = []
-        if self.mode == "split":
-            rpc = rpc_echo or read_line(RPC_PATH)
+        if self.mode in POOLED:
+            chain = self.mode == "chain"
+            rpc = rpc_echo or read_line(CHAIN_RPC_PATH if chain else RPC_PATH)
             self.rpc = [e for e in rpc.replace(" ", "").split(",") if e]
             try:
-                self.shares = [float(x) for x in (split_echo or read_line(SPLIT_PATH)).split(",") if x.strip()]
+                self.shares = [float(x) for x in (split_echo or read_line(
+                    CHAIN_SPLIT_PATH if chain else SPLIT_PATH)).split(",") if x.strip()]
             except ValueError:
                 self.shares = []
         self.names = endpoint_names()
@@ -449,7 +457,7 @@ class LoadInfo:
         order (relays and tailnet first, FX705 RAM, the card last)."""
         devs = []
         n_all = self.n_layers()
-        if self.mode == "split" and self.rpc:
+        if self.mode in POOLED and self.rpc:
             names = self.names
             shares = self.shares if len(self.shares) == len(self.rpc) + 1 else [1.0] * (len(self.rpc) + 1)
             ranges = layer_ranges(n_all, shares) if n_all else [(None, None, False)] * len(shares)
@@ -759,7 +767,7 @@ class Meter:
         if m:
             li = LoadInfo(unit, m.group(1), ts,
                           self.rpc_echo.get(unit, ""), self.split_echo.get(unit, ""))
-            li.draft = self.draft_echo.get(unit, "") if li.mode == "split" else ""
+            li.draft = self.draft_echo.get(unit, "") if li.mode in POOLED else ""
             self.loads[unit] = li
             self.current_unit = unit
             return
@@ -840,7 +848,7 @@ class Meter:
                     return
             self.bench_seen += 1
         li = self.loads.get(rec["unit"])
-        split = bool(li and li.mode == "split")
+        split = bool(li and li.mode in POOLED)
         before, after = self.relay.window(start, end)
         hops = hop_deltas(before, after) if split else []
         tb, ta = self.relay.window(start, start + (rec.get("prompt_ms") or 0) / 1000.0)
@@ -897,6 +905,8 @@ class Meter:
         if state:
             if state.get("units", {}).get("ai-pool-host") == "active":
                 unit = "ai-pool-host.service"
+            elif state.get("units", {}).get("ai-pool-chain") == "active":
+                unit = "ai-pool-chain.service"
             elif state.get("units", {}).get("ai-pool-solo") == "active":
                 unit = "ai-pool-solo.service"
         unit = unit or self.current_unit
@@ -919,14 +929,23 @@ class Meter:
         with self.lock:
             if self.bench and self.bench.alive:
                 return "A benchmark is already running — wait for it or cancel it."
-            if plan not in ("current", "both"):
+            if plan not in ("current", "both", "chain", "all"):
                 return "Unknown benchmark plan."
+            if plan in ("chain", "all") and "start_chain" not in self.hooks:
+                return "Chain mode isn't installed on the control page (pool_chain.py)."
             self.bench = Bench(self, plan)
             self.bench.start()
         name, _ = bench_identity()
         if plan == "both":
             return (name + " started: solo, then split, then the brain goes back to how it was. "
                     "The brain restarts twice, so bots get no AI replies for a few minutes each time.")
+        if plan == "chain":
+            return (name + " started: chain, then the brain goes back to how it was. "
+                    "Bots get no AI replies while the chain loads.")
+        if plan == "all":
+            return (name + " started: solo, then split, then chain, then the brain goes back to "
+                    "how it was. The brain restarts three times, so bots get no AI replies for a "
+                    "few minutes each time.")
         return name + " started on the brain as it runs now. Results appear below in a few minutes."
 
     def cancel_bench(self):
@@ -1141,7 +1160,8 @@ class Bench(threading.Thread):
             original = st.get("mode")
             if original == "starting":
                 self.notes.append("The brain was still loading when the run began.")
-            modes = [original] if self.plan == "current" else ["solo", "split"]
+            modes = {"current": [original], "both": ["solo", "split"], "chain": ["chain"],
+                     "all": ["solo", "split", "chain"]}[self.plan]
             for mode in modes:
                 if self.cancel:
                     break
@@ -1151,12 +1171,12 @@ class Bench(threading.Thread):
                         status = "skipped"
                         break
                     mode = (self.hook("state") or {}).get("mode")
-                if self.plan == "both":
+                if self.plan != "current":
                     cur = (self.hook("state") or {}).get("mode")
                     if cur != mode:
                         self.say("switching the brain to " + mode)
                         msg = self.hook("start_" + mode) or ""
-                        if "Nothing started" in msg:
+                        if "Nothing started" in msg or "not started" in msg:
                             self.notes.append(mode + " skipped: " + msg)
                             continue
                         time.sleep(8)
@@ -1174,7 +1194,7 @@ class Bench(threading.Thread):
             status = "failed"
             self.notes.append("Benchmark error: " + (str(e) or type(e).__name__))
         finally:
-            if self.plan == "both" and original in ("solo", "split", "off"):
+            if self.plan != "current" and original in ("solo", "split", "chain", "off"):
                 cur = (self.hook("state") or {}).get("mode")
                 if cur != original:
                     self.say("putting the brain back to " + original)
@@ -1182,7 +1202,7 @@ class Bench(threading.Thread):
                         self.hook("stop")
                     else:
                         msg = self.hook("start_" + original) or ""
-                        if "Nothing started" in msg:
+                        if "Nothing started" in msg or "not started" in msg:
                             self.notes.append("Could not put the brain back to " + original + ": " + msg)
             m.store.update_run(self.run_id, finished=time.time(), status=status,
                                note=" ".join(self.notes), probe_json=json.dumps(probes),
@@ -1195,7 +1215,7 @@ class Bench(threading.Thread):
         m = self.meter
         base = self.hook("brain_url")
         st = self.hook("state") or {}
-        li = m.loads.get("ai-pool-host.service" if mode == "split" else "ai-pool-solo.service")
+        li = m.loads.get(MODE_UNIT.get(mode, "ai-pool-solo.service"))
         self.say("warming up (" + mode + ")")
         try:
             w = stream_completion(base, "Hello", 8, timeout=300)
@@ -1222,9 +1242,9 @@ class Bench(threading.Thread):
                 time.sleep(1.5)
                 m.relay.poll()
                 before, after = m.relay.window(start, end)
-                hops = hop_deltas(before, after) if mode == "split" else []
+                hops = hop_deltas(before, after) if mode in POOLED else []
                 tb, ta = m.relay.window(start, start + r["ttft_ms"] / 1000.0)
-                ttft_hops = hop_deltas(tb, ta) if mode == "split" else []
+                ttft_hops = hop_deltas(tb, ta) if mode in POOLED else []
                 rec = {"prompt_ms": t.get("prompt_ms"), "prompt_n": t.get("prompt_n"),
                        "gen_ms": t.get("predicted_ms"), "gen_n": t.get("predicted_n"),
                        "total_ms": (t.get("prompt_ms") or 0) + (t.get("predicted_ms") or 0),
@@ -1304,7 +1324,7 @@ def data(meter, state=None, public=False, n_replies=100):
         "SELECT * FROM bench_runs ORDER BY id DESC LIMIT 30")]
     since = time.time() - 86400
     agg = {}
-    for mode in ("solo", "split"):
+    for mode in ("solo", "split", "chain"):
         rows = meter.store.query(
             "SELECT gen_tps, ttft_ms, prompt_tps, total_ms, net_ms, local_ms, remote_ms, gen_n, "
             "ttft_net_ms, ttft_bottleneck "
@@ -1324,7 +1344,7 @@ def data(meter, state=None, public=False, n_replies=100):
     # network's part.
     per = {}
     for r in meter.store.query(
-            "SELECT hops_json, gen_n FROM replies WHERE mode='split' AND hops_json IS NOT NULL "
+            "SELECT hops_json, gen_n FROM replies WHERE mode IN ('split','chain') AND hops_json IS NOT NULL "
             "ORDER BY ts DESC LIMIT 30"):
         try:
             hops = json.loads(r["hops_json"] or "[]")
@@ -1474,7 +1494,7 @@ button,a.btn{background:var(--ember);color:#fff;border:0;border-radius:8px;paddi
 cursor:pointer;text-decoration:none;display:inline-block;font-size:.95rem;min-height:44px}
 button.alt,a.btn.alt{background:var(--bg2);color:var(--text);border:1px solid var(--line)}
 .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
-.solo{color:var(--blue)} .split{color:var(--gold2)} .bad{color:var(--red)} .ok{color:var(--green)}
+.solo{color:var(--blue)} .split{color:var(--gold2)} .chain{color:var(--green)} .bad{color:var(--red)} .ok{color:var(--green)}
 details.fold{margin-top:1.6rem}
 details.fold>summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;min-height:44px}
 details.fold>summary::-webkit-details-marker{display:none}
@@ -1503,7 +1523,7 @@ function spark(replies){
   if (!pts.length) return "";
   const max = Math.max(...pts.map(r => r.ttft_ms)) * 1.1, w = 600, h = 110, bw = w / pts.length;
   const bars = pts.map((r,i) => { const bh = (r.ttft_ms / max) * (h - 16);
-    return `<rect x="${i*bw+1}" y="${h-bh}" width="${Math.max(1,bw-2)}" height="${bh}" fill="${r.mode==='split'?'#f5c873':'#6fa3c9'}"><title>${esc(r.time)} ${esc(r.mode)} first token ${s(r.ttft_ms)}, ${r.prompt_n} tokens in</title></rect>`; }).join("");
+    return `<rect x="${i*bw+1}" y="${h-bh}" width="${Math.max(1,bw-2)}" height="${bh}" fill="${r.mode==='split'?'#f5c873':(r.mode==='chain'?'#7fc98a':'#6fa3c9')}"><title>${esc(r.time)} ${esc(r.mode)} first token ${s(r.ttft_ms)}, ${r.prompt_n} tokens in</title></rect>`; }).join("");
   return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${bars}<text x="6" y="14" fill="#b9a68f" font-size="12">time to first token per reply (lower is better), newest right · worst ${s(max/1.1)}</text></svg>`;
 }
 function render(d){
@@ -1526,10 +1546,10 @@ function render(d){
     }
   } else h += `<p class="fine">No benchmark yet.</p>`;
   const a24 = d.last_24h || {};
-  for (const mode of ["solo","split"]) if (a24[mode]) h += `<p class="fine">Live ${esc(mode)} replies, last 24 h: median ${s(a24[mode].ttft_ms)}, slowest 10% over ${s(a24[mode].ttft_p90_ms)}${a24[mode].ttft_bottleneck ? ", mostly held up by " + esc(a24[mode].ttft_bottleneck) : ""}.</p>`;
+  for (const mode of ["solo","split","chain"]) if (a24[mode]) h += `<p class="fine">Live ${esc(mode)} replies, last 24 h: median ${s(a24[mode].ttft_ms)}, slowest 10% over ${s(a24[mode].ttft_p90_ms)}${a24[mode].ttft_bottleneck ? ", mostly held up by " + esc(a24[mode].ttft_bottleneck) : ""}.</p>`;
   h += `</div><h2>Latest benchmark</h2>`;
   if (last && last.summary) {
-    h += `<div class="card"><p class="fine">Run ${last.id} · ${esc(last.finished_time || last.started_time)} · ${esc(last.plan === "both" ? "solo then split" : "as it ran")} · suite ${esc(last.suite)}${last.other_replies ? " · " + last.other_replies + " other replies ran meanwhile (numbers may be noisy)" : ""}</p>`;
+    h += `<div class="card"><p class="fine">Run ${last.id} · ${esc(last.finished_time || last.started_time)} · ${esc(({both:"solo then split", chain:"chain", all:"solo, split, then chain"})[last.plan] || "as it ran")} · suite ${esc(last.suite)}${last.other_replies ? " · " + last.other_replies + " other replies ran meanwhile (numbers may be noisy)" : ""}</p>`;
     const rows = [];
     for (const mode of Object.keys(last.summary)) for (const c of Object.keys(last.summary[mode])) {
       const x = last.summary[mode][c];
@@ -1546,8 +1566,8 @@ function render(d){
   } else h += `<div class="card"><p class="fine">No benchmark yet.</p></div>`;
   const a = d.last_24h || {};
   h += `<h2>Last 24 hours (live replies)</h2><div class="card"><div class="big">`;
-  for (const mode of ["solo","split"]) if (a[mode]) h += stat(mode + " first token (median)", s(a[mode].ttft_ms)) + stat(mode + " gen tok/s", f(a[mode].gen_tps,2)) + stat(mode + " replies", a[mode].replies);
-  if (!a.solo && !a.split) h += `<p class="fine">No replies logged in the last day.</p>`;
+  for (const mode of ["solo","split","chain"]) if (a[mode]) h += stat(mode + " first token (median)", s(a[mode].ttft_ms)) + stat(mode + " gen tok/s", f(a[mode].gen_tps,2)) + stat(mode + " replies", a[mode].replies);
+  if (!a.solo && !a.split && !a.chain) h += `<p class="fine">No replies logged in the last day.</p>`;
   h += `</div>${spark(d.replies || [])}</div>`;
   if (d.load) {
     const hm = t => t ? new Date(t).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) : "";
@@ -1573,9 +1593,9 @@ function render(d){
     const sm = r.summary || {};
     const cell = (mode) => sm[mode] && sm[mode].medium ? f(sm[mode].medium.gen_tps,2) : "—";
     const tt = (mode) => sm[mode] && sm[mode].medium ? s(sm[mode].medium.ttft_ms) : "—";
-    hist.push(`<tr><td>${r.id}</td><td>${esc(r.started_time)}</td><td>${esc(r.status)}</td><td class="solo"><b>${tt("solo")}</b></td><td class="split"><b>${tt("split")}</b></td><td>${cell("solo")} / ${cell("split")}</td><td>${esc(Object.values(sm).map(m => (m.medium||m.short||{}).model).filter(Boolean)[0] || "")}</td></tr>`);
+    hist.push(`<tr><td>${r.id}</td><td>${esc(r.started_time)}</td><td>${esc(r.status)}</td><td class="solo"><b>${tt("solo")}</b></td><td class="split"><b>${tt("split")}</b></td><td class="chain"><b>${tt("chain")}</b></td><td>${cell("solo")} / ${cell("split")} / ${cell("chain")}</td><td>${esc(Object.values(sm).map(m => (m.medium||m.short||{}).model).filter(Boolean)[0] || "")}</td></tr>`);
   }
-  h += hist.length ? table(["Run","Started","Status","Solo first token (medium)","Split first token (medium)","Gen tok/s solo / split","Model"], hist) : `<p class="fine">None yet.</p>`;
+  h += hist.length ? table(["Run","Started","Status","Solo first token (medium)","Split first token (medium)","Chain first token (medium)","Gen tok/s solo / split / chain","Model"], hist) : `<p class="fine">None yet.</p>`;
   h += `</div>`;
   const reps = d.replies || [], total = d.replies_total || reps.length;
   const shown = SHOW_ALL ? reps : reps.slice(0, 20);
@@ -1604,10 +1624,12 @@ load(); setInterval(load, 15000);
 CONTROLS = """<div class="card"><div class="row">
 <form method="post" action="/action"><input type="hidden" name="action" value="bench_run"><input type="hidden" name="plan" value="current"><button type="submit">Run benchmark now</button></form>
 <form method="post" action="/action"><input type="hidden" name="action" value="bench_run"><input type="hidden" name="plan" value="both"><button class="alt" type="submit">Solo, then split</button></form>
+<form method="post" action="/action"><input type="hidden" name="action" value="bench_run"><input type="hidden" name="plan" value="chain"><button class="alt" type="submit">Chain only</button></form>
+<form method="post" action="/action"><input type="hidden" name="action" value="bench_run"><input type="hidden" name="plan" value="all"><button class="alt" type="submit">Solo, split, then chain</button></form>
 <form method="post" action="/action"><input type="hidden" name="action" value="bench_cancel"><button class="alt" type="submit">Cancel</button></form>
 <a class="btn alt" href="/">Control page</a></div>
 <p class="fine" style="margin-top:.5rem">“Run benchmark now” tests the brain as it runs (a few minutes, bots stay up).
-“Solo, then split” restarts the brain in each mode and puts it back after, so bots get no AI replies while each mode loads.
+“Solo, then split”, “Chain only” and “Solo, split, then chain” restart the brain in each mode and put it back after, so bots get no AI replies while each mode loads.
 Public read-only page: <a style="color:var(--gold2)" href="https://__HOST__/">https://__HOST__/</a></p></div>"""
 
 

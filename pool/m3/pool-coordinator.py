@@ -50,6 +50,14 @@ except Exception as _e:  # missing or broken: never take the page down
     METER_IMPORT_ERROR = str(_e) or type(_e).__name__
 else:
     METER_IMPORT_ERROR = ""
+# Chain mode (M10, Nov 28): the cost-aware planner. Optional too.
+try:
+    import pool_chain
+except Exception as _e:
+    pool_chain = None
+    CHAIN_IMPORT_ERROR = str(_e) or type(_e).__name__
+else:
+    CHAIN_IMPORT_ERROR = ""
 METER = None
 _METER_CACHE = {}
 
@@ -67,11 +75,11 @@ WORKER_GRACE_SEC = 600  # seen up this recently = busy, not down, while
                         # a split is loading or running
 
 
-def running_rpc_endpoints():
+def running_rpc_endpoints(path=None):
     """The --rpc list the running split was started with — the file
-    the coordinator itself wrote at Start split."""
+    the coordinator itself wrote at Start split (or Start chain)."""
     try:
-        with open(RPC_PATH) as f:
+        with open(path or RPC_PATH) as f:
             return [e.strip() for e in f.read().split(",") if e.strip()]
     except Exception:
         return []
@@ -474,6 +482,7 @@ def pool_state():
     brain = brain_info()
     solo = unit_state("ai-pool-solo")
     host = unit_state("ai-pool-host")
+    chain = unit_state("ai-pool-chain") if pool_chain else "inactive"
     gpu = gpu_info()
     mem = mem_info()
     reserve = int(cfg.get("kv_reserve_mb") or 1024)
@@ -492,9 +501,12 @@ def pool_state():
     # while a healthy split was serving). So while a split runs,
     # trust the device list it was started with; while one is
     # starting, a worker seen up within the grace window is busy.
-    running_split = brain["up"] and host == "active" and solo != "active"
-    starting = (not brain["up"]) and (solo == "active" or host == "active")
-    trusted = running_rpc_endpoints() if running_split else []
+    running_split = brain["up"] and (host == "active" or chain == "active") and solo != "active"
+    starting = (not brain["up"]) and (solo == "active" or host == "active" or chain == "active")
+    trusted = []
+    if running_split or starting:
+        trusted = (running_rpc_endpoints(pool_chain.CHAIN_RPC_PATH) if chain == "active"
+                   else running_rpc_endpoints())
     now = time.time()
 
     machines = []
@@ -526,7 +538,7 @@ def pool_state():
             machines.append(entry)
             continue
         if m.get("role") == "coordinator":
-            entry["up"] = brain["up"] or solo == "active" or host == "active"
+            entry["up"] = brain["up"] or solo == "active" or host == "active" or chain == "active"
             entry["state"] = "up" if entry["up"] else "down"
             entry["holds"] = "last layers (an end)"
             total_offered += gpu_total + mem["total_mb"]
@@ -593,9 +605,11 @@ def pool_state():
 
     if brain["up"] and host == "active" and solo != "active":
         mode = "split"
+    elif brain["up"] and chain == "active" and solo != "active":
+        mode = "chain"
     elif brain["up"]:
         mode = "solo"
-    elif solo == "active" or host == "active":
+    elif solo == "active" or host == "active" or chain == "active":
         mode = "starting"
     else:
         mode = "off"
@@ -603,7 +617,8 @@ def pool_state():
     return {
         "mode": mode,
         "brain": brain,
-        "units": {"ai-pool-solo": solo, "ai-pool-host": host},
+        "units": {"ai-pool-solo": solo, "ai-pool-host": host, "ai-pool-chain": chain},
+        "gpu_cap_mb": min(int(cfg.get("fx705_gpu_cap_mb") or 3072), gpu_total or 3072),
         "gpu": gpu,
         "mem": mem,
         "machines": machines,
@@ -628,6 +643,7 @@ def status_json():
     brain_txt = {
         "solo": "Online — running on the FX705 (solo)",
         "split": "Online — split across the pool",
+        "chain": "Online — chain across the pool (cost-aware, batch checking)",
         "starting": "Starting…",
         "off": "Offline",
     }[st["mode"]]
@@ -640,6 +656,89 @@ def status_json():
         "speed": MEASURED_SPEED,
         "updated": now_central().strftime("%d %b %Y %H:%M %Z"),
     }
+
+
+# ---------------- chain mode (M10) ----------------
+
+def chain_plan(st=None):
+    """The planner's layout for the live machines right now, or
+    {"ok": False, "why": ...}."""
+    if not pool_chain:
+        return {"ok": False, "why": "chain mode isn't installed (pool_chain.py next to this "
+                                    "script): " + CHAIN_IMPORT_ERROR}
+    if not pool_meter:
+        return {"ok": False, "why": "chain mode needs pool_meter.py (it reads the model's layers)"}
+    st = st or pool_state()
+    cur = st["current_model"]
+    layout = pool_meter.model_layout(os.path.join(POOL_DIR, cur)) if cur else None
+    if not layout:
+        return {"ok": False, "why": "couldn't read the current model's layers (" + (cur or "none") + ")"}
+    draft = pool_chain.chain_draft()
+    card_cap = max(1024, st["gpu_cap_mb"] - int(draft.get("card_mb") or 0))
+    return pool_chain.plan(st["devices"], layout, card_cap,
+                           measured=pool_chain.measured_costs(),
+                           relay_info=pool_chain.live_relay_info(), draft=draft)
+
+
+def start_chain(restart=False):
+    st = pool_state()
+    if not st["devices"]:
+        return "No live machine to chain with — nothing started."
+    p = chain_plan(st)
+    if not p.get("ok"):
+        return "Chain not started: " + p.get("why", "no plan") + "."
+    pool_chain.write_plan(p)
+    sh(["systemctl", "stop", "ai-pool-solo", "ai-pool-host"], timeout=60)
+    sh(["systemctl", "restart" if restart else "start", "ai-pool-chain"], timeout=30)
+    used = ", ".join(d["name"] + " " + str(d["layers"]) for d in p["devices"])
+    drop = ", ".join(d["name"] for d in p["dropped"])
+    return ("Starting the chain: " + used + (" layers" if used else "") +
+            ("; left out as too slow or not needed: " + drop if drop else "") +
+            ("; batch checking with " + p["draft"] if p["draft"] != "off" else
+             "; no draft model on disk, so no batch checking") +
+            " — loading takes a few minutes.")
+
+
+def chain_card(st):
+    if not pool_chain:
+        return ""
+    p = chain_plan(st)
+    if not p.get("ok"):
+        body = '<p class="fine">Chain can\'t start right now: ' + escape(p.get("why", "")) + ".</p>"
+    else:
+        rows = ""
+        for d in p["devices"]:
+            how = ("measured" if d["measured"] else "default")
+            route = {"lan": " · home network", "cloudflare": " · via Cloudflare"}.get(d["route"], "")
+            rows += ("<tr><td>" + escape(d["name"]) + "</td><td>" + escape(d["range"]) +
+                     "</td><td>" + str(d["mb"]) + " MB</td><td>" + str(d["ms_per_layer"]) +
+                     " ms/layer (" + how + ") + " + str(d["net_ms"]) + " ms trip" + route +
+                     "</td><td>" + str(d["est_ms"]) + " ms</td></tr>")
+        for d in p["dropped"]:
+            rows += ("<tr><td>" + escape(d["name"]) + "</td><td>left out</td><td>—</td><td>" +
+                     str(d["ms_per_layer"]) + " ms/layer + " + str(d["net_ms"]) +
+                     " ms trip</td><td>" + escape(d["why"]) + "</td></tr>")
+        est = p["estimate"]
+        est_txt = ("about " + str(est["tok_s_no_draft"]) + " tok/s without batch checking" +
+                   (", about " + str(est["tok_s_with_draft"]) + " with it"
+                    if est.get("tok_s_with_draft") else ""))
+        body = ('<div class="tbl"><table><tr><th>Machine</th><th>Layers</th><th>Memory</th>'
+                '<th>Cost</th><th>Per pass</th></tr>' + rows + '</table></div>'
+                '<p class="fine">Estimate: ' + escape(est_txt) + '. ' + escape(p["note"]) +
+                ' Batch checking: ' + escape(p["draft"]) + '.</p>')
+    return f"""<h2>Chain mode</h2>
+<div class="card">
+  <p class="fine">The pooled model, laid out by cost: the FX705's card and RAM always,
+  then only the fastest other machines until the model fits, each holding as many layers
+  as its speed earns. A draft model guesses ahead and the chain checks the guesses in one
+  pass. Phones on the FX705's own Wi-Fi skip Cloudflare.</p>
+  {body}
+  <div class="row" style="margin-top:.6rem">
+    <form method="post" action="/action"><input type="hidden" name="action" value="start_chain">
+      <button type="submit">Start chain</button></form>
+  </div>
+</div>
+"""
 
 
 # ---------------- actions ----------------
@@ -678,8 +777,11 @@ def act(name, fields):
         return ("Starting the split pool across " + st["rpc_list"] +
                 " + this card, tensor split " + st["split"] +
                 " — loading takes a few minutes.")
+    if name == "start_chain":
+        return start_chain()
     if name == "stop":
-        sh(["systemctl", "stop", "ai-pool-solo", "ai-pool-host"], timeout=60)
+        sh(["systemctl", "stop", "ai-pool-solo", "ai-pool-host"] +
+           (["ai-pool-chain"] if pool_chain else []), timeout=60)
         return "Brain stopped. Burn's AI is paused until a brain starts again."
     if name == "set_model":
         model = (fields.get("model") or [""])[0]
@@ -700,6 +802,8 @@ def act(name, fields):
                 f.write(st2["split"] + "\n")
             sh(["systemctl", "restart", "ai-pool-host"], timeout=30)
             return "Model set to " + model + " — the split pool is restarting with it (a few minutes)."
+        if st["units"].get("ai-pool-chain") == "active":
+            return "Model set to " + model + ". " + start_chain(restart=True)
         return "Model set to " + model + " — it will load at the next start."
     if name == "delete_model":
         model = (fields.get("model") or [""])[0]
@@ -1140,6 +1244,7 @@ def page(st, msg="", ask_delete=""):
                     '<button class="alt" type="submit">Register server</button>'
                     '</div></form>')
     mode_txt = {"solo": "Solo — FX705 alone", "split": "Split — pooled across machines",
+                "chain": "Chain — cost-aware pool with batch checking",
                 "starting": "Starting…", "off": "Off"}[st["mode"]]
     brain_line = dot(st["brain"]["up"]) + mode_txt
     if st["brain"]["model"]:
@@ -1182,6 +1287,8 @@ def page(st, msg="", ask_delete=""):
   <p class="fine" style="margin-top:.5rem">Starting one mode stops the other. While the brain is
   off or loading, Burn's AI is paused. Split needs the Yoga's worker running.</p>
 </div>
+
+{chain_card(st)}
 
 {bench_card(st)}
 
@@ -1364,6 +1471,7 @@ def start_meter():
         "brain_url": brain_url,
         "start_solo": lambda: act("start_solo", {}),
         "start_split": lambda: act("start_split", {}),
+        "start_chain": lambda: act("start_chain", {}),
         "stop": lambda: act("stop", {}),
     }
     METER.start()

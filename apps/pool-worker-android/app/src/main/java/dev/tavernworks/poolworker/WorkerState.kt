@@ -107,6 +107,11 @@ class Config(context: Context) {
         get() = p.getString("gpu_renderer", "") ?: ""
         set(v) = p.edit().putString("gpu_renderer", v).apply()
 
+    /** Where the pool also answers on its home network ("ip:port,..."), as the pool told us over TLS. */
+    var lanHint: String
+        get() = p.getString("lan_hint", "") ?: ""
+        set(v) = p.edit().putString("lan_hint", v).apply()
+
     val rpcPort: Int get() = p.getInt("rpc_port", 50052)
     val enrolled: Boolean get() = enrollmentId.isNotEmpty() && key.isNotEmpty()
 

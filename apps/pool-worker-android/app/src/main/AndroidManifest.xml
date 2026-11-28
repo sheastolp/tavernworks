@@ -16,7 +16,10 @@
         android:theme="@style/Theme.PoolWorker"
         android:extractNativeLibs="true"
         android:allowBackup="false"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true">
+        <!-- Cleartext is only for the home-network route to the pool (chain mode), which is
+             private-address only and proves both ends with an HMAC; Cloudflare stays on TLS. -->
 
         <!-- The Adreno engine opens the phone's own OpenCL driver. -->
         <uses-native-library android:name="libOpenCL.so" android:required="false" />

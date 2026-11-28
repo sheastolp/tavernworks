@@ -35,6 +35,35 @@ class Worker(private val context: Context) {
         // A ping every 45 s; OkHttp drops the relay when one goes unanswered (the front pings too).
         .pingInterval(45, TimeUnit.SECONDS)
         .build()
+    // The home-network route answers in milliseconds or not at all.
+    private val lanClient = wsClient.newBuilder().connectTimeout(2, TimeUnit.SECONDS).build()
+    @Volatile private var lanOffUntil = 0L
+
+    private fun lanTargets(): List<Pair<String, Int>> {
+        if (System.currentTimeMillis() < lanOffUntil) return emptyList()
+        return cfg.lanHint.split(",").mapNotNull { RelaySession.parseTarget(it.trim()) }.take(4)
+    }
+
+    /** The relay over the home network, when the pool said where and it answers; else null. */
+    private fun connectLan(): RelaySession? {
+        for (t in lanTargets()) {
+            val s = RelaySession(lanClient, cfg.poolUrl, cfg.enrollmentId, cfg.key, cfg.rpcPort, lan = t)
+            val t0 = System.currentTimeMillis()
+            while (s.alive && !s.connected && System.currentTimeMillis() - t0 < 5_000) Thread.sleep(50)
+            if (s.connected) return s
+            s.close("no answer")
+            if (s.refusedCode == 403 || s.refusedCode == -1) {
+                WorkerState.log("home-network route refused (${s.closeReason}), using Cloudflare for 10 min")
+                lanOffUntil = System.currentTimeMillis() + 600_000
+                return null
+            }
+        }
+        return null
+    }
+
+    private fun lanReachable(): Boolean = lanTargets().any { (ip, port) ->
+        runCatching { java.net.Socket().use { it.connect(java.net.InetSocketAddress(ip, port), 1_500) } }.isSuccess
+    }
 
     fun stop() {
         stopping = true
@@ -260,11 +289,12 @@ class Worker(private val context: Context) {
             if (!engine.alive) startEngine(model)
 
             WorkerState.phase(Phase.Connecting, "Opening the relay to the pool")
-            val session = RelaySession(wsClient, cfg.poolUrl, cfg.enrollmentId, cfg.key, cfg.rpcPort)
+            val session = connectLan() ?: RelaySession(wsClient, cfg.poolUrl, cfg.enrollmentId, cfg.key, cfg.rpcPort)
             relay = session
             // Wait for the upgrade (or its refusal).
             val t0 = System.currentTimeMillis()
             while (session.alive && !session.connected && System.currentTimeMillis() - t0 < 40_000) Thread.sleep(100)
+            if (session.connected && session.lan == null && session.lanHint != cfg.lanHint) cfg.lanHint = session.lanHint
             if (!session.connected) {
                 session.close("no answer")
                 relay = null
@@ -282,12 +312,24 @@ class Worker(private val context: Context) {
             }
             backoff = 2_000L
             WorkerState.set { it.copy(relayConnected = true) }
-            WorkerState.phase(Phase.Serving, "Lending " + gb(cfg.offeredMb) + " on the " + engine.device?.label)
+            WorkerState.phase(Phase.Serving, "Lending " + gb(cfg.offeredMb) + " on the " + engine.device?.label +
+                if (session.lan != null) " · home network" else "")
 
             // Watch the session: yield, a dead rpc-server, or a model change the other device suits.
             var yielded = false
+            var lastLanCheck = System.currentTimeMillis()
             while (session.alive && !stopping) {
                 pause(2_000)
+                // On Cloudflare, but the pool answers on this Wi-Fi now: switch while no split uses us.
+                if (session.lan == null && session.streamCount == 0 &&
+                    System.currentTimeMillis() - lastLanCheck > 120_000) {
+                    lastLanCheck = System.currentTimeMillis()
+                    if (lanReachable()) {
+                        WorkerState.log("the pool answers on this network now, switching to the home-network route")
+                        session.close("switching to the home network")
+                        break
+                    }
+                }
                 val why = yieldReason(serving = true)
                 if (why != null) {
                     WorkerState.log("yielding ($why), draining out of the pool")
