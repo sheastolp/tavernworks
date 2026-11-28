@@ -291,7 +291,9 @@
   }
   function reminderCue(ev) {
     const mins = Math.max(1, Math.round((ev.start - Date.now()) / MIN));
-    return `Mood compass: their calendar has "${cleanTitle(ev.title)}" at ${timeOf(ev.start)}, in about ${mins} minutes. Give them a short, friendly heads-up in one sentence, maybe with a tiny tip to get ready.`;
+    const isCoffee = (ev.title && ev.title.toLowerCase().includes("coffee")) || (mins < 30 && mins > 5);
+    const message = isCoffee ? `their calendar has a "virtual coffee tray" brewing soon` : `their calendar has "${cleanTitle(ev.title)}"`;
+    return `Mood compass: ${message} at ${timeOf(ev.start)}, in about ${mins} minutes. Give them a short, friendly heads-up in one sentence, maybe with a tiny tip to get ready.`;
   }
   let reminded = store.get("compass.reminded", {});
   let lastNudge = store.get("compass.lastNudge", 0), lastInsight = store.get("compass.lastInsight", 0);
