@@ -91,6 +91,10 @@ object RosinHost {
                 if (!request.isForMainFrame) return false   // frames inside the page (Spotify's player) stay in the page
                 if (uri.scheme == "https" && uri.host == HOST) return false
                 // Spotify's sign-in opens inside the app, so the sign-in comes back to Rosin here and not to a browser.
+                // Rosin's Spotify sign-in runs in the phone's own browser from the start, so "Continue with Google" (which
+                // Google won't allow inside an app) keeps its place and Spotify sends its answer back through the
+                // browser's "Open the Rosin app" (rosin-spotify.js handBack, then finishSpotifySignIn here).
+                if (isRosinSpotifySignIn(uri)) { openInBrowser(uri); return true }
                 if (uri.scheme == "https" && isSpotify(uri.host)) return false
                 // An app link from a sign-in page (Spotify's "open the app"): open that app if it's here, otherwise its own
                 // web fallback if that's Rosin's or Spotify's, and never a Play Store page.
@@ -185,6 +189,14 @@ object RosinHost {
     fun currentActivity(): MainActivity? = activity
 
     fun js(code: String) { main.post { web?.evaluateJavascript(code, null) } }
+
+    private fun isRosinSpotifySignIn(uri: Uri) = uri.scheme == "https" && uri.host == "accounts.spotify.com" &&
+        uri.path?.trimEnd('/')?.endsWith("/authorize") == true && uri.getQueryParameter("state")?.startsWith("rosina-") == true
+
+    private fun openInBrowser(uri: Uri) {
+        val i = Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try { (activity ?: app).startActivity(i) } catch (_: Exception) {}
+    }
 
     private fun openIntent(view: WebView, url: String) {
         val i = try { Intent.parseUri(url, Intent.URI_INTENT_SCHEME) } catch (_: Exception) { return }

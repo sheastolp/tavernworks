@@ -47,6 +47,8 @@ const isRosinUrl = (u) => { try { const x = new URL(u); return x.protocol === "h
 // Spotify's sign-in (rosin/rosin-spotify.js) opens in Rosin's window, so it comes back to Rosin and not to a browser.
 const isSpotifySignIn = (u) => { try { const x = new URL(u); return x.protocol === "https:" && (x.hostname === "spotify.com" || x.hostname.endsWith(".spotify.com")); } catch { return false; } };
 
+const isRosinSpotifyAuthorize = (u) => { try { const x = new URL(u); return x.protocol === "https:" && x.hostname === "accounts.spotify.com" && /\/authorize\/?$/.test(x.pathname) && (x.searchParams.get("state") || "").startsWith("rosinw-"); } catch { return false; } };
+
 // A Spotify sign-in that ended in a web browser (Spotify's "Continue with Google", say) comes back as
 // rosin://spotify-callback?code=…&state=… (rosin/rosin-spotify.js handBack), and Rosin's page, which holds the
 // sign-in's key, finishes it. Only code, state and error are passed on.
@@ -132,7 +134,12 @@ function createWindows() {
   const wc = win.webContents;
   wc.setUserAgent(`${wc.getUserAgent()} RosinApp/Windows Rosin/${app.getVersion()}`);   // the version, shown at the bottom of ⋯
   wc.setWindowOpenHandler(({ url }) => { if (!isRosinUrl(url)) shell.openExternal(url); return { action: "deny" }; });
-  wc.on("will-navigate", (e, url) => { if (!isRosinUrl(url) && !isSpotifySignIn(url)) { e.preventDefault(); shell.openExternal(url); } });
+  // Rosin's Spotify sign-in runs in the PC's own browser, so "Continue with Google" works; Spotify's answer comes back
+  // through rosin://spotify-callback (finishSpotify below).
+  wc.on("will-navigate", (e, url) => {
+    if (isRosinSpotifyAuthorize(url)) { e.preventDefault(); shell.openExternal(url); return; }
+    if (!isRosinUrl(url) && !isSpotifySignIn(url)) { e.preventDefault(); shell.openExternal(url); }
+  });
   wc.on("dom-ready", () => wc.insertCSS(fs.readFileSync(path.join(__dirname, "desktop.css"), "utf8")));
   wc.on("did-fail-load", (_e, code, desc, url, isMain) => {
     if (!isMain || code === -3) return;   // -3 is an aborted load, not a failure
