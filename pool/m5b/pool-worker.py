@@ -1687,6 +1687,20 @@ class RelaySession:
         self.streams = {}
         self.lock = threading.Lock()
         self.alive = True
+        # Pool meter (M9): how long this machine's rpc-server takes to
+        # answer each request, measured here so the pool can tell this
+        # machine's compute apart from the network in between. Only
+        # timings and memory are reported, never any data.
+        self.stat_lock = threading.Lock()
+        self.session = secrets.token_hex(4)
+        self.pending = {}      # sid -> when the host's request arrived
+        self.last_rx = {}      # sid -> the host's latest bytes
+        self.ex = 0
+        self.busy_ms = 0.0
+        self.bytes_in = 0
+        self.bytes_out = 0
+        self.mem = {}
+        self.mem_at = 0.0
 
     def send_stream(self, sid, typ, data=b""):
         try:
@@ -1695,8 +1709,75 @@ class RelaySession:
         except OSError:
             return False
 
+    def _mem(self):
+        """RAM free/total and, with an NVIDIA card, VRAM used/total —
+        refreshed every 15 s at most."""
+        now = time.time()
+        if now - self.mem_at < 15:
+            return self.mem
+        self.mem_at = now
+        out = {}
+        try:
+            out["ram_total_mb"] = self.worker.total_ram_mb()
+            avail = None
+            if platform.system() == "Windows":
+                import ctypes
+
+                class MS(ctypes.Structure):
+                    _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                                ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                                ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                                ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                                ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+                st = MS()
+                st.dwLength = ctypes.sizeof(MS)
+                if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(st)):
+                    avail = int(st.ullAvailPhys // (1024 * 1024))
+            else:
+                with open("/proc/meminfo") as f:
+                    for line in f:
+                        if line.startswith("MemAvailable:"):
+                            avail = int(line.split()[1]) // 1024
+            if avail is not None:
+                out["ram_avail_mb"] = avail
+        except Exception:
+            pass
+        smi = None if self.worker.android else nvidia_smi_cmd()
+        if smi:
+            try:
+                r = subprocess.run([smi, "--query-gpu=memory.used,memory.total",
+                                    "--format=csv,noheader,nounits"],
+                                   capture_output=True, text=True, timeout=10)
+                used, total = [int(float(x)) for x in r.stdout.strip().splitlines()[0].split(",")]
+                out["vram_used_mb"], out["vram_total_mb"] = used, total
+            except Exception:
+                pass
+        self.mem = out
+        return out
+
+    def _stats_loop(self):
+        """Send the host this machine's own timings five times a second
+        while they change (every 15 s otherwise), on stream 0 as type 4.
+        An older pool front ignores the message."""
+        last = None
+        last_at = 0.0
+        while self.alive:
+            time.sleep(0.2)
+            with self.stat_lock:
+                rep = {"v": 1, "session": self.session, "ex": self.ex,
+                       "busy_ms": round(self.busy_ms, 1),
+                       "bytes_in": self.bytes_in, "bytes_out": self.bytes_out}
+            key = json.dumps(rep, sort_keys=True)
+            if key == last and time.time() - last_at < 15:
+                continue
+            rep["mem"] = self._mem()
+            last, last_at = key, time.time()
+            if not self.send_stream(0, 4, json.dumps(rep).encode()):
+                return
+
     def run(self):
         threading.Thread(target=self._heartbeat, daemon=True).start()
+        threading.Thread(target=self._stats_loop, daemon=True).start()
         try:
             while self.alive and not self.worker.stop_flag.is_set():
                 op, payload = self.ws.read_frame()
@@ -1710,6 +1791,15 @@ class RelaySession:
                     if typ == 1:
                         self._open(sid)
                     elif typ == 2:
+                        now = time.time()
+                        with self.stat_lock:
+                            self.bytes_in += len(data)
+                            # A request with no answer, then a quiet
+                            # gap: the clock restarts at the next one.
+                            if (sid not in self.pending or
+                                    now - self.last_rx.get(sid, now) > 1.0):
+                                self.pending[sid] = now
+                            self.last_rx[sid] = now
                         with self.lock:
                             local = self.streams.get(sid)
                         if local:
@@ -1775,6 +1865,13 @@ class RelaySession:
                 if not data:
                     why = "rpc-server closed it"
                     break
+                now = time.time()
+                with self.stat_lock:
+                    self.bytes_out += len(data)
+                    opened = self.pending.pop(sid, None)
+                    if opened is not None:
+                        self.ex += 1
+                        self.busy_ms += (now - opened) * 1000.0
                 if not self.send_stream(sid, 2, data):
                     why = "sending to the relay failed"
                     break
@@ -1790,6 +1887,9 @@ class RelaySession:
                 pass
 
     def _close(self, sid, notify):
+        with self.stat_lock:
+            self.pending.pop(sid, None)
+            self.last_rx.pop(sid, None)
         with self.lock:
             local = self.streams.pop(sid, None)
         if local:

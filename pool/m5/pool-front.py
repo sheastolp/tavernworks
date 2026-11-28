@@ -172,7 +172,13 @@ def pool_page_html():
 # never sits silent: a split's RPC link idles for minutes while the
 # host loads other machines' layers, and both the worker's watchdog
 # and Cloudflare's idle cut-off treat a silent socket as dead.
-RELAY_PING_SEC = float(os.environ.get("POOL_RELAY_PING_SEC", "20"))
+# Each ping also measures the relay's round trip (the payload carries
+# a sequence number the worker echoes back in its pong), so every 5 s
+# is often enough to keep a fresh latency figure (M9 meter).
+RELAY_PING_SEC = float(os.environ.get("POOL_RELAY_PING_SEC", "5"))
+RELAY_STATS_PATH = os.path.join(POOL_DIR, "relay-stats.json")
+RELAY_PROBE_PATH = os.path.join(POOL_DIR, "relay-probe.json")
+BENCH_NAME_PATH = os.path.join(POOL_DIR, "bench-name.json")
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 ACCOUNTS_PATH = os.path.join(POOL_DIR, "accounts.json")
 LEDGER_PATH = os.path.join(POOL_DIR, "ledger.jsonl")
@@ -1213,6 +1219,24 @@ def mcp_handle(account, req):
 # never change underneath llama-server is the port number.)
 # ------------------------------------------------------------------
 
+_BENCH_HOST = [0.0, ""]
+
+
+def bench_host():
+    """The benchmark's own public hostname — one setting shared with
+    the coordinator's meter (~/ai-pool/bench-name.json)."""
+    if time.time() - _BENCH_HOST[0] > 30:
+        host = "swarmbench.tavernworks.dev"
+        try:
+            with open(BENCH_NAME_PATH) as f:
+                host = str(json.load(f).get("host") or host)
+        except (OSError, ValueError, AttributeError):
+            pass
+        _BENCH_HOST[:] = [time.time(),
+                          (os.environ.get("POOL_BENCH_HOST") or host).strip().lower()]
+    return _BENCH_HOST[1]
+
+
 def relay_log(msg):
     print("[relay] " + now_iso() + " " + msg, flush=True)
 
@@ -1352,15 +1376,90 @@ class RelayConn:
         self.listener = None
         self.alive = True
         self.since = now_iso()
+        # M9 meter: the host's wait on this worker. An "exchange" opens
+        # when llama-server sends on a stream with nothing outstanding
+        # and closes when the worker's first answer bytes arrive, so
+        # its length is network both ways + the worker's own compute.
+        self.stat_lock = threading.Lock()
+        self.pending = {}          # sid -> time the exchange opened
+        self.last_send = {}        # sid -> llama-server's latest send
+        self.ex = 0
+        self.turn_ms = 0.0
+        self.bytes_up = 0
+        self.bytes_down = 0
+        self.ping_seq = 0
+        self.ping_sent = {}        # seq -> send time
+        self.rtts = []             # last 30 round trips, ms
+        self.worker_stats = {}     # what the worker reports about itself
+        self.probe = {}
 
-    # -- keepalive --------------------------------------------------
+    # -- keepalive + latency ----------------------------------------
+    def send_ping(self, tag=b"tw"):
+        with self.stat_lock:
+            self.ping_seq += 1
+            seq = self.ping_seq
+            self.ping_sent[seq] = time.time()
+            if len(self.ping_sent) > 100:
+                for k in sorted(self.ping_sent)[:-50]:
+                    self.ping_sent.pop(k, None)
+        ws_send(self.sock, self.send_lock, 9, tag + struct.pack(">Q", seq))
+        return seq
+
+    def on_pong(self, payload):
+        if len(payload) != 10 or payload[:2] not in (b"tw", b"tp"):
+            return
+        seq = struct.unpack(">Q", payload[2:])[0]
+        with self.stat_lock:
+            sent = self.ping_sent.pop(seq, None)
+            if sent is None:
+                return
+            rtt = (time.time() - sent) * 1000.0
+            self.rtts.append(rtt)
+            self.rtts = self.rtts[-30:]
+            if payload[:2] == b"tp" and self.probe.get("seqs") and seq in self.probe["seqs"]:
+                self.probe["rtts"].append(round(rtt, 1))
+
+    def run_probe(self, req, n):
+        """A burst of n pings 150 ms apart, for the benchmark's
+        latency probe."""
+        with self.stat_lock:
+            self.probe = {"req": req, "sent": 0, "rtts": [], "seqs": set(), "done": False}
+        for _ in range(max(1, min(int(n), 30))):
+            if not self.alive:
+                break
+            try:
+                seq = self.send_ping(b"tp")
+            except OSError:
+                break
+            with self.stat_lock:
+                self.probe["seqs"].add(seq)
+                self.probe["sent"] += 1
+            time.sleep(0.15)
+        time.sleep(2.0)   # late pongs still count
+        with self.stat_lock:
+            self.probe["done"] = True
+
+    def stats(self):
+        with self.stat_lock:
+            r = list(self.rtts)
+            probe = {k: v for k, v in self.probe.items() if k != "seqs"}
+            return {"id": self.id, "name": self.name, "port": self.port,
+                    "since": self.since, "ex": self.ex,
+                    "turn_ms": round(self.turn_ms, 1),
+                    "bytes_up": self.bytes_up, "bytes_down": self.bytes_down,
+                    "open": len(self.pending),
+                    "rtt_last": round(r[-1], 1) if r else None,
+                    "rtt_avg": round(sum(r[-12:]) / len(r[-12:]), 1) if r else None,
+                    "rtt_min": round(min(r), 1) if r else None,
+                    "worker": dict(self.worker_stats), "probe": probe}
+
     def _ping_loop(self):
         while self.alive:
             time.sleep(RELAY_PING_SEC)
             if not self.alive:
                 return
             try:
-                ws_send(self.sock, self.send_lock, 9, b"")
+                self.send_ping()
             except OSError:
                 return
 
@@ -1373,12 +1472,30 @@ class RelayConn:
                 op, payload = self.reader.read_frame()
                 if op == 9:        # ping
                     ws_send(self.sock, self.send_lock, 10, payload)
+                elif op == 10:     # pong: one of our latency pings
+                    self.on_pong(payload)
                 elif op == 8:      # close
                     break
                 elif op in (1, 2) and len(payload) >= 5:
                     sid, typ = struct.unpack(">IB", payload[:5])
                     data = payload[5:]
+                    if typ == 4 and sid == 0:   # the worker's own timing report
+                        try:
+                            rep = json.loads(data.decode())
+                            if isinstance(rep, dict):
+                                with self.stat_lock:
+                                    self.worker_stats = rep
+                        except ValueError:
+                            pass
+                        continue
                     if typ == 2:   # DATA
+                        now = time.time()
+                        with self.stat_lock:
+                            self.bytes_down += len(data)
+                            opened = self.pending.pop(sid, None)
+                            if opened is not None:
+                                self.ex += 1
+                                self.turn_ms += (now - opened) * 1000.0
                         with self.streams_lock:
                             tcp = self.streams.get(sid)
                         if tcp:
@@ -1446,6 +1563,16 @@ class RelayConn:
                 data = tcp.recv(262144)
                 if not data:
                     break
+                now = time.time()
+                with self.stat_lock:
+                    self.bytes_up += len(data)
+                    # A command with no answer (ggml-rpc sends some that
+                    # way) followed by a quiet gap means the earlier send
+                    # wasn't waiting on anything: restart the clock.
+                    if (sid not in self.pending or
+                            now - self.last_send.get(sid, now) > 1.0):
+                        self.pending[sid] = now
+                    self.last_send[sid] = now
                 if not self.send_stream(sid, 2, data):
                     why = "sending to the worker failed"
                     break
@@ -1458,6 +1585,9 @@ class RelayConn:
             self.close_stream(sid, notify=True)
 
     def close_stream(self, sid, notify):
+        with self.stat_lock:
+            self.pending.pop(sid, None)
+            self.last_send.pop(sid, None)
         with self.streams_lock:
             tcp = self.streams.pop(sid, None)
         if tcp:
@@ -1608,6 +1738,40 @@ class RelayHub:
         except OSError:
             pass
 
+    def stats_loop(self):
+        """Five times a second: relay-stats.json for the meter (written
+        when something changed, or every 15 s), so the time before a
+        reply's first token can be split out on its own; and any latency
+        probe the benchmark asked for in relay-probe.json."""
+        last_body = None
+        last_write = 0.0
+        last_probe = 0.0
+        while True:
+            time.sleep(0.2)
+            try:
+                req = json.load(open(RELAY_PROBE_PATH)) if os.path.exists(RELAY_PROBE_PATH) else {}
+                r = float(req.get("req") or 0)
+                if r > last_probe:
+                    last_probe = r
+                    for c in list(self.conns.values()):
+                        threading.Thread(target=c.run_probe, args=(r, req.get("n") or 10),
+                                         daemon=True).start()
+            except Exception:
+                pass
+            try:
+                workers = [c.stats() for c in list(self.conns.values())]
+                body = json.dumps(workers, sort_keys=True)
+                now = time.time()
+                if body == last_body and now - last_write < 15:
+                    continue
+                last_body, last_write = body, now
+                tmp = RELAY_STATS_PATH + ".tmp"
+                with open(tmp, "w") as f:
+                    json.dump({"generated": now, "workers": workers}, f)
+                os.replace(tmp, RELAY_STATS_PATH)
+            except Exception:
+                pass
+
     def enforce_approvals(self):
         """Revocation cuts the relay: drop any live connection whose
         enrollment is no longer approved."""
@@ -1698,9 +1862,51 @@ class Handler(BaseHTTPRequestHandler):
         h = self.headers.get("Authorization") or ""
         return h[7:].strip() if h.lower().startswith("bearer ") else ""
 
+    def bench_route(self, path, query):
+        """The benchmark's public, read-only page: its own hostname
+        (bench-name.json, default swarmbench.tavernworks.dev) or /bench/
+        on any host. Everything comes from the coordinator's scrubbed
+        public endpoints — no controls, no addresses."""
+        sub = {"": "/bench/public-page", "/": "/bench/public-page",
+               "/index.html": "/bench/public-page",
+               "/data.json": "/bench/public.json",
+               "/export": "/bench/public-export"}.get(path)
+        if sub is None:
+            self._send(404, "Not here")
+            return
+        url = COORD_URL.rsplit("/", 1)[0] + sub + ("?" + query if query and sub.endswith("export") else "")
+        try:
+            with urllib.request.urlopen(url, timeout=20) as r:
+                body = r.read()
+                ctype = r.headers.get("Content-Type") or "text/html; charset=utf-8"
+                disp = r.headers.get("Content-Disposition")
+        except Exception:
+            self._send(503, "The benchmark is offline right now.", "text/plain; charset=utf-8")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        if disp:
+            self.send_header("Content-Disposition", disp)
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        host = (self.headers.get("Host") or "").split(":")[0].strip().lower()
+        if host and host == bench_host():
+            self.bench_route(path, parsed.query)
+            return
+        if path == "/bench":
+            self.send_response(301)
+            self.send_header("Location", "/bench/")
+            self.end_headers()
+            return
+        if path.startswith("/bench/"):
+            self.bench_route(path[len("/bench"):], parsed.query)
+            return
         if path == RELAY_PUBLIC_PATH:
             self.handle_relay()
         elif path in ("/", "/index.html") and pool_page_html() is not None:
@@ -1912,6 +2118,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     os.makedirs(DOWNLOADS_DIR, exist_ok=True)
     threading.Thread(target=HUB.enforce_approvals, daemon=True).start()
+    threading.Thread(target=HUB.stats_loop, daemon=True).start()
     threading.Thread(target=earn_loop, daemon=True).start()
     bind = os.environ.get("POOL_FRONT_BIND", "127.0.0.1")
     srv = ThreadingHTTPServer((bind, PORT), Handler)

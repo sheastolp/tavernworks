@@ -40,6 +40,19 @@ from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, urlparse
 
+# The benchmark and usage log (M9) lives in pool_meter.py next to
+# this file. Without it the control page runs as before.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import pool_meter
+except Exception as _e:  # missing or broken: never take the page down
+    pool_meter = None
+    METER_IMPORT_ERROR = str(_e) or type(_e).__name__
+else:
+    METER_IMPORT_ERROR = ""
+METER = None
+_METER_CACHE = {}
+
 HOME = os.path.expanduser("~")
 if HOME == "~":
     HOME = "/root"
@@ -633,6 +646,12 @@ def status_json():
 
 def act(name, fields):
     cfg = load_config()
+    if name in ("bench_run", "bench_cancel"):
+        if not METER:
+            return "The benchmark isn't installed (pool_meter.py next to this script)."
+        if name == "bench_cancel":
+            return METER.cancel_bench()
+        return METER.run_bench((fields.get("plan") or ["current"])[0])
     if name == "start_solo":
         sh(["systemctl", "start", "ai-pool-solo"], timeout=30)
         return "Starting the solo brain — loading takes a few minutes."
@@ -913,6 +932,57 @@ def delete_confirm_html(st, model):
             '</div></div>')
 
 
+def bench_card(st):
+    if not METER:
+        return ('<h2>Benchmark</h2><div class="card"><p class="fine">The benchmark '
+                "isn't installed" + (" (" + escape(METER_IMPORT_ERROR) + ")" if METER_IMPORT_ERROR else "") +
+                ".</p></div>")
+    name, host = pool_meter.bench_identity()
+    line = "No benchmark yet."
+    try:
+        runs = METER.store.query("SELECT * FROM bench_runs ORDER BY id DESC LIMIT 1")
+        if runs:
+            r = runs[0]
+            summ = json.loads(r.get("summary_json") or "{}")
+            bits = []
+            for mode, cases in summ.items():
+                c = cases.get("medium") or cases.get("short") or {}
+                if c.get("ttft_ms") is not None:
+                    t = float(c["ttft_ms"])
+                    bits.append(mode + " first token " + (str(int(round(t))) + " ms" if t < 1000
+                                                          else "%.2f s" % (t / 1000.0)) +
+                                (", " + str(c["gen_tps"]) + " tok/s" if c.get("gen_tps") else ""))
+            line = ("Last run " + str(r["id"]) + " (" + str(r.get("status")) + "): " +
+                    (", ".join(bits) or "no numbers"))
+        if METER.bench and METER.bench.alive:
+            line = "Running now: " + METER.bench.step
+    except Exception:
+        pass
+    return ('<h2>' + escape(name) + ' — benchmark and usage log</h2><div class="card">'
+            '<p>' + escape(line) + '</p><div class="row" style="margin-top:.6rem">'
+            '<a href="/bench"><button type="button">Open ' + escape(name) + '</button></a>'
+            '<form method="post" action="/action"><input type="hidden" name="action" value="bench_run">'
+            '<input type="hidden" name="plan" value="current"><button class="alt" type="submit">Run benchmark now</button></form>'
+            '</div><p class="fine" style="margin-top:.5rem">Times the first token of every reply the brain gives, and logs where the time went. '
+            'Public read-only page: https://' + escape(host) + '/</p></div>')
+
+
+def meter_data(public):
+    """The meter's data, cached for 10 s: the public page polls it,
+    and pool_state() probes every machine."""
+    key = "public" if public else "full"
+    hit = _METER_CACHE.get(key)
+    if hit and time.time() - hit[0] < 10:
+        return hit[1]
+    try:
+        st = pool_state()
+    except Exception:
+        st = None
+    body = json.dumps(pool_meter.data(METER, st, public=public), indent=1)
+    _METER_CACHE[key] = (time.time(), body)
+    return body
+
+
 def page(st, msg="", ask_delete=""):
     def dot(up, idle=False):
         cls = "dot" if up else ("dot idle" if idle else "dot off")
@@ -1106,6 +1176,8 @@ def page(st, msg="", ask_delete=""):
   off or loading, Burn's AI is paused. Split needs the Yoga's worker running.</p>
 </div>
 
+{bench_card(st)}
+
 <h2>Roster</h2>
 <div class="card"><div class="tbl"><table>
 <tr><th>Machine</th><th>Role · address</th><th>Offered</th><th>Holds</th><th>State</th></tr>
@@ -1206,10 +1278,49 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, json.dumps(pool_state(), indent=1), "application/json")
         elif path == "/health":
             self._send(200, json.dumps({"status": "ok"}), "application/json")
+        elif path.startswith("/bench"):
+            self.bench_get(path)
         elif path == "/":
             q = parse_qs(urlparse(self.path).query)
             self._send(200, page(pool_state(), (q.get("msg") or [""])[0],
                                  (q.get("delete") or [""])[0]))
+        else:
+            self._send(404, "Not here")
+
+    def bench_get(self, path):
+        q = parse_qs(urlparse(self.path).query)
+        if not METER:
+            self._send(503, "The benchmark isn't installed on this machine.", "text/plain")
+            return
+        public = path.startswith("/bench/public")
+        if path in ("/bench", "/bench/"):
+            self._send(200, pool_meter.page(public=False, data_url="/bench/data.json",
+                                            export_url="/bench/export",
+                                            msg=(q.get("msg") or [""])[0]))
+        elif path == "/bench/public-page":
+            self._send(200, pool_meter.page(public=True, data_url="data.json",
+                                            export_url="export"))
+        elif path in ("/bench/data.json", "/bench/public.json"):
+            self._send(200, meter_data(public), "application/json")
+        elif path in ("/bench/export", "/bench/public-export"):
+            what = (q.get("what") or ["replies"])[0]
+            fmt = (q.get("fmt") or ["csv"])[0]
+            try:
+                days = min(365.0, max(0.1, float((q.get("days") or ["30"])[0])))
+            except ValueError:
+                days = 30.0
+            ctype, body = pool_meter.export(METER, "runs" if what == "runs" else "replies",
+                                            "json" if fmt == "json" else "csv", days, public)
+            name = pool_meter.bench_identity()[0].lower().replace(" ", "-")
+            data = body.encode()
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Content-Disposition", 'attachment; filename="' + name + "-" +
+                             ("runs" if what == "runs" else "replies") + "." +
+                             ("json" if fmt == "json" else "csv") + '"')
+            self.end_headers()
+            self.wfile.write(data)
         else:
             self._send(404, "Not here")
 
@@ -1226,11 +1337,33 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             msg = "Action failed: " + str(e)
         self.send_response(303)
-        self.send_header("Location", "/?msg=" + quote(msg))
+        back = "/bench" if name.startswith("bench_") else "/"
+        self.send_header("Location", back + "?msg=" + quote(msg))
         self.end_headers()
 
 
+def start_meter():
+    global METER
+    if not pool_meter:
+        print("benchmark off: " + METER_IMPORT_ERROR, flush=True)
+        return
+    try:
+        METER = pool_meter.Meter()
+    except Exception as e:
+        print("benchmark off: " + (str(e) or type(e).__name__), flush=True)
+        return
+    METER.hooks = {
+        "state": pool_state,
+        "brain_url": brain_url,
+        "start_solo": lambda: act("start_solo", {}),
+        "start_split": lambda: act("start_split", {}),
+        "stop": lambda: act("stop", {}),
+    }
+    METER.start()
+
+
 def main():
+    start_meter()
     bind = os.environ.get("POOL_BIND") or own_tailnet_ip() or "127.0.0.1"
     srv = ThreadingHTTPServer((bind, PORT), Handler)
     print("AI Pool coordinator on http://" + bind + ":" + str(PORT) + " (pool dir " + POOL_DIR + ")", flush=True)
