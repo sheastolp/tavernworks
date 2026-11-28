@@ -43,6 +43,38 @@ Everything is stored in SQLite at `/root/ai-pool/pool-meter.db`.
 - **Export:** CSV or JSON for replies and benchmark runs, covering the last
   30 days, from the buttons at the bottom of the page.
 
+## SwarmBench for anyone's setup
+
+`swarmbench.py` is the portable version of the same test. It's one file
+that needs only Python 3.8 or newer. It runs on Windows, Linux and Mac
+against llama.cpp `llama-server`, Ollama, LM Studio, vLLM, koboldcpp or any
+other OpenAI-style server, whether that's a single machine or a llama.cpp
+RPC split. `swarmbench.bat` is a double-click launcher for Windows.
+
+```
+python swarmbench.py                          # finds a server on this computer
+python swarmbench.py http://host:8080         # or names one
+python swarmbench.py http://host:8080 --rpc a:50052,b:50052   # a split
+```
+
+- **Test:** the same `standard-v1` cases as the pool's own benchmark. Every
+  request starts with a fresh tag, so no server can answer from a cached
+  prompt.
+- **Results:** time to first token per case, prompt and generation speed,
+  and findings on where the time goes. The findings cover network to the
+  server, request overhead, how much of the model is off the card on
+  Ollama, and the network round trips to each machine in a split, as a
+  share of each token's time.
+- **Saved:** everything goes to a JSON file.
+- **SwarmBench score:** 1000 means a 1.0 s first token and 10 tokens/s on
+  the medium case. The first token counts twice as much as speed
+  (score = 1000 × (1 s / TTFT)^(2/3) × (tok/s / 10)^(1/3)). The pool's own
+  benchmark shows the same score.
+- **Where to get it:** the public page links the downloads at
+  `https://pool.tavernworks.dev/downloads/swarmbench.py` and `.bat`, so both
+  files go on the FX705's shelf (`/root/ai-pool/downloads/`). The workers
+  ignore them.
+
 ## The name is one setting
 
 The default name is SwarmBench and its link is swarmbench.tavernworks.dev.

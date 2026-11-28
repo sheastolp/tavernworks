@@ -29,6 +29,7 @@
 import csv
 import io
 import json
+import secrets
 import os
 import re
 import select
@@ -776,13 +777,24 @@ SUITE = [
 REPS = 2
 
 
+def case_prompt(words):
+    """Same as swarmbench.py's: the tag at the start differs on every
+    request, so no answer comes from a cached prompt."""
+    return ("[run " + secrets.token_hex(3) + "] You are the narrator of a fantasy tavern story. "
+            "Continue the scene below in plain prose.\n\n" + filler(words) + "\n\nContinue:")
+
+
 def suite_prompts():
-    out = []
-    for name, words, n_predict in SUITE:
-        prompt = ("You are the narrator of a fantasy tavern story. Continue the scene below "
-                  "in plain prose.\n\n" + filler(words) + "\n\nContinue:")
-        out.append((name, prompt, n_predict))
-    return out
+    return [(name, words, n_predict) for name, words, n_predict in SUITE]
+
+
+# The SwarmBench score, same formula as swarmbench.py: 1000 means a 1.0 s
+# first token and 10 tokens/s on the medium case; the first token counts
+# twice as much as speed.
+def bench_score(ttft_ms, gen_tps):
+    if not ttft_ms or not gen_tps:
+        return None
+    return int(round(1000.0 * ((1000.0 / float(ttft_ms)) ** (2.0 / 3.0)) * ((float(gen_tps) / 10.0) ** (1.0 / 3.0))))
 
 
 def http_ok(url, timeout=3):
@@ -1003,7 +1015,7 @@ class Bench(threading.Thread):
         except Exception as e:
             self.notes.append(mode + " warm-up failed: " + str(e))
         results = {}
-        for case, prompt, n_predict in suite_prompts():
+        for case, words, n_predict in suite_prompts():
             for rep in range(1, REPS + 1):
                 if self.cancel:
                     return self._summarise(results)
@@ -1011,7 +1023,7 @@ class Bench(threading.Thread):
                 time.sleep(1.5)   # let the relay snapshot catch up
                 start = time.time()
                 try:
-                    r = stream_completion(base, prompt, n_predict)
+                    r = stream_completion(base, case_prompt(words), n_predict)
                 except Exception as e:
                     self.notes.append(mode + " " + case + " run " + str(rep) + " failed: " + str(e))
                     continue
@@ -1061,6 +1073,10 @@ class Bench(threading.Thread):
                 "model": rows[-1]["model"] if rows else "",
                 "runs": len(rows),
             }
+        if "medium" in out:
+            m = out["medium"]
+            m["score"] = bench_score(m["ttft_ms"], m["gen_tps"])
+            m["first_token_score"] = int(round(1000000.0 / m["ttft_ms"])) if m["ttft_ms"] else None
         return out
 
 
@@ -1267,6 +1283,7 @@ function render(d){
     for (const mode of Object.keys(last.summary)) {
       const cs = last.summary[mode];
       h += `<p class="fine"><span class="${mode}">${esc(mode)}</span> · benchmark run ${last.id}</p><div class="big">`;
+      if (cs.medium && cs.medium.score) h += stat("SwarmBench score", cs.medium.score);
       for (const c of Object.keys(cs)) h += stat(c + " (" + f(cs[c].prompt_n,0) + " tokens in)", s(cs[c].ttft_ms));
       h += `</div>`;
       const m = cs.medium || cs.short || {};
@@ -1322,6 +1339,9 @@ function render(d){
   h += `</div><h2>Recent replies</h2><div class="card">`;
   h += table(["Time","Source","Mode","In → out","First token","Slowest before first token","Gen tok/s","Total","Draft","Network","Slowest overall"], (d.replies||[]).slice(0,50).map(r => `<tr><td>${esc((r.time||"").replace("T"," ").slice(5,19))}</td><td>${esc(r.source)}${r.case_name ? " " + esc(r.case_name) : ""}</td><td class="${esc(r.mode)}">${esc(r.mode)}</td><td>${r.prompt_n} → ${r.gen_n}</td><td><b>${s(r.ttft_ms)}</b></td><td>${esc(r.ttft_bottleneck || "")}</td><td>${f(r.gen_tps,2)}</td><td>${s(r.total_ms)}</td><td>${r.draft_rate !== null && r.draft_rate !== undefined ? f(r.draft_rate*100,0) + "%" : "—"}</td><td>${s(r.net_ms)}</td><td>${esc(r.bottleneck)}${r.overlap ? " (overlapped)" : ""}</td></tr>`));
   h += `<div class="row" style="margin-top:.8rem"><a class="btn alt" href="${EXPORT_URL}?what=replies&fmt=csv">Replies CSV</a><a class="btn alt" href="${EXPORT_URL}?what=replies&fmt=json">Replies JSON</a><a class="btn alt" href="${EXPORT_URL}?what=runs&fmt=csv">Benchmarks CSV</a><a class="btn alt" href="${EXPORT_URL}?what=runs&fmt=json">Benchmarks JSON</a></div>`;
+  h += `</div><h2>Test your own setup</h2><div class="card"><p>SwarmBench runs the same test on any llama.cpp, Ollama, LM Studio, vLLM or other OpenAI-style server, on one machine or a split, and gives a score you can compare with the numbers here.</p>
+<div class="row" style="margin-top:.6rem"><a class="btn" href="https://pool.tavernworks.dev/downloads/swarmbench.py">Download swarmbench.py</a><a class="btn alt" href="https://pool.tavernworks.dev/downloads/swarmbench.bat">Windows launcher</a></div>
+<p class="fine" style="margin-top:.6rem">Needs Python 3.8 or newer, nothing else. Run <code>python swarmbench.py</code> to test the server on that computer, <code>python swarmbench.py http://host:port</code> for another, and add <code>--rpc host:port,host:port</code> for the machines in a llama.cpp split. On Windows, put both files in one folder and double-click the launcher. Score: 1000 means a 1.0 s first token and 10 tokens/s on the medium case, with the first token counting twice as much.</p>`;
   h += `<p class="fine" style="margin-top:.5rem">Suite ${esc(d.suite)}: ${(d.suite_cases||[]).map(c => c.case + " (~" + Math.round(c.prompt_words*1.3) + " tokens in, " + c.n_predict + " out)").join(", ")}, ${d.suite_cases && d.suite_cases[0] ? d.suite_cases[0].reps : 2} runs each, greedy, no prompt cache. Exports cover the last 30 days.</p></div>`;
   document.getElementById("app").innerHTML = h;
 }
