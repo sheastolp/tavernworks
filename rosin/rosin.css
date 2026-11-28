@@ -310,17 +310,17 @@ html.buddy #g-card, html.buddy #btn-mail { display: none !important; }
    --tray-max leaves room above for the subtitles and a sliver of Rosin, and below for the input rows. */
 :root { --tray-max: min(56vh, calc(100vh - 300px)); }
 @supports (height: 100dvh) { :root { --tray-max: min(56dvh, calc(100dvh - 300px)); } }
-#faces, #more, #log, #compass, #changes {
+#faces, #more, #log, #compass, #changes, #music {
   max-height: max(140px, var(--tray-max)); overflow-y: auto; overflow-x: hidden;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; box-sizing: border-box;
 }
-#log, #compass, #changes { justify-content: flex-start; }
-#log > *, #compass > *, #changes > *, #changes .chg-list > * { flex-shrink: 0; }
+#log, #compass, #changes, #music { justify-content: flex-start; }
+#log > *, #compass > *, #changes > *, #music > *, #changes .chg-list > * { flex-shrink: 0; }
 #more, #faces { align-content: flex-start; }
 @media (max-height: 500px) {   /* phone sideways, Legion Go 2 with a short window */
   :root { --tray-max: calc(100vh - 150px); }
   @supports (height: 100dvh) { :root { --tray-max: calc(100dvh - 150px); } }
-  #faces, #more, #log, #compass, #changes { width: 100%; }
+  #faces, #more, #log, #compass, #changes, #music { width: 100%; }
 }
 
 /* Videos (rosin-video.js): the player for a video Rosin found, a clip of Rosin, or one made with AI. */
@@ -392,3 +392,49 @@ html.buddy #v-card, html.buddy #btn-clip, html.buddy #btn-make-video { display: 
 #mod-card .m-more { font-size: 13px; opacity: 0.8; }
 @media (max-height: 500px) { #initiative { width: 100%; } #mod-card { max-height: calc(100vh - 170px); } }
 body.obs #initiative, body.obs #mod-card, html.buddy #initiative, html.buddy #btn-initiative, html.buddy #mod-card { display: none !important; }
+
+/* Spotify (rosin-spotify.js): the 🎵 Music panel. Every button is at least 44px, rows wrap on a phone. */
+#music { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 8px; padding: 10px 12px; box-sizing: border-box;
+         border: 1px solid #2f8f4e; border-radius: 12px; background: rgba(10, 24, 14, 0.95); }
+#music p { margin: 0; }
+#music .sp-setup, #music .sp-player { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+#music .sp-head { font-weight: 600; font-size: 16px; }
+#music .sp-small { font-size: 13px; opacity: 0.8; overflow-wrap: anywhere; }
+#music .sp-steps { margin: 0; padding-left: 22px; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+#music .sp-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; min-width: 0; }
+#music .sp-row > input[type="text"], #music .sp-row > input[type="search"] { flex: 1 1 180px; min-width: 0; min-height: 44px; box-sizing: border-box;
+  font: inherit; color: inherit; background: rgba(0,0,0,.35); border: 1px solid rgba(243,220,192,.25); border-radius: 10px; padding: 6px 10px; }
+#music select { min-height: 44px; font: inherit; color: inherit; background: rgba(0,0,0,.35); border: 1px solid rgba(243,220,192,.25); border-radius: 10px; padding: 4px 8px; max-width: 100%; }
+#music .sp-grow .field { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+#music .sp-grow .field span { opacity: 0.8; }
+#music input[type="range"] { width: 100%; min-width: 0; margin: 0; min-height: 32px; accent-color: #1db954; touch-action: pan-y; box-sizing: border-box; }
+#music button { min-height: 44px; }
+#music .sp-primary { background: #14572b; border-color: #1db954; }
+#music .sp-now { display: flex; gap: 10px; align-items: center; min-width: 0; }
+#music .sp-art { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #000; }
+#music .sp-now-text { min-width: 0; flex: 1; }
+#music .sp-title { font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#music .sp-by, #music .sp-where { font-size: 14px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#music .sp-times { font-size: 12px; opacity: 0.7; text-align: right; margin-top: -4px; min-height: 1em; }
+#music .sp-ctl { display: grid; grid-template-columns: repeat(6, minmax(44px, 1fr)); gap: 6px; }
+#music .sp-ctl button { font-size: 20px; padding: 4px 0; }
+#music .sp-ctl button[aria-pressed="true"] { background: #14572b; border-color: #1db954; }
+#music .sp-find input { flex: 1 1 220px; } #music .sp-find select { flex: 1 1 110px; } #music .sp-find button { flex: 0 0 auto; }
+#music .sp-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+#music .sp-tabs button { flex: 1 0 auto; }
+#music .sp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+#music .sp-item { display: flex; gap: 8px; align-items: center; min-width: 0; }
+#music .sp-thumb { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+#music .sp-item-text { flex: 1; min-width: 0; }
+#music .sp-item-name { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#music .sp-item-by { font-size: 13px; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#music .sp-item button { flex: 0 0 48px; width: 48px; padding: 0; font-size: 18px; }
+#music .sp-empty { font-size: 14px; opacity: 0.8; }
+#music .sp-note { font-size: 14px; color: #a7e8bd; overflow-wrap: anywhere; }
+#music .sp-note:empty { display: none; }
+#music .sp-note.bad { color: #ff9a8a; }
+#music .sp-foot { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid rgba(243,220,192,.15); padding-top: 8px; }
+#music .sp-foot .chk { align-self: flex-start; }
+#music .sp-foot button, #music .sp-close { align-self: flex-start; }
+@media (max-width: 380px) { #music .sp-ctl { gap: 4px; } #music .sp-ctl button { font-size: 18px; } #music .sp-art { width: 52px; height: 52px; } }
+body.obs #music, body.obs #btn-music, html.buddy #music, html.buddy #btn-music { display: none !important; }

@@ -34,6 +34,8 @@
   // Things the app looks up before Rosin answers (like his inbox when he asks about mail): each gets what was said
   // and returns a note (or "") that rides along with this one question only, never saved in the history.
   const extraContext = [];
+  // Commands the app does at once, before (and instead of) asking the model: see ask().
+  const instant = [];
   // Initiative (rosin-initiative.js): holds stop Rosin speaking up on its own (quiet times, hush); chatterHolds stop only
   // its small talk; chatterTopics add ideas for that small talk.
   const holds = [], chatterHolds = [], chatterTopics = [];
@@ -618,6 +620,24 @@
     if (!text && got.media === "video") text = "Take a look at this video.";
     if (!text && pics.length) text = pics.length > 1 ? "Take a look at these." : "Take a look at this.";
     if (!text) return false;
+    // Quick commands (rosin-spotify.js: "pause", "skip", "play X by Y") are done right away by the app, with no wait
+    // for the laptop: a hook gets what was said and returns { reply, status } when it handled it, or null to let Rosin think.
+    if (!idle && !opts.fromChat && !pics.length && instant.length) {
+      for (const f of instant) {
+        let r = null;
+        try { r = await f(text); } catch (e) { r = { reply: "[confused] " + (e.message || "That didn't work."), status: e.message, bad: true }; }
+        if (!r) continue;
+        if (busy) stop();
+        hush(); heardFrom(); lastTurnAt = Date.now();
+        const at = Date.now();
+        history.push({ role: "user", content: text, sent: text, who: opts.who || S.name || "You", at, mine: true });
+        if (r.reply) history.push({ role: "assistant", content: r.reply, at, took: 0 });
+        saveHistory(); drawLog();
+        if (r.reply) { replyStamp = ""; speakLine(r.reply); }
+        R.status(r.status || r.reply?.replace(/\[[a-z]+\]\s*/g, "") || "Done", !!r.bad);
+        return true;
+      }
+    }
     if (busy) { if (opts.fromChat || idle) return false; stop(); }
     if (idle && (!online || locked || !S.model)) return false;
     if (!idle) {
@@ -1481,7 +1501,7 @@
     twitch: () => ({ on: !!(S.twitchOn && S.channel), channel: S.channel, connected: tw.ws?.readyState === 1 }),
     device: () => deviceNow(),
     videoSpec: null, tap: null,
-    extraTools, extraPrompt, extraContext, noTools: () => noTools, history: () => history,
+    extraTools, extraPrompt, extraContext, instant, noTools: () => noTools, history: () => history,
   };
   window.RosinBrain = { say: (t) => { unlock(); ask(t); }, resend: () => { unlock(); return resend(); }, micStart, micStop, stop, ask, chatterNow, settings: S, _hooks: hooks,
     // The apps can switch this as they go, e.g. "android-widget" while a reply is for the home screen widget.

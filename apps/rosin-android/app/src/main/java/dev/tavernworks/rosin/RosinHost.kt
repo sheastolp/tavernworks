@@ -30,6 +30,7 @@ import org.json.JSONObject
 object RosinHost {
     const val HOST = "tavernworks.dev"
     private const val BASE_URL = "https://tavernworks.dev/rosin/?app=android"
+    private val SPOTIFY_SIGN_IN = setOf("accounts.spotify.com", "challenge.spotify.com", "auth-callback.spotify.com")
 
     private val main = Handler(Looper.getMainLooper())
     private lateinit var app: Context
@@ -84,7 +85,10 @@ object RosinHost {
         w.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val uri = request.url
+                if (!request.isForMainFrame) return false   // frames inside the page (Spotify's player) stay in the page
                 if (uri.scheme == "https" && uri.host == HOST) return false
+                // Spotify's sign-in opens inside the app, so the sign-in comes back to Rosin here and not to a browser.
+                if (uri.scheme == "https" && SPOTIFY_SIGN_IN.any { uri.host == it }) return false
                 try { app.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
                 return true
             }
@@ -113,6 +117,11 @@ object RosinHost {
             }
             override fun onPermissionRequest(request: PermissionRequest) {
                 val fromRosin = request.origin?.host == HOST
+                // Spotify's player (Play music in Rosin) needs the DRM key system, from Rosin's page or Spotify's player frame.
+                if (request.resources.all { it == PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID }) {
+                    if (fromRosin || request.origin?.host == "sdk.scdn.co") request.grant(arrayOf(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) else request.deny()
+                    return
+                }
                 val wantsMic = request.resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
                 val a = activity
                 if (!fromRosin || !wantsMic || a == null) { request.deny(); return }

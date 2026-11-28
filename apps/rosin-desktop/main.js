@@ -44,6 +44,8 @@ let quitting = false;
 let hidden = false;  // "Hide Rosin": both windows away, still in the tray
 
 const isRosinUrl = (u) => { try { const x = new URL(u); return x.protocol === "https:" && x.hostname === HOST; } catch { return false; } };
+// Spotify's sign-in (rosin/rosin-spotify.js) opens in Rosin's window, so it comes back to Rosin and not to a browser.
+const isSpotifySignIn = (u) => { try { const x = new URL(u); return x.protocol === "https:" && ["accounts.spotify.com", "challenge.spotify.com"].includes(x.hostname); } catch { return false; } };
 
 function onScreen(b) {
   if (!b) return false;
@@ -99,7 +101,7 @@ function createWindows() {
 
   const wc = win.webContents;
   wc.setWindowOpenHandler(({ url }) => { if (!isRosinUrl(url)) shell.openExternal(url); return { action: "deny" }; });
-  wc.on("will-navigate", (e, url) => { if (!isRosinUrl(url)) { e.preventDefault(); shell.openExternal(url); } });
+  wc.on("will-navigate", (e, url) => { if (!isRosinUrl(url) && !isSpotifySignIn(url)) { e.preventDefault(); shell.openExternal(url); } });
   wc.on("dom-ready", () => wc.insertCSS(fs.readFileSync(path.join(__dirname, "desktop.css"), "utf8")));
   wc.on("did-fail-load", (_e, code, desc, url, isMain) => {
     if (!isMain || code === -3) return;   // -3 is an aborted load, not a failure
