@@ -1236,7 +1236,9 @@
   // Runs with the tab in the background on PCs and the Legion Go 2; phones wait until the page is back in front.
   function partOfDay() {
     const h = new Date().getHours();
-    return h < 5 ? "the middle of the night" : h < 12 ? "morning" : h < 17 ? "afternoon" : h < 21 ? "evening" : "late at night";
+    const time = h < 5 ? "the middle of the night" : h < 12 ? "morning" : h < 17 ? "afternoon" : h < 21 ? "evening" : "late at night";
+    const isCoffeeTime = (h >= 8 && h < 11) || (h >= 14 && h < 16);
+    return isCoffeeTime ? `it's a perfect time for a virtual coffee tray` : `it's ${time}`;
   }
   function chatterCue() {
     const who = S.name ? S.name.trim().slice(0, 40) : "whoever's around";
