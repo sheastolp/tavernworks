@@ -302,6 +302,18 @@ sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart local-ai-gate</pr
 <pre>curl -s http://127.0.0.1:8793/health</pre>
         <p class="note">That should say <code>"google":true</code>. In Rosin, <b>⋯ → Rosin can use my Google</b> shows the account, and <b>✉️ Mail</b> asks what in your email needs you. Rosin treats what emails say as information and never as instructions. It can't delete mail for good (trash only) or change Drive. To stop it, untick the setting, or remove Rosin under <b>myaccount.google.com → Security → Your connections to third-party apps</b>.</p>
       </li>
+      <li id="sync">
+        <h4>Rosin on every device: sync, Twitch chat and OBS</h4>
+        <p>Rosin's settings, the Twitch channel and how it answers chat, Initiative, Compass and the Spotify sign-in sync through the laptop between your phone, the Windows app and any browser, in about a second. The microphone pick and the device's own voices stay on each device. Only one device answers Twitch chat at a time: the Windows app takes over from the phone, and <b>⋯ → Twitch → Answer chat from here</b> moves it. The laptop needs a state folder to keep these, once, one at a time as root:</p>
+<pre>curl -fsSL https://tavernworks.dev/local-ai/gate/server.mjs -o /opt/local-ai-gate/server.mjs</pre>
+<pre>mkdir -p /etc/systemd/system/local-ai-gate.service.d</pre>
+<pre>printf '[Service]\nStateDirectory=local-ai-gate\n' &gt; /etc/systemd/system/local-ai-gate.service.d/state.conf</pre>
+<pre>systemctl daemon-reload</pre>
+<pre>systemctl restart local-ai-gate</pre>
+        <p><b>Twitch:</b> the chip next to Rosin's status says <b>● #channel</b> once Twitch confirms the channel, and tapping it opens <b>⋯ → Twitch</b> with the last message seen and who's answering. Rosin answers out loud and on screen. To have it type the answers in chat too, make an app at <b>dev.twitch.tv/console</b> (Category Chat Bot, Client Type <b>Public</b>, OAuth Redirect URL <code>http://localhost</code>), paste its Client ID under <b>⋯ → Twitch</b>, tap <b>Link the chat account</b> and enter the code at twitch.tv/activate while signed in as the account that should post (a separate bot account works best). The laptop keeps that sign-in.</p>
+        <p><b>OBS:</b> in the Windows app (from the version after 1.0.11), tray icon → <b>Stream window for OBS</b> opens "Rosin – Stream", Rosin alone with no menus. In OBS, Window Capture that window with Capture Method <b>Windows 10 (1903 and up)</b>, and don't minimize it. Tray → <b>Stream background → Green</b> plus OBS's Chroma Key filter leaves just Rosin. In a PC browser, <b>⋯ → Stream window</b> does the same.</p>
+        <p><b>Your mic:</b> <b>⋯ → Microphone</b>, pick the same mic as OBS's Mic/Aux (Windows lets both use it, so there's no cable or plugin), and tick <b>Listen for “Rosin”</b>. Start with its name: "Rosin, skip this song", "Rosin, stop answering chat", "Rosin, look happy", or just talk to it.</p>
+      </li>
       <li>
         <h4>Optional: Claude Code, for me only</h4>
         <p>The Claude Code bridge adds Claude Code to the chat's model list. It runs Claude Code on my Claude account as its own <code>claude-bridge</code> user, in a work folder on the laptop, and only answers requests carrying its token. It can run commands, so it stays on the tailnet and never goes through the gate. Setup in its <a href="https://github.com/sheastolp/tavernworks/tree/main/local-ai/claude-bridge" target="_blank" rel="noopener" style="color:var(--gold2)">README</a>; then paste the token into the chat's <b>⚙ Settings</b> on a device that's on the tailnet:</p>

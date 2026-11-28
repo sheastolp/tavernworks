@@ -280,6 +280,11 @@
   });
   H.later(4000, refresh);
 
+  window.addEventListener("rosin-synced", (e) => {   // changed on another of Sheamus's devices
+    const { k, v } = e.detail || {};
+    if (k === "self.on") { on = !!v; onBox.checked = on; }
+    else if (k === "self.repo") { drawRepos(); }
+  });
   B.self = { refresh, items: () => items.slice(), repos: () => repos.slice(), open: () => openPanel(true), draw };
 
   // ---------- picking up a new version of this page ----------

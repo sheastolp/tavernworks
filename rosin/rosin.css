@@ -501,3 +501,37 @@ html.look-preview #badge { display: none; }
 /* Bottom of the ⋯ menu: which Rosin and which version (rosin-web.js). */
 #more .ver { order: 99; flex: 1 1 100%; margin: 6px 0 0; padding-top: 8px; border-top: 1px solid rgba(243, 220, 192, 0.15);
              font-size: 14px; text-align: center; opacity: 0.8; overflow-wrap: anywhere; }
+
+/* Twitch (rosin-sync.js): the chip under the status line says whether Rosin is watching the channel; ⋯ → Twitch has the rest. */
+#controls .tw-chip { align-self: center; min-height: 36px; padding: 4px 14px; border-radius: 999px; font-size: 14px; font-weight: 600;
+  background: rgba(20, 14, 8, 0.9); border: 1px solid #5a4a36; color: #f3dcc0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#controls .tw-chip[data-state="watching"] { border-color: #6fbf73; color: #b9f0bb; }
+#controls .tw-chip[data-state="error"], #controls .tw-chip[data-state="lost"] { border-color: #e0884a; color: #ffb36b; }
+#twitch { flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; gap: 8px;
+          background: rgba(12, 10, 6, 0.92); border: 1px solid #3b2414; border-radius: 12px; padding: 10px 12px;
+          max-height: max(140px, var(--tray-max)); overflow-y: auto; overflow-x: hidden;
+          -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; box-sizing: border-box; }
+#twitch > * { min-width: 0; flex-shrink: 0; }
+#twitch[hidden], #twitch [hidden] { display: none !important; }
+#twitch p { margin: 0; font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
+#twitch .tw-h { font-weight: 600; color: #e8c877; margin-top: 4px; }
+#twitch .tw-now { font-weight: 600; color: #ffb36b; }
+#twitch .tw-now[data-state="watching"] { color: #b9f0bb; }
+#twitch .tw-dim { opacity: 0.8; font-size: 14px; }
+#twitch .tw-link { display: flex; flex-direction: column; gap: 8px; }
+#twitch .tw-code { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid #6b3b1f; border-radius: 12px; }
+#twitch .tw-code a { color: #ffb25c; }
+#twitch .tw-big { font: 700 28px/1.2 ui-monospace, monospace; letter-spacing: 0.15em; color: #fff; user-select: all; }
+#twitch .field { flex: 0 0 auto; }
+#twitch select, #twitch input[type="text"], #twitch input[type="number"] {
+  min-height: 44px; padding: 8px 10px; border-radius: 12px; border: 1px solid #6b3b1f; box-sizing: border-box;
+  background: rgba(20, 14, 8, 0.95); color: inherit; font: inherit; font-size: 16px; width: 100%; color-scheme: dark; }
+#twitch button { min-height: 44px; }
+@media (max-height: 500px) { #twitch { width: 100%; } }
+body.obs #twitch, body.obs .tw-chip, html.buddy #twitch, html.buddy #btn-twitch, html.buddy .tw-chip { display: none !important; }
+
+/* The stream view (?view=stream, rosin-mirror.js): Rosin alone for OBS Window Capture. */
+body.mirror #controls, body.mirror #wake, body.mirror #badge, body.mirror .tray, body.mirror #callpill { display: none !important; }
+body.mirror { cursor: none; }
+body.mirror.mirror-green { background: #00b140 !important; }
+body.mirror.mirror-green #embers { display: none; }

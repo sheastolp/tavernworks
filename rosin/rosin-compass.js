@@ -443,5 +443,16 @@
     log = []; saveLog(); draw();
   });
 
+  window.addEventListener("rosin-synced", (e) => {   // changed on another of Sheamus's devices
+    const { k, v } = e.detail || {};
+    if (!k || !k.startsWith("compass.")) return;
+    const f = k.slice(8);
+    if (!["track", "suggest", "pace", "remind", "things", "calUrl"].includes(f)) return;
+    C[f] = v;
+    trackBox.checked = C.track; sugBox.checked = C.suggest; remBox.checked = C.remind; paceSel.value = PACE[C.pace] ? C.pace : "sometimes";
+    thingsIn.value = C.things || ""; urlIn.value = C.calUrl || "";
+    if (f === "calUrl") { icsText.link = ""; icsText.linkAt = 0; calNote = ""; store.set("compass.calText", ""); if (C.calUrl) fetchLink(true); else refreshEvents(); }
+    draw(); H.fit();
+  });
   B.compass = { check, stats, insights, energyNow, events: () => events.slice(), parseICS, expandICS, suggestionCue, insightCue, reminderCue, draw, settings: C };
 })();
