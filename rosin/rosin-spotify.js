@@ -72,6 +72,7 @@
   // Back from Spotify's sign-in page: swap the code for tokens, then go back to the page as it was (the apps' ?app=… included).
   async function finishSignIn() {
     const q = new URLSearchParams(location.search), state = q.get("state");
+    if (q.get("spotify_handback") === "old") return oldApp();
     if (!state || (!q.get("code") && !q.get("error"))) return false;
     const p = store.get("spotify.pending", null);
     if (!p || p.state !== state) return handBack(q);
@@ -93,8 +94,11 @@
     if (!m || q.get("app")) return false;   // already in the app (an old or stray answer): nothing to hand back
     const params = new URLSearchParams();
     for (const k of ["code", "state", "error"]) if (q.get(k)) params.set(k, q.get(k));
+    // An app too old to take the link (before 1.0.9) would send Chrome to a Play Store page that doesn't exist, so
+    // Chrome comes back here instead (S.browser_fallback_url) and says to update the app.
+    const fallback = encodeURIComponent(location.origin + location.pathname + "?spotify_handback=old");
     const link = m[1] === "a"
-      ? `intent://spotify-callback?${params}#Intent;scheme=rosin;package=dev.tavernworks.rosin;end`
+      ? `intent://spotify-callback?${params}#Intent;scheme=rosin;package=dev.tavernworks.rosin;S.browser_fallback_url=${fallback};end`
       : `rosin://spotify-callback?${params}`;
     const box = el("div", "sp-handback");
     box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Finish connecting Spotify in the Rosin app");
@@ -108,6 +112,17 @@
     box.append(h, t, go, small, stay);
     document.body.append(box);
     setTimeout(() => { try { location.href = link; } catch {} }, 300);   // most browsers open the app straight away
+    return true;
+  }
+  function oldApp() {   // the Rosin app couldn't take Spotify's answer: it's older than 1.0.9
+    const box = el("div", "sp-handback");
+    box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Update the Rosin app");
+    const h = el("p", "sp-handback-title", "Update the Rosin app");
+    const t = el("p", "", "Your Rosin app is too old to finish connecting Spotify. Update it to 1.0.9 or newer, open it and press Connect Spotify again.");
+    const ok = el("button", "sp-handback-stay", "OK"); ok.type = "button";
+    ok.addEventListener("click", () => { box.remove(); history.replaceState(null, "", location.pathname); });
+    box.append(h, t, ok);
+    document.body.append(box);
     return true;
   }
   let refreshing = null;

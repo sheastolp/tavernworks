@@ -1286,6 +1286,14 @@
 
   // ---------- settings menu and chat history ----------
   const more = $("more");
+  // Bottom of the ⋯ menu: which Rosin this is. The apps put their version in the user agent (Rosin/1.0.10) from 1.0.10 on.
+  {
+    const v = (navigator.userAgent.match(/\bRosin\/(\d[\w.-]*)/) || [])[1];
+    const appKind = (new URLSearchParams(location.search).get("app") || "").toLowerCase();
+    const kind = appKind === "android" ? "Android app" : appKind === "desktop" ? "Windows app" : "";
+    const ver = $("ver");
+    if (ver) ver.textContent = kind ? `Rosin ${kind} · version ${v || "1.0.9 or older"}` : "Rosin on the web · always the newest version";
+  }
   const field = (label, el) => { const w = document.createElement("label"); w.className = "field"; const s = document.createElement("span"); s.textContent = label; w.append(s, el); return w; };
   const check = (label) => { const w = document.createElement("label"); w.className = "chk"; const i = document.createElement("input"); i.type = "checkbox"; w.append(i, " " + label); return [w, i]; };
   const keyIn = Object.assign(document.createElement("input"), { type: "password", placeholder: "only on Sheamus's devices", value: window.GateKey?.get() || "", autocomplete: "off", spellcheck: false, autocapitalize: "off" });
