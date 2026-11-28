@@ -1,4 +1,5 @@
 // Made by rosin/tools/build_layers.py. Pixel positions on a 1382x1698 canvas.
+// The eye was then moved 97 px left to the middle of the orb (tools/center_eye.py) so Rosin looks straight ahead.
 window.ROSIN_LAYERS = {
  "W": 1382,
  "H": 1698,
@@ -120,11 +121,11 @@ window.ROSIN_LAYERS = {
   "note": "the sheet's own smoke under the orb (tools/cut_smoke.py), drawn by rosin.js as its own moving layer, lower and taller than on the sheet (showY, showH) so Rosin and the smoke stand closer to 9:16"
  },
  "eye": {
-  "x": 600,
+  "x": 503,
   "y": 768,
   "w": 504,
   "h": 412,
-  "cx": 852.0,
+  "cx": 755.0,
   "cy": 974.0,
   "rx": 197.2,
   "ry": 149.4
