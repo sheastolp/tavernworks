@@ -68,7 +68,9 @@
     part.appendChild(img); rig.appendChild(part);
   }
   const E = L.eye;
-  rig.style.transformOrigin = rosin.style.transformOrigin = `${pct(E.cx, L.W)} ${pct(E.cy, L.H)}`;
+  rig.style.transformOrigin = `${pct(E.cx, L.W)} ${pct(E.cy, L.H)}`;
+  // Rosin is shown mirrored (#turn in rosin.css) so it faces left: its eye sits left of the middle, at W - cx.
+  rosin.style.transformOrigin = `${pct(L.W - E.cx, L.W)} ${pct(E.cy, L.H)}`;
   place(document.getElementById("eye"), E.x, E.y, E.w, E.h);
   place(document.getElementById("lids"), E.cx - E.rx, E.cy - E.ry, 2 * E.rx, 2 * E.ry);
   const ge = document.getElementById("glow-eye");
@@ -475,7 +477,7 @@
       const glow = shown > 0 ? shown : 0;
       if (parts.length < MAX_EMBERS * (1 + glow * 1.5) && Math.random() < 0.5 + glow) {
         const b = rosin.getBoundingClientRect(), r = b.width * 0.55;
-        parts.push({ x: b.left + b.width * 0.56 + (Math.random() - 0.5) * r, y: b.top + b.height * (0.62 + Math.random() * 0.12),
+        parts.push({ x: b.left + b.width * 0.44 + (Math.random() - 0.5) * r, y: b.top + b.height * (0.62 + Math.random() * 0.12),
                      vx: (Math.random() - 0.5) * 0.4, vy: -0.3 - Math.random() * (0.6 + glow * 1.5),
                      life: 1, s: 1 + Math.random() * 2.5 });
       }
