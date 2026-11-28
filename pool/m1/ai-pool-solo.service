@@ -1,5 +1,5 @@
 [Unit]
-Description=AI Pool solo — Qwen2.5-14B on the FX705 alone (GPU + CPU layers)
+Description=AI Pool solo — llama-server on the FX705 alone (GPU + CPU layers)
 After=network-online.target tailscaled.service
 Wants=network-online.target
 Conflicts=ai-pool-host.service

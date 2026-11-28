@@ -1,5 +1,5 @@
 [Unit]
-Description=AI Pool host — pooled 14B llama-server (FX705 + Yoga split)
+Description=AI Pool host — split llama-server (FX705 card + RPC workers)
 After=network-online.target tailscaled.service
 Wants=network-online.target
 Conflicts=ai-pool-solo.service

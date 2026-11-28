@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # AI Pool M1 — FX705 host: install the pinned CUDA build, fetch the
-# model (checksum-verified), start the pooled 14B.
+# model (checksum-verified), start the pooled split model.
 # Run this on the FX705. Safe to re-run; downloads resume, checks repeat.
 set -euo pipefail
 

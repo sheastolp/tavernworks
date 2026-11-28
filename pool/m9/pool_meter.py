@@ -260,6 +260,122 @@ def layer_ranges(n_layer_all, shares):
     return out
 
 
+# ---------------- model file ----------------
+
+def gguf_layout(path):
+    """Read a GGUF file's header only: (kv, tensors) where kv holds
+    the scalar and string keys and tensors maps name -> bytes in the
+    file. Sizes come from the gaps between tensor offsets, so no
+    quant-type table is needed. llama-server at its default log level
+    prints none of its per-device layer or buffer lines, so the
+    meter works the split's layout out from the file itself."""
+    import struct
+    scal = {0: "<B", 1: "<b", 2: "<H", 3: "<h", 4: "<I", 5: "<i", 6: "<f",
+            7: "<?", 10: "<Q", 11: "<q", 12: "<d"}
+    with open(path, "rb") as f:
+        def rd(n):
+            b = f.read(n)
+            if len(b) != n:
+                raise ValueError("GGUF header ended early")
+            return b
+        def u32():
+            return struct.unpack("<I", rd(4))[0]
+        def u64():
+            return struct.unpack("<Q", rd(8))[0]
+        def string():
+            return rd(u64()).decode("utf-8", "replace")
+        def value(t):
+            if t in scal:
+                fmt = scal[t]
+                return struct.unpack(fmt, rd(struct.calcsize(fmt)))[0]
+            if t == 8:
+                return string()
+            if t == 9:
+                it, n = u32(), u64()
+                if it in scal:
+                    f.seek(struct.calcsize(scal[it]) * n, 1)
+                else:
+                    for _ in range(n):
+                        value(it)
+                return None
+            raise ValueError("unknown GGUF value type " + str(t))
+        if rd(4) != b"GGUF":
+            raise ValueError("not a GGUF file")
+        if u32() < 2:
+            raise ValueError("GGUF version too old")
+        n_t, n_kv = u64(), u64()
+        kv = {}
+        for _ in range(n_kv):
+            k = string()
+            v = value(u32())
+            if v is not None:
+                kv[k] = v
+        infos = []
+        for _ in range(n_t):
+            name = string()
+            nd = u32()
+            f.seek(8 * nd, 1)
+            u32()  # type
+            infos.append((u64(), name))
+        align = int(kv.get("general.alignment") or 32)
+        start = (f.tell() + align - 1) // align * align
+        end = os.path.getsize(path)
+    infos.sort()
+    tensors = {}
+    for i, (off, name) in enumerate(infos):
+        nxt = infos[i + 1][0] if i + 1 < len(infos) else end - start
+        tensors[name] = max(0, nxt - off)
+    return kv, tensors
+
+
+def model_layout(path):
+    """{n_layer_all, layer_mb: [MiB per block], output_mb, kv_per_tok}
+    for a GGUF, or None when it can't be read. kv_per_tok is the KV
+    cache bytes per context token per block (0 for blocks without
+    attention, e.g. Qwen3.5's linear-attention blocks)."""
+    try:
+        kv, tensors = gguf_layout(path)
+    except Exception:
+        return None
+    arch = kv.get("general.architecture") or ""
+    n = kv.get(arch + ".block_count")
+    if not isinstance(n, int) or n <= 0:
+        return None
+    mib = 1024.0 * 1024.0
+    layer = [0.0] * n
+    for name, nb in tensors.items():
+        if name.startswith("blk."):
+            try:
+                il = int(name.split(".")[1])
+            except ValueError:
+                continue
+            if 0 <= il < n:
+                layer[il] += nb / mib
+    out = sum(tensors.get(t, 0) for t in ("output.weight", "output_norm.weight"))
+    if "output.weight" not in tensors:      # tied embeddings: llama.cpp copies them to the output device
+        out += tensors.get("token_embd.weight", 0)
+    heads = kv.get(arch + ".attention.head_count") or 0
+    heads_kv = kv.get(arch + ".attention.head_count_kv") or heads
+    emb = kv.get(arch + ".embedding_length") or 0
+    k_len = kv.get(arch + ".attention.key_length") or (emb // heads if heads else 0)
+    v_len = kv.get(arch + ".attention.value_length") or k_len
+    per_tok = 2 * int(heads_kv) * (int(k_len) + int(v_len))   # f16 K + V
+    names = {}
+    for t in tensors:
+        if t.startswith("blk."):
+            parts = t.split(".")
+            if len(parts) > 2 and parts[1].isdigit():
+                names.setdefault(int(parts[1]), set()).add(parts[2])
+    kv_tok = []
+    for il in range(n):
+        nm = names.get(il, set())
+        # A linear-attention block (Qwen3.5's Gated DeltaNet) carries
+        # ssm_* tensors and keeps a small fixed state, not a KV cache.
+        attn = bool(nm & {"attn_k", "attn_k_norm", "attn_qkv"}) and "ssm_conv1d" not in nm
+        kv_tok.append(per_tok if attn else 0)
+    return {"n_layer_all": n, "layer_mb": layer, "output_mb": out / mib, "kv_per_tok": kv_tok}
+
+
 # ---------------- journal follower ----------------
 
 RE_LOAD = re.compile(r"load_model: loading model '([^']+)'")
@@ -270,6 +386,9 @@ RE_OFFLOAD = re.compile(r"offloaded (\d+)/(\d+) layers to GPU")
 RE_MBUF = re.compile(r"load_tensors:\s+(\S+) model buffer size =\s*([\d.]+) MiB")
 RE_KV = re.compile(r"(\S+) KV buffer size =\s*([\d.]+) MiB")
 RE_DRAFT_ECHO = re.compile(r">> Draft: (.+?)(?: \(|$)")
+RE_RPC_ECHO = re.compile(r">> RPC devices \(coordinator's list\): (\S+)")
+RE_SPLIT_ECHO = re.compile(r">> Tensor split: ([\d.,]+)")
+RE_CTX = re.compile(r"initializing, n_slots = (\d+), n_ctx_slot = (\d+), kv_unified = '(\w+)'")
 RE_SLOT = r"id\s+(\d+) \| task (-?\d+) \|"
 RE_PROMPT = re.compile(RE_SLOT + r" prompt eval time =\s*([\d.]+) ms /\s*(\d+) tokens")
 RE_EVAL = re.compile(RE_SLOT + r"\s+eval time =\s*([\d.]+) ms /\s*(\d+) tokens")
@@ -279,13 +398,19 @@ RE_DRAFTACC = re.compile(RE_SLOT + r" draft acceptance = ([\d.]+) \(\s*(\d+) acc
 
 class LoadInfo:
     """What the brain loaded in one start: model, devices in split
-    order with their layers and memory."""
+    order with their layers and memory. llama-server's default log
+    level hides its per-device lines, so layers and weights come from
+    the model file's header (exact), and the KV cache is worked out
+    from the context size (an estimate). Buffer lines, when a higher
+    log level prints them, win over both."""
 
-    def __init__(self, unit, model_path, ts):
+    def __init__(self, unit, model_path, ts, rpc_echo="", split_echo=""):
         self.unit = unit
         self.mode = UNITS.get(unit, "solo")
+        self.model_path = model_path
         self.model = os.path.basename(model_path)
-        self.ts = ts
+        self.ts = ts             # load started
+        self.loaded_ts = None    # "model loaded" printed
         self.phase = 0          # 1 = main model's print_info, 2 = draft's
         self.n_layer_all = None
         self.offloaded = None
@@ -293,39 +418,66 @@ class LoadInfo:
         self.kv = {}
         self.draft_mb = 0.0
         self.draft = ""
-        # The split's device list is what the coordinator wrote for
-        # this start (the host script reads the same two files).
+        self.n_ctx = None        # KV cells across all slots
+        self._layout = False     # not read yet
+        # The split's device list: what the host script echoed for
+        # this start, else what the coordinator's files say now.
         self.rpc = []
         self.shares = []
         if self.mode == "split":
-            self.rpc = [e for e in read_line(RPC_PATH).replace(" ", "").split(",") if e]
+            rpc = rpc_echo or read_line(RPC_PATH)
+            self.rpc = [e for e in rpc.replace(" ", "").split(",") if e]
             try:
-                self.shares = [float(x) for x in read_line(SPLIT_PATH).split(",") if x.strip()]
+                self.shares = [float(x) for x in (split_echo or read_line(SPLIT_PATH)).split(",") if x.strip()]
             except ValueError:
                 self.shares = []
         self.names = endpoint_names()
+
+    def layout(self):
+        if self._layout is False:
+            self._layout = model_layout(self.model_path)
+        return self._layout
+
+    def n_layers(self):
+        if self.n_layer_all:
+            return self.n_layer_all
+        lay = self.layout()
+        return lay["n_layer_all"] if lay else None
 
     def devices(self):
         """[{name, kind, endpoint, layers, model_mb, kv_mb}] in split
         order (relays and tailnet first, FX705 RAM, the card last)."""
         devs = []
+        n_all = self.n_layers()
         if self.mode == "split" and self.rpc:
             names = self.names
             shares = self.shares if len(self.shares) == len(self.rpc) + 1 else [1.0] * (len(self.rpc) + 1)
-            ranges = layer_ranges(self.n_layer_all, shares) if self.n_layer_all else [(None, None, False)] * len(shares)
+            ranges = layer_ranges(n_all, shares) if n_all else [(None, None, False)] * len(shares)
             for i, ep in enumerate(self.rpc):
-                nm, kind = names.get(ep, (ep, "relay" if ep.startswith("127.0.0.1:511") else "tailnet"))
+                fallback = (("FX705 RAM", "hostram") if ep == "127.0.0.1:50060" else
+                            (ep, "relay" if ep.startswith("127.0.0.1:511") else "tailnet"))
+                nm, kind = names.get(ep, fallback)
                 buf = "RPC" + str(i) + "[" + ep + "]"
                 devs.append(self._dev(nm, kind, ep, ranges[i], buf))
             devs.append(self._dev("FX705 card", "card", "CUDA0", ranges[-1], "CUDA0"))
         else:
+            lay = self.layout()
+            model_mb = sum(self.mbuf.values())
+            if not model_mb and lay:
+                model_mb = sum(lay["layer_mb"]) + lay["output_mb"]
+            kv_mb = sum(self.kv.values())
+            kv_est = False
+            if not kv_mb and lay and self.n_ctx:
+                kv_mb = sum(lay["kv_per_tok"]) * self.n_ctx / (1024.0 * 1024.0)
+                kv_est = True
             devs.append({"name": "FX705", "kind": "solo", "endpoint": "local",
-                         "layers": ("all " + str(self.n_layer_all) if self.n_layer_all else "all") +
+                         "layers": ("all " + str(n_all) if n_all else "all") +
                          (" (" + str(self.offloaded[0]) + "/" + str(self.offloaded[1]) +
                           " offloaded to the card)" if self.offloaded else ""),
-                         "model_mb": round(sum(self.mbuf.values()), 1),
+                         "n_layers": n_all or 0,
+                         "model_mb": round(model_mb, 1),
                          "card_mb": round(sum(v for k, v in self.mbuf.items() if k.startswith("CUDA")), 1),
-                         "kv_mb": round(sum(self.kv.values()), 1)})
+                         "kv_mb": round(kv_mb, 1), "kv_est": kv_est})
         return devs
 
     def _dev(self, name, kind, ep, rng, buf):
@@ -334,17 +486,41 @@ class LoadInfo:
             layers = "output only" if out else "none"
         else:
             layers = str(first) + "-" + str(last) + (" + output" if out else "")
+        lay = self.layout()
+        model_mb = self.mbuf.get(buf, 0.0)
+        if not model_mb and lay:
+            if first is not None:
+                model_mb = sum(lay["layer_mb"][first:last + 1])
+            if out:
+                model_mb += lay["output_mb"]
+        kv_mb = self.kv.get(buf, 0.0)
+        kv_est = False
+        if not kv_mb and lay and self.n_ctx and first is not None:
+            kv_mb = sum(lay["kv_per_tok"][first:last + 1]) * self.n_ctx / (1024.0 * 1024.0)
+            kv_est = True
         return {"name": name, "kind": kind, "endpoint": ep, "layers": layers,
                 "n_layers": 0 if first is None else last - first + 1,
-                "model_mb": round(self.mbuf.get(buf, 0.0), 1),
-                "kv_mb": round(self.kv.get(buf, 0.0), 1)}
+                "model_mb": round(model_mb, 1),
+                "kv_mb": round(kv_mb, 1), "kv_est": kv_est}
 
     def to_dict(self):
-        return {"mode": self.mode, "model": self.model, "loaded": iso(self.ts),
-                "n_layer_all": self.n_layer_all, "draft": self.draft,
+        return {"mode": self.mode, "model": self.model,
+                "started": iso(self.ts),
+                "loaded": iso(self.loaded_ts) if self.loaded_ts else None,
+                "load_s": round(self.loaded_ts - self.ts) if self.loaded_ts else None,
+                "n_layer_all": self.n_layers(), "draft": self.draft,
                 "draft_mb": round(self.draft_mb, 1), "devices": self.devices()}
 
-    def feed(self, msg):
+    def feed(self, msg, ts=None):
+        if RE_LOADED.search(msg):
+            if self.loaded_ts is None:
+                self.loaded_ts = ts or time.time()
+            return
+        m = RE_CTX.search(msg)
+        if m:
+            slots, per = int(m.group(1)), int(m.group(2))
+            self.n_ctx = per if m.group(3).lower() == "true" else per * slots
+            return
         m = RE_NLAYER.search(msg)
         if m:
             self.phase += 1
@@ -481,6 +657,8 @@ class Meter:
         self.bench_seen = 0      # live replies seen during the bench window
         self.hooks = {}
         self.draft_echo = {}     # unit -> draft the host script said it starts with
+        self.rpc_echo = {}       # unit -> RPC list the host script echoed for its latest start
+        self.split_echo = {}     # unit -> tensor split it echoed
         self.bench_sigs = []     # (prompt_n, gen_n, end) of benchmark requests
         self.status = "starting"
         self.lock = threading.Lock()
@@ -579,10 +757,19 @@ class Meter:
     def _on_line(self, unit, msg, ts, cursor, prime):
         m = RE_LOAD.search(msg)
         if m:
-            li = LoadInfo(unit, m.group(1), ts)
+            li = LoadInfo(unit, m.group(1), ts,
+                          self.rpc_echo.get(unit, ""), self.split_echo.get(unit, ""))
             li.draft = self.draft_echo.get(unit, "") if li.mode == "split" else ""
             self.loads[unit] = li
             self.current_unit = unit
+            return
+        m = RE_RPC_ECHO.search(msg)
+        if m:
+            self.rpc_echo[unit] = m.group(1)
+            return
+        m = RE_SPLIT_ECHO.search(msg)
+        if m:
+            self.split_echo[unit] = m.group(1).strip(",")
             return
         m = RE_DRAFT_ECHO.search(msg)
         if m:
@@ -593,8 +780,9 @@ class Meter:
             self.draft_echo[unit] = ""
             return
         li = self.loads.get(unit)
-        if li and (RE_NLAYER.search(msg) or RE_MBUF.search(msg) or RE_KV.search(msg) or RE_OFFLOAD.search(msg)):
-            li.feed(msg)
+        if li and (RE_NLAYER.search(msg) or RE_MBUF.search(msg) or RE_KV.search(msg) or
+                   RE_OFFLOAD.search(msg) or RE_CTX.search(msg) or RE_LOADED.search(msg)):
+            li.feed(msg, ts)
             return
         if prime:
             return
@@ -1362,8 +1550,13 @@ function render(d){
   if (!a.solo && !a.split) h += `<p class="fine">No replies logged in the last day.</p>`;
   h += `</div>${spark(d.replies || [])}</div>`;
   if (d.load) {
-    h += `<h2>Machines in the brain now</h2><div class="card"><p class="fine"><span class="${d.load.mode}">${esc(d.load.mode)}</span> · ${esc(d.load.model)} · ${d.load.n_layer_all || "?"} layers · loaded ${esc(d.load.loaded)}${d.load.draft ? " · draft " + esc(d.load.draft) : ""}</p>`;
-    h += table(["Machine","Kind","Layers","Weights","KV cache"], d.load.devices.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.kind)}</td><td>${esc(x.layers)}</td><td>${f(x.model_mb,0)} MB</td><td>${f(x.kv_mb,0)} MB</td></tr>`));
+    const hm = t => t ? new Date(t).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) : "";
+    const loadTxt = d.load.loaded
+      ? `loaded ${esc(hm(d.load.loaded))}${d.load.load_s != null ? " (took " + (d.load.load_s >= 90 ? Math.round(d.load.load_s / 60) + " min" : d.load.load_s + " s") + ")" : ""}`
+      : `loading since ${esc(hm(d.load.started))}`;
+    const kvEst = d.load.devices.some(x => x.kv_est);
+    h += `<h2>Machines in the brain now</h2><div class="card"><p class="fine"><span class="${d.load.mode}">${esc(d.load.mode)}</span> · ${esc(d.load.model)} · ${d.load.n_layer_all || "?"} layers · ${loadTxt}${d.load.draft ? " · draft " + esc(d.load.draft) : ""}</p>`;
+    h += table(["Machine","Kind","Layers","Weights",kvEst ? "KV cache (est.)" : "KV cache"], d.load.devices.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.kind)}</td><td>${esc(x.layers)}</td><td>${f(x.model_mb,0)} MB</td><td>${x.kv_est ? "~" : ""}${f(x.kv_mb,0)} MB</td></tr>`));
     if (d.host_mem && d.host_mem.gpu) h += `<p class="fine" style="margin-top:.5rem">FX705 card ${d.host_mem.gpu.used_mb} / ${d.host_mem.gpu.total_mb} MB used · RAM ${d.host_mem.mem.available_mb} MB free of ${d.host_mem.mem.total_mb} MB</p>`;
     h += `</div>`;
   }
