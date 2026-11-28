@@ -28,7 +28,8 @@
  * them exactly as it uses the browser's, so the site itself doesn't change.
  *
  * It also skips the "Tap to wake Rosin" screen (the app may play sound without a tap) and reports Rosin's
- * face and what Rosin is saying to the app, which shows them on the floating Rosin's speech bubbles.
+ * face and what Rosin is saying to the app, which shows them on the floating Rosin's speech bubbles, and what
+ * Spotify is playing, for the floating Rosin's music buttons and antenna glow.
  */
 (() => {
   const N = window.RosinNative;
@@ -173,6 +174,7 @@
         thinking: !!document.getElementById("rosin")?.classList.contains("thinking"),
         busy: send?.dataset.stop === "true",
         listening: !!document.getElementById("mic")?.classList.contains("live"),
+        music: (() => { try { return window.RosinMusic?.now?.() || null; } catch { return null; } })(),   // Spotify, for its buttons and glow
       };
       const s = JSON.stringify(state);
       if (s !== last) { last = s; N.state(s); }
@@ -188,6 +190,7 @@
         R[k] = function (...a) { if (k === "talking") talking = !!a[0]; const r = f.apply(this, a); soon(); return r; };
       }
     }
+    window.addEventListener("rosin-music", soon);
     const mo = new MutationObserver(soon);
     for (const id of ["subs", "status", "rosin", "send", "mic"]) {
       const el = document.getElementById(id);

@@ -26,6 +26,7 @@ class RosinService : Service() {
         private const val ACTION_TOGGLE = "dev.tavernworks.rosin.TOGGLE_OVERLAY"
         const val ACTION_REFRESH = "dev.tavernworks.rosin.REFRESH"
         const val EXTRA_TEST_SAY = "rosin.test_say"
+        const val EXTRA_TEST_MUSIC = "rosin.test_music"
         var overlay: RosinOverlay? = null; private set
 
         /** Turns Rosin on (or just re-checks the floating Rosin if it's already on). */
@@ -72,6 +73,12 @@ class RosinService : Service() {
         intent?.getStringExtra(EXTRA_TEST_SAY)?.takeIf { Build.TYPE != "user" }?.let { line ->
             RosinHost.onState(JSONObject().put("face", "happy").put("subs", line).put("talking", true), pinMs = 20_000)
             main.postDelayed({ RosinHost.onState(JSONObject().put("face", "normal")) }, 20_500)
+        }
+        // Also for emulator tests only: a liked song playing, for the music bar and the gold antennae.
+        intent?.getStringExtra(EXTRA_TEST_MUSIC)?.takeIf { Build.TYPE != "user" }?.let { title ->
+            val m = JSONObject().put("title", title).put("by", "Rosin's Test Band").put("playing", true).put("liked", true)
+                .put("canLike", true).put("color", "#ffbf3f")
+            RosinHost.onState(JSONObject().put("face", "normal").put("music", m), pinMs = 15_000)
         }
         return START_STICKY
     }

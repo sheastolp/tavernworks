@@ -58,8 +58,25 @@ read W H < <(a shell wm size | tail -1 | tr -d '\r' | sed 's/.*: //; s/x/ /')
 D=$(a shell wm density | tail -1 | tr -d '\r' | sed 's/.*: //')
 S=$(( 128 * D / 160 )); M=$(( 8 * D / 160 ))
 X=$(( W - M - S / 2 )); Y=$(( H * 55 / 100 + S / 2 ))
-# Close-ups: on the right Rosin should face left (mirrored, eye left of its middle), then right after a drag to the left.
+# Close-ups: Rosin looks straight ahead, its eye turning toward the middle of the screen, on the right and after a drag.
 shot 4b-rosin-right $X $Y
+# A liked song playing: the music bar shows under Rosin and the top antennae glow gold.
+a shell am start -n $PKG/.MainActivity --es rosin.test_music "'Floating Test Song'"
+sleep 4
+a shell input keyevent KEYCODE_HOME
+sleep 4
+shot 4e-music $X $Y
+shot 4f-music-whole
+echo "---- Rosin's windows with a song on (expect Rosin and the music bar):"
+a shell dumpsys window windows | grep -E "Window #.*$PKG" | head -6
+# Tapping play/pause on the bar must not stop Rosin (the page answers it; here the test song just stays put).
+BY=$(( Y + S / 2 + 30 * D / 160 ))
+a shell input tap $X $BY
+sleep 2
+alive || { echo "!!!! the emulator stopped answering after a tap on the music bar"; finish 1; }
+a shell pidof $PKG >/dev/null || { echo "!!!! Rosin stopped after a tap on the music bar"; finish 1; }
+sleep 12
+shot 4g-music-gone $X $Y
 LX=$(( W * 18 / 100 )); LY=$(( H * 25 / 100 ))
 a shell input swipe $X $Y $LX $LY 900
 sleep 3

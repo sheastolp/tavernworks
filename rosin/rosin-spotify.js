@@ -537,6 +537,9 @@
   }
   let paintedFor = "";
   async function paintAntennae() {
+    try { await paintNow(); } finally { window.dispatchEvent(new Event("rosin-music")); }   // the app's floating Rosin follows
+  }
+  async function paintNow() {
     addGems();
     const it = state?.item;
     if (!antOn() || !connected() || !it) { root.style.setProperty("--song-on", "0"); root.classList.remove("song-playing"); paintedFor = ""; return; }
@@ -738,7 +741,7 @@
   // ---------- keeping it up to date ----------
   let slowTicks = 0;   // panel closed: every 10 s, so the antennae catch a new song
   H.tick(1000, () => { if (!music.hidden && state?.is_playing) drawBar(); });
-  H.tick(5000, () => { if (!connected() || document.hidden) return; if (!music.hidden) refreshState(); else if (antOn() && ++slowTicks % 2 === 0) refreshState(); });
+  H.tick(5000, () => { if (!connected() || document.hidden) return; if (!music.hidden) refreshState(); else if ((antOn() || window.RosinNative) && ++slowTicks % 2 === 0) refreshState(); });   // the Android app's floating Rosin shows the song too
   H.tick(60000, () => { if (connected() && !music.hidden) refreshDevices(); });
 
   // ---------- start ----------
@@ -752,6 +755,22 @@
       startPlayer();
     }
   })();
+
+  // ---------- for the Android app's floating Rosin: what's playing, and its buttons (rosin-bridge.js passes it on) ----------
+  const hexOf = (col) => { try { const g = document.createElement("canvas").getContext("2d"); g.fillStyle = "#000"; g.fillStyle = col; return /^#[0-9a-f]{6}$/i.test(g.fillStyle) ? g.fillStyle : ""; } catch { return ""; } };
+  window.RosinMusic = {
+    now() {
+      const it = state?.item;
+      if (!connected() || !it) return null;
+      const col = antOn() ? root.style.getPropertyValue("--song").trim() : "";
+      return { title: it.name || "", by: artistsOf(it), playing: !!state.is_playing, liked: liked === true,
+               canLike: /^spotify:track:/.test(it.uri || ""), color: col ? hexOf(col) : "" };
+    },
+    cmd(c) {
+      const f = { toggle: () => state?.is_playing ? act.pause() : act.resume(), next: act.next, prev: act.previous, like: () => act.like(!liked) }[c];
+      if (f) run(f)();
+    },
+  };
 
   B.spotify = { act, parse, search, connected, refreshState, state: () => state, devices: () => devices.slice(), rosinDevice: () => rosinId, sdk: () => ({ ...sdk }), signIn, signOut, tools };
   async function rosinDevice() {
