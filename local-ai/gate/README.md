@@ -173,6 +173,27 @@ for good), `calendar.events`, `drive.readonly`. Reading answers straight away; a
 is only prepared and runs on `/api/google/confirm`, which the page calls only when Sheamus taps the card showing it.
 Prepared actions expire after 30 minutes or when the gate restarts.
 
+## Sync between devices, Twitch posting and Spotify
+
+Rosin's settings (name, voice, Twitch channel and answer mode, Initiative, Compass, Changes, Google cards) sync between
+the phone, the Windows app and any browser through `GET /api/sync?since=REV&wait=25` (a long poll that answers as soon
+as something changes) and `POST /api/sync`. Only the settings on the gate's list sync; the microphone pick, the device
+name and voices only one device has stay put. One device at a time answers Twitch chat (`POST /api/twitch/here`, every
+15 s; the Windows app takes over from a phone unless the phone took it by hand).
+
+The gate keeps the links that every device shares: the Spotify refresh token (devices get short-lived access tokens
+from `/api/spotify/token`) and, if Sheamus links one, a Twitch account that types Rosin's answers in chat
+(`/api/twitch/link`, Twitch's own code sign-in at twitch.tv/activate; `/api/twitch/say` posts at most one line every
+4 s and 40 every 10 minutes). They're saved in the service's state folder (`sync.json`, `links.json`, mode 600), so the
+service needs one, once, as root:
+
+```sh
+printf '[Service]\nStateDirectory=local-ai-gate\n' > /etc/systemd/system/local-ai-gate.service.d/state.conf
+```
+
+then `systemctl daemon-reload` and `systemctl restart local-ai-gate`. Without it the gate keeps them in memory only and
+they're gone after a restart.
+
 ## Settings
 
 Environment variables, set with `Environment=` in the service file:

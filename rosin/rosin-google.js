@@ -251,5 +251,6 @@
   H.later(2500, refresh);
   H.tick(10 * 60 * 1000, () => { if (!state.ready) refresh(); else drawSetting(); });
 
+  window.addEventListener("rosin-synced", (e) => { if (e.detail?.k === "google.on") { box.checked = enabled(); drawSetting(); } });
   B.google = { refresh, state: () => ({ ...state }), queue: () => queue.slice(), tools, asks: ASKS, call, can };   // call and can: initiative nudges (rosin-initiative.js)
 })();

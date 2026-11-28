@@ -517,6 +517,20 @@
   if (I.screen === "obs") H.later(3 * SEC, obsConnect);
   draw();
 
+  // A setting changed on another of Sheamus's devices (rosin-sync.js already saved it here).
+  window.addEventListener("rosin-synced", (e) => {
+    const { k, v } = e.detail || {};
+    if (!k || !k.startsWith("init.")) return;
+    const f = k.slice(5);
+    if (!(f in I) || f === "screen" || f === "obsUrl" || f === "obsPass") return;
+    if (f === "level" && forcedOff) return;
+    I[f] = v;
+    if (f === "level") { applyLevel(); screenAt = Date.now() + nextGap(); }
+    if (f === "quietFrom") fromIn.value = v; if (f === "quietTo") toIn.value = v; if (f === "modWords") wordsIn.value = v || "";
+    if (f === "hushUntil") H.heardFrom();
+    draw(); H.fit();
+  });
+
   B.initiative = { settings: I, quietNow, flags: () => flags.slice(), lines: () => lines.slice(), checkGoogle, checkCalendar, checkMail, followName, ruleCheck,
     obs: () => ({ ok: obs.ok, err: obs.err }), screenCue, lookAtScreen, flushBatch, draw };
 })();

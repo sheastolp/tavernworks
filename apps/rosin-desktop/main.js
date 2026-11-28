@@ -4,6 +4,11 @@
 // minimising it, Esc, or the ▾ button goes back to just Rosin. The page in the app window is Rosin's brain and
 // keeps running while hidden: Rosin speaks up on its own now and then. Tray icon and hotkeys too.
 //
+// The stream window ("Rosin – Stream", tray → Stream window for OBS, or ⋯ → Stream window): Rosin alone, with no
+// buttons, menus or cards, for OBS Window Capture. It copies the app window as it goes (rosin/rosin-mirror.js), so
+// the app can stay open with its menus while the stream shows only Rosin. Background: the dark grove, or green for
+// OBS's Chroma Key. It keeps drawing while other windows cover it; minimising it would stop OBS seeing it.
+//
 // Hotkeys (anywhere in Windows):
 //   Ctrl+Alt+R   show or hide Rosin
 //   Ctrl+Alt+T   talk to Rosin (starts listening; press again to send)
@@ -23,10 +28,13 @@ const MIN = [440, 620];        // room for the whole page: Rosin, the status lin
 const BUDDY = [250, 340];      // just Rosin, with room above it for the speech bubble
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
+// Windows: Chromium stops drawing a window it thinks is covered, which freezes it in OBS's Window Capture.
+app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion");
 
 // ---------- settings, kept in %APPDATA%\Rosin\desktop.json ----------
 const settingsFile = () => path.join(app.getPath("userData"), "desktop.json");
-let settings = { onTop: false, buddy: true, size: "Medium", appBounds: null, buddyPos: null };
+let settings = { onTop: false, buddy: true, size: "Medium", appBounds: null, buddyPos: null,
+  stream: false, streamBg: "grove", streamSubs: true, streamBounds: null };
 function loadSettings() {
   try { settings = { ...settings, ...JSON.parse(fs.readFileSync(settingsFile(), "utf8")) }; } catch {}
   delete settings.bounds; delete settings.buddyBounds;   // from 1.0.2's single see-through window
@@ -39,6 +47,7 @@ function saveSettings() {
 
 let win = null;      // the app: the Rosin page, Rosin's brain
 let buddy = null;    // just Rosin on the desktop
+let streamWin = null; // Rosin alone for OBS (rosin-mirror.js)
 let tray = null;
 let quitting = false;
 let hidden = false;  // "Hide Rosin": both windows away, still in the tray
@@ -217,6 +226,57 @@ function page(js) {
   return win.webContents.executeJavaScript(js, true).catch(() => {});
 }
 
+// ---------- the stream window, for OBS ----------
+const STREAM = [540, 720];
+function streamUrl() {
+  const u = new URL(START_URL);
+  u.searchParams.set("view", "stream");
+  if (settings.streamBg === "green") u.searchParams.set("bg", "green");
+  if (!settings.streamSubs) u.searchParams.set("subs", "0");
+  return u.href;
+}
+function streamBounds() {
+  const s = settings.streamBounds;
+  if (s && onScreen(s) && s.width >= 240 && s.height >= 300) return s;
+  const a = screen.getPrimaryDisplay().workArea;
+  return { width: STREAM[0], height: STREAM[1], x: a.x + 40, y: a.y + 40 };
+}
+function openStream(show = true) {
+  if (streamWin && !streamWin.isDestroyed()) {
+    if (show) { if (streamWin.isMinimized()) streamWin.restore(); streamWin.showInactive(); }
+    return;
+  }
+  streamWin = new BrowserWindow({
+    ...streamBounds(), minWidth: 240, minHeight: 300, show: false,
+    title: "Rosin – Stream", icon: icon(), autoHideMenuBar: true,
+    backgroundColor: settings.streamBg === "green" ? "#00b140" : "#0d130b",
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, partition: "persist:rosin",
+      backgroundThrottling: false, spellcheck: false },
+  });
+  streamWin.setMenuBarVisibility(false);
+  const wc = streamWin.webContents;
+  wc.setUserAgent(`${wc.getUserAgent()} RosinApp/Windows Rosin/${app.getVersion()}`);
+  wc.setWindowOpenHandler(() => ({ action: "deny" }));
+  wc.on("will-navigate", (e, url) => { if (!isRosinUrl(url)) e.preventDefault(); });
+  wc.on("page-title-updated", (e) => e.preventDefault());   // OBS finds it by this title
+  wc.on("did-fail-load", (_e, code, _d, _u, isMain) => { if (isMain && code !== -3) setTimeout(() => { if (streamWin && !streamWin.isDestroyed()) streamWin.loadURL(streamUrl()); }, 15000); });
+  const remember = () => { if (!streamWin.isMinimized() && streamWin.isVisible()) { settings.streamBounds = streamWin.getBounds(); saveSettings(); } };
+  streamWin.on("moved", remember); streamWin.on("resized", remember);
+  streamWin.on("close", (e) => { if (!quitting) { e.preventDefault(); streamWin.hide(); settings.stream = false; saveSettings(); refreshTray(); } });
+  streamWin.once("ready-to-show", () => { if (settings.stream) streamWin.showInactive(); });
+  streamWin.loadURL(streamUrl());
+}
+function setStream(on) {
+  settings.stream = !!on; saveSettings();
+  if (on) openStream(true); else if (streamWin && !streamWin.isDestroyed()) streamWin.hide();
+  refreshTray();
+}
+function restyleStream() {
+  saveSettings();
+  if (streamWin && !streamWin.isDestroyed()) { streamWin.setBackgroundColor(settings.streamBg === "green" ? "#00b140" : "#0d130b"); streamWin.loadURL(streamUrl()); }
+  refreshTray();
+}
+
 // ---------- just Rosin, or the app ----------
 function applyMode(focus) {
   if (!win || !buddy || win.isDestroyed() || buddy.isDestroyed()) return;
@@ -272,11 +332,19 @@ function refreshTray() {
         settings.onTop = m.checked; win.setAlwaysOnTop(m.checked, "floating"); saveSettings(); } },
     { label: "Open the app\tCtrl+Alt+Y", click: openApp },
     { label: "Just Rosin on the desktop", type: "checkbox", checked: !!settings.buddy, click: (m) => setBuddy(m.checked) },
+    { type: "separator" },
+    { label: "Stream window for OBS", type: "checkbox", checked: !!settings.stream, click: (m) => setStream(m.checked) },
+    { label: "Stream background", submenu: [
+        { label: "Dark grove", type: "radio", checked: settings.streamBg !== "green", click: () => { settings.streamBg = "grove"; restyleStream(); } },
+        { label: "Green (for Chroma Key)", type: "radio", checked: settings.streamBg === "green", click: () => { settings.streamBg = "green"; restyleStream(); } },
+      ] },
+    { label: "Subtitles in the stream window", type: "checkbox", checked: settings.streamSubs !== false, click: (m) => { settings.streamSubs = m.checked; restyleStream(); } },
+    { type: "separator" },
     { label: "App size", submenu: Object.keys(SIZES).map((n) => ({ label: n, type: "radio", checked: settings.size === n, click: () => setSize(n) })) },
     { label: "Start with Windows", type: "checkbox", checked: startup, click: (m) => {
         app.setLoginItemSettings({ openAtLogin: m.checked }); refreshTray(); } },
     { type: "separator" },
-    { label: "Reload Rosin", click: () => win.loadURL(START_URL) },
+    { label: "Reload Rosin", click: () => { win.loadURL(START_URL); if (streamWin && !streamWin.isDestroyed()) streamWin.loadURL(streamUrl()); } },
     { label: "Open in browser", click: () => shell.openExternal(`https://${HOST}/rosin/`) },
     { type: "separator" },
     { label: "Quit Rosin", click: () => { quitting = true; app.quit(); } },
@@ -290,6 +358,7 @@ ipcMain.on("rosin-desktop", (e, what) => {
   else if (what === "buddy") setBuddy(true);
   else if (what === "menu") buddyMenu();
   else if (what === "ready") greetSoon();
+  else if (what === "stream") setStream(true);
 });
 ipcMain.handle("rosin-desktop-state", (e) => (win && e.sender === win.webContents ? { onTop: settings.onTop, buddy: settings.buddy } : null));
 
@@ -367,6 +436,7 @@ app.whenReady().then(() => {
 
   registerLink();
   createWindows();
+  if (settings.stream) openStream(true);
   finishSpotify(process.argv);   // started by the link itself
 
   const icon = nativeImage.createFromPath(path.join(__dirname, "assets", "tray.png"));
@@ -397,7 +467,10 @@ if (process.env.ROSIN_SHOTS) app.whenReady().then(() => setTimeout(async () => {
     win.setBounds({ ...win.getBounds(), width: MIN[0], height: MIN[1] }); await wait(1500); await save(win, "3-app-smallest");
     await page(`document.getElementById("btn-more") && document.getElementById("btn-more").click(); true`);
     await wait(1000); await save(win, "4-app-more");
-    console.log("ROSIN-SHOTS-DONE", JSON.stringify({ app: win.getBounds(), buddy: buddy.getBounds(), buddyMode: settings.buddy }));
+    setStream(true); await wait(6000);
+    await page(`window.Rosin && (window.Rosin.setExpression("happy", 8000), window.Rosin.subs("This is the stream window. Only Rosin shows here."), window.Rosin.talking(true)); true`);
+    await wait(1500); await save(streamWin, "5-stream");
+    console.log("ROSIN-SHOTS-DONE", JSON.stringify({ app: win.getBounds(), buddy: buddy.getBounds(), buddyMode: settings.buddy, stream: streamWin && streamWin.getBounds() }));
   } catch (err) { console.log("ROSIN-SHOTS-FAILED", String(err)); }
   quitting = true; app.quit();
 }, 25000));

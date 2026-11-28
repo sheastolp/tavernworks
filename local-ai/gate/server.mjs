@@ -35,6 +35,7 @@
 //   GET  /api/video/status  whether AI video making is connected (GATE_VIDEO_URL), and why not
 //   POST /api/video/make    { prompt, seconds?, width?, height? }  ->  the finished video, from the video backend that
 //                           GATE_VIDEO_URL names (meant for the AI Pool split; off until it's set)
+//   GET  /api/sync, POST /api/sync, /api/twitch/…, /api/spotify/…   sharing between Sheamus's devices (see "Sync" below)
 //   GET  /api/reply?id=…&from=N   the rest of a reply the browser lost hold of
 //   POST /api/stop?id=…           stop that reply
 //
@@ -50,7 +51,7 @@
 
 import http from "node:http";
 import { createHash, timingSafeEqual, randomUUID } from "node:crypto";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { Readable } from "node:stream";
@@ -1817,6 +1818,267 @@ async function googleSetup() {
   rl.close();
 }
 
+// ── Sync between Sheamus's devices, the Twitch chat status, Twitch posting and the shared Spotify sign-in ──
+// Rosin's settings live in each browser; these routes let every device share them through the laptop, so a change on
+// the phone shows up in the Windows app straight away (the pages wait on GET /api/sync?since=… and wake up the moment
+// something changes). Kept in the service's state folder (systemd StateDirectory=local-ai-gate, $STATE_DIRECTORY);
+// without one it all lives in memory until the gate restarts, and the page says how to add the folder.
+//
+//   GET  /api/sync?since=REV&wait=25   everything shared (settings, links, the Twitch status), at once or once it changes
+//   POST /api/sync { set: { key: value }, from }       settings, only the keys on SYNC_KEYS
+//   POST /api/twitch/here { id, label, want, status }  a device that reads Twitch chat: who answers it, and what it sees
+//   POST /api/twitch/say { text, channel }             post one line in Twitch chat as the account linked below
+//   POST /api/twitch/link { clientId } / link/check / unlink   link a Twitch account with Twitch's device code (twitch.tv/activate)
+//   GET  /api/spotify/token   a fresh Spotify access token from the sign-in the laptop keeps (it refreshes it)
+//   POST /api/spotify/link { clientId, refresh, scope } / unlink   hand a device's Spotify sign-in to the laptop, or drop it
+//
+// Secrets (the Spotify and Twitch refresh tokens) never leave the laptop: pages only ever get short-lived access tokens
+// for Spotify, and none at all for Twitch (the gate posts the line itself).
+const STATE_DIR = process.env.STATE_DIRECTORY ? String(process.env.STATE_DIRECTORY).split(":")[0] : "";
+const SYNC_FILE = STATE_DIR && join(STATE_DIR, "sync.json");
+const SECRET_FILE = STATE_DIR && join(STATE_DIR, "links.json");
+// Only these settings sync. Everything that belongs to one device (its name, its chat history, its microphone, its OBS
+// password, voices only that browser has, Spotify playing inside that device) stays on that device.
+const SYNC_KEYS = new Set(["name", "modelv", "model", "voice", "rate", "pitch", "moodAuto", "callBarge", "web", "channel", "twitchOn",
+  "awake", "stt", "pause", "chatter", "chatterPace", "chat.mode", "chat.every", "chat.gap", "chat.post", "chat.pick",
+  "init.level", "init.quietOn", "init.quietFrom", "init.quietTo", "init.hushUntil", "init.stream", "init.topics", "init.nudges",
+  "init.mod", "init.modOnly", "init.modWords", "google.on", "self.on", "self.repo", "spotify.clientId", "spotify.antennae",
+  "spotify.duck", "compass.calUrl", "compass.track", "compass.things", "compass.suggest", "compass.remind", "compass.pace",
+  "ear.words", "update.auto"]);
+const SYNC_PER_IP = { n: 900, ms: 10 * 60 * 1000 };     // a few devices waiting and posting their Twitch status
+const TWITCH_SAY = { n: 40, ms: 10 * 60 * 1000 };       // lines posted in Twitch chat
+const sync = { rev: 1, values: {}, site: { rev: 0, at: 0 } };
+const links = { spotify: null, twitch: null };          // the secrets: refresh tokens, only on the laptop
+const persists = () => !!STATE_DIR;
+try { if (SYNC_FILE) { const j = JSON.parse(readFileSync(SYNC_FILE, "utf8")); if (j && typeof j.values === "object") { sync.values = j.values; sync.rev = (Number(j.rev) || 1) + 1; } } } catch {}
+try { if (SECRET_FILE) { const j = JSON.parse(readFileSync(SECRET_FILE, "utf8")); links.spotify = j.spotify || null; links.twitch = j.twitch || null; } } catch {}
+function saveFile(file, data) {
+  if (!file) return;
+  try { writeFileSync(file + ".tmp", JSON.stringify(data), { mode: 0o600 }); renameSync(file + ".tmp", file); }
+  catch (e) { console.error("couldn't save", file, e.message); }
+}
+let syncSaveTimer = null;
+const saveSync = () => { clearTimeout(syncSaveTimer); syncSaveTimer = setTimeout(() => saveFile(SYNC_FILE, { rev: sync.rev, values: sync.values }), 500); };
+const saveLinks = () => saveFile(SECRET_FILE, links);
+const waiters = new Set();
+function bump() {
+  sync.rev++;
+  for (const w of waiters) { waiters.delete(w); try { w(); } catch {} }
+}
+// The device that answers Twitch chat, and what it last saw. Only one device answers at a time, so the phone and the
+// Windows app never both talk back to the same viewer. The Windows app takes over from a phone or a browser.
+const twitchHere = { holder: null, status: null };
+const HOLD_MS = 45000;
+function twitchShared() {
+  const h = twitchHere.holder, live = h && Date.now() - h.at < HOLD_MS;
+  return {
+    holder: live ? { id: h.id, label: h.label, kind: h.kind, at: h.at } : null,
+    status: live ? twitchHere.status : null,
+    poster: links.twitch ? { linked: true, login: links.twitch.login || "", name: links.twitch.name || "" } : { linked: false, pending: !!twitchLinkFlow },
+  };
+}
+function syncSnapshot() {
+  return { rev: sync.rev, persist: persists(), values: sync.values, site: sync.site, twitch: twitchShared(),
+    spotify: links.spotify ? { linked: true, clientId: links.spotify.clientId, by: links.spotify.by || "", at: links.spotify.at || 0 } : { linked: false } };
+}
+const cleanKey = (k) => String(k || "").slice(0, 40);
+function syncValue(v) {
+  const s = JSON.stringify(v ?? null);
+  if (s.length > 8000) throw fail(413, "That setting is too big to share.");
+  return JSON.parse(s);
+}
+async function syncRoute(req, url, res, origin) {
+  if (req.method === "GET") {
+    const since = Math.floor(Number(url.searchParams.get("since")) || 0), wait = Math.min(25, Math.max(0, Number(url.searchParams.get("wait")) || 0));
+    if (since && since === sync.rev && wait) {
+      await new Promise((done) => {
+        const t = setTimeout(() => { waiters.delete(w); done(); }, wait * 1000);
+        const w = () => { clearTimeout(t); done(); };
+        waiters.add(w);
+        req.on("close", () => { clearTimeout(t); waiters.delete(w); done(); });
+      });
+      if (res.destroyed) return;
+    }
+    return send(res, 200, syncSnapshot(), origin);
+  }
+  const b = await readJson(req);
+  const from = String(b.from || "").slice(0, 40), set = b.set && typeof b.set === "object" ? b.set : {};
+  let changed = 0;
+  for (const [k0, v] of Object.entries(set).slice(0, 60)) {
+    const k = cleanKey(k0);
+    if (!SYNC_KEYS.has(k)) continue;
+    const val = syncValue(v), old = sync.values[k];
+    if (old && JSON.stringify(old.v) === JSON.stringify(val)) continue;
+    sync.values[k] = { v: val, at: Date.now(), by: from };
+    changed++;
+  }
+  if (changed) { saveSync(); bump(); }
+  return send(res, 200, { rev: sync.rev, changed }, origin);
+}
+function siteChanged(why) { sync.site = { rev: (sync.site.rev || 0) + 1, at: Date.now(), why: String(why || "").slice(0, 80) }; bump(); }
+
+// ---------- Twitch: who answers chat, and what it sees ----------
+let twitchBumpAt = 0;
+async function twitchHereRoute(req, res, origin) {
+  const b = await readJson(req);
+  const id = String(b.id || "").replace(/[^\w-]/g, "").slice(0, 40), label = String(b.label || "a device").slice(0, 40), kind = String(b.kind || "").slice(0, 20);
+  if (!id) throw fail(400, "Which device?");
+  const h = twitchHere.holder, live = h && Date.now() - h.at < HOLD_MS;
+  let mine = live && h.id === id;
+  if (b.want && !mine) {
+    // A device may take over chat when nobody's answering, when it's asked to (take), or when it's the Windows app,
+    // which streams, and the one answering now isn't.
+    // A device that was asked to take over keeps it until it lets go (or goes quiet), so they don't swap back and forth.
+    const can = !live || b.take === true || (kind === "windows-app" && h.kind !== "windows-app" && !h.took);
+    if (can) { twitchHere.holder = { id, label, kind, at: Date.now(), took: b.take === true }; mine = true; }
+  }
+  if (mine && !b.want) { twitchHere.holder = null; twitchHere.status = null; mine = false; bump(); }
+  if (mine) {
+    twitchHere.holder.at = Date.now(); twitchHere.holder.label = label;
+    const s = b.status && typeof b.status === "object" ? b.status : {};
+    const msg = (m) => (m && typeof m === "object" ? { user: String(m.user || "").slice(0, 40), text: String(m.text || "").slice(0, 200), at: Number(m.at) || 0 } : null);
+    const next = { channel: String(s.channel || "").replace(/[^\w]/g, "").slice(0, 30).toLowerCase(), state: String(s.state || "").slice(0, 20),
+      joinedAt: Number(s.joinedAt) || 0, seen: Math.max(0, Math.floor(Number(s.seen) || 0)), answered: Math.max(0, Math.floor(Number(s.answered) || 0)),
+      lastMsg: msg(s.lastMsg), lastAnswer: msg(s.lastAnswer), mode: String(s.mode || "").slice(0, 20), posting: !!s.posting, error: String(s.error || "").slice(0, 160) };
+    const old = JSON.stringify(twitchHere.status), oldState = twitchHere.status?.state, now = Date.now();
+    twitchHere.status = next;
+    // Other devices hear about it at once when its state changes, and otherwise at most every 4 seconds.
+    if (!live || h.id !== id) bump();
+    else if (old !== JSON.stringify(next) && (now - twitchBumpAt > 4000 || oldState !== next.state)) { twitchBumpAt = now; bump(); }
+  }
+  return send(res, 200, { you: mine, ...twitchShared() }, origin);
+}
+
+// ---------- Twitch: posting Rosin's answers in chat ----------
+// Linked once with Twitch's device code: the page shows a code, Sheamus enters it at twitch.tv/activate while signed in
+// to the account Rosin should post as (a bot account of its own, or his), and the laptop keeps that account's refresh
+// token. The Twitch app is a "Public" one, so there's no client secret anywhere.
+const TWITCH_ID = "https://id.twitch.tv/oauth2", HELIX = "https://api.twitch.tv/helix";
+let twitchLinkFlow = null;   // { clientId, device_code, user_code, uri, until, interval }
+async function twitchForm(path, params) {
+  const r = await fetch(TWITCH_ID + path, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(params), signal: AbortSignal.timeout(15000) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(fail(502, j.message || "Twitch answered " + r.status), { twitch: j.message || "" });
+  return j;
+}
+async function twitchAccess() {
+  const t = links.twitch;
+  if (!t) throw fail(409, "No Twitch account is linked for Rosin to post as. Link one under ⋯ → Twitch.");
+  if (t.access && Date.now() < t.exp) return t;
+  try {
+    const j = await twitchForm("/token", { client_id: t.clientId, grant_type: "refresh_token", refresh_token: t.refresh });
+    Object.assign(t, { access: j.access_token, refresh: j.refresh_token || t.refresh, exp: Date.now() + (j.expires_in || 3600) * 1000 - 120000 });
+    saveLinks();
+    return t;
+  } catch (e) {
+    if (/invalid refresh token|invalid_grant|400/i.test(e.twitch || e.message)) { links.twitch = null; saveLinks(); bump(); throw fail(409, "Twitch signed Rosin's chat account out. Link it again under ⋯ → Twitch."); }
+    throw e;
+  }
+}
+async function helix(path, opts = {}) {
+  const t = await twitchAccess();
+  const r = await fetch(HELIX + path, { method: opts.method || "GET", headers: { "client-id": t.clientId, authorization: "Bearer " + t.access, ...(opts.body ? { "content-type": "application/json" } : {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined, signal: AbortSignal.timeout(15000) });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && !opts.retried) { t.exp = 0; return helix(path, { ...opts, retried: true }); }
+  if (!r.ok) throw fail(r.status === 429 ? 429 : 502, j.message ? "Twitch said: " + j.message : "Twitch answered " + r.status);
+  return j;
+}
+const channelIds = new Map();
+async function channelId(login) {
+  if (channelIds.has(login)) return channelIds.get(login);
+  const j = await helix("/users?login=" + encodeURIComponent(login));
+  const id = j.data?.[0]?.id;
+  if (!id) throw fail(404, `There's no Twitch channel called ${login}.`);
+  channelIds.set(login, id);
+  return id;
+}
+let lastSaidAt = 0;
+async function twitchSay(b) {
+  const channel = String(b.channel || "").replace(/^#/, "").toLowerCase();
+  if (!/^\w{2,25}$/.test(channel)) throw fail(400, "Which channel?");
+  // One line, plain text: no face tags, no line breaks, and never a chat command (/ban, .timeout and the like).
+  let text = String(b.text || "").replace(/\[[^\]]{0,40}\]/g, " ").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim().replace(/^[\/.!]+\s*/, "");
+  if (!text) throw fail(400, "Nothing to say.");
+  if (text.length > 480) text = text.slice(0, 477).replace(/\s+\S*$/, "") + "…";
+  if (Date.now() - lastSaidAt < 4000) throw fail(429, "Rosin just posted in chat. Wait a few seconds.");
+  if (!allowed("twitchsay", TWITCH_SAY)) throw fail(429, "Rosin has posted a lot in chat. It waits a few minutes.");
+  const t = await twitchAccess();
+  const j = await helix("/chat/messages", { method: "POST", body: { broadcaster_id: await channelId(channel), sender_id: t.userId, message: text } });
+  lastSaidAt = Date.now();
+  const d = j.data?.[0] || {};
+  if (d.is_sent === false) throw fail(409, "Twitch didn't post it: " + (d.drop_reason?.message || "the channel's chat settings stopped it"));
+  return { ok: true, as: t.login, id: d.message_id || "" };
+}
+async function twitchLinkRoute(kind, b) {
+  if (kind === "unlink") { links.twitch = null; twitchLinkFlow = null; saveLinks(); bump(); return { ok: true }; }
+  if (!persists()) throw fail(409, "The laptop's gate needs its state folder first, so the link survives a restart. See tavernworks.dev/local-ai/#sync.");
+  if (kind === "link") {
+    const clientId = String(b.clientId || "").trim();
+    if (!/^[a-z0-9]{20,40}$/i.test(clientId)) throw fail(400, "That doesn't look like a Twitch Client ID. Copy it from your app at dev.twitch.tv/console.");
+    const j = await twitchForm("/device", { client_id: clientId, scopes: "user:write:chat user:read:chat" });
+    twitchLinkFlow = { clientId, device_code: j.device_code, user_code: j.user_code, uri: j.verification_uri, until: Date.now() + (j.expires_in || 1800) * 1000, interval: j.interval || 5 };
+    bump();
+    return { code: j.user_code, uri: j.verification_uri, until: twitchLinkFlow.until };
+  }
+  if (kind === "check") {
+    const f = twitchLinkFlow;
+    if (links.twitch && !f) return { linked: true, login: links.twitch.login };
+    if (!f || Date.now() > f.until) { twitchLinkFlow = null; return { linked: false, expired: true }; }
+    let j;
+    try { j = await twitchForm("/token", { client_id: f.clientId, scopes: "user:write:chat user:read:chat", device_code: f.device_code, grant_type: "urn:ietf:params:oauth:grant-type:device_code" }); }
+    catch (e) { if (/authorization_pending|slow_down/i.test(e.twitch || "")) return { linked: false, waiting: true, code: f.user_code, uri: f.uri }; twitchLinkFlow = null; bump(); throw e; }
+    const v = await fetch(TWITCH_ID + "/validate", { headers: { authorization: "OAuth " + j.access_token }, signal: AbortSignal.timeout(15000) }).then((r) => r.json()).catch(() => ({}));
+    if (!v.user_id) { twitchLinkFlow = null; throw fail(502, "Twitch didn't say which account that was. Try again."); }
+    links.twitch = { clientId: f.clientId, access: j.access_token, refresh: j.refresh_token, exp: Date.now() + (j.expires_in || 3600) * 1000 - 120000,
+      userId: v.user_id, login: v.login, name: v.login, at: Date.now() };
+    twitchLinkFlow = null; saveLinks(); bump();
+    return { linked: true, login: v.login };
+  }
+  throw fail(404, "Not here");
+}
+
+// ---------- Spotify: one sign-in for every device ----------
+// Spotify replaces the refresh token each time it's used, so two devices can't each keep a copy: whichever refreshed
+// second would be signed out. The laptop keeps the only copy, refreshes it, and hands devices short-lived access tokens.
+let spotifyRefreshing = null;
+async function spotifyToken() {
+  const s = links.spotify;
+  if (!s) throw fail(404, "Spotify isn't shared on the laptop.");
+  if (s.access && Date.now() < s.exp) return s;
+  spotifyRefreshing ||= (async () => {
+    const r = await fetch("https://accounts.spotify.com/api/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: s.refresh, client_id: s.clientId }), signal: AbortSignal.timeout(15000) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      if (j.error === "invalid_grant") { links.spotify = null; saveLinks(); bump(); throw fail(409, "Spotify signed Rosin out. Connect it again under 🎵 Music."); }
+      throw fail(502, "Spotify answered " + r.status);
+    }
+    Object.assign(s, { access: j.access_token, refresh: j.refresh_token || s.refresh, exp: Date.now() + (j.expires_in || 3600) * 1000 - 120000, scope: j.scope || s.scope });
+    saveLinks();
+    return s;
+  })().finally(() => { spotifyRefreshing = null; });
+  return spotifyRefreshing;
+}
+async function spotifyRoute(kind, req) {
+  if (kind === "token") { const s = await spotifyToken(); return { access: s.access, exp: s.exp, scope: s.scope || "", clientId: s.clientId }; }
+  const b = await readJson(req);
+  if (kind === "unlink") { links.spotify = null; saveLinks(); bump(); return { ok: true }; }
+  if (kind === "link") {
+    if (!persists()) throw fail(409, "The laptop's gate needs its state folder first. See tavernworks.dev/local-ai/#sync.");
+    const clientId = String(b.clientId || "").trim(), refresh = String(b.refresh || "").trim();
+    if (!/^[a-f0-9]{32}$/i.test(clientId) || refresh.length < 20 || refresh.length > 1000) throw fail(400, "That isn't a Spotify sign-in.");
+    const before = links.spotify;
+    // exp 0: the laptop refreshes straight away, which proves the sign-in works and takes over the refreshing
+    // before the device drops its own copy (Spotify may swap the refresh token on every refresh).
+    links.spotify = { clientId, refresh, access: "", exp: 0, scope: String(b.scope || "").slice(0, 600), by: String(b.from || "").slice(0, 40), at: Date.now() };
+    try { await spotifyToken(); } catch (e) { if (!links.spotify || links.spotify.refresh === refresh) { links.spotify = before; saveLinks(); } throw e; }
+    saveLinks(); bump();
+    return { ok: true };
+  }
+  throw fail(404, "Not here");
+}
+
 // ── Server ──
 const server = http.createServer(async (req, res) => {
   const origin = ORIGINS.includes(req.headers.origin) ? req.headers.origin : null;
@@ -1833,7 +2095,7 @@ const server = http.createServer(async (req, res) => {
         pool().catch(() => null),
       ]);
       const voices = await ttsReady();
-      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search, whisper, voices, pool: !!poolUrl(), poolVision: !!p?.vision, video: !!VIDEO_URL, selfUpdate: !!GH_TOKEN, githubToken: GH_LOADED.shape, google: !!GOOGLE }, origin);
+      return send(res, 200, { ok: true, gate: "Local AI", locked: true, keySet: !!KEY_HASH, ollama, search, whisper, voices, pool: !!poolUrl(), poolVision: !!p?.vision, video: !!VIDEO_URL, selfUpdate: !!GH_TOKEN, githubToken: GH_LOADED.shape, google: !!GOOGLE, sync: true, syncPersist: persists() }, origin);
     }
     // Everything past here needs the key.
     if (!KEY_HASH) return send(res, 503, { error: "The laptop's gate has no key set up yet, so it's closed. See the gate's README to add one.", locked: true }, origin);
@@ -1880,12 +2142,33 @@ const server = http.createServer(async (req, res) => {
     const selfKind = /^\/api\/self\/(draft|retry|dismiss|diff|files|approve|reject|undo|repos)$/.exec(url.pathname)?.[1];
     if (selfKind && req.method === "POST") {
       if (!allowed("self:" + clientIp(req), SELF_ACTIONS)) return send(res, 429, { error: "Too many taps. Wait a few minutes." }, origin);
-      return send(res, 200, await selfAction(selfKind, await readJson(req)), origin);
+      const out = await selfAction(selfKind, await readJson(req));
+      if (selfKind === "approve" || selfKind === "undo") siteChanged("change " + selfKind);   // the other devices pick up the new version once it's built
+      return send(res, 200, out, origin);
     }
     const gKind = /^\/api\/google\/(status|gmail\/search|gmail\/read|calendar\/events|drive\/search|drive\/read|prepare|confirm|cancel)$/.exec(url.pathname)?.[1];
     if (gKind && req.method === "POST") {
       if (!allowed("google:" + clientIp(req), GOOGLE_PER_IP)) return send(res, 429, { error: "Too many Google requests. Wait a few minutes." }, origin);
       return send(res, 200, await googleRoute(gKind, await readJson(req)), origin);
+    }
+    if (url.pathname === "/api/sync" && (req.method === "GET" || req.method === "POST")) {
+      if (!allowed("sync:" + clientIp(req), SYNC_PER_IP)) return send(res, 429, { error: "Too many sync checks. Wait a few minutes." }, origin);
+      return await syncRoute(req, url, res, origin);
+    }
+    if (req.method === "POST" && url.pathname === "/api/twitch/here") {
+      if (!allowed("sync:" + clientIp(req), SYNC_PER_IP)) return send(res, 429, { error: "Too many Twitch updates. Wait a few minutes." }, origin);
+      return await twitchHereRoute(req, res, origin);
+    }
+    if (req.method === "POST" && url.pathname === "/api/twitch/say") return send(res, 200, await twitchSay(await readJson(req)), origin);
+    const twKind = /^\/api\/twitch\/(link|check|unlink)$/.exec(url.pathname)?.[1];
+    if (twKind && req.method === "POST") {
+      if (!allowed("twlink:" + clientIp(req), SELF_ACTIONS)) return send(res, 429, { error: "Too many taps. Wait a few minutes." }, origin);
+      return send(res, 200, await twitchLinkRoute(twKind, await readJson(req)), origin);
+    }
+    const spKind = /^\/api\/spotify\/(token|link|unlink)$/.exec(url.pathname)?.[1];
+    if (spKind && (req.method === "POST" || (spKind === "token" && req.method === "GET"))) {
+      if (!allowed("sync:" + clientIp(req), SYNC_PER_IP)) return send(res, 429, { error: "Too many Spotify requests. Wait a few minutes." }, origin);
+      return send(res, 200, await spotifyRoute(spKind, req), origin);
     }
     if (req.method === "POST" && url.pathname === "/api/chat") {
       if (!allowed("chat:" + clientIp(req), CHAT_PER_IP)) return send(res, 429, { error: "You're going fast. Wait a few minutes, then try again." }, origin);

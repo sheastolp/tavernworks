@@ -38,7 +38,12 @@
 
   // ---------- sign-in (PKCE) ----------
   let tok = store.get("spotify.token", null);   // { access, refresh, exp, scope }
-  const connected = () => !!(tok && tok.refresh && clientId());
+  // Shared sign-in: once the laptop's gate keeps Spotify (rosin-sync.js reports it), every one of Sheamus's devices
+  // uses it, the laptop refreshes it, and devices only ever hold an access token that runs out within the hour.
+  // This device then drops its own refresh token, since Spotify may swap it on every refresh and two holders would clash.
+  const shared = { linked: false, persist: false, clientId: "" };
+  const viaGate = () => shared.linked && !(tok && tok.refresh);
+  const connected = () => !!((tok && tok.refresh && clientId()) || shared.linked);
   const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   const randomText = (n) => { const a = new Uint8Array(n); crypto.getRandomValues(a); return b64url(a).slice(0, n); };
 
@@ -69,6 +74,32 @@
     tok = { access: j.access_token, refresh: j.refresh_token || old?.refresh, exp: Date.now() + (j.expires_in || 3600) * 1000 - 60000, scope: j.scope || old?.scope || "" };
     store.set("spotify.token", tok);
   };
+  // Hand this device's sign-in to the laptop so the others pick it up (only once the laptop can keep it over restarts).
+  let handing = null;
+  async function handToGate() {
+    if (handing || !tok?.refresh || !shared.persist || !/^[a-f0-9]{32}$/i.test(clientId()) || !H.GATE) return;
+    handing = (async () => {
+      const r = await fetch(H.GATE + "/api/spotify/link", H.gopts({ method: "POST", headers: { "Content-Type": "application/json" }, signal: H.timeout(20000),
+        body: JSON.stringify({ clientId: clientId(), refresh: tok.refresh, scope: tok.scope, from: B.device || "" }) }));
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "The laptop answered " + r.status);
+      tok = null; store.set("spotify.token", null); gateTok = null;
+      shared.linked = true; drawAll();
+    })().catch((e) => { console.warn("Spotify hand-off to the laptop:", e.message); }).finally(() => { handing = null; });
+    return handing;
+  }
+  let gateTok = null;   // { access, exp } from the laptop
+  window.addEventListener("rosin-sync-state", (e) => {
+    const d = e.detail || {}, sp = d.spotify || {};
+    const was = shared.linked;
+    shared.persist = !!d.persist; shared.linked = !!sp.linked; shared.clientId = sp.clientId || "";
+    if (shared.clientId && !store.get("spotify.clientId", "")) store.set("spotify.clientId", shared.clientId);
+    if (was && !shared.linked && !tok?.refresh) { gateTok = null; signOut("Spotify was disconnected on another device."); return; }
+    if (tok?.refresh && shared.persist) handToGate();
+    if (was !== shared.linked) {
+      drawAll();
+      if (shared.linked && viaGate()) { api("GET", "/me").then((j) => { me = j; drawNow(); }).catch(() => {}); refreshState(); startPlayer(); }
+    }
+  });
   // Back from Spotify's sign-in page: swap the code for tokens, then go back to the page as it was (the apps' ?app=… included).
   async function finishSignIn() {
     const q = new URLSearchParams(location.search), state = q.get("state");
@@ -128,6 +159,13 @@
   let refreshing = null;
   async function accessToken() {
     if (!connected()) throw new Error("Spotify isn't connected on this device yet. Open 🎵 Music to connect it.");
+    if (viaGate()) {
+      if (gateTok && Date.now() < gateTok.exp - 30000) return gateTok.access;
+      refreshing ||= fetch(H.GATE + "/api/spotify/token", H.gopts({ cache: "no-store", signal: H.timeout(20000) }))
+        .then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "The laptop answered " + r.status); gateTok = { access: j.access, exp: j.exp }; return j.access; })
+        .finally(() => { refreshing = null; });
+      return refreshing;
+    }
     if (tok.access && Date.now() < tok.exp) return tok.access;
     refreshing ||= tokenCall({ grant_type: "refresh_token", refresh_token: tok.refresh, client_id: clientId() })
       .then((j) => { keep(j, tok); return tok.access; })
@@ -135,8 +173,10 @@
       .finally(() => { refreshing = null; });
     return refreshing;
   }
-  function signOut(note) {
-    tok = null; store.set("spotify.token", null);
+  function signOut(note, everywhere) {
+    if (everywhere && shared.linked && H.GATE) fetch(H.GATE + "/api/spotify/unlink", H.gopts({ method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).catch(() => {});
+    if (everywhere) shared.linked = false;
+    tok = null; store.set("spotify.token", null); gateTok = null;
     try { player?.disconnect(); } catch {}
     player = null; rosinId = ""; sdk = { state: "off", note: "" };
     state = null; devices = []; me = null; paintAntennae();
@@ -670,7 +710,7 @@
   });
   duckBox.addEventListener("change", () => store.set("spotify.duck", duckBox.checked));
   antBox.addEventListener("change", () => { store.set("spotify.antennae", antBox.checked); paintedFor = ""; paintAntennae(); });
-  outBtn.addEventListener("click", () => signOut());
+  outBtn.addEventListener("click", () => signOut(shared.linked ? "Disconnected on all your devices. Rosin can't see your Spotify now." : "", true));
 
   const asRow = (it) => ({ kind: it?.type === "episode" ? "episode" : "track", uri: it?.uri, name: it?.name || "", by: artistsOf(it), art: (it?.album?.images || it?.images || []).slice(-1)[0]?.url || "" });
   async function showResults(q, kind) {

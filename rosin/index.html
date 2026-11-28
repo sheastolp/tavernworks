@@ -13,6 +13,8 @@
 <link rel="stylesheet" href="rosin.css">
 <link rel="stylesheet" href="rosin-look.css">
 <script>
+  // ?view=stream: Rosin alone for OBS Window Capture, copying the normal Rosin window (rosin-mirror.js).
+  if (/[?&]view=stream\b/.test(location.search)) window.ROSIN_MIRROR = true;
   // Inside the Rosin apps (Android, Windows) there is no tavernworks.dev to go back to, so the back link hides.
   if (/[?&]app=/.test(location.search) || /RosinApp|Electron/.test(navigator.userAgent)) document.documentElement.classList.add('in-app');
 </script>
@@ -90,5 +92,8 @@
   <script src="rosin-video.js"></script>
   <script src="rosin-initiative.js"></script>
   <script src="rosin-spotify.js"></script>
+  <script src="rosin-ear.js"></script>
+  <script src="rosin-sync.js"></script>
+  <script src="rosin-mirror.js"></script>
 </body>
 </html>

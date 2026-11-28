@@ -4,7 +4,8 @@
  * - Talks with the browser's own voices (speechSynthesis). Listens with its speech recognition, or the laptop's Whisper (tap to talk).
  * - Picks Rosin's face from the [tags] in each reply, pulses the eye while talking, shows subtitles and a chat history.
  * - Optional: reads a Twitch channel's chat (anonymous, read-only) and answers it with rate limits and spam filters.
- * - Chats and settings stay in this browser (localStorage). Nothing is stored on the laptop.
+ * - Chats stay in this browser (localStorage). Settings and links are shared between Sheamus's devices through the
+ *   laptop (rosin-sync.js); each device keeps its own chat history, microphone and device-only voices.
  * - The laptop's gate only answers devices with its key (/gate-key.js, shared with the Local AI chat).
  * - Keeps going with the tab in the background (/keep-awake.js): unthrottled timers, Twitch reconnects and
  *   heartbeats, a re-check of the laptop as soon as the tab comes back, and the screen kept on while it shows.
@@ -18,7 +19,7 @@
  */
 (() => {
   const R = window.Rosin;
-  if (!R) return;
+  if (!R || window.ROSIN_MIRROR) return;   // the stream window (?view=stream) only shows Rosin; the app window thinks for it
   const $ = (id) => document.getElementById(id);
   const q = R.params;
   const LAPTOP = "https://sheamus-tuf-gaming-fx705dt-fx705dt.tail2c8da4.ts.net";
@@ -736,6 +737,10 @@
         if (/\[\s*ask\s+sheamus\s*\]?/i.test(bare)) window.dispatchEvent(new CustomEvent("rosin-chat-ask", { detail: { chat: opts.chat || null, answer: visible().trim() } }));
       }
       const answer = visible().trim();
+      if (opts.fromChat && answer) {
+        tw.answered++; tw.lastAnswer = { user: opts.chat?.user || "", text: answer.slice(0, 200), at: Date.now() }; twEvent();
+        window.dispatchEvent(new CustomEvent("rosin-chat-answered", { detail: { chat: opts.chat || null, answer } }));
+      }
       if (!answer) {
         const other = " Try again, or pick another model under ⋯.";
         throw new Error(last?.thought ? "The model spent its whole turn thinking and never answered." + other
@@ -832,6 +837,16 @@
   const ANDROID = /Android/i.test(navigator.userAgent);
   const sayBox = () => $("say-text");
   const ear = { on: false, mode: "", pressedAt: 0, rec: null, heard: "", error: "", quiet: null, media: null, emptyRuns: 0 };
+  // The microphone picked under ⋯ → Microphone (this device only), e.g. the same mic OBS uses. A mic that's gone
+  // (unplugged) falls back to the default one.
+  async function openMic(audio) {
+    const id = store.get("mic.device", "");
+    if (id) {
+      try { return await navigator.mediaDevices.getUserMedia({ audio: { ...audio, deviceId: { exact: id } } }); }
+      catch (e) { if (e.name !== "OverconstrainedError" && e.name !== "NotFoundError") throw e; }
+    }
+    return navigator.mediaDevices.getUserMedia({ audio });
+  }
   let whisperUp = null;   // null: not asked yet
   async function checkWhisper() {
     try {
@@ -841,6 +856,7 @@
     return whisperUp;
   }
   function earMode() {
+    if (store.get("mic.device", "") && navigator.mediaDevices?.getUserMedia && window.MediaRecorder) return "laptop";   // the browser's recogniser can't use a picked mic
     if (S.stt === "browser") return SR ? "browser" : "";
     if (S.stt === "laptop") return navigator.mediaDevices?.getUserMedia && window.MediaRecorder ? "laptop" : "";
     if (SR && !ear.browserBroken) return "browser";
@@ -971,7 +987,7 @@
   // The laptop's Whisper: record (stops on its own after 1.5 s of quiet once you've spoken, or at 30 s).
   async function laptopBegin() {
     let stream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+    try { stream = await openMic({ echoCancellation: true, noiseSuppression: true, autoGainControl: true }); }
     catch (e) { return earDone("", e.name === "NotAllowedError" ? "The microphone is blocked. Allow it for tavernworks.dev, then try again." : "The microphone couldn't start."); }
     if (!ear.on) { stream.getTracks().forEach((t) => t.stop()); return; }
     const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"].find((t) => MediaRecorder.isTypeSupported?.(t)) || "";
@@ -1091,7 +1107,7 @@
     const m = { stopped: false, floor: 0, at: Date.now(), loudSince: 0 };
     callMode.mon = m;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false } });
+      const stream = await openMic({ echoCancellation: true, noiseSuppression: true, autoGainControl: false });
       if (m.stopped || callMode.mon !== m) { stream.getTracks().forEach((t) => t.stop()); return; }
       m.stream = stream; m.ctx = new (window.AudioContext || window.webkitAudioContext)();
       const an = m.ctx.createAnalyser(); an.fftSize = 1024; m.ctx.createMediaStreamSource(stream).connect(an);
@@ -1120,11 +1136,21 @@
   callBtn.addEventListener("click", () => (callMode.on ? endCall() : startCall()));
 
   // ---------- Twitch chat (optional, anonymous and read-only) ----------
-  const tw = { ws: null, backoff: 2000, lastData: 0, pending: [], recent: [], lastUser: new Map(), lastSent: 0, cooldown: 20000, userCooldown: 90000 };
+  // state: off, connecting, joining (connected, waiting for Twitch to confirm the channel), watching, lost, error.
+  const tw = { ws: null, backoff: 2000, lastData: 0, pending: [], recent: [], lastUser: new Map(), lastSent: 0, userCooldown: 90000,
+    state: "off", joinedAt: 0, seen: 0, answered: 0, sinceAnswer: 0, lastMsg: null, lastAnswer: null, error: "", joinTimer: null };
   const BOTS = new Set(["streamelements", "nightbot", "moobot", "streamlabs", "fossabot", "sery_bot", "soundalerts", "wizebot", "undercoverburn", "guildscribe", "towncrier"]);
+  const extraBots = new Set();   // the account Rosin itself posts as (rosin-sync.js), so it never answers itself
   const MENTION = /(^!rosin\b|@?\brosin\b)/i;
+  // How Rosin picks what to answer (⋯ → Twitch, shared between devices): "pick" the best line it hasn't answered,
+  // "mention" only lines that name Rosin, "every" one line in every N. chat.gap is the seconds between answers.
+  const chatMode = () => (["pick", "mention", "every"].includes(store.get("chat.mode", "pick")) ? store.get("chat.mode", "pick") : "pick");
+  const chatEvery = () => Math.min(50, Math.max(2, Math.round(Number(store.get("chat.every", 5)) || 5)));
+  const chatGap = () => Math.min(600, Math.max(5, Number(store.get("chat.gap", 20)) || 20)) * 1000;
+  const twEvent = () => window.dispatchEvent(new CustomEvent("rosin-twitch-state"));
+  function twState(s, error = "") { if (tw.state === s && tw.error === error) return; tw.state = s; tw.error = error; twEvent(); }
   function twitchSkip(login, msg, tags) {
-    if (BOTS.has(login)) return true;
+    if (BOTS.has(login) || extraBots.has(login)) return true;
     if (msg.startsWith("!") && !MENTION.test(msg)) return true;
     if (/(https?:\/\/|www\.|\b[\w-]+\.(com|net|org|gg|tv|ly|io|xyz|ru)\b)/i.test(msg)) return true;
     const text = msg.trim(); if (text.length < 3) return true;
@@ -1146,20 +1172,32 @@
   }
   function twitchConnect() {
     twitchDisconnect();
-    if (!S.twitchOn || !S.channel) return;
+    if (!S.twitchOn || !S.channel) { twState("off"); return; }
+    twState("connecting");
     const ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443"); tw.ws = ws; tw.lastData = Date.now();
     ws.onopen = () => {
       tw.backoff = 2000;
       ws.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
       ws.send("PASS SCHMOOPIIE"); ws.send("NICK justinfan" + Math.floor(10000 + Math.random() * 89999));
       ws.send("JOIN #" + S.channel);
-      R.status(`Reading #${S.channel} chat`);
+      twState("joining");
+      R.status(`Joining #${S.channel} chat…`);
+      // Twitch confirms a channel it knows with ROOMSTATE; silence means the name is wrong (or the channel is gone).
+      clearTimeout(tw.joinTimer);
+      tw.joinTimer = setTimeout(() => { if (tw.ws === ws && tw.state === "joining") { twState("error", `Twitch never confirmed #${S.channel}. Check the channel name.`); R.status(tw.error, true); } }, 12000);
     };
     ws.onmessage = (ev) => {
       tw.lastData = Date.now();
       for (const line of String(ev.data).split("\r\n")) {
         if (!line) continue;
         if (line.startsWith("PING")) { ws.send("PONG :tmi.twitch.tv"); continue; }
+        if (/ ROOMSTATE #/.test(line) && tw.state !== "watching") {
+          clearTimeout(tw.joinTimer); tw.joinedAt = Date.now(); twState("watching");
+          R.status(`Watching #${S.channel} chat`);
+          continue;
+        }
+        const nt = line.match(/msg-id=([\w_]+).* NOTICE #\S+ :(.*)$/);
+        if (nt && /suspended|banned|not_found|msg_channel/.test(nt[1])) { twState("error", "Twitch said: " + nt[2]); R.status(tw.error, true); continue; }
         const m = line.match(/^(?:@(\S+) )?:([^!\s]+)!\S+ PRIVMSG #\S+ :(.*)$/);
         if (m) {
           const tags = Object.fromEntries((m[1] || "").split(";").map((p) => { const i = p.indexOf("="); return [p.slice(0, i), p.slice(i + 1)]; }));
@@ -1170,7 +1208,9 @@
           // A line Auto-Mod flags (detail.flagged) goes to Sheamus as a card and isn't answered.
           const seen = { kind: "chat", id: tags.id, login, user: tags["display-name"] || login, text: msg, tags, badges, bot: BOTS.has(login), flagged: false };
           window.dispatchEvent(new CustomEvent("rosin-twitch", { detail: seen }));
+          tw.seen++; tw.lastMsg = { user: seen.user, text: msg.slice(0, 200), at: Date.now() }; twEvent();
           if (seen.flagged || twitchSkip(login, msg, tags)) continue;
+          if (chatMode() === "mention" && !MENTION.test(msg)) continue;   // only lines that name Rosin
           let score = 0;
           if (MENTION.test(msg)) score += 100;
           if (badges.includes("broadcaster")) score += 50;
@@ -1184,6 +1224,7 @@
           if (clean.length < 2) continue;
           tw.pending.push({ id: tags.id, login, user: tags["display-name"] || login, text: clean, score, t: Date.now() });
           if (tw.pending.length > 100) tw.pending.shift();
+          tw.sinceAnswer++;
           continue;
         }
         const un = line.match(/^@(\S+) :tmi\.twitch\.tv USERNOTICE #\S+(?: :(.*))?$/);   // raids, subs, gifted subs
@@ -1200,14 +1241,15 @@
     };
     ws.onclose = () => {      // dropped: try again after 2 s, then 4, 8 … up to a minute
       if (tw.ws !== ws) return;
-      tw.ws = null;
-      if (!S.twitchOn) return;
+      tw.ws = null; clearTimeout(tw.joinTimer);
+      if (!S.twitchOn) { twState("off"); return; }
+      if (tw.state !== "error") twState("lost");
       R.status(`Lost #${S.channel} chat; reconnecting…`);
       setTimeout(() => { if (!tw.ws && S.twitchOn) twitchConnect(); }, tw.backoff);
       tw.backoff = Math.min(60000, tw.backoff * 2);
     };
   }
-  function twitchDisconnect() { const ws = tw.ws; tw.ws = null; if (ws) try { ws.close(); } catch {} tw.pending = []; }
+  function twitchDisconnect() { const ws = tw.ws; tw.ws = null; clearTimeout(tw.joinTimer); if (ws) try { ws.close(); } catch {} tw.pending = []; tw.joinedAt = 0; }
   tick(60000, () => {             // heartbeat: Twitch pings about every 5 minutes; if it goes quiet, poke it, then reconnect
     const ws = tw.ws;
     if (!ws || ws.readyState !== 1) return;
@@ -1217,14 +1259,17 @@
   });
   tick(1000, async () => {        // answer one chat line at a time, never while Rosin is busy
     if (!S.twitchOn || busy || say.playing || ear.on || hooks.holdChat?.()) return;
+    // Only one of Sheamus's devices answers chat (rosin-sync.js decides which); the others just watch.
+    if (hooks.answerHere && !hooks.answerHere()) { tw.pending = []; return; }
     const now = Date.now();
-    if (now - tw.lastSent < tw.cooldown) return;
+    if (now - tw.lastSent < chatGap()) return;
     tw.pending = tw.pending.filter((p) => now - p.t < 60000);
+    if (chatMode() === "every" && tw.sinceAnswer < chatEvery()) return;
     const options = tw.pending.filter((p) => now - (tw.lastUser.get(p.login) || 0) >= tw.userCooldown);
     if (!options.length) return;
     const best = options.reduce((a, b) => (b.score > a.score || (b.score === a.score && b.t > a.t) ? b : a));
     tw.pending.splice(tw.pending.indexOf(best), 1);
-    tw.lastUser.set(best.login, now); tw.lastSent = now;
+    tw.lastUser.set(best.login, now); tw.lastSent = now; tw.sinceAnswer = 0;
     await ask(`[Twitch chat] ${best.user}: ${best.text}`, { fromChat: true, who: best.user + " (Twitch)", chat: best });
     await whenQuiet();
     tw.lastSent = Date.now();     // the wait starts when Rosin stops talking
@@ -1492,6 +1537,28 @@
   });
 
   if (S.twitchOn && S.channel) twitchConnect();
+  // A setting changed on another of Sheamus's devices (rosin-sync.js has already saved it here): take it up now.
+  function applySynced(k, v) {
+    if (k === "modelv") return;
+    if (!(k in S) || k === "deviceName" || k === "mood" || k === "voiceOn") return;
+    if (k === "channel") v = String(v || "").replace(/^#/, "").toLowerCase();
+    if (k === "voice" && typeof v === "string" && v && !v.startsWith("laptop:")) return;   // a device voice's name means nothing on another device
+    if (JSON.stringify(S[k]) === JSON.stringify(v)) return;
+    S[k] = v;
+    if (k === "name") nameIn.value = v || "";
+    else if (k === "model") { modelSel.value = v; R.status(`Ready · ${modelName()}`); }
+    else if (k === "voice") fillVoices();
+    else if (k === "rate" || k === "pitch") { rateIn.value = S.rate; pitchIn.value = S.pitch; showSliders(); }
+    else if (k === "moodAuto") { moodAutoBox.checked = !!v; }
+    else if (k === "callBarge") { bargeBox.checked = !!v; if (!v) stopMonitor(); }
+    else if (k === "stt") sttSel.value = v;
+    else if (k === "pause") pauseSel.value = PAUSES[v] ? v : "normal";
+    else if (k === "channel") { chanIn.value = v; twitchConnect(); }
+    else if (k === "twitchOn") { twitchConnect(); if (!v) R.status(`Ready · ${modelName()}`); }
+    else if (k === "awake") KA?.screen(!!v);
+    else if (k === "chatter" || k === "chatterPace") heardFrom();
+    syncSettings();
+  }
   // What the mood compass (rosin-compass.js) builds on.
   const hooks = {
     store, field, check, more, quick, fit: () => R.fit(), GATE, gopts, timeout, tick, later,
@@ -1507,6 +1574,9 @@
     speakUp, heardFrom, holds, chatterHolds, chatterTopics, holdChat: null, syncSettings: () => syncSettings(),
     dropChat: (drop) => { tw.pending = tw.pending.filter((p) => !drop(p)); },
     twitch: () => ({ on: !!(S.twitchOn && S.channel), channel: S.channel, connected: tw.ws?.readyState === 1 }),
+    twitchStatus: () => ({ on: !!(S.twitchOn && S.channel), channel: S.channel, state: S.twitchOn && S.channel ? tw.state : "off", joinedAt: tw.joinedAt,
+      seen: tw.seen, answered: tw.answered, lastMsg: tw.lastMsg, lastAnswer: tw.lastAnswer, mode: chatMode(), error: tw.error, waiting: tw.pending.length }),
+    twitchConnect: () => twitchConnect(), extraBots, answerHere: null, applySynced,
     device: () => deviceNow(),
     videoSpec: null, tap: null,
     extraTools, extraPrompt, extraContext, instant, noTools: () => noTools, history: () => history,

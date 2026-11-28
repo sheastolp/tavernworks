@@ -19,6 +19,12 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !document.querySelector(".tray:not([hidden])")) ipcRenderer.send("rosin-desktop", "buddy");
 }, true);
 
+// ⋯ → Stream window (rosin-mirror.js): open the app's own stream window for OBS.
+window.addEventListener("message", (e) => {
+  if (e.source !== window || !e.data || e.data.__rosinDesk !== "stream") return;
+  ipcRenderer.send("rosin-desktop", "stream");
+});
+
 // What Rosin is doing, posted by the page (below) and passed on to just-Rosin on the desktop.
 window.addEventListener("message", (e) => {
   if (e.source !== window || !e.data || e.data.__rosinState !== true) return;
@@ -26,7 +32,7 @@ window.addEventListener("message", (e) => {
 });
 
 window.addEventListener("DOMContentLoaded", () => {
-  document.documentElement.classList.add("rosin-desktop", "in-app");
+  document.documentElement.classList.add("rosin-desktop", "in-app", "desk-stream");   // desk-stream: this app has the stream window
   // No "Click to wake" screen: the app may play sound without a click.
   const wake = document.getElementById("wake");
   if (wake) { wake.remove(); webFrame.executeJavaScript(`window.Rosin && window.Rosin.audio && window.Rosin.audio()`); }
